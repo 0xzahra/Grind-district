@@ -317,7 +317,25 @@ export async function startFlat(onReady: () => void): Promise<void> {
     context.translate(player.x, player.y)
     const angle = Math.atan2(faceX, -faceZ)
     context.rotate(angle)
-    if (mark.complete && mark.naturalWidth > 0) {
+    if (getSave().body === 'player') {
+      const h = Math.max(36, scale * 2.2)
+      context.fillStyle = '#5c6b80'
+      context.fillRect(-h * 0.22, -h * 0.05, h * 0.44, h * 0.48)
+      context.fillStyle = '#1a4cff'
+      context.fillRect(-h * 0.07, -h * 0.02, h * 0.14, h * 0.28)
+      context.fillStyle = '#f0c4a8'
+      context.beginPath()
+      context.arc(0, -h * 0.28, h * 0.16, 0, Math.PI * 2)
+      context.fill()
+      context.fillStyle = '#f3e2a4'
+      context.beginPath()
+      context.arc(0, -h * 0.38, h * 0.14, Math.PI, 0)
+      context.fill()
+      context.strokeStyle = '#d7dee6'
+      context.lineWidth = Math.max(1.5, h * 0.04)
+      context.strokeRect(-h * 0.12, -h * 0.32, h * 0.1, h * 0.07)
+      context.strokeRect(h * 0.02, -h * 0.32, h * 0.1, h * 0.07)
+    } else if (mark.complete && mark.naturalWidth > 0) {
       const size = Math.max(42, scale * 2.4)
       context.drawImage(mark, -size / 2, -size * 0.62, size, size)
     } else {
