@@ -33,7 +33,7 @@ export const SKILL_META: Record<SkillId, { title: string; cv: string }> = {
   carbon: { title: 'Carbon claims', cv: 'Carbon claims — reads the method before the logo' },
 }
 
-export type BodyId = 'shrimp' | 'ledger' | 'marina' | 'signal'
+export type BodyId = 'player' | 'shrimp' | 'ledger' | 'marina' | 'signal'
 export type TimeOfDay = 'night' | 'dusk' | 'day'
 export type Graphics = 'low' | 'medium' | 'high'
 export type Season = 'bull' | 'bear'
@@ -71,6 +71,7 @@ export const RANKS: { id: RankId; label: string; xp: number }[] = [
 ]
 
 export const TINTS = [
+  { id: 'blue', hex: 0x1a4cff, label: 'Blue' },
   { id: 'mint', hex: 0x1af38f, label: 'Mint' },
   { id: 'sand', hex: 0xf0d7b0, label: 'Sand' },
   { id: 'coral', hex: 0xff6f61, label: 'Coral' },
@@ -78,7 +79,8 @@ export const TINTS = [
 ] as const
 
 export const BODIES: { id: BodyId; label: string; blurb: string }[] = [
-  { id: 'shrimp', label: 'Shrimp', blurb: 'Free default. Zero balance still walks the whole city.' },
+  { id: 'player', label: 'Player 8453', blurb: 'Original low-poly. Blonde hair, thin glasses, grey suit, blue shirt. Not a licensed collection.' },
+  { id: 'shrimp', label: 'Shrimp', blurb: 'The mascot. Free. Rank still starts at shrimp either way.' },
   { id: 'ledger', label: 'Ledger', blurb: 'Original helmet. Not a licensed collection.' },
   { id: 'marina', label: 'Marina', blurb: 'Original buoy. Not a licensed collection.' },
   { id: 'signal', label: 'Signal', blurb: 'Original coat. Not a licensed collection.' },
@@ -311,8 +313,8 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
   const memeHist = walkPrice(0.4, memeDrift, 0.12, 0.02, 12, 42, rand)
   return {
     v: 1,
-    username: 'Shrimp',
-    body: 'shrimp',
+    username: 'Player 8453',
+    body: 'player',
     tint: TINTS[0].hex,
     luxury: false,
     xp: 0,
@@ -365,7 +367,7 @@ export function cleanName(value: unknown): string {
 }
 
 export function cleanBody(value: unknown): BodyId {
-  if (value === 'shrimp' || value === 'ledger' || value === 'marina' || value === 'signal') return value
+  if (value === 'player' || value === 'shrimp' || value === 'ledger' || value === 'marina' || value === 'signal') return value
   return 'shrimp'
 }
 
@@ -621,11 +623,11 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     `${save.username} is a ${rank.label.toLowerCase()} in Grind District, one shared city. This resume is written from practice actions. It is not a degree and it is not a claim about real capital.`,
     '',
     skills.length
-      ? `Skills filed: ${skills.join('; ')}.`
+      ? `Skills filed: ${skills.join('; ')}.`,
       : 'No skill is filed yet. The learning hall is north of the plaza, and the first course is Spot.',
     '',
     proof.length
-      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`
+      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`,
       : 'No proof is filed yet. A passed course, a bounty, or a pledge will land here on its own.',
     '',
     `Consistency: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with at least one rep. Reputation is ${save.reputation}. Rank does not read the practice ledger.`,
@@ -640,7 +642,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
       : ['- Empty. Finish a course or post a bounty and this page writes itself.']),
     '',
     save.carbon.length
-      ? `Practice pledges: ${save.carbon.map((note) => note.name).join(', ')}. These do not retire a real credit.`
+      ? `Practice pledges: ${save.carbon.map((note) => note.name).join(', ')}. These do not retire a real credit.`,
       : 'Practice pledges: none.',
     save.wants.length ? `Wants bought: ${save.wants.map((want) => want.label).join(', ')}.` : 'Wants bought: none.',
   ].join('\n')
