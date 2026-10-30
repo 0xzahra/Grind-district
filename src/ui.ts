@@ -523,7 +523,7 @@ export function mountUi(
         open('boutique')
       }))
     }
-    wrap.append(para('CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, DeGods, and the rest of the design list need a license or a holder check before a body can wear them. These four do not.', 'muted'))
+    wrap.append(para('CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, DeGods, and the rest of the design list need a license or a holder check before a body can wear them. The bodies on this wall do not.', 'muted'))
     return frame('Boutique', wrap)
   }
 
@@ -714,9 +714,10 @@ export function mountUi(
       case 'about':
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
-          para('This build is the city: districts, four free bodies, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do.'),
-          para('The ledger is practice. There is no token, no wallet, and no seed phrase in this build. Nothing here is financial advice.'),
-          para('Licensed NFT bodies, on-chain ownership, messaging, and proximity voice are later. The ladder does not wait on them.'),
+          para('This build is the city: districts, the original low-poly citizen, the shrimp mascot, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do.'),
+          para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice.'),
+          para('GrindRecord.sol sits in the repository. It can record a course and reputation, it uses the same rank cuts as the city, and it refuses ether. It is not deployed, and this city does not send transactions.'),
+          para('Licensed NFT bodies, a live chain, messaging, and proximity voice are later. The ladder does not wait on them.'),
           para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
           button('Made by Zahra', 'primary', () => window.open(ZAHRA, '_blank', 'noopener')),
         ])
