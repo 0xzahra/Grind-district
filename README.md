@@ -44,7 +44,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Trading floor | Practice spot book in UNIT. Buy and sell a fraction of the ledger or the position. Logging a sized plan on a sell can count even when the close is red. |
 | Trenches | Practice MEME book. Attention can leave. Rank does not follow it. |
 | Influencer row | Post a bounty. Practice pay and a portfolio line. |
-| Boutique | Four original bodies, free: Shrimp, Ledger, Marina, Signal. A gold chain is a want. Licensed collections are not on this street. |
+| Boutique | Five original bodies, free: Player 8453, Shrimp, Ledger, Marina, Signal. A gold chain is a want. Licensed collections are not on this street. |
 | Gym | A timing set. One logged set a day. |
 | Church | Rest counts. One visit a day. |
 | Prayer space | Focus adds a quarter to the next course you pass. |
@@ -64,6 +64,26 @@ Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. A 
 
 Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait until this city is the one people walk. This build does not pretend those exist.
 
+## The citizen
+
+The street body is an original low-poly person: blonde swept hair, thin glasses, a grey suit, and a blue shirt. The plate reads the name in the profile. A new city starts as **Player 8453**. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique. None of them is a licensed collection.
+
+## GrindRecord
+
+`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions and does not ask for a wallet. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
+
+```bash
+cd contracts
+forge install foundry-rs/forge-std
+forge test
+```
+
+`contracts/AUDIT.md` is the internal review. It is not a sign-off from an outside firm. Do not deploy it until that review is repeated by someone who does not maintain the contract, and until the owner key is a multisig.
+
+## Where the next session starts
+
+`CONTINUATION.md` lists what is already in the city and what is still open, including the WebGL check on a machine that can create a context.
+
 ## Stack
 
-Vite, TypeScript, and Three.js. Progress is stored in this browser under `grind-district-save-v1`.
+Vite, TypeScript, and Three.js. Progress is stored in this browser under `grind-district-save-v1`. Foundry tests the record contract.
