@@ -3,6 +3,7 @@ import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
+import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
@@ -161,6 +162,7 @@ async function main(onReveal: () => void) {
     pos.z = 8
   }
   avatar.object.position.set(pos.x, 0, pos.z)
+  if (getSave().body === 'player') tagPlayer(avatar.object, getSave().username)
   scene.add(avatar.object)
 
   const applyLook = () => {
@@ -171,7 +173,7 @@ async function main(onReveal: () => void) {
   const applyGraphics = () => {
     const graphics = getSave().graphics
     const dpr = window.devicePixelRatio || 1
-    const ratio = graphics === 'high' ? Math.min(dpr, 2) : graphics === 'medium' ? Math.min(dpr, 1.5) : 1
+    const ratio = graphics === 'low' ? 1 : Math.min(dpr, 2)
     renderer.setPixelRatio(ratio)
     const shadows = graphics !== 'low'
     renderer.shadowMap.enabled = shadows
@@ -189,6 +191,7 @@ async function main(onReveal: () => void) {
     scene.remove(avatar.object)
     avatar = createAvatar(save.body, save.tint, save.luxury)
     avatar.object.position.set(pos.x, 0, pos.z)
+    if (save.body === 'player') tagPlayer(avatar.object, save.username)
     scene.add(avatar.object)
   }
 
@@ -202,7 +205,11 @@ async function main(onReveal: () => void) {
     season: must('#pill-season'),
     focus: must('#pill-focus'),
   }, {
-    onStyle: () => avatar.setStyle(getSave().tint, getSave().luxury),
+    onStyle: () => {
+      const save = getSave()
+      avatar.setStyle(save.tint, save.luxury)
+      if (save.body === 'player') tagPlayer(avatar.object, save.username)
+    },
     onBody: applyBody,
     onLook: applyLook,
     onGraphics: applyGraphics,
