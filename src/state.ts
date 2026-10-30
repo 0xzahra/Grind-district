@@ -286,7 +286,7 @@ export function readCafe(): { message: string; rankedUp?: RankId; already: boole
   if (save.dailies.cafe) return { already: true, message: 'You already read the room today. The board stays up.' }
   const bonus = markDaily(save, today(), 'cafe')
   const rankedUp = gainXp(8 + bonus)
-  log('social', 'Read the caf\u00e9 board', 'Gossip is the season, not a trade signal.')
+  log('social', 'Read the café board', 'Gossip is the season, not a trade signal.')
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: 'Filed. The headlines are not a signal to size up.' }
@@ -342,7 +342,7 @@ export function readRobot(): { message: string; rankedUp?: RankId; already: bool
   save.robotRead = true
   const bonus = markDaily(save, today(), 'visit')
   const rankedUp = gainXp(8 + bonus)
-  log('skill', 'Read Unit 4\u2019s label', 'Agents attach to robots and say so.')
+  log('skill', 'Read Unit 4’s label', 'Agents attach to robots and say so.')
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: 'Label read. People are not silent agents.' }
