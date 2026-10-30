@@ -10,6 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+contracts/out
+contracts/cache
+contracts/lib
 *.local
 .netlify
 
