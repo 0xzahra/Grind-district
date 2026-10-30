@@ -79,7 +79,8 @@ check(decodeShare('nope') === null, 'bad share links are ignored')
 
 const junk = hydrate({ v: 1, xp: -40, ledger: -5, body: 'punk', username: '  ' })
 check(junk.xp === 0 && junk.ledger === 0 && junk.body === 'shrimp' && junk.username === 'Shrimp', 'hydrate refuses a broken save')
-check(hydrate({ v: 2 }).username === 'Shrimp', 'unknown save versions start clean')
+check(hydrate({ v: 2 }).username === 'Player 8453', 'unknown save versions start clean')
+check(hydrate({ v: 2 }).body === 'player', 'a fresh city starts in the low-poly suit')
 
 const pos = { x: 0.2, z: 0 }
 const vel = { x: 1, z: 0 }

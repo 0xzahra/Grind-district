@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { BodyId } from './logic.ts'
 import { contactShadow, locomotion } from './rig.ts'
+import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 
 export type Avatar = ShrimpAvatar
@@ -151,6 +152,11 @@ function createSignal(): Avatar {
 
 export function createAvatar(body: BodyId, tint: number, luxury: boolean): Avatar {
   switch (body) {
+    case 'player': {
+      const avatar = createPlayer()
+      avatar.setStyle(tint, luxury)
+      return avatar
+    }
     case 'shrimp': {
       const avatar = createShrimp()
       avatar.setStyle(tint, luxury)

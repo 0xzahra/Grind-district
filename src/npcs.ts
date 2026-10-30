@@ -82,14 +82,14 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
     speed: number
     points: Point[]
   }> = [
-    { name: 'Adaeze', rank: 'Crab', body: 'marina', tint: 0xff6f61, speed: 1.15, points: [{ x: -2.2, z: -37 }, { x: 2.2, z: -37 }] },
-    { name: 'Malik', rank: 'Fish', body: 'ledger', tint: 0x9fd4ff, speed: 1.25, points: [{ x: -37, z: -2 }, { x: -37, z: 2 }] },
-    { name: 'Nia', rank: 'Dolphin', body: 'signal', tint: 0x1af38f, speed: 1.2, points: [{ x: 37, z: -2 }, { x: 37, z: 2 }] },
-    { name: 'Jo', rank: 'Shrimp', body: 'shrimp', tint: 0x1af38f, speed: 1.35, points: [{ x: -2, z: 37 }, { x: 2, z: 37 }] },
+    { name: 'Adaeze', rank: 'Crab', body: 'player', tint: 0xff6f61, speed: 1.15, points: [{ x: -2.2, z: -37 }, { x: 2.2, z: -37 }] },
+    { name: 'Malik', rank: 'Fish', body: 'player', tint: 0x9fd4ff, speed: 1.25, points: [{ x: -37, z: -2 }, { x: -37, z: 2 }] },
+    { name: 'Nia', rank: 'Dolphin', body: 'player', tint: 0x1a4cff, speed: 1.2, points: [{ x: 37, z: -2 }, { x: 37, z: 2 }] },
+    { name: 'Jo', rank: 'Shrimp', body: 'player', tint: 0xf0d7b0, speed: 1.35, points: [{ x: -2, z: 37 }, { x: 2, z: 37 }] },
     {
       name: 'Sefu',
       rank: 'Shark',
-      body: 'ledger',
+      body: 'player',
       tint: 0xf0d7b0,
       luxury: true,
       speed: 1.45,
@@ -122,8 +122,8 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
   }
 
   const standers: Array<{ name: string; rank: string; body: BodyId; tint: number; x: number; z: number }> = [
-    { name: 'Ife', rank: 'Crab', body: 'signal', tint: 0xf0d7b0, x: -7.4, z: 3.6 },
-    { name: 'Bo', rank: 'Fish', body: 'ledger', tint: 0x9fd4ff, x: 12, z: -36 },
+    { name: 'Ife', rank: 'Crab', body: 'player', tint: 0xf0d7b0, x: -7.4, z: 3.6 },
+    { name: 'Bo', rank: 'Fish', body: 'player', tint: 0x9fd4ff, x: 12, z: -36 },
   ]
   for (const spec of standers) {
     const avatar = createAvatar(spec.body, spec.tint, false)
