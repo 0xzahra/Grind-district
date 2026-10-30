@@ -28,10 +28,16 @@ export async function assetUrl(
   return (await packedUrl(packed, type)) ?? path
 }
 
-const images: Array<[string, string, string]> = [
-  ['/brand/lockup.png', '/brand/lockup.b64', 'image/png'],
-  ['/brand/logo-black.jpg', '/brand/logo-black.b64', 'image/jpeg'],
-  ['/brand/shrimp.png', '/brand/shrimp.b64', 'image/png'],
+function parts(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => (
+    `/brand/parts/${prefix}-${String(index).padStart(2, '0')}.b64`
+  ))
+}
+
+const images: Array<[string, readonly string[], string]> = [
+  ['/brand/lockup.png', parts('lockup', 26), 'image/png'],
+  ['/brand/logo-black.jpg', parts('logo', 17), 'image/jpeg'],
+  ['/brand/shrimp.png', ['/brand/shrimp.b64'], 'image/png'],
 ]
 
 export function prepareAssets(): void {
