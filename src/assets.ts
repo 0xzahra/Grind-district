@@ -1,10 +1,25 @@
+function expandPacked(text: string): string {
+  if (!text.startsWith('#pack1\n')) return text.replace(/\s/g, '')
+  let out = ''
+  for (const line of text.split('\n')) {
+    if (line === '#pack1' || line === '') continue
+    if (line.startsWith('R ')) {
+      const [, char, count] = line.split(' ')
+      out += (char ?? '').repeat(Number(count))
+      continue
+    }
+    if (line.startsWith('T ')) out += line.slice(2)
+  }
+  return out
+}
+
 async function packedUrl(packed: string | readonly string[], type: string): Promise<string | null> {
   const parts = typeof packed === 'string' ? [packed] : packed
   const chunks: string[] = []
   for (const part of parts) {
     const response = await fetch(part)
     if (!response.ok) return null
-    chunks.push((await response.text()).replace(/\s/g, ''))
+    chunks.push(expandPacked(await response.text()))
   }
   const bytes = Uint8Array.from(atob(chunks.join('')), (char) => char.charCodeAt(0))
   return URL.createObjectURL(new Blob([bytes], { type }))
