@@ -623,11 +623,11 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     `${save.username} is a ${rank.label.toLowerCase()} in Grind District, one shared city. This resume is written from practice actions. It is not a degree and it is not a claim about real capital.`,
     '',
     skills.length
-      ? `Skills filed: ${skills.join('; ')}.`,
+      ? `Skills filed: ${skills.join('; ')}.`
       : 'No skill is filed yet. The learning hall is north of the plaza, and the first course is Spot.',
     '',
     proof.length
-      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`,
+      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`
       : 'No proof is filed yet. A passed course, a bounty, or a pledge will land here on its own.',
     '',
     `Consistency: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with at least one rep. Reputation is ${save.reputation}. Rank does not read the practice ledger.`,
@@ -642,7 +642,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
       : ['- Empty. Finish a course or post a bounty and this page writes itself.']),
     '',
     save.carbon.length
-      ? `Practice pledges: ${save.carbon.map((note) => note.name).join(', ')}. These do not retire a real credit.`,
+      ? `Practice pledges: ${save.carbon.map((note) => note.name).join(', ')}. These do not retire a real credit.`
       : 'Practice pledges: none.',
     save.wants.length ? `Wants bought: ${save.wants.map((want) => want.label).join(', ')}.` : 'Wants bought: none.',
   ].join('\n')
