@@ -88,6 +88,11 @@ export function loadSave(prefer: Graphics): Save {
     save = createSave(new Date(), { graphics: prefer })
   }
   applyDay(save, lagosDay(new Date()))
+  if (save.body === 'shrimp') {
+    save.body = 'player'
+    if (save.username === 'Shrimp') save.username = 'Player 8453'
+    if (save.tint === 0x1af38f) save.tint = 0x1a4cff
+  }
   persist()
   return save
 }
@@ -337,7 +342,7 @@ export function readRobot(): { message: string; rankedUp?: RankId; already: bool
   save.robotRead = true
   const bonus = markDaily(save, today(), 'visit')
   const rankedUp = gainXp(8 + bonus)
-  log('skill', 'Read Unit 4’s label', 'Agents attach to robots and say so.')
+  log('skill', 'Read Unit 4\u2019s label', 'Agents attach to robots and say so.')
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: 'Label read. People are not silent agents.' }
