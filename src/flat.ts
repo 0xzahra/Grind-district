@@ -1,7 +1,8 @@
 import { assetUrl } from './assets.ts'
+import { bootCitizens, stepCitizens, type CitizenSim } from './citizens.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import { createInput } from './input.ts'
-import type { PanelId } from './logic.ts'
+import type { DroneId, MaskId, PanelId } from './logic.ts'
 import { decodeShare, seasonAt } from './logic.ts'
 import { bindMusic } from './music.ts'
 import { CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
@@ -55,6 +56,7 @@ const blocks: Block[] = [
   ...HOUSES.map((home) => ({ x: home.x, z: home.z, w: home.w, d: home.d, label: home.title })),
   { x: 28, z: -16, w: 8, d: 6, label: 'Terminal café' },
   { x: -28, z: 16, w: 4.4, d: 2.6, label: 'Carbon' },
+  { x: -16, z: 14, w: 5.4, d: 4.2, label: 'Gadgets' },
 ]
 
 function citySpots(): Spot[] {
@@ -79,7 +81,7 @@ function citySpots(): Spot[] {
     { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'A practice book in UNIT. A sized plan can count even when the close is red.', action: 'trade', enter: 'Open the book' },
     { id: 'bounty', ...row, r: 2.6, title: 'Influencer row', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', action: 'bounty', enter: 'Post a bounty' },
     { id: 'trench', ...trench, r: 2.6, title: 'Trenches corner', body: 'MEME moves like attention. It can leave. Rank will not follow it down.', action: 'trench', enter: 'Open the trench book' },
-    { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'Five original bodies, free. Licensed collections stay off this street until there is a license.', action: 'boutique', enter: 'Try a body' },
+    { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'Player 8453, Zuri, and the mascots. Masks from the collection list hang on the side wall.', action: 'boutique', enter: 'Try a body' },
     { id: 'gym', ...gym, r: 2.4, title: 'Gym', body: 'A short timing set. One logged set a day.', action: 'gym', enter: 'Train' },
     { id: 'church', ...church, r: 2.4, title: 'Church', body: 'A quiet room. Rest counts.', action: 'church', enter: 'Step in' },
     ...homes.map(({ home, at: doorAt }) => ({
@@ -94,6 +96,7 @@ function citySpots(): Spot[] {
     })),
     { id: 'net', ...net, r: 2.3, title: 'Internet café', body: 'Same board as campus, closer to the row.', action: 'cafe', enter: 'Read the room' },
     { id: 'climate', ...desk, r: 2.3, title: 'Carbon desk', body: 'Back a project with practice funds. It records the pledge.', action: 'climate', enter: 'The desk' },
+    { id: 'gadgets', ...at(blocks.length - 1, 'pz'), r: 2.2, title: 'Gadgets', body: 'Scout, courier, and halo. A drone follows you. Practice funds.', action: 'gadgets', enter: 'Open the case' },
     { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Prayer space', body: 'A ring of stones and no questions. Sitting puts focus on your next course.', action: 'prayer', enter: 'Sit' },
     { id: 'ring', x: 0, z: 0, r: 4.4, title: 'The Grind Ring', body: 'Same stone for a shrimp and a whale. No tribe. No continent. Just come grind.' },
     { id: 'ladder', x: -9, z: -8, r: 2.3, title: 'The ladder', body: 'Shrimp, crab, fish, dolphin, shark, whale. Skill and the days you return.' },
@@ -161,6 +164,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
 
   const spots = citySpots()
   const obstacles = cityObstacles()
+  const citizens = bootCitizens()
   const pos = { x: getSave().posX, z: getSave().posZ }
   const vel = { x: 0, z: 0 }
   let faceX = 0
@@ -275,6 +279,106 @@ export async function startFlat(onReady: () => void): Promise<void> {
     mapCtx.fill()
   }
 
+  const maskInk = (mask: MaskId): string => {
+    switch (mask) {
+      case 'none':
+        return ''
+      case 'punk':
+        return '#c8b273'
+      case 'ape':
+        return '#8a5a32'
+      case 'pudgy':
+        return '#f4a261'
+      case 'azuki':
+        return '#e23d4a'
+      case 'nodemonke':
+        return '#8b939c'
+      case 'degods':
+        return '#f0c14a'
+      default: {
+        const neverMask: never = mask
+        return neverMask
+      }
+    }
+  }
+
+  const drawDrone = (ctx: CanvasRenderingContext2D, scale: number, drone: DroneId) => {
+    const h = Math.max(28, scale * 1.4)
+    ctx.save()
+    ctx.translate(h * 0.55, -h * 0.85)
+    ctx.fillStyle = drone === 'halo' ? '#9fd4ff' : drone === 'courier' ? '#c4a574' : '#1af38f'
+    ctx.beginPath()
+    ctx.moveTo(0, -6)
+    ctx.lineTo(7, 0)
+    ctx.lineTo(0, 6)
+    ctx.lineTo(-7, 0)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+
+  const drawPerson = (
+    ctx: CanvasRenderingContext2D,
+    scale: number,
+    body: string,
+    mask: MaskId,
+    portrait?: HTMLImageElement,
+  ) => {
+    const h = Math.max(36, scale * 2.2)
+    if (body === 'zuri') {
+      ctx.fillStyle = '#1a100e'
+      ctx.fillRect(-h * 0.08, -h * 0.2, h * 0.16, h * 0.55)
+      ctx.fillStyle = '#2a1422'
+      ctx.beginPath()
+      ctx.moveTo(-h * 0.16, h * 0.22)
+      ctx.lineTo(h * 0.16, h * 0.22)
+      ctx.lineTo(h * 0.22, -h * 0.02)
+      ctx.lineTo(-h * 0.22, -h * 0.02)
+      ctx.closePath()
+      ctx.fill()
+      ctx.fillStyle = '#f6c4aa'
+      ctx.beginPath()
+      ctx.arc(0, -h * 0.28, h * 0.15, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#1a100e'
+      ctx.beginPath()
+      ctx.arc(0, -h * 0.4, h * 0.16, Math.PI, 0)
+      ctx.fill()
+      ctx.fillStyle = '#d4536a'
+      ctx.fillRect(-h * 0.05, -h * 0.2, h * 0.1, h * 0.025)
+    } else if (body === 'player') {
+      ctx.fillStyle = '#5c6b80'
+      ctx.fillRect(-h * 0.22, -h * 0.05, h * 0.44, h * 0.48)
+      ctx.fillStyle = '#1a4cff'
+      ctx.fillRect(-h * 0.07, -h * 0.02, h * 0.14, h * 0.28)
+      ctx.fillStyle = '#f0c4a8'
+      ctx.beginPath()
+      ctx.arc(0, -h * 0.28, h * 0.16, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#f3e2a4'
+      ctx.beginPath()
+      ctx.arc(0, -h * 0.38, h * 0.14, Math.PI, 0)
+      ctx.fill()
+      ctx.strokeStyle = '#d7dee6'
+      ctx.lineWidth = Math.max(1.5, h * 0.04)
+      ctx.strokeRect(-h * 0.12, -h * 0.32, h * 0.1, h * 0.07)
+      ctx.strokeRect(h * 0.02, -h * 0.32, h * 0.1, h * 0.07)
+    } else if (portrait && portrait.complete && portrait.naturalWidth > 0) {
+      const size = Math.max(42, scale * 2.4)
+      ctx.drawImage(portrait, -size / 2, -size * 0.62, size, size)
+    } else {
+      ctx.fillStyle = '#1af38f'
+      ctx.beginPath()
+      ctx.arc(0, 0, 10, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    const ink = maskInk(mask)
+    if (ink) {
+      ctx.fillStyle = ink
+      ctx.fillRect(-h * 0.14, -h * 0.3, h * 0.28, h * 0.08)
+    }
+  }
+
   const draw = () => {
     const width = canvas.width
     const height = canvas.height
@@ -329,34 +433,25 @@ export async function startFlat(onReady: () => void): Promise<void> {
     context.translate(player.x, player.y)
     const angle = Math.atan2(faceX, -faceZ)
     context.rotate(angle)
-    if (getSave().body === 'player') {
-      const h = Math.max(36, scale * 2.2)
-      context.fillStyle = '#5c6b80'
-      context.fillRect(-h * 0.22, -h * 0.05, h * 0.44, h * 0.48)
-      context.fillStyle = '#1a4cff'
-      context.fillRect(-h * 0.07, -h * 0.02, h * 0.14, h * 0.28)
-      context.fillStyle = '#f0c4a8'
-      context.beginPath()
-      context.arc(0, -h * 0.28, h * 0.16, 0, Math.PI * 2)
-      context.fill()
-      context.fillStyle = '#f3e2a4'
-      context.beginPath()
-      context.arc(0, -h * 0.38, h * 0.14, Math.PI, 0)
-      context.fill()
-      context.strokeStyle = '#d7dee6'
-      context.lineWidth = Math.max(1.5, h * 0.04)
-      context.strokeRect(-h * 0.12, -h * 0.32, h * 0.1, h * 0.07)
-      context.strokeRect(h * 0.02, -h * 0.32, h * 0.1, h * 0.07)
-    } else if (mark.complete && mark.naturalWidth > 0) {
-      const size = Math.max(42, scale * 2.4)
-      context.drawImage(mark, -size / 2, -size * 0.62, size, size)
-    } else {
-      context.fillStyle = '#1af38f'
-      context.beginPath()
-      context.arc(0, 0, 10, 0, Math.PI * 2)
-      context.fill()
-    }
+    const worn = getSave()
+    drawPerson(context, scale, worn.body, worn.mask, mark)
+    if (worn.drone !== 'none') drawDrone(context, scale, worn.drone)
     context.restore()
+    for (const citizen of citizens) drawCitizen(context, project, scale, citizen)
+  }
+
+  const drawCitizen = (
+    ctx: CanvasRenderingContext2D,
+    projectAt: (x: number, z: number) => { x: number; y: number },
+    scale: number,
+    citizen: CitizenSim,
+  ) => {
+    const at = projectAt(citizen.x, citizen.z)
+    ctx.save()
+    ctx.translate(at.x, at.y)
+    drawPerson(ctx, scale * 0.72, citizen.spec.body, citizen.spec.mask, mark)
+    if (citizen.spec.drone !== 'none') drawDrone(ctx, scale * 0.72, citizen.spec.drone)
+    ctx.restore()
   }
 
   const update = (dt: number) => {
@@ -421,7 +516,9 @@ export async function startFlat(onReady: () => void): Promise<void> {
     }
     pos.x += vel.x * dt
     pos.z += vel.z * dt
-    resolveCollision(pos, vel, obstacles, PLAYER_R)
+    stepCitizens(citizens, paused ? 0 : dt)
+    const crowd = citizens.map((citizen) => ({ kind: 'circle' as const, x: citizen.x, z: citizen.z, r: 0.42 }))
+    resolveCollision(pos, vel, [...obstacles, ...crowd], PLAYER_R)
     traveled += Math.hypot(vel.x, vel.z) * dt
     if (traveled > 10) hint.classList.add('quiet')
     let best: Spot | null = null
