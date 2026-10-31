@@ -32,6 +32,7 @@ import {
   type Activity,
   type DroneId,
   type Graphics,
+  type MapSize,
   type MaskId,
   type RankId,
   type RepFlag,
@@ -108,8 +109,8 @@ export function rememberPlace(x: number, z: number): void {
   persist()
 }
 
-export function tickMarket(dt: number, now: number): void {
-  applyDay(save, lagosDay(new Date(now)))
+export function tickMarket(dt: number, now = Date.now()): void {
+  applyDay(save, lagosDay(new Date()))
   stepPrices(save, dt, seasonAt(now))
   sample += dt
   if (sample >= 0.8) {
@@ -124,13 +125,14 @@ export function tickMarket(dt: number, now: number): void {
   }
 }
 
-export function signUp(name: string, username: string): { ok: true } | { ok: false; error: string } {
+export function signUp(name: string, username: string, body: 'player' | 'zuri'): { ok: true } | { ok: false; error: string } {
   const display = cleanDisplayName(name)
   const handle = cleanUsername(username)
   if (!display) return { ok: false, error: 'Pick a name.' }
   if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
   save.name = display
   save.username = handle
+  save.body = body
   save.signedUp = true
   persist()
   emit()
@@ -206,6 +208,24 @@ export function setTime(time: Save['timeOfDay']): void {
 
 export function setGraphics(graphics: Graphics): void {
   save.graphics = graphics
+  persist()
+  emit()
+}
+
+export function setMapSize(size: MapSize): void {
+  save.mapSize = size
+  persist()
+  emit()
+}
+
+export function setHints(on: boolean): void {
+  save.hints = on
+  persist()
+  emit()
+}
+
+export function setReduceMotion(on: boolean): void {
+  save.reduceMotion = on
   persist()
   emit()
 }
@@ -300,6 +320,12 @@ export function trade(symbol: 'unit' | 'meme', side: 'buy' | 'sell', fraction: n
   return { ok: true, message: `${tone} ${extra}`, rankedUp }
 }
 
+export function walkGym(): { message: string } {
+  today()
+  if (!save.dailies.gym) return { message: 'The set is the rep. Hit the marker in the mint band. A walk does not file the day.' }
+  return { message: `Best filed set is ${save.gymBest}/8. Another set today does not stack the streak.` }
+}
+
 export function finishGym(hits: number, swings: number): { message: string; rankedUp?: RankId; already: boolean } {
   const day = today()
   if (hits > save.gymBest) save.gymBest = hits
@@ -339,6 +365,18 @@ export function sitPrayer(): { message: string; rankedUp?: RankId; already: bool
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: 'Focus is on. The next course you pass counts a quarter more.' }
+}
+
+export function orderWater(): { message: string } {
+  const day = today()
+  if (!save.dailies.cafe) return { message: 'Read the board first. The water can wait.' }
+  if (save.waterDay === day) return { message: 'The glass is already on the table. It is water, and it is free.' }
+  save.waterDay = day
+  save.reputation += 1
+  log('social', 'Ordered water', 'Free. The board is still gossip, not a signal.')
+  persist()
+  emit()
+  return { message: 'Water is free. Reputation +1. The headlines did not become a trade.' }
 }
 
 export function readCafe(): { message: string; rankedUp?: RankId; already: boolean } {
@@ -384,6 +422,17 @@ export function pledge(projectName: string): { message: string; rankedUp?: RankI
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: `${projectName} is on your portfolio as a practice pledge. Not a retired credit.` }
+}
+
+export function noteTalk(): { message: string; already: boolean } {
+  if (!save.conference) return { already: false, message: 'Sit through the talk first. The notes are the last two minutes.' }
+  if (save.conferenceNoted) return { already: true, message: 'You already kept the note: a course, a bounty, or a pledge. A balance is not the proof.' }
+  save.conferenceNoted = true
+  save.reputation += 1
+  log('skill', 'Kept the hall note', 'Proof is a course, a bounty, or a pledge. A balance is not.')
+  persist()
+  emit()
+  return { already: false, message: 'Noted. Reputation +1. The hall does not grade a slogan.' }
 }
 
 export function hearTalk(): { message: string; rankedUp?: RankId; already: boolean } {
@@ -490,15 +539,23 @@ export function resetProgress(): void {
   const graphics = save.graphics
   const volume = save.volume
   const timeOfDay = save.timeOfDay
+  const mapSize = save.mapSize
+  const hints = save.hints
+  const reduceMotion = save.reduceMotion
   const name = save.name
   const username = save.username
   const signedUp = save.signedUp
+  const body = save.body
   save = createSave(new Date(), { graphics })
   save.volume = volume
   save.timeOfDay = timeOfDay
+  save.mapSize = mapSize
+  save.hints = hints
+  save.reduceMotion = reduceMotion
   save.name = name
   save.username = username
   save.signedUp = signedUp
+  save.body = body
   save.seenIntro = true
   persist()
   emit()
