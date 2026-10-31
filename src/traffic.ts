@@ -20,8 +20,8 @@ type Arm = { ax: number; az: number } // unit vector pointing out from the plaza
 const ARMS: Arm[] = [...LANE_ARMS]
 const COUNTS: Record<Graphics, { people: number; cars: number }> = {
   low: { people: 14, cars: 4 },
-  medium: { people: 22, cars: 8 },
-  high: { people: 24, cars: 10 },
+  medium: { people: 22, cars: 10 },
+  high: { people: 24, cars: 14 },
 }
 const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x3d4a3f, 0xb3122e, 0x2a2f36, 0xd9c7a1]
 const SHIRTS = [0x1a4cff, 0x6b5a45, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]

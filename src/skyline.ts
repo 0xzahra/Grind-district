@@ -41,11 +41,22 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
     color: 0xffffff, roughness: 0.55, metalness: 0.1, map: win.map, emissive: 0xffffff, emissiveMap: win.glow, emissiveIntensity: 0.1,
     fog: true,
   })
+  // Curtain-wall towers: reflective blue-grey glass with thin mullions; reflections come from the shared
+  // scene env map (PMREM of the sky HDRI), so no extra render passes. Every fifth tower wears it.
+  const mc = document.createElement('canvas'); mc.width = 32; mc.height = 128
+  const mg = mc.getContext('2d')!
+  mg.fillStyle = '#ffffff'; mg.fillRect(0, 0, 32, 128)
+  mg.fillStyle = '#5c646b'; for (let y = 0; y < 128; y += 8) mg.fillRect(0, y, 32, 1); for (let x = 0; x < 32; x += 8) mg.fillRect(x, 0, 1, 128)
+  const mullion = new THREE.CanvasTexture(mc); mullion.colorSpace = THREE.SRGBColorSpace; mullion.wrapS = mullion.wrapT = THREE.RepeatWrapping; mullion.repeat.set(2, 6)
+  const curtainMat = new THREE.MeshStandardMaterial({ color: 0x7d8f9c, map: mullion, roughness: 0.12, metalness: 0.85, envMapIntensity: graphics === 'low' ? 0.6 : 1.0, fog: true })
   const crownMat = new THREE.MeshStandardMaterial({ color: 0x8f8b84, roughness: 0.8, metalness: 0.1 })
   const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false })
   const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
   const base = new THREE.InstancedMesh(box, glass, count)
   const upper = new THREE.InstancedMesh(box, glass, count)
+  const curtain = new THREE.InstancedMesh(box, curtainMat, count)
+  const hidden = new THREE.Matrix4().makeScale(0, 0, 0)
+  let curtains = 0
   const roof = new THREE.InstancedMesh(box, crownMat, count * 2)
   const beacons = new THREE.InstancedMesh(new THREE.SphereGeometry(0.5, 6, 4), beaconMat, count)
   const m = new THREE.Object3D()
@@ -63,7 +74,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
     m.rotation.set(0, -a, 0)
     m.scale.set(w, h, d)
     m.updateMatrix()
-    base.setMatrixAt(i, m.matrix)
+    if (i % 5 === 0) { curtain.setMatrixAt(curtains++, m.matrix); base.setMatrixAt(i, hidden) } else base.setMatrixAt(i, m.matrix)
     // Setback tower on top.
     const h2 = h * (0.2 + rand() * 0.35)
     m.position.y = h
@@ -82,7 +93,9 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
     m.updateMatrix()
     beacons.setMatrixAt(i, m.matrix)
   }
-  for (const mesh of [base, upper, roof, beacons]) {
+  curtain.count = curtains
+  for (const mesh of [base, upper, curtain, roof, beacons]) {
+    mesh.computeBoundingSphere()
     mesh.castShadow = false
     mesh.receiveShadow = false
     mesh.userData.ghost = true

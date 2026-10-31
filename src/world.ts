@@ -20,6 +20,8 @@ export type Hotspot = {
 }
 
 export type World = {
+  lampSpots: { x: number; z: number }[]
+  treeSpots: { x: number; z: number }[]
   obstacles: Obstacle[]
   hotspots: Hotspot[]
   sun: THREE.DirectionalLight
@@ -1413,6 +1415,8 @@ export function createWorld(options: {
   }
 
   return {
+    lampSpots: lampSpots.map((l) => ({ x: l.x, z: l.z })),
+    treeSpots: treeSpots.map(([x, z]) => ({ x, z })),
     obstacles,
     hotspots,
     sun,
