@@ -1,5 +1,5 @@
 // In-game Web3 events at the Conference centre: a rotating weekly programme (AMAs, Spaces-style talks,
-// hackathon demo days, builder panels). Fictional, in-game only; joining gives XP and reputation once per event.
+// hackathon demo days, builder panels). Fictional, in-game only; joining gives in-game cash and reputation once per event.
 export type GameEvent = { id: string; kind: 'AMA' | 'Spaces talk' | 'Demo day' | 'Panel' | 'Workshop'; title: string; host: string; hour: number; xp: number; rep: number }
 
 const WEEK: Array<Omit<GameEvent, 'id'>[]> = [

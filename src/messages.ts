@@ -208,7 +208,7 @@ export async function openFriends(): Promise<void> {
   body.append(el('h3', s.party ? `Party · ${s.party.members.length}/4` : 'Party'))
   if (s.party) {
     for (const m of s.party.members) body.append(row(m + (m === s.party.leader ? ' (lead)' : '')))
-    body.append(el('p', 'Party members earn bonus XP when they attend conference events together.', 'cc-muted'))
+    body.append(el('p', 'Party members earn a $10 in-game bonus each (up to $30) when they attend conference events together.', 'cc-muted'))
     if (s.party.spot && s.party.spot.by !== s.me && Date.now() - s.party.spot.at < 15 * 60_000) body.append(act(`Join @${s.party.spot.by}`, async () => { window.dispatchEvent(new CustomEvent('gd-teleport', { detail: s.party!.spot })) }, 'dm-primary'))
     body.append(act('Join me (share my spot)', async () => { const pos = (window as unknown as { gdPos?: () => { x: number; z: number } }).gdPos?.(); if (pos) await api('party_spot', { post: pos }) }), act('Leave party', () => api('party_leave', { post: {} })))
   } else body.append(el('p', 'Invite a friend to start a party (max 4).', 'cc-muted'))

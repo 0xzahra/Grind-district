@@ -155,6 +155,15 @@ export function bonusXp(n: number, label: string, detail: string): void {
   persist()
   emit(up)
 }
+/** Small in-game cash rewards (never real money). Credits the in-game balance and logs it in history; XP stays internal for rank. */
+export function earnCash(usd: number, label: string, detail: string, xp = 0): void {
+  const amt = cents(Math.max(0, usd))
+  if (amt > 0) save.ledger = cents(save.ledger + amt)
+  log('money', label, `+${money(amt)} in-game. ${detail}`)
+  const up = xp > 0 ? gainXp(Math.round(xp)) : undefined
+  persist()
+  emit(up)
+}
 /** Career duties: reputation for showing up. Logged like any other activity. */
 export function addReputation(n: number, label: string, detail: string): void {
   save.reputation += Math.max(0, Math.round(n))
@@ -750,8 +759,10 @@ export function joinEvent(ev: { id: string; title: string; kind: string; xp: num
   save.eventsJoined = [...save.eventsJoined, ev.id].slice(-30)
   save.reputation += ev.rep
   const rankedUp = gainXp(ev.xp)
+  save.ledger = cents(save.ledger + ev.xp)
+  log('money', `Event reward: ${ev.title}`, `+${money(ev.xp)} in-game for attending.`)
   log('skill', `Joined ${ev.kind}: ${ev.title}`, 'Attended at the Conference centre.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: `You joined. +${ev.xp} XP, reputation +${ev.rep}. It is on your portfolio.` }
+  return { already: false, rankedUp, message: `You joined. +${money(ev.xp)} in-game, reputation +${ev.rep}. It is on your portfolio.` }
 }

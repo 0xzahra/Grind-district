@@ -659,7 +659,7 @@ export function createWorld(options: {
   const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Learning hall', subtitle: 'courses file themselves', windows: true, seed: 3 })
   spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Take short courses. Each one you pass is added to your CV.', 'learn', 'Open the hall')
   const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'web3 events', windows: true, seed: 5 })
-  spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for XP.', 'conference', 'Go inside')
+  spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for in-game cash.', 'conference', 'Go inside')
   const lounge = addBuilding({ x: -40, z: -36, w: 9, d: 7, h: 4.4, door: 'px', title: 'Members lounge', subtitle: 'rooms open by rank', windows: true, seed: 53 })
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
   const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', windows: true, seed: 8 })

@@ -1,7 +1,7 @@
 // Career: learning / practice / jobs progress, Earn Paths, weekly free season, jobs, pinned certs, City Feed.
 // localStorage per save slot (same pattern as the save); pins sync to Supabase via the existing /api/profile.
 import { partySize } from './messages.ts'
-import { getSave, onActivity, addReputation, bonusXp, setTint, slotKey } from './state.ts'
+import { getSave, onActivity, addReputation, earnCash, setTint, slotKey } from './state.ts'
 import { SKILL_META, SKILL_ORDER, type SkillId } from './logic.ts'
 import { TRACKS, JOBS, JOB_LEVELS, JOB_XP_PER_LEVEL, WEEKLY_POOL, SEASON, RANKS_LADDER, RANK_STEPS, DISCLAIMER, type TaskKind } from './careerData.ts'
 import { schedule } from './events.ts'
@@ -62,16 +62,17 @@ function onAct(kind: string, label: string): void {
   const got = kindOf(kind, label); if (!got) return
   rollWeek()
   if (got.k === 'trade') c.trades += 1
-  if (got.k === 'conference') { c.events += 1; if (partySize() >= 2) bonusXp(10 * (partySize() - 1), 'Party bonus', `Attended with ${partySize() - 1} party member(s).`) }
+  if (got.k === 'conference') { c.events += 1; if (partySize() >= 2) earnCash(10 * Math.min(3, partySize() - 1), 'Party event bonus', `Attended with ${partySize() - 1} party member(s).`, 10 * (partySize() - 1)) }
   // Weekly
   const wk = weekly()
   for (const w of wk) if (matches(w.kind, got)) {
     const before = c.weekCounts[w.id] ?? 0
-    if (before < w.count) { c.weekCounts[w.id] = before + 1; if (before + 1 === w.count) { c.seasonPts += 1; toast(`Weekly done: ${w.text}. Season +1`); grantRewards() } }
+    if (before < w.count) { c.weekCounts[w.id] = before + 1; if (before + 1 === w.count) { c.seasonPts += 1; earnCash(50, `Weekly challenge: ${w.text}`, 'Weekly challenge complete (once per week).'); toast(`Weekly done: ${w.text}. +$50 · Season +1`); grantRewards() } }
   }
   // Earn Path practice (once a day per track)
   for (const t of TRACKS) if (matches(t.task.kind, got, t.task.course) && c.trackDay[t.id] !== day()) {
     const before = rankIdx(c.track[t.id] ?? 0); c.track[t.id] = (c.track[t.id] ?? 0) + 1; c.trackDay[t.id] = day()
+    earnCash(10, `Earn Path practice: ${t.title}`, 'Daily practice task (once a day per path).'); toast(`${t.title} practice · +$10`)
     const after = rankIdx(c.track[t.id]); if (after > before) post(`${getSave().name || 'You'} reached ${RANKS_LADDER[after]} in ${t.title}.`, t.place ? `place:${t.place}` : undefined)
   }
   // Job duties
@@ -79,6 +80,7 @@ function onAct(kind: string, label: string): void {
   if (job) { if (c.dutyDay !== day()) { c.dutyDay = day(); c.duties = [] }
     for (const d of job.duties) if (!c.duties.includes(d.id) && matches(d.kind, got)) {
       c.duties.push(d.id); const lvl = jobLevel(); c.jobXp += 1
+      earnCash(5 + lvl, `Job pay: ${d.text}`, `${job.title} daily duty (once a day).`)
       addReputation(1 + Math.floor(lvl / 3), `Job duty: ${d.text}`, `${job.title} · reputation for showing up.`)
       if (jobLevel() > lvl) { post(`Promoted to ${JOB_LEVELS[jobLevel()]} ${job.title}.`); toast(`Promoted: ${JOB_LEVELS[jobLevel()]} ${job.title}`) }
     } }
@@ -98,7 +100,7 @@ export function initCareer(opts: { toast: (m: string) => void; rankUp: (label: s
   const tickEvents = () => { for (const e of schedule(new Date(), 1)) if (e.open && Math.abs(e.day.getTime() + e.hour * 36e5 - Date.now()) < 36e5) post(`${e.kind} starting: ${e.title} with ${e.host}.`, 'place:Conference centre', `ev-${e.id}`) }
   tickEvents(); window.setInterval(tickEvents, 60_000)
 }
-// Live city moments: a deterministic rotation (every 3 hours, 45 minutes long). Show up nearby for small XP.
+// Live city moments: a deterministic rotation (every 3 hours, 45 minutes long). Show up nearby for $15 in-game (once per moment).
 const MOMENTS = [
   { id: 'market', title: 'Pop-up market on the plaza', place: 'Plaza', go: 'place:The Grind Ring', x: 0, z: 0 },
   { id: 'lecture', title: 'Guest lecturer at the Learning hall', place: 'Learning hall', go: 'place:Learning hall', x: 0, z: -44 },
@@ -111,11 +113,11 @@ export function currentMoment(now = Date.now()) {
 export function startMoments(pos: () => { x: number; z: number }): void {
   const tick = () => {
     const m = currentMoment(); if (!m) return
-    post(`Live now: ${m.title}. Drop by for a little XP.`, m.go, m.key)
+    post(`Live now: ${m.title}. Drop by for $15 in-game.`, m.go, m.key)
     const p = pos()
     if (Math.hypot(p.x - m.x, p.z - m.z) < 14 && !c.feedSeen.includes(`${m.key}-xp`)) {
       c.feedSeen = [`${m.key}-xp`, ...c.feedSeen].slice(0, 80); store()
-      bonusXp(15, `Showed up: ${m.title}`, 'Live city moment. +15 XP.'); toast(`${m.title} · +15 XP`)
+      earnCash(15, `City moment: ${m.title}`, 'Showed up to a live city moment.', 15); toast(`${m.title} · +$15`)
     }
   }
   tick(); window.setInterval(tick, 10_000)

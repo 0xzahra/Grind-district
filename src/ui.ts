@@ -1005,13 +1005,13 @@ export function mountUi(
       }
       case 'conference':
         return renderSimple('Conference centre', [
-          para('Upcoming Web3 events in the hall. Doors open two hours before each one; join to get XP and reputation.'),
+          para('Upcoming Web3 events in the hall. Doors open two hours before each one; join to earn in-game cash and reputation.'),
           ...schedule().slice(0, 4).map((ev) => {
             const joined = getSave().eventsJoined.includes(ev.id)
             const row = stack(
               para(`${ev.label} · ${ev.kind} · ${ev.host}`, 'muted'),
               para(ev.title),
-              button(joined ? 'Joined' : ev.open ? `Join event (+${ev.xp} XP)` : 'Doors not open yet', ev.open && !joined ? 'primary' : 'ghost', () => {
+              button(joined ? 'Joined' : ev.open ? `Join event (+$${ev.xp})` : 'Doors not open yet', ev.open && !joined ? 'primary' : 'ghost', () => {
                 const outcome = joinEvent(ev)
                 finish(outcome.message, outcome.rankedUp)
                 open('conference')

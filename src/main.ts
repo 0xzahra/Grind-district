@@ -212,7 +212,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   document.body.append(greetBtn)
   greetBtn.addEventListener('click', () => {
     const next = schedule(new Date(), 2)[0]
-    const tips = next ? [`Hi! ${next.kind} "${next.title}" is ${next.label}${next.open ? ', doors are open' : ''} at the Conference centre.`, `Morning. ${next.host} hosts ${next.kind.toLowerCase()} ${next.label}. Worth the XP.`] : ['Hi! The Learning hall has twenty courses. Start with Spot trading.']
+    const tips = next ? [`Hi! ${next.kind} "${next.title}" is ${next.label}${next.open ? ', doors are open' : ''} at the Conference centre.`, `Morning. ${next.host} hosts ${next.kind.toLowerCase()} ${next.label}. Pays in-game cash.`] : ['Hi! The Learning hall has twenty courses. Start with Spot trading.']
     greetToast(tips[Math.floor(Date.now() / 60000) % tips.length]!)
   })
   let greetToast: (m: string) => void = () => {}

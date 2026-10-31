@@ -581,7 +581,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const sconce = new THREE.MeshStandardMaterial({ color: 0xf3e6cf, emissive: 0xffe2b8, emissiveIntensity: 0.25, roughness: 0.7 })
       for (const z of [-3, 1, 5]) for (const x of [-w / 2 + 0.08, w / 2 - 0.08]) box(0.06, 0.4, 0.25, sconce, x, z, 2.1, false)
       box(1.2, 0.01, 7.0, std(0x6e2f2a, 1), 0, 2.0, 0.005, false)
-      use({ id: 'event-screen', x: 0, z: 1.2 - 2.4, r: 1.6, title: 'Event schedule', body: 'Upcoming AMAs, Spaces-style talks and demo days. Join for XP and reputation.', enter: 'Join event', run: () => hooks.openPanel('conference') })
+      use({ id: 'event-screen', x: 0, z: 1.2 - 2.4, r: 1.6, title: 'Event schedule', body: 'Upcoming AMAs, Spaces-style talks and demo days. Join for in-game cash and reputation.', enter: 'Join event', run: () => hooks.openPanel('conference') })
       use({ id: 'stage', x: 3.6, z: stageZ + 2.2, r: 1.2, title: 'Stage', body: 'The lectern. Speakers stand here on event nights.', enter: 'See the programme', run: () => hooks.openPanel('conference') })
     }
     scene.add(group)
