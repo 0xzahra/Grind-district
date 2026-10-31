@@ -42,7 +42,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 
 | Place | What it does |
 | --- | --- |
-| Learning hall | Eight short courses. A pass writes the CV, resume, and portfolio. The first Spot pass drops a one-time $25 practice stipend. |
+| Learning hall | Twelve short courses. A pass writes the CV, resume, and portfolio. The first Spot pass drops a one-time $25 practice stipend. |
 | Trading floor | Practice spot book in UNIT. Buy and sell a fraction of the ledger or the position. Logging a sized plan on a sell can count even when the close is red. |
 | Trenches | Practice MEME book. Attention can leave. Rank does not follow it. |
 | Influencer row | Post a bounty. Practice pay and a portfolio line. |
@@ -69,7 +69,9 @@ Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait unti
 
 ## The citizen
 
-You pick a name and a username before you enter. The plate and the profile use those. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique. People already on the street are not given names. Their plates show rank.
+Signup asks for a name, a username, and a body before you enter. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
+
+Settings also holds the map size, walking hints, and reduced motion, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
 
 The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
 
