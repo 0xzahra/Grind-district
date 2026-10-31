@@ -2,6 +2,7 @@ import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
+import { createWeather } from './weather.ts'
 import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
@@ -190,7 +191,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.AgXToneMapping
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.shadowMap.type = THREE.PCFShadowMap
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 260)
@@ -227,6 +228,9 @@ const apiAgents = createRemoteAgents(scene)
   const skyline = createSkyline(scene, getSave().graphics)
   createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics })
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
+  const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
+  let bob = 0
+  let hemiBase = 1
   // ~10 real minutes per in-game day. GN time in Settings picks where the clock starts.
   const DAY_SECONDS = 600
   const phaseFor = (time: string) => (time === 'day' ? 0.42 : time === 'dusk' ? 0.74 : 0.02)
@@ -294,7 +298,7 @@ const apiAgents = createRemoteAgents(scene)
     const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' || coarseDev ? 1.5 : 2)
     renderer.setPixelRatio(ratio)
     // Shadows only on high: the biggest single cost on mid-range Android.
-    const shadows = graphics === 'high' && !matchMedia('(pointer: coarse)').matches
+    const shadows = graphics !== 'low' && !matchMedia('(pointer: coarse)').matches
     renderer.shadowMap.enabled = shadows
     world.sun.castShadow = shadows
     const size = graphics === 'high' ? 2048 : 1024
@@ -884,7 +888,7 @@ const apiAgents = createRemoteAgents(scene)
     const width = window.innerWidth
     const height = window.innerHeight
     camera.aspect = width / Math.max(1, height)
-    camera.fov = width < 800 ? 60 : 55
+    camera.fov = width < 800 ? 57 : 50
     camera.updateProjectionMatrix()
     applyGraphics()
   }
@@ -981,6 +985,7 @@ const apiAgents = createRemoteAgents(scene)
     if (lightAcc > 0.25) {
       lightAcc = 0
       world.setDaylight(dayPhase)
+      hemiBase = world.hemi.intensity
       physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
@@ -1189,6 +1194,16 @@ const apiAgents = createRemoteAgents(scene)
     if (safe.y < 0.4) safe.y = 0.4
     if (interiors.inside) indoorCamera(lookTarget, safe)
     camera.position.copy(safe)
+    { // Very subtle walk sway (off with reduced motion).
+      const sp = Math.hypot(vel.x, vel.z)
+      if (!calmSky() && sp > 0.3) bob += dt * (sprinting ? 11 : 7.5)
+      const amp = calmSky() ? 0 : Math.min(1, sp / 4) * 0.018
+      camera.position.y += Math.sin(bob * 2) * amp
+      camera.position.x += Math.cos(bob) * amp * 0.5
+    }
+    { const pulse = weather.tick(dt, camera, !interiors.inside, calmSky())
+      world.hemi.intensity = hemiBase * (1 - 0.18 * weather.rain()) + pulse * 0.9
+      post.setFocus(camera.position.distanceTo(lookTarget)) }
     // Cinematic intro: a high crane sweep over the skyline that settles behind the player.
     if (introT < 1 && !calmSky()) {
       introStart ||= performance.now()
@@ -1207,8 +1222,8 @@ const apiAgents = createRemoteAgents(scene)
     camera.lookAt(lookTarget)
     camera.updateMatrixWorld()
     setMixerViewer(camera)
-    const baseFov = window.innerWidth < 800 ? 60 : 55
-    const fov = baseFov + (sprinting ? 6 : 0)
+    const baseFov = (window.innerWidth < 800 ? 57 : 50) + (new URLSearchParams(location.search).has('widefov') ? 6 : 0)
+    const fov = baseFov + (sprinting ? 4 : 0)
     if (Math.abs(camera.fov - fov) > 0.05) {
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-6 * dt))
       camera.updateProjectionMatrix()

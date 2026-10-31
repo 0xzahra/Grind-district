@@ -25,6 +25,8 @@ export type World = {
   obstacles: Obstacle[]
   hotspots: Hotspot[]
   sun: THREE.DirectionalLight
+  groundMat: THREE.MeshStandardMaterial
+  hemi: THREE.HemisphereLight
   tick: (time: number, focus: THREE.Vector3) => void
   setLook: (look: { time: TimeOfDay; season: Season }) => void
   setRank: (label: string) => void
@@ -1420,6 +1422,8 @@ export function createWorld(options: {
     obstacles,
     hotspots,
     sun,
+    groundMat,
+    hemi,
     setLook,
     setDaylight,
     lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: LANE_INNER, outer: LANE_OUTER },
