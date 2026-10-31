@@ -14,8 +14,11 @@ Made by [Zahra](https://0xzahra.github.io).
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev
 ```
+
+Privy login uses the public App ID in `VITE_PRIVY_APP_ID`. The app secret belongs in `PRIVY_APP_SECRET` and stays on the server, in `.env`, which is not committed. The browser never receives it. `/api/privy/session` checks the login before the city keeps the account.
 
 The dev server listens on port **47321**. Open the local URL Vite prints. The title screen stays up until **Enter the district**. If the browser cannot start WebGL, the same streets open as an overhead map: walk, click a door, press E.
 
@@ -34,8 +37,7 @@ npm run build
 - Stand on a mint doorstep and press **E**, or the mint button, to enter.
 - Esc closes a sheet. Movement pauses while a sheet is open. Looking still works.
 - **Shot** saves a picture of the city.
-- **Music** toggles the looping theme (`public/assets/audio/theme.mp3`, falling back to Market Velocity if that file is missing). It is off by default. Once on, it resumes on your first tap next visit, unless reduced motion is set.
-- **Chat** (Enter, or the chat bar) sends a line to players within 12 m. Their bubbles show above their heads. Without Supabase keys the city stays single-player and only your own bubble shows.
+- **Play theme** starts Market Velocity (3:00, looping). The city stays silent until you press it. Volume is remembered. Playback starts paused each visit.
 
 The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a streak. Skip a day and the streak starts over. Bull and bear seasons flip every six minutes on a shared clock and change the practice books and the café copy. The street still works when the marks fall.
 
@@ -62,7 +64,7 @@ A family request can ask for a little practice money. Paying is reputation. Decl
 
 Profile holds Today, CV, Resume, Portfolio, and the practice books. Copy a share link from Today. Opening someone else's link shows their profile and does not overwrite your save.
 
-Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. The sky runs a full day every ten real minutes from the GN time you pick; reduced motion holds it still. Pedestrians walk the sidewalks and cars keep to their lanes, stop at the plaza signals, and yield to people. Counts follow the graphics setting (phones use the low counts) and apply on the next load. A fresh visit picks low graphics on a phone or a narrow window, and medium otherwise.
+Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. A fresh visit picks low graphics on a phone or a narrow window, and medium otherwise.
 
 ## Later, on purpose
 
@@ -70,7 +72,7 @@ Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait unti
 
 ## The citizen
 
-Signup asks for a name, a username, and a body before you enter. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
+Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. The city does not ask for a wallet. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
 
 Settings also holds the map size, walking hints, and reduced motion, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
 
