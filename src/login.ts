@@ -33,10 +33,7 @@ export function openLogin(): void {
   dlg.id = 'login-dlg'
   dlg.setAttribute('role', 'dialog')
   dlg.setAttribute('aria-label', 'Sign in')
-  const logo = el('img') as HTMLImageElement
-  logo.src = '/brand/lockup.png'
-  logo.alt = 'Grind District'
-  logo.className = 'login-logo'
+  const logo = el('p', 'Grind District', 'login-wordmark')
   const body = el('div', '', 'wallet-body')
   const close = el('button', 'Play as guest', 'ghost')
   close.onclick = () => dlg.remove()

@@ -185,6 +185,19 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }
   const lightOffset = new THREE.Matrix4()
   const headLocal = new THREE.Matrix4().makeTranslation(0, 0.66, 1.92)
+  // The Grind District logo lives only here: a small roof sign on every car (one instanced draw call).
+  const logoTex = new THREE.TextureLoader().load('/brand/lockup.png')
+  logoTex.colorSpace = THREE.SRGBColorSpace
+  const roofSigns = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.34, 0.62), [
+    new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.5 }), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.5 }),
+    new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }),
+    new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }),
+  ], counts.cars)
+  roofSigns.frustumCulled = false
+  roofSigns.userData.ghost = true
+  roofSigns.raycast = () => undefined
+  scene.add(roofSigns)
+  const roofLocal = new THREE.Matrix4().makeTranslation(0, 1.5, -0.3)
   const tailLocal = new THREE.Matrix4().makeTranslation(0, 0.72, -1.92)
 
   // Swap the box cars for Kenney models once they load; boxes stay as the instant fallback.
@@ -382,6 +395,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           wheels.setMatrixAt(i, dummy.matrix)
         }
         heads2.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, headLocal))
+        roofSigns.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, roofLocal))
         tails.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, tailLocal))
         if (!far) {
           const hx = Math.sin(pt.heading)
@@ -397,6 +411,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       wheels.instanceMatrix.needsUpdate = true
       heads2.instanceMatrix.needsUpdate = true
       tails.instanceMatrix.needsUpdate = true
+      roofSigns.instanceMatrix.needsUpdate = true
       return obstacles
     },
   }

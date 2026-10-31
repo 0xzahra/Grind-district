@@ -11,16 +11,6 @@ export function certId(course: SkillId): string {
   return b64url(JSON.stringify({ n: s.name, u: s.username, r: rankFor(s.xp).label, c: course, t: SKILL_META[course].title, d: new Date().toISOString().slice(0, 10) }))
 }
 
-function loadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => resolve(null)
-    img.src = src
-    setTimeout(() => resolve(null), 3000)
-  })
-}
-
 async function paintCertificate(course: SkillId): Promise<HTMLCanvasElement> {
   const s = getSave()
   const c = document.createElement('canvas')
@@ -37,12 +27,6 @@ async function paintCertificate(course: SkillId): Promise<HTMLCanvasElement> {
   g.strokeRect(36, 36, 1128, 778)
   g.lineWidth = 1
   g.strokeRect(50, 50, 1100, 750)
-  const logo = await loadImage('/brand/lockup.png')
-  if (logo) {
-    g.globalCompositeOperation = 'lighten'
-    g.drawImage(logo, 520, 80, 160, 108)
-    g.globalCompositeOperation = 'source-over'
-  }
   g.textAlign = 'center'
   g.fillStyle = '#d9c6a2'
   g.font = '500 22px Outfit, sans-serif'

@@ -989,7 +989,8 @@ export function createWorld(options: {
   plane.userData.ghost = true
   const halo = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.025, 8, 40), trim)
   halo.userData.ghost = true
-  emblem.add(plane, halo)
+  void plane // the logo mark lives only on cars now
+  emblem.add(halo)
   scene.add(basin, rim, water, pedestal, emblem)
   obstacles.push({ kind: 'circle', x: 0, z: 0, r: 2.9 })
   addGlow(0, 1.6, 0, 0xffd9a0, 12)

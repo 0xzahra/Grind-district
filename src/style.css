@@ -1170,3 +1170,6 @@ body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
 #hud-clock { margin: 6px 0 0; padding: 6px 12px; width: max-content; border-radius: 999px; font: 600 14px/1.2 Inter, system-ui, sans-serif;
   letter-spacing: 0.02em; color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,.6); background: rgba(20, 20, 22, 0.5);
   border: 1px solid rgba(255,255,255,.18); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-variant-numeric: tabular-nums; pointer-events: none; }
+.hud-wordmark, .menu-logo, .boot-wordmark, .login-wordmark { margin: 0; font: 700 18px/1 Inter, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #f5f5f7; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+.menu-logo { height: auto !important; filter: none !important; }
+.boot-wordmark { font-size: 28px; }
