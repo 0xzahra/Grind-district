@@ -1,8 +1,16 @@
 import { ImageResponse } from '@vercel/og'
-import { getProfile } from './_profile.js'
 
 // GET /api/og?u=<username>: 1200x630 share card. Dark, gold accents, city skyline, logo.
-export const config = { runtime: 'nodejs' }
+export const config = { runtime: 'edge' }
+type P = { username: string; name: string; rank: string; reputation: number; balance: number }
+async function getProfile(raw: string): Promise<P | null> {
+  const u = raw.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!u || !url || !key) return null
+  const r = await fetch(`${url}/rest/v1/public_profiles?username=eq.${u}&select=username,name,rank,reputation,balance`, { headers: { apikey: key, authorization: `Bearer ${key}` } })
+  const rows = r.ok ? ((await r.json()) as P[]) : []
+  return rows[0] ? { ...rows[0], balance: Number(rows[0].balance) } : null
+}
 type El = { type: string; props: Record<string, unknown> }
 const h = (type: string, style: Record<string, unknown>, ...children: Array<El | string>): El => ({ type, props: { style: { display: 'flex', ...style }, children } })
 const ORIGIN = 'https://grinddistrict.app'
@@ -19,8 +27,8 @@ function skyline(): El {
   return h('div', { position: 'absolute', left: 0, right: 0, bottom: 0, height: 360, alignItems: 'flex-end', opacity: 0.9 }, ...towers)
 }
 
-export default async function handler(req: { url?: string }, res: { setHeader(k: string, v: string): void; status(n: number): { send(b: Buffer): void } }) {
-  const u = new URL(req.url ?? '/', ORIGIN).searchParams.get('u') ?? ''
+export default async function handler(req: Request): Promise<Response> {
+  const u = new URL(req.url, ORIGIN).searchParams.get('u') ?? ''
   const p = await getProfile(u).catch(() => null)
   const name = p?.name || (u ? `@${u}` : 'Grind District')
   const handle = p ? `@${p.username}` : u ? `@${u.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)}` : 'A shared 3D city'
@@ -35,9 +43,5 @@ export default async function handler(req: { url?: string }, res: { setHeader(k:
       h('div', { fontSize: 72, color: '#f2ece0', marginTop: 36, fontWeight: 700 }, name.slice(0, 28)),
       h('div', { fontSize: 32, color: GOLD, marginTop: 4 }, handle),
       h('div', { marginTop: 'auto' }, ...(p ? [stat('Rank', p.rank || 'Shrimp'), stat('Reputation', String(p.reputation)), stat('Balance', `$${p.balance.toLocaleString('en-US', { maximumFractionDigits: 2 })}`)] : [h('div', { fontSize: 32, color: '#d8cfbf' }, 'Learn, trade and climb from shrimp to whale.')]))))
-  const img = new ImageResponse(tree as never, { width: 1200, height: 630 })
-  const buf = Buffer.from(await img.arrayBuffer())
-  res.setHeader('content-type', 'image/png')
-  res.setHeader('cache-control', 'public, max-age=300, s-maxage=300')
-  res.status(200).send(buf)
+  return new ImageResponse(tree as never, { width: 1200, height: 630, headers: { 'cache-control': 'public, max-age=300, s-maxage=300' } })
 }
