@@ -42,6 +42,8 @@ import {
   finishGym,
   getSave,
   hearTalk,
+  noteTalk,
+  orderWater,
   payTax,
   pledge,
   postBounty,
@@ -53,6 +55,9 @@ import {
   setBody,
   setMask,
   setGraphics,
+  setHints,
+  setMapSize,
+  setReduceMotion,
   setTime,
   setTint,
   setName,
@@ -61,6 +66,7 @@ import {
   submitCourse,
   subscribe,
   trade,
+  walkGym,
   type CourseResult,
 } from './state.ts'
 
@@ -72,6 +78,7 @@ type Hooks = {
   onBody: () => void
   onLook: () => void
   onGraphics: () => void
+  onPrefs: () => void
   onRank: (label: string) => void
 }
 
@@ -301,7 +308,7 @@ export function mountUi(
     const body = document.createElement('div')
     body.className = 'stack'
     const showList = () => {
-      body.replaceChildren(para('Pass a course and it files itself. No certificates for sale.', 'muted'))
+      body.replaceChildren(para('Twelve courses. Pass one and it files itself. No certificates for sale.', 'muted'))
       for (const course of COURSES) {
         const meta = SKILL_META[course.id]
         const passed = getSave().skills[course.id]?.passed
@@ -485,13 +492,16 @@ export function mountUi(
     })
     const loop = () => {
       if (current !== 'gym') return
-      t += 0.045
+      t += document.body.classList.contains('reduce-motion') ? 0.018 : 0.045
       const markerAt = 0.5 + Math.sin(t) * 0.42
       marker.style.left = `${markerAt * 100}%`
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
-    return frame('Gym', stack(status, lane, hit, result, para(`Best filed set: ${save.gymBest}/8.`, 'muted')))
+    const walk = button('What the lane counts', 'ghost', () => {
+      result.textContent = walkGym().message
+    })
+    return frame('Gym', stack(status, lane, hit, walk, result, para(`Best filed set: ${save.gymBest}/8. One logged set a day.`, 'muted')))
   }
 
   const renderBoutique = (): HTMLElement => {
@@ -642,6 +652,27 @@ export function mountUi(
         open('settings')
       }))
     }
+    const maps = document.createElement('div')
+    maps.className = 'tabs'
+    for (const size of ['compact', 'large'] as const) {
+      maps.append(button(size, save.mapSize === size ? 'primary' : 'ghost', () => {
+        setMapSize(size)
+        hooks.onPrefs()
+        open('settings')
+      }))
+    }
+    const comfort = document.createElement('div')
+    comfort.className = 'tabs'
+    comfort.append(button(save.hints ? 'Hints on' : 'Hints off', save.hints ? 'primary' : 'ghost', () => {
+      setHints(!getSave().hints)
+      hooks.onPrefs()
+      open('settings')
+    }))
+    comfort.append(button(save.reduceMotion ? 'Motion reduced' : 'Motion full', save.reduceMotion ? 'primary' : 'ghost', () => {
+      setReduceMotion(!getSave().reduceMotion)
+      hooks.onPrefs()
+      open('settings')
+    }))
     let armed = false
     const reset = button('Reset progress', 'danger', () => {
       if (!armed) {
@@ -671,6 +702,10 @@ export function mountUi(
       times,
       para('Graphics', 'kicker'),
       graphics,
+      para('Map', 'kicker'),
+      maps,
+      para('Comfort', 'kicker'),
+      comfort,
       para('Market Velocity stays silent until you press Play theme. Volume is the slider by that button.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
@@ -793,6 +828,11 @@ export function mountUi(
             finish(outcome.message, outcome.rankedUp)
             open('cafe')
           }),
+          button('Order water', 'ghost', () => {
+            finish(orderWater().message)
+            open('cafe')
+          }),
+          para('Water is free. It does not turn a headline into a trade.', 'muted'),
         ])
       case 'house':
         return renderHouse()
@@ -804,6 +844,7 @@ export function mountUi(
       case 'climate':
         return renderSimple('Carbon desk', [
           para(`A practice pledge costs ${money(CLIMATE_USD)}. It does not retire a real credit. Rank does not move because you spent.`),
+          para('A method names what was reduced, who measured it, and whether the work needed the credit revenue. A logo does not. This desk records a practice note and does not issue a tonne.'),
           ...PROJECTS.map((project) => button(project.name, 'primary', () => {
             const outcome = pledge(project.name)
             finish(outcome.message, outcome.rankedUp)
@@ -832,11 +873,17 @@ export function mountUi(
         return renderSimple('Conference hall', [
           para('The talk is short. Proof of work is a course, a bounty, a pledge. It is not a slogan and it is not a balance.'),
           para('Ninety seconds, then the street again. The hall does not take a fee.'),
-          button('Stay for it', 'primary', () => {
+          button(getSave().conference ? 'You already sat' : 'Stay for it', 'primary', () => {
             const outcome = hearTalk()
             finish(outcome.message, outcome.rankedUp)
             open('conference')
           }),
+          button('Keep the note', 'ghost', () => {
+            const outcome = noteTalk()
+            finish(outcome.message)
+            open('conference')
+          }),
+          para('The note is the last line: a course, a bounty, or a pledge. A balance is not the proof.', 'muted'),
         ])
       case 'robot':
         return renderSimple('Unit 4', [
