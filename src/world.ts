@@ -450,7 +450,7 @@ export function createWorld(options: {
   spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'MEME moves like attention. It can leave. Rank will not follow it down.', 'trench', 'Open the trench book')
 
   const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', windows: true, seed: 19 })
-  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Five original bodies, free. Licensed collections stay off the street until there is a license.', 'boutique', 'Try a body')
+  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Player 8453, Zuri, and the mascots. Masks from the collection list hang on the side wall.', 'boutique', 'Try a body')
   const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', windows: true, seed: 23 })
   spot('gym', gym.x, gym.z, 2.4, 'Gym', 'A short timing set. One logged set a day. Balance is not invited.', 'gym', 'Train')
   const church = addBuilding({ x: 24, z: 26, w: 9, d: 11, h: 5, door: 'nx', title: 'Church', subtitle: 'charts stay out', windows: false, steeple: true, seed: 29 })
@@ -474,6 +474,8 @@ export function createWorld(options: {
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Same board as campus, closer to the row. Read it once a day.', 'cafe', 'Read the room')
   const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.7, door: 'px', title: 'Carbon', subtitle: 'practice pledge', seed: 41 })
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a project with practice funds. It records the pledge. It does not retire a real tonne.', 'climate', 'The desk')
+  const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'drones', windows: true, seed: 47 })
+  spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Scout, courier, and halo. A drone follows you. Practice funds.', 'gadgets', 'Open the case')
 
   const prayer = new THREE.Group()
   prayer.position.set(-24, 0, 26)
