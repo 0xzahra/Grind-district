@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/reward-wallet",
+      "destination": "/api/profile?op=reward-wallet"
+    },
+    {
       "source": "/cv/:username",
       "destination": "/api/page?kind=cv&username=:username"
     },

@@ -1,12 +1,14 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
+import rewardWallet from './_rewardWallet.js'
 
 // POST { name, rank, reputation, balance, skills } with a Privy token: upsert the caller's public share-card snapshot.
 // The username comes from the server's players row, never from the client.
-type Req = { method?: string; headers: Record<string, string | undefined>; body?: Record<string, unknown> }
+type Req = { method?: string; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined>; body?: Record<string, unknown> }
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
+  if (req.query?.op === 'reward-wallet') return rewardWallet(req, res)
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
   const secret = process.env.PRIVY_APP_SECRET, url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
