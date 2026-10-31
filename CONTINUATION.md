@@ -47,6 +47,16 @@ Medium and high graphics use `min(devicePixelRatio, 2)`. Low stays at 1. Shadows
 
 Open work if the mesh still does not match the portrait up close: tighter hair facets, a clearer brow, and hands that read as flat facets at the third-person camera. Keep the silhouette (blonde sweep, wire rims, grey suit, blue shirt) at street distance.
 
+## Menu, houses, and courses
+
+The title screen is a menu: Enter the district, How to play, The city, Courses, and Credits. Enter and Space start the city only from the home page. Credits says the city does not run on Solana, and that `.sol` is Solidity.
+
+`src/houses.ts` is the east row: your house, Adaeze, Malik, Nia, and a vacant room. The same list builds the 3D meshes and the overhead map. Claim the room once (+3 reputation). A first visit to each neighbor is +2. Messaging and voice stay out.
+
+`src/courses.ts` holds eight lessons. Each one is several paragraphs with a source line, plus four exercises. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
+
+`districtName` labels the band east of x 30 and south of z 14 as The houses, including Adaeze’s door, which sits inside the old influencer-row circle.
+
 ## What stays off the chain
 
 - No wallet button, no seed phrase, no signature prompt.

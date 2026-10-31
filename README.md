@@ -6,6 +6,8 @@ The tagline is the door: **No tribe. No continent. Just come grind.**
 
 This build is the playable city. Gameplay stays off-chain. There is no token, no wallet, and no seed phrase. The ledger is practice USD, labeled as such. It is not real funds and it is not financial advice.
 
+The city does not run on Solana. `contracts/src/GrindRecord.sol` is Solidity, which is the language for an EVM record. The `.sol` extension is not a Solana program. That file is not deployed, and the practice ledger is not it.
+
 Made by [Zahra](https://0xzahra.github.io).
 
 ## Run
@@ -50,7 +52,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Prayer space | Focus adds a quarter to the next course you pass. |
 | Cafés | Season headlines. Gossip, not a signal. |
 | Carbon desk | A practice pledge. It does not retire a real credit. |
-| House | Your room. Messaging and proximity voice are later. |
+| The houses | Your house, plus Adaeze, Malik, Nia, and a vacant room on the east row. |
 | Conference hall | A short talk. Proof of work, not a slogan. |
 | Plaza | Fountain, rank totem, and Unit 4. The robot is labeled **Agent**. |
 

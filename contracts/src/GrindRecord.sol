@@ -3,7 +3,8 @@ pragma solidity 0.8.24;
 
 /// @title GrindRecord
 /// @notice Soulbound proof of work for Grind District.
-/// @dev This contract is source only. It is not deployed. The browser game does not
+/// @dev Solidity, for an EVM record. The .sol extension is not Solana. Solana programs are not written in this language.
+///      This contract is source only. It is not deployed. The browser game does not
 ///      send transactions to it. Rank is derived from XP. XP is not a token, it cannot
 ///      be transferred, and the practice USD ledger is intentionally absent.
 ///      Course ids match the city, in order:
