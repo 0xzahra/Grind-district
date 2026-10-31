@@ -1,6 +1,7 @@
 import { COURSES } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
+import { getSave, signUp } from './state.ts'
 
 type Page = 'how' | 'city' | 'courses' | 'credits'
 
@@ -40,7 +41,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
         copy('You start as a shrimp with an empty practice ledger. Rank moves when you learn, show up, and size your reps. Balance does not move it.'),
         copy('WASD or the arrows walk. Shift runs. Drag looks around. The wheel zooms. Click the ground to walk there. Stand on a mint doorstep and press E, or the mint button.'),
         copy('Esc closes a sheet. Movement pauses while a sheet is open.'),
-        copy('The eight courses are in the learning hall, north of the plaza. A pass writes your CV, resume, and portfolio. The houses are the row to the east: yours, Adaeze, Malik, Nia, and a vacant room.'),
+        copy('The eight courses are in the learning hall, north of the plaza. A pass writes your CV, resume, and portfolio. The houses are the row to the east: yours, a notes house, a set house, a grove house, and a vacant room.'),
         copy('Market Velocity stays silent until you press Play theme. The ledger is practice USD. It is not a deposit, not a token, and not advice.'),
         copy('If this browser cannot start WebGL, the same streets open as an overhead map. The doors are the same doors.'),
       )
@@ -63,7 +64,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
     case 'credits':
       body.append(
         copy('Grind District is made by Zahra.'),
-        copy('Player 8453 is a man: blonde hair, glasses, grey suit. Zuri is a woman, with longer hair and a fitted coat, cut to read cleaner than he does. Both are original.'),
+        copy('The man has blonde hair, glasses, and a grey suit. The woman has longer hair and a fitted coat. Both are original. You pick the name on the plate and the username beside it.'),
         copy('Masks in the boutique use the names CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The shapes are Grind District cuts, not the licensed artwork.'),
         copy('The city does not run on Solana, and it does not ask for a wallet. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
         copy('Market Velocity is the theme. It loops at three minutes and stays paused until you press play.'),
@@ -79,46 +80,87 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
 export function mountMenu(enter: () => void): void {
   const home = must<HTMLElement>('#menu-home')
   const page = must<HTMLElement>('#menu-page')
+  const signup = must<HTMLElement>('#menu-signup')
   const title = must<HTMLHeadingElement>('#menu-page-title')
   const slot = must<HTMLElement>('#menu-page-body')
   const play = must<HTMLButtonElement>('#play')
+  const form = must<HTMLFormElement>('#signup-form')
+  const nameInput = must<HTMLInputElement>('#signup-name')
+  const userInput = must<HTMLInputElement>('#signup-user')
+  const error = must<HTMLParagraphElement>('#signup-error')
+  const note = must<HTMLParagraphElement>('#menu-note')
+  const saved = getSave()
+  if (saved.signedUp) {
+    note.textContent = `${saved.name} · @${saved.username}. Rank follows the work you have filed.`
+  }
 
   const show = (next: Page) => {
     const built = pageBody(next)
     title.textContent = built.title
     slot.replaceChildren(built.body)
     home.hidden = true
+    signup.hidden = true
     page.hidden = false
   }
 
   const back = () => {
     page.hidden = true
+    signup.hidden = true
     slot.replaceChildren()
     home.hidden = false
     play.focus()
   }
 
-  play.addEventListener('click', enter)
+  const showSignup = () => {
+    home.hidden = true
+    page.hidden = true
+    error.hidden = true
+    error.textContent = ''
+    signup.hidden = false
+    nameInput.focus()
+  }
+
+  const start = () => {
+    if (getSave().signedUp) {
+      enter()
+      return
+    }
+    showSignup()
+  }
+
+  play.addEventListener('click', start)
   must('#menu-how').addEventListener('click', () => show('how'))
   must('#menu-city').addEventListener('click', () => show('city'))
   must('#menu-courses').addEventListener('click', () => show('courses'))
   must('#menu-credits').addEventListener('click', () => show('credits'))
   must('#menu-back').addEventListener('click', back)
+  must('#signup-back').addEventListener('click', back)
+  form.addEventListener('submit', (event) => {
+    event.preventDefault()
+    const outcome = signUp(nameInput.value, userInput.value)
+    if (!outcome.ok) {
+      error.hidden = false
+      error.textContent = outcome.error
+      return
+    }
+    enter()
+  })
 
   window.addEventListener('keydown', (event) => {
     const menu = document.querySelector('#menu')
     if (!(menu instanceof HTMLElement) || menu.hidden || event.repeat) return
-    if (event.key === 'Escape' && !page.hidden) {
+    if (event.key === 'Escape' && (!page.hidden || !signup.hidden)) {
       event.preventDefault()
       back()
       return
     }
+    if (!signup.hidden) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     if (!page.hidden) return
     const target = event.target
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
     if (target instanceof HTMLButtonElement && target.id !== 'play') return
     event.preventDefault()
-    enter()
+    start()
   })
 }
