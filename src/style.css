@@ -1486,3 +1486,4 @@ pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .cr-pins { display: flex; flex-wrap: wrap; }
 .cr-duty { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 14px; color: #e5e5ea; }
 .cr-duty.on { color: #8e8e93; }
+.morph-row { display: flex; align-items: center; gap: 12px; font: 500 14px -apple-system, system-ui, sans-serif; color: #e5e5ea; margin: 6px 0; } .morph-row input { flex: 1; accent-color: #c9a25e; }

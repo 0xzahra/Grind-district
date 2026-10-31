@@ -1,3 +1,4 @@
+import { getMorph, setMorph, HAIRS, type Style } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
@@ -28,6 +29,7 @@ import {
   SKILL_META,
   TAX_USD,
   TINTS,
+  TINT_STYLE,
   documents,
   money,
   nextRank,
@@ -579,6 +581,7 @@ export function mountUi(
     return frame('Gym', stack(para('Treadmill, bench, rack and mats. One logged set a day.'), log, walk, result))
   }
 
+  let boutiqueStyle: Style = 'all'
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
     const wrap = stack(para('Original bodies, free. The man and the woman are on this wall.', 'muted'))
@@ -593,9 +596,15 @@ export function mountUi(
       bodies.append(node)
     }
     wrap.append(bodies, para(BODIES.find((body) => body.id === save.body)?.blurb ?? '', 'muted'))
+    const styles = document.createElement('div')
+    styles.className = 'tabs'
+    for (const [id, label] of [['all', 'All'], ['office', 'Office'], ['street', 'Street'], ['african', 'African-inspired']] as const) {
+      styles.append(button(label, boutiqueStyle === id ? 'primary' : 'ghost', () => { boutiqueStyle = id; open('boutique') }))
+    }
+    wrap.append(para('Style', 'kicker'), styles)
     const tints = document.createElement('div')
     tints.className = 'tabs'
-    for (const tint of TINTS) {
+    for (const tint of TINTS.filter((t) => boutiqueStyle === 'all' || (TINT_STYLE[t.id] ?? []).includes(boutiqueStyle))) {
       const node = button(tint.label, save.tint === tint.hex ? 'primary' : 'ghost', () => {
         setTint(tint.hex)
         hooks.onStyle()
@@ -604,6 +613,18 @@ export function mountUi(
       tints.append(node)
     }
     wrap.append(para('Color', 'kicker'), tints)
+    const mo = getMorph()
+    const slider = (label: string, key: 'h' | 'b', min: number, max: number) => {
+      const row = document.createElement('label'); row.className = 'morph-row'
+      const t = document.createElement('span'); t.textContent = label
+      const r = document.createElement('input'); r.type = 'range'; r.min = String(min); r.max = String(max); r.step = '0.01'; r.value = String(mo[key])
+      r.oninput = () => { setMorph({ [key]: Number(r.value) }); hooks.onStyle() }
+      row.append(t, r); return row
+    }
+    wrap.append(para('Body', 'kicker'), slider('Height', 'h', 0.92, 1.08), slider('Build', 'b', 0.9, 1.15))
+    const hairs = document.createElement('div'); hairs.className = 'tabs'
+    for (const hc of HAIRS) hairs.append(button(hc.label, mo.hair === hc.hex ? 'primary' : 'ghost', () => { setMorph({ hair: hc.hex }); hooks.onStyle(); open('boutique') }))
+    wrap.append(para('Hair', 'kicker'), hairs)
     wrap.append(para(`Gold chain · ${money(CHAIN_USD)} practice. A want, not a need. Resells for ${money(RESELL_USD)}.`, 'muted'))
     if (save.luxury) {
       wrap.append(button('Resell the chain', 'ghost', () => {

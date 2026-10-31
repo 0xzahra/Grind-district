@@ -107,7 +107,16 @@ export const TINTS = [
   { id: 'sand', hex: 0xf0d7b0, label: 'Sand' },
   { id: 'coral', hex: 0xff6f61, label: 'Coral' },
   { id: 'ice', hex: 0x9fd4ff, label: 'Ice' },
+  { id: 'charcoal', hex: 0x2e3136, label: 'Charcoal' },
+  { id: 'denim', hex: 0x4a6585, label: 'Denim' },
+  { id: 'kente', hex: 0xc8962e, label: 'Kente gold' },
+  { id: 'adire', hex: 0x2b3a67, label: 'Adire indigo' },
+  { id: 'terracotta', hex: 0xb5553a, label: 'Terracotta' },
 ] as const
+export const TINT_STYLE: Record<string, Array<'office' | 'street' | 'african'>> = {
+  blue: ['office'], ice: ['office'], charcoal: ['office', 'street'], sand: ['office', 'african'], denim: ['street'],
+  mint: ['street'], coral: ['street'], kente: ['african'], adire: ['african'], terracotta: ['african', 'street'],
+}
 
 /** Free season-track shirt tints (earned in Career > Weekly, never sold). */
 export const SEASON_TINTS = [
