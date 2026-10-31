@@ -96,7 +96,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       composer!.setSize(width, height)
       // Bloom at half resolution.
       bloom!.resolution.set(width / 2, height / 2)
-      grade!.uniforms.grain.value = graphics === 'high' ? 0.03 : 0
+      grade!.uniforms.grain.value = 0
     },
     /** Night lifts bloom so neon strips read; day keeps it subtle. */
     setNight(night: number) {

@@ -128,7 +128,9 @@ export function createWorld(options: {
       if (srgb) t.colorSpace = THREE.SRGBColorSpace
       return t
     }
-    return { map: color ? load('color', true) : null, normalMap: load('normal', false), roughnessMap: load('rough', false) }
+    // Clean faceted look (Zahra): no photo grain or noise maps; flat, softly lit colour only.
+    void load; void color
+    return { map: null, normalMap: null, roughnessMap: null } as { map: THREE.Texture | null; normalMap: THREE.Texture | null; roughnessMap: THREE.Texture | null }
   }
   const concrete = pbr('concrete')
   Object.assign(stone, concrete, { color: new THREE.Color(0xd8cfc0), roughness: 1, metalness: 0 })
@@ -317,9 +319,8 @@ export function createWorld(options: {
   })
 
   const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 0.92, metalness: 0.02 })
-  {
-    // Fine stone/asphalt grain over the painted layout so the ground is never a flat colour.
-    const n = concrete.normalMap!.clone()
+  if (concrete.normalMap) {
+    const n = concrete.normalMap.clone()
     n.repeat.set(SPAN / 5, SPAN / 5)
     n.needsUpdate = true
     groundMat.normalMap = n

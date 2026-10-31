@@ -194,7 +194,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     rankLabel: rankFor(getSave().xp).label,
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
-  let travelHook: (title: string) => void = () => {}
+  let travelHook: (title: string, enter?: boolean) => void = () => {}
   const crowd = createCrowd(scene)
   const agentBot = createAgentCompanion(scene)
   const physSky = createPhysicalSky(scene)
@@ -303,7 +303,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
-    travel: (title) => travelHook(title),
+    travel: (title, enter) => travelHook(title, enter),
   })
   function hooksTeleport(x: number, z: number) {
       pos.x = x
@@ -329,9 +329,13 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     ui.setPlace(districtName(pos.x, pos.z))
     ui.toast(`Travelled to ${spot.title}.`)
   }
-  travelHook = (title) => {
+  travelHook = (title, enter) => {
     const spot = world.hotspots.find((h) => h.title === title)
-    if (spot) travelTo(spot)
+    if (!spot) return
+    travelTo(spot)
+    if (!enter) return
+    if (interiors.roomFor(spot.id)) enterRoom(spot)
+    else if (spot.action) ui.open(spot.action as Parameters<typeof ui.open>[0])
   }
   map.addEventListener('click', (event) => {
     const rect = map.getBoundingClientRect()
@@ -395,6 +399,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail)
   })
   subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`) })
+  document.body.append(must('#nav-city'))
   const railToggle = must<HTMLButtonElement>('#rail-toggle')
   railToggle.addEventListener('click', () => {
     const shut = document.body.classList.toggle('rail-shut')

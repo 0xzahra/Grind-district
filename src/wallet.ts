@@ -77,12 +77,20 @@ export function openWallet(): void {
   deposit.append(el('p', 'Checking top-ups…', 'muted'))
   econ.append(deposit)
   void (async () => {
-    const { accessToken } = await import('./login.ts')
-    const token = await accessToken()
+    // Never block the panel: the Privy SDK is only loaded for a signed-in player, and every await has a timeout.
+    const within = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))])
+    await new Promise((r) => setTimeout(r, 0))
+    let token: string | null = null
+    if (localStorage.getItem('gd.privy.userId') || localStorage.getItem('gd.privy.username')) {
+      token = await within(import('./login.ts').then((m) => m.accessToken()).catch(() => null), 4000, null)
+    }
     let info: { configured?: boolean; depositAddress?: string | null; wallet?: { deposit_tag: string; balance: number } } = {}
     try {
-      info = await (await fetch('/api/wallet', { headers: token ? { authorization: `Bearer ${token}` } : {} })).json()
-    } catch { /* offline */ }
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 5000)
+      info = await (await fetch('/api/wallet', { signal: ctrl.signal, headers: token ? { authorization: `Bearer ${token}` } : {} })).json()
+      clearTimeout(t)
+    } catch { /* offline, disabled or slow */ }
     deposit.replaceChildren()
     if (!info.depositAddress) {
       deposit.append(el('p', 'Top-ups are coming soon.', 'muted'))

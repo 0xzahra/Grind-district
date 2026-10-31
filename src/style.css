@@ -996,7 +996,7 @@ body.sheet-open #chat {
 }
 
 /* Wallet dialog + support link */
-.wallet-dlg { position: fixed; inset: auto 50% 50% auto; transform: translate(50%, 50%); z-index: 60; width: min(92vw, 380px); max-height: 88vh; overflow: auto; padding: 18px; border-radius: 12px; background: rgba(0,0,0,0.82); border: 1px solid rgba(23,247,144,0.3); color: #f2fdf8; display: grid; gap: 10px; }
+.wallet-dlg { position: fixed; inset: auto 50% 50% auto; transform: translate(50%, 50%); z-index: 60; width: min(92vw, 380px); max-height: 88vh; overflow: auto; padding: 18px; border-radius: 12px; background: rgba(0,0,0,0.82); border: 1px solid rgba(255,255,255,0.14); color: #f5f5f7; -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); display: grid; gap: 10px; }
 .wallet-body { display: grid; gap: 8px; }
 .wallet-addr { font-family: ui-monospace, monospace; color: #d9b26a; }
 .wallet-qr { background: #fff; padding: 6px; width: max-content; border-radius: 8px; }
@@ -1215,3 +1215,31 @@ body.rail-shut #nav { transform: translateX(120%) !important; }
 .menu-logo { width: auto !important; height: 64px !important; text-shadow: none !important; }
 .hud-shrimp { display: block; height: 30px; width: auto; filter: drop-shadow(0 1px 4px rgba(0,0,0,.5)); }
 @media (max-width: 520px) { .menu-logo { height: 46px !important; } }
+/* Rail keeps Profile, Wallet, Boutique, Settings. Support, music and sounds live in Settings. Compass removed. */
+#nav-sound, #nav-support, #nav .music-group { display: none !important; }
+#map { display: none !important; }
+#nav-city.top-map { position: fixed !important; z-index: 7; top: max(14px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+  width: 42px !important; height: 42px !important; min-height: 0 !important; border-radius: 50% !important; padding: 0 !important; display: grid !important; place-items: center;
+  background: rgba(22,22,24,.5) !important; border: 1px solid rgba(255,255,255,.16) !important; -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+#nav-city.top-map span { display: none; }
+#nav-city.top-map svg { width: 20px; height: 20px; }
+#bell { right: calc(max(12px, env(safe-area-inset-right)) + 50px) !important; }
+body.rail-shut #nav-city.top-map { opacity: 1 !important; pointer-events: auto !important; }
+/* Inbox: header row and items laid out so nothing overlaps at any width. */
+#inbox header { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+#inbox header h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#inbox header button { white-space: nowrap; }
+#inbox li { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 3px; }
+#inbox li strong, #inbox li p, #inbox li time { display: block; min-width: 0; overflow-wrap: anywhere; }
+/* Map list: each place with an Enter button beneath. */
+.map-entry { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.map-entry .map-enter { justify-self: start; padding: 6px 16px !important; font-size: 12px !important; width: auto !important; }
+/* Pause-menu style panels: dark frosted glass, thin type, left-aligned list, subtle hover. */
+.sheet-card { background: rgba(10, 11, 13, 0.72) !important; -webkit-backdrop-filter: blur(28px) saturate(140%); backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.08) !important; border-radius: 18px !important; text-align: left; font-weight: 300; letter-spacing: 0.01em; }
+.sheet-card h2, .sheet-card .sheet-head h2 { font-weight: 300 !important; letter-spacing: 0.12em; text-transform: uppercase; font-size: 15px !important; color: #f2f2f2; }
+.sheet-card .kicker { font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px; opacity: .6; }
+.sheet-card button, .sheet-card a.help-link { text-align: left; font-weight: 300 !important; border-radius: 6px !important; transition: background .15s, padding-left .15s; }
+.sheet-card button.ghost { background: transparent !important; border: 0 !important; border-left: 2px solid transparent !important; }
+.sheet-card button.ghost:hover, .sheet-card button.ghost:focus-visible { background: rgba(255,255,255,.07) !important; border-left-color: rgba(255,255,255,.7) !important; padding-left: 18px !important; }
+.sheet-card .tabs { justify-content: flex-start; }

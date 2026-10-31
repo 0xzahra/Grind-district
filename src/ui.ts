@@ -87,7 +87,7 @@ type Hooks = {
   onGraphics: () => void
   onPrefs: () => void
   onRank: (label: string) => void
-  travel?: (title: string) => void
+  travel?: (title: string, enter?: boolean) => void
 }
 
 export type Ui = {
@@ -177,6 +177,7 @@ export function mountUi(
   let open!: (panel: PanelId, extra?: OpenExtra) => void
   let houseId: HouseId = 'yours'
 
+  sheet.addEventListener('pointerdown', (event) => { if (event.target === sheet) close() })
   const close = () => {
     const was = current
     stop()
@@ -691,7 +692,10 @@ export function mountUi(
     master.type = 'range'; master.min = '0'; master.max = '100'; master.value = String(getSave().volume)
     master.setAttribute('aria-label', 'Master volume')
     master.addEventListener('input', () => { setVolume(Number(master.value)); applyVolume() })
-    audioRow.append(master, button(isMuted() ? 'Sound off' : 'Sound on', isMuted() ? 'ghost' : 'primary', () => { setMuted(!isMuted()); open('settings') }))
+    const themeOn = document.querySelector('#music')?.getAttribute('aria-pressed') === 'true'
+    audioRow.append(master,
+      button(isMuted() ? 'Sounds off' : 'Sounds on', isMuted() ? 'ghost' : 'primary', () => { setMuted(!isMuted()); open('settings') }),
+      button(themeOn ? 'Music on' : 'Music off', themeOn ? 'primary' : 'ghost', () => { (document.querySelector('#music') as HTMLButtonElement | null)?.click(); window.setTimeout(() => open('settings'), 50) }))
     const notifyRow = document.createElement('div')
     notifyRow.className = 'tabs'
     notifyRow.append(button(notificationsOn() ? 'Notifications on' : 'Notifications off', notificationsOn() ? 'primary' : 'ghost', () => {
@@ -894,8 +898,13 @@ export function mountUi(
         return renderSimple('The city', [
           para('Every door on the street. Tap one to travel there, or tap the map.'),
           ...GUIDE.map((stop) => {
-            const row = button(`${stop.title} · ${stop.where}`, 'ghost', () => hooks.travel?.(stop.title))
-            row.title = stop.text
+            const row = document.createElement('div')
+            row.className = 'map-entry'
+            const name = button(`${stop.title} · ${stop.where}`, 'ghost', () => hooks.travel?.(stop.title))
+            name.title = stop.text
+            const go = button('Enter', 'primary', () => hooks.travel?.(stop.title, true))
+            go.classList.add('map-enter')
+            row.append(name, go)
             return row
           }),
         ])
