@@ -9,9 +9,11 @@ import {
   hydrate,
   lagosDay,
   markDaily,
+  cleanDisplayName,
   cleanDrone,
   cleanMask,
   cleanOwnedDrones,
+  cleanUsername,
   quoteDrone,
   rankFor,
   seasonAt,
@@ -72,19 +74,31 @@ const skipped = markDaily(save, '2026-11-02', 'bounty')
 check(skipped === 5 && save.streak === 1, 'a missed day starts the streak over')
 
 save.skills.spot = { passed: true, tries: 1 }
-save.username = 'Adaeze'
+save.name = 'Reef'
+save.username = 'reef_01'
+save.signedUp = true
 const docs = documents(save, new Date('2026-10-30T12:00:00Z'))
-check(docs.cv.includes('Not a credential') && docs.cv.includes('Spot trading') && docs.resume.includes('Adaeze'), 'documents name the work and the disclaimer')
+check(docs.cv.includes('Not a credential') && docs.cv.includes('Spot trading') && docs.cv.includes('Reef') && docs.resume.includes('@reef_01'), 'documents name the work and the disclaimer')
 check(!docs.cv.includes('<script>'), 'documents stay plain text')
 
 const round = decodeShare(encodeShare(save))
-check(round?.n === 'Adaeze' && round.k.includes('spot') && round.x === save.xp, 'share link round-trips')
-check(sharedText(round ?? { n: 'Shrimp', x: 0, p: 0, s: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
+check(round?.n === 'Reef' && round.u === 'reef_01' && round.k.includes('spot') && round.x === save.xp, 'share link round-trips')
+check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, s: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
 check(decodeShare('nope') === null, 'bad share links are ignored')
 
-const junk = hydrate({ v: 1, xp: -40, ledger: -5, body: 'punk', username: '  ' })
-check(junk.xp === 0 && junk.ledger === 0 && junk.body === 'shrimp' && junk.username === 'Shrimp', 'hydrate refuses a broken save')
-check(hydrate({ v: 2 }).username === 'Player 8453', 'unknown save versions start clean')
+const fresh = createSave()
+check(fresh.signedUp === false && fresh.name === '' && fresh.username === '', 'a new save waits for a name and a username')
+check(cleanDisplayName('  Reef   Lane ') === 'Reef Lane', 'a display name keeps spaces and trims')
+check(cleanUsername('Reef_01') === 'reef_01' && cleanUsername('ab') === '' && cleanUsername('!!!') === '', 'a username is 3 to 16 letters, numbers, or underscores')
+
+const junk = hydrate({ v: 1, xp: -40, ledger: -5, body: 'punk', username: '  ', name: '   ' })
+check(junk.xp === 0 && junk.ledger === 0 && junk.body === 'shrimp' && junk.username === '' && junk.name === '' && junk.signedUp === false, 'hydrate refuses a broken save')
+const oldName = hydrate({ v: 1, username: 'Player 8453', name: 'Player 8453' })
+check(oldName.signedUp === false && oldName.username === '' && oldName.name === '', 'an old save without signup is not signed in')
+const signed = hydrate({ v: 1, signedUp: true, name: 'Reef', username: 'Reef_01' })
+check(signed.signedUp && signed.name === 'Reef' && signed.username === 'reef_01', 'signup keeps the name and the handle')
+check(hydrate({ v: 1, signedUp: true, name: '', username: 'reef' }).signedUp === false, 'signup needs both a name and a username')
+check(hydrate({ v: 2 }).username === '' && hydrate({ v: 2 }).signedUp === false, 'unknown save versions start unsigned')
 check(hydrate({ v: 2 }).body === 'player', 'a fresh city starts in the low-poly suit')
 check(cleanMask('azuki') === 'azuki' && cleanMask('bayc') === 'none', 'masks accept the city list')
 check(cleanDrone('scout') === 'scout' && cleanDrone('solana') === 'none', 'drones accept scout, courier, and halo')
@@ -95,7 +109,7 @@ check(!quoteDrone(10, [], 'scout').ok, 'a short ledger leaves the drone on the s
 const ownedDrone = quoteDrone(10, ['scout'], 'scout')
 check(ownedDrone.ok && ownedDrone.already, 'an owned drone equips without another charge')
 const geared = hydrate({ v: 1, mask: 'punk', drone: 'halo', ownedDrones: ['halo'], body: 'zuri' })
-check(geared.mask === 'punk' && geared.drone === 'halo' && geared.body === 'zuri', 'a save keeps Zuri, her mask, and a drone she owns')
+check(geared.mask === 'punk' && geared.drone === 'halo' && geared.body === 'zuri', 'a save keeps the woman, her mask, and a drone she owns')
 check(hydrate({ v: 1, drone: 'halo', ownedDrones: [] }).drone === 'none', 'a drone that was never bought does not fly')
 
 const pos = { x: 0.2, z: 0 }
