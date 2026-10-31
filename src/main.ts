@@ -168,6 +168,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
 
   const renderer = createRenderer(canvas)
   if (!renderer) {
+  { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,16}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
     await startFlat(onReveal)
     return
   }

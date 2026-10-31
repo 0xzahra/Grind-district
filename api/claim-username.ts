@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 import { ensureWallet } from './_wallet.js'
 
-type Req = { method?: string; headers: Record<string, string | undefined>; body?: { username?: string } }
+type Req = { method?: string; headers: Record<string, string | undefined>; body?: { username?: string; ref?: string } }
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
@@ -31,5 +31,15 @@ export default async function handler(req: Req, res: Res) {
   const { error } = await db.from('players').insert({ privy_user_id: userId, username: c.name })
   if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'Taken' : 'Could not save' })
   await ensureWallet(db, userId) // in-game wallet record on sign-up; no keys involved
-  res.status(200).json({ username: c.name, userId })
+  // Referral: only usernames are stored; inviter must be a real, different player.
+  let invitedBy: string | null = null
+  const ref = cleanUsername(req.body?.ref)
+  if (ref.ok && ref.name !== c.name) {
+    const inviter = await db.from('players').select('username').ilike('username', ref.name).maybeSingle()
+    if (inviter.data) {
+      const ins = await db.from('referrals').insert({ invitee_username: c.name, inviter_username: inviter.data.username })
+      if (!ins.error) invitedBy = inviter.data.username
+    }
+  }
+  res.status(200).json({ username: c.name, userId, invitedBy })
 }

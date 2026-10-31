@@ -3,7 +3,8 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
-import { shareLink } from './share.ts'
+import { shareLink, shareOrCopy } from './share.ts'
+import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { track } from './track.ts'
 import { COURSES, headlines } from './courses.ts'
 import { GUIDE } from './guide.ts'
@@ -231,7 +232,22 @@ export function mountUi(
       head('Portfolio'), doc(docs.portfolio), document.createElement('hr'),
       head('Books'), renderBooks(),
     )
-    const card = frame(save.name, stack(hero, renderToday(save), glass, advice()))
+    const share = document.createElement('section')
+    share.className = 'glass'
+    const link = (src: 'profile' | 'invite') => { const u = new URL(shareLink('/', src, save.username)); u.hash = `profile=${encodeShare(getSave())}`; return u.toString() }
+    const status = para('', 'muted')
+    const joined = para('', 'muted')
+    share.append(
+      head('Invite and share'),
+      para('Your invite link opens your full profile: CV, resume, portfolio and books. Family requests and your email never appear.', 'muted'),
+      button('Share profile, CV and books', 'primary', () => void shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' })),
+      button('Copy invite link', 'ghost', () => void copyText(link('invite')).then(() => { status.textContent = 'Invite link copied.' })),
+      status, joined,
+    )
+    if (save.username) void fetch(`/api/referrals?u=${encodeURIComponent(save.username)}`).then((r) => r.json()).then((j: { joined?: string[] }) => {
+      joined.textContent = j.joined?.length ? j.joined.map((p) => `@${p} joined via your invite link.`).join(' ') : 'No one has joined via your link yet.'
+    }).catch(() => {})
+    const card = frame(save.name, stack(hero, renderToday(save), glass, share, advice()))
     card.classList.add('glass-sheet')
     return card
   }
@@ -278,22 +294,20 @@ export function mountUi(
     return wrap
   }
 
+  const renderBookRows = (rows: BookRow[]): HTMLElement => {
+    const wrap = stack()
+    let section = ''
+    for (const r of rows) {
+      if (r.section !== section) { section = r.section; wrap.append(para(section, 'kicker')) }
+      wrap.append(line(r.label, r.value))
+    }
+    return wrap
+  }
+
   const renderBooks = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Assets, wants, and open positions. Marks are practice.', 'muted'))
-    wrap.append(para('Assets', 'kicker'))
-    wrap.append(line('Practice cash', money(save.ledger)))
-    if (Object.values(save.skills).some((skill) => skill?.passed)) wrap.append(line('Campus pass', 'On you'))
-    if (save.luxury) wrap.append(line('Gold chain', `Resell ${money(RESELL_USD)}`))
-    if (save.carbon.length === 0) wrap.append(line('Carbon notes', 'None'))
-    for (const note of save.carbon) wrap.append(line(note.name, 'Practice pledge'))
-    wrap.append(para('Liabilities', 'kicker'))
-    wrap.append(line('Open family request', save.taxOpen ? money(TAX_USD) : 'None'))
-    if (save.wants.length === 0) wrap.append(line('Wants', 'None'))
-    for (const want of save.wants) wrap.append(line(want.label, `${money(want.spent)} spent`))
-    wrap.append(para('Investments', 'kicker'))
-    wrap.append(positionLine('UNIT', 'unit'))
-    wrap.append(positionLine('MEME', 'meme'))
+    const wrap = stack(para('Assets earn. Liabilities (cars, jets, houses, chains) cost upkeep. Investments are coins, new coins and stocks. In-game values only.', 'muted'))
+    wrap.append(renderBookRows(bookRows(save)))
     if (save.luxury) wrap.append(button('Resell the chain', 'ghost', () => {
       const result = sellChain()
       hooks.onStyle()
@@ -302,13 +316,6 @@ export function mountUi(
     }))
     if (save.taxOpen) wrap.append(button('Respond to the request', 'primary', () => open('tax')))
     return wrap
-  }
-
-  const positionLine = (label: string, symbol: 'unit' | 'meme'): HTMLElement => {
-    const book = describeTrade(symbol)
-    if (book.qty <= 0) return line(label, 'Flat')
-    const sign = book.pnl >= 0 ? '+' : ''
-    return line(label, `${book.qty.toFixed(3)} @ ${money(book.avg)} · ${sign}${money(book.pnl)}`)
   }
 
   const line = (label: string, value: string): HTMLElement => {
@@ -946,17 +953,29 @@ export function mountUi(
           para('Seasons flip every six minutes in this build, for everyone on the same clock.'),
           button('Read it at the café', 'primary', () => open('cafe')),
         ])
-      case 'shared':
-        return renderSimple('Shared profile', [
-          para('Someone sent a practice profile. Your save was not touched.', 'muted'),
-          (() => {
-            const pre = document.createElement('pre')
-            pre.className = 'doc'
-            pre.textContent = sharedHold ? sharedText(sharedHold) : 'That link did not include a profile.'
-            return pre
-          })(),
-          button('Walk in', 'primary', close),
-        ])
+      case 'shared': {
+        const p = sharedHold
+        const body = stack()
+        if (!p) body.append(para('That link did not include a profile.', 'muted'))
+        else {
+          const inviter = new URLSearchParams(location.search).get('src') === 'invite' ? p.u : ''
+          if (inviter) body.append(para(`You were invited by @${inviter}. Sign up and it shows as joined via their invite link.`, 'muted'))
+          const intro = document.createElement('pre')
+          intro.className = 'doc'
+          intro.textContent = sharedText(p)
+          const g = document.createElement('section')
+          g.className = 'glass'
+          const h = (t: string) => { const e = document.createElement('h3'); e.textContent = t; return e }
+          const d = (t: string) => { const e = document.createElement('pre'); e.className = 'doc'; e.textContent = publicDoc(t) || 'Not filed yet.'; return e }
+          if (p.d) g.append(h('CV'), d(p.d.c), h('Resume'), d(p.d.r), h('Portfolio'), d(p.d.p))
+          g.append(h('Books'), renderBookRows((p.b ?? []).map(([section, label, value]) => ({ section: section as BookRow['section'], label, value }))))
+          body.append(intro, g)
+        }
+        body.append(para('Your own save was not touched.', 'muted'), button('Walk in', 'primary', close))
+        const card = frame(p ? `${p.n}'s profile` : 'Shared profile', body)
+        card.classList.add('glass-sheet')
+        return card
+      }
       default: {
         const neverPanel: never = panel
         return neverPanel

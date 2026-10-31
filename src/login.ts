@@ -62,12 +62,13 @@ export function openLogin(): void {
       }, 250)
     }
     save.onclick = async () => {
-      const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ username: input.value }) })
-      const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string }
+      const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ username: input.value, ref: localStorage.getItem('gd.invitedBy') ?? undefined }) })
+      const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string; invitedBy?: string | null }
       if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
       if (j.username) {
         localStorage.setItem(CLAIMED_KEY, j.username)
-        body.replaceChildren(el('p', `Signed in as @${j.username}.`))
+        body.replaceChildren(el('p', `Signed in as @${j.username}.`), ...(j.invitedBy ? [el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)] : []))
+        if (j.invitedBy) localStorage.removeItem('gd.invitedBy')
       } else state.textContent = j.error ?? 'Could not save'
     }
     body.replaceChildren(el('p', 'Choose your username. It is unique across the city.'), input, state, save)

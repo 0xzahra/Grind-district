@@ -216,6 +216,10 @@ export type SharedProfile = {
   s: number
   k: SkillId[]
   a: string[]
+  /** Public books: [section, label, value] rows. Never includes family requests. */
+  b?: [string, string, string][]
+  /** Public docs (family requests stripped). */
+  d?: { c: string; r: string; p: string }
 }
 
 const SEASON_MS = 6 * 60 * 1000
@@ -826,6 +830,8 @@ export function encodeShare(save: Save): string {
     s: save.streak,
     k: SKILL_ORDER.filter((id) => save.skills[id]?.passed),
     a: save.activities.slice(0, 6).map((item) => item.label.slice(0, 80)),
+    b: bookRows(save, true).map((r) => [r.section, r.label, r.value]),
+    d: (() => { const docs = documents(save); return { c: publicDoc(docs.cv), r: publicDoc(docs.resume), p: publicDoc(docs.portfolio) } })(),
   }
   return toB64Url(JSON.stringify(payload))
 }
@@ -848,6 +854,8 @@ export function decodeShare(param: string): SharedProfile | null {
       s: num(row.s, 0, 9999, 0),
       k: skills,
       a: proof,
+      b: Array.isArray(row.b) ? row.b.filter((r): r is [string, string, string] => Array.isArray(r) && r.length === 3 && r.every((v) => typeof v === 'string')).slice(0, 40).map((r) => [r[0].slice(0, 20), r[1].slice(0, 60), r[2].slice(0, 60)] as [string, string, string]) : [],
+      d: row.d && typeof row.d === 'object' ? (() => { const d = row.d as Record<string, unknown>; const t = (v: unknown) => (typeof v === 'string' ? publicDoc(v) : ''); return { c: t(d.c), r: t(d.r), p: t(d.p) } })() : undefined,
     }
   } catch {
     return null
@@ -875,4 +883,39 @@ export function progressToNext(xp: number): number {
   const span = next.xp - current.xp
   if (span <= 0) return 1
   return Math.min(1, (xp - current.xp) / span)
+}
+
+/** Strip private lines (family requests) and cap length for public share pages. */
+export function publicDoc(text: string): string {
+  return text.split('\n').filter((l) => !/open request|family request|cousin/i.test(l)).join('\n').slice(0, 1800)
+}
+
+export type BookRow = { section: 'Assets' | 'Liabilities' | 'Investments'; label: string; value: string }
+
+/** Books: assets, liabilities (luxury rewards with upkeep), investments (coins, new coins, stocks).
+ *  isPublic hides family requests and spending wants. */
+export function bookRows(save: Save, isPublic = false): BookRow[] {
+  const rows: BookRow[] = []
+  const passed = Object.values(save.skills).some((skill) => skill?.passed)
+  if (save.ledger > 0) rows.push({ section: 'Assets', label: 'Grind cash (in-game)', value: money(save.ledger) })
+  if (passed) rows.push({ section: 'Assets', label: 'Campus pass', value: 'Held' })
+  if (save.earnings > 0) rows.push({ section: 'Assets', label: 'Lifetime earnings', value: money(save.earnings) })
+  if (!rows.length) rows.push({ section: 'Assets', label: 'Nothing held yet', value: 'Earn from courses and jobs' })
+  // Liabilities: luxury rewards cost upkeep and lose value the moment you own them.
+  const lux: BookRow[] = []
+  if (save.houseClaimed) lux.push({ section: 'Liabilities', label: 'House', value: 'Upkeep' })
+  if (save.luxury) lux.push({ section: 'Liabilities', label: 'Gold chain', value: `Resells ${money(RESELL_USD)}` })
+  for (const id of save.ownedDrones) lux.push({ section: 'Liabilities', label: `Drone · ${id}`, value: 'Upkeep' })
+  if (!isPublic) for (const want of save.wants) lux.push({ section: 'Liabilities', label: want.label, value: `${money(want.spent)} spent` })
+  if (!isPublic && save.taxOpen) lux.push({ section: 'Liabilities', label: 'Family request (private)', value: money(TAX_USD) })
+  rows.push(...(lux.length ? lux : [{ section: 'Liabilities' as const, label: 'No cars, jets or houses yet', value: 'None' }]))
+  const pos = (label: string, h: Holding, price: number) => {
+    if (h.qty <= 0) return { section: 'Investments' as const, label, value: 'None held' }
+    const pnl = (price - h.avg) * h.qty
+    return { section: 'Investments' as const, label, value: `${h.qty.toFixed(3)} @ ${money(h.avg)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }
+  }
+  rows.push(pos('UNIT · district coin', save.unit, save.unitPrice))
+  rows.push(pos('MEME · new coin', save.meme, save.memePrice))
+  rows.push({ section: 'Investments', label: 'Stocks', value: 'None listed yet' })
+  return rows
 }
