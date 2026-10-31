@@ -94,7 +94,21 @@ const LOOKS: Array<[number, number]> = [
   [0xf0c9ad, 0xd9c08a], [0x7a4a2e, 0x16100d], [0xb47a55, 0x4a2c1a], [0x9a6544, 0x0e0a08],
 ]
 
-export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacle[] } {
+const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Learning hall.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
+function bubble(text: string): THREE.Sprite {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96
+  const g = c.getContext('2d')!
+  g.font = '500 30px -apple-system, system-ui, sans-serif'
+  const w = Math.min(500, g.measureText(text).width + 44)
+  g.fillStyle = 'rgba(248,246,242,0.92)'; g.beginPath(); g.roundRect((512 - w) / 2, 10, w, 70, 22); g.fill()
+  g.fillStyle = '#1c1c1e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 46)
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }))
+  sp.scale.set(2.4, 0.45, 1); sp.position.y = 2.5; sp.userData.ghost = true; sp.raycast = () => undefined
+  return sp
+}
+
+export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury, people.length)
@@ -138,9 +152,25 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
   let robotX = robotEnds[0]?.x ?? 10
   let robotZ = robotEnds[0]?.z ?? 6
 
+  let chatClock = 3, chatLine = 0
+  const live: Array<{ sp: THREE.Sprite; host: THREE.Object3D; ttl: number }> = []
+  const still = new Set<number>()
   return {
-    tick(dt) {
+    nearest(x, z, r) { return people.some((p) => Math.hypot(p.sim.x - x, p.sim.z - z) < r) },
+    tick(dt, player) {
       const obstacles: Obstacle[] = []
+      // Pair chat: two standing people near each other trade a line (one bubble at a time, cheap canvas sprite).
+      chatClock -= dt
+      for (let i = live.length - 1; i >= 0; i -= 1) { const b = live[i]!; b.ttl -= dt; if (b.ttl <= 0) { b.host.remove(b.sp); b.sp.material.map?.dispose(); b.sp.material.dispose(); live.splice(i, 1) } }
+      if (chatClock <= 0 && player) {
+        chatClock = 5 + (chatLine % 3)
+        const near = people.filter((p, i) => still.has(i) && Math.hypot(p.sim.x - player.x, p.sim.z - player.z) < 22)
+        const a = near[chatLine % Math.max(1, near.length)]
+        if (a && live.length < 2) { const sp = bubble(CHAT[chatLine % CHAT.length]!); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
+        chatLine += 1
+      }
+      // Nearest 5 standing people within 7 m turn to face the player.
+      const lookers = player ? people.map((p, i) => ({ i, d: Math.hypot(p.sim.x - player.x, p.sim.z - player.z) })).filter((o) => o.d < 7).sort((a, b) => a.d - b.d).slice(0, 5) : []
       const before = people.map((person) => ({ x: person.sim.x, z: person.sim.z }))
       stepCitizens(people.map((person) => person.sim), dt)
       people.forEach((person, index) => {
@@ -148,7 +178,8 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
         const dx = prior ? person.sim.x - prior.x : 0
         const dz = prior ? person.sim.z - prior.z : 0
         const moving = Math.hypot(dx, dz) > 0.001
-        if (moving) person.avatar.face(dx, dz, dt, true)
+        if (moving) { person.avatar.face(dx, dz, dt, true); still.delete(index) } else still.add(index)
+        if (!moving && player && lookers.some((o) => o.i === index)) person.avatar.face(player.x - person.sim.x, player.z - person.sim.z, dt, true)
         person.avatar.step(dt, moving, person.sim.spec.speed)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
         if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)

@@ -1,3 +1,4 @@
+import { schedule } from './events.ts'
 import * as THREE from 'three'
 import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -204,6 +205,15 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   })
   let travelHook: (title: string, enter?: boolean) => void = () => {}
   const crowd = createCrowd(scene)
+  const greetBtn = document.createElement('button')
+  greetBtn.type = 'button'; greetBtn.id = 'greet'; greetBtn.className = 'glass-fab greet-fab'; greetBtn.textContent = 'Greet'; greetBtn.hidden = true
+  document.body.append(greetBtn)
+  greetBtn.addEventListener('click', () => {
+    const next = schedule(new Date(), 2)[0]
+    const tips = next ? [`Hi! ${next.kind} "${next.title}" is ${next.label}${next.open ? ', doors are open' : ''} at the Conference centre.`, `Morning. ${next.host} hosts ${next.kind.toLowerCase()} ${next.label}. Worth the XP.`] : ['Hi! The Learning hall has twenty courses. Start with Spot trading.']
+    greetToast(tips[Math.floor(Date.now() / 60000) % tips.length]!)
+  })
+  let greetToast: (m: string) => void = () => {}
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
   const physSky = createPhysicalSky(scene)
@@ -304,6 +314,7 @@ const apiAgents = createRemoteAgents(scene)
   applyGraphics()
   applyPrefs()
 
+  greetToast = (m) => { ui.toast(m) }
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
@@ -939,7 +950,8 @@ const apiAgents = createRemoteAgents(scene)
       applyLook()
       ui.refresh()
     }
-    crowdObstacles = crowd.tick(dt)
+    crowdObstacles = crowd.tick(dt, interiors.inside ? undefined : { x: avatar.object.position.x, z: avatar.object.position.z })
+    greetBtn.hidden = !!interiors.inside || !crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.6)
     agentBot.tick(dt, avatar.object.position)
   apiAgents.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
