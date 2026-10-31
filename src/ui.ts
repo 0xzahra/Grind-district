@@ -15,6 +15,7 @@ import {
   CLIMATE_USD,
   COURSE_XP,
   DRONES,
+  VEHICLES,
   MASKS,
   PROJECTS,
   RESELL_USD,
@@ -41,6 +42,7 @@ import {
   attendChurch,
   buyChain,
   buyDrone,
+  buyVehicle,
   claimHouse,
   markHouseVisit,
   declineTax,
@@ -598,6 +600,18 @@ export function mountUi(
         open('gadgets')
       }))
     }
+    wrap.append(para('Vehicles', 'kicker'))
+    wrap.append(para('Cars, jets and drones. In-game cash only. Each one lands in Books under liabilities.', 'muted'))
+    for (const v of VEHICLES) {
+      const owned = (save.ownedVehicles ?? []).includes(v.id)
+      wrap.append(para(v.blurb, 'muted'))
+      wrap.append(button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
+        const outcome = buyVehicle(v.id)
+        hooks.onStyle()
+        finish(outcome.message)
+        open('gadgets')
+      }))
+    }
     wrap.append(advice())
     return frame('Gadgets', wrap)
   }
@@ -1033,6 +1047,8 @@ export function mountUi(
   subscribe(() => refresh())
   refresh()
 
+  // Courses tab in the Control Centre: opens the same learn panel as the hall, so progress is shared.
+  document.querySelector('#nav-courses')?.addEventListener('click', () => open('learn'))
   return {
     isOpen: () => current !== null,
     open,

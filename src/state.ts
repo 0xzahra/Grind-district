@@ -19,6 +19,9 @@ import {
   createSave,
   hydrate,
   quoteDrone,
+  quoteVehicle,
+  VEHICLES,
+  type VehicleId,
   lagosDay,
   makeId,
   markDaily,
@@ -230,6 +233,21 @@ export function buyDrone(id: DroneId): { ok: boolean; message: string } {
   persist()
   emit()
   return { ok: true, message: quote.already ? `${item.label} is up.` : `${item.label} is paid and flying.` }
+}
+
+export function buyVehicle(id: VehicleId): { ok: boolean; message: string } {
+  const item = VEHICLES.find((v) => v.id === id)
+  if (!item) return { ok: false, message: 'That vehicle is not in the hangar.' }
+  const quote = quoteVehicle(save.ledger, save.ownedVehicles, id)
+  if (!quote.ok) return { ok: false, message: quote.error }
+  if (quote.already) return { ok: true, message: `The ${item.label.toLowerCase()} is already yours.` }
+  save.ledger = quote.ledger
+  save.ownedVehicles = [...save.ownedVehicles, id]
+  save.wants.push({ label: item.label, spent: quote.spent, at: Date.now() })
+  log('money', `Bought a ${item.label.toLowerCase()}`, 'Filed under liabilities. It costs upkeep.')
+  persist()
+  emit()
+  return { ok: true, message: `${item.label} is yours. It sits under liabilities.` }
 }
 
 export function pocketDrone(): { message: string } {

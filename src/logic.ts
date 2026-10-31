@@ -118,6 +118,29 @@ export const DRONES: { id: DroneId; label: string; price: number; blurb: string 
   { id: 'halo', label: 'Halo', price: 48, blurb: 'A lit ring. The street can see you coming.' },
 ]
 
+export type VehicleKind = 'car' | 'jet' | 'drone'
+export type VehicleId = 'saloon' | 'tourer' | 'lightjet' | 'longjet' | 'skydrone'
+/** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
+export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
+  { id: 'saloon', kind: 'car', label: 'City saloon', price: 30, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
+  { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 42, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
+  { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 45, blurb: 'Six seats, regional range. Hangar fees every month.' },
+  { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 50, blurb: 'Lagos to London nonstop. Crew, hangar and fuel on you.' },
+  { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 55, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
+]
+const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))
+export function cleanOwnedVehicles(value: unknown): VehicleId[] {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.filter((v): v is VehicleId => typeof v === 'string' && VEHICLE_IDS.has(v)))]
+}
+export function quoteVehicle(ledger: number, owned: readonly string[], id: VehicleId): { ok: true; ledger: number; spent: number; already: boolean } | { ok: false; error: string } {
+  const item = VEHICLES.find((v) => v.id === id)
+  if (!item) return { ok: false, error: 'That vehicle is not in the hangar.' }
+  if (owned.includes(id)) return { ok: true, ledger, spent: 0, already: true }
+  if (ledger < item.price) return { ok: false, error: `Short ${money(item.price - ledger)}. The ${item.label.toLowerCase()} stays parked.` }
+  return { ok: true, ledger: cents(ledger - item.price), spent: item.price, already: false }
+}
+
 export const PROJECTS = [
   { id: 'mangrove', name: 'Lagos mangrove' },
   { id: 'stoves', name: 'Clean cookstoves' },
@@ -165,6 +188,7 @@ export type Save = {
   mask: MaskId
   drone: DroneId | 'none'
   ownedDrones: DroneId[]
+  ownedVehicles: VehicleId[]
   xp: number
   reputation: number
   ledger: number
@@ -370,6 +394,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     mask: 'none',
     drone: 'none',
     ownedDrones: [],
+    ownedVehicles: [],
     xp: 0,
     reputation: 0,
     ledger: 0,
@@ -545,6 +570,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.luxury = bool(row.luxury, false)
   fresh.mask = cleanMask(row.mask)
   fresh.ownedDrones = cleanOwnedDrones(row.ownedDrones)
+  fresh.ownedVehicles = cleanOwnedVehicles(row.ownedVehicles)
   const worn = cleanDrone(row.drone)
   fresh.drone = worn !== 'none' && fresh.ownedDrones.includes(worn) ? worn : 'none'
   fresh.xp = num(row.xp, 0, 1_000_000, 0)
@@ -905,10 +931,15 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
   const lux: BookRow[] = []
   if (save.houseClaimed) lux.push({ section: 'Liabilities', label: 'House', value: 'Upkeep' })
   if (save.luxury) lux.push({ section: 'Liabilities', label: 'Gold chain', value: `Resells ${money(RESELL_USD)}` })
+  const kindLabel = { car: 'Car', jet: 'Jet', drone: 'Drone' } as const
+  for (const id of save.ownedVehicles ?? []) {
+    const v = VEHICLES.find((item) => item.id === id)
+    if (v) lux.push({ section: 'Liabilities', label: `${kindLabel[v.kind]} · ${v.label}`, value: 'Upkeep' })
+  }
   for (const id of save.ownedDrones) lux.push({ section: 'Liabilities', label: `Drone · ${id}`, value: 'Upkeep' })
   if (!isPublic) for (const want of save.wants) lux.push({ section: 'Liabilities', label: want.label, value: `${money(want.spent)} spent` })
   if (!isPublic && save.taxOpen) lux.push({ section: 'Liabilities', label: 'Family request (private)', value: money(TAX_USD) })
-  rows.push(...(lux.length ? lux : [{ section: 'Liabilities' as const, label: 'No cars, jets or houses yet', value: 'None' }]))
+  rows.push(...(lux.length ? lux : [{ section: 'Liabilities' as const, label: 'No cars, jets, drones or houses yet', value: 'None' }]))
   const pos = (label: string, h: Holding, price: number) => {
     if (h.qty <= 0) return { section: 'Investments' as const, label, value: 'None held' }
     const pnl = (price - h.avg) * h.qty
