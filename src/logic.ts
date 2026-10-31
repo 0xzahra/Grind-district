@@ -51,6 +51,7 @@ export type PanelId =
   | 'prayer'
   | 'cafe'
   | 'house'
+  | 'city'
   | 'climate'
   | 'bounty'
   | 'conference'
@@ -155,6 +156,7 @@ export type Save = {
   conference: boolean
   robotRead: boolean
   houseClaimed: boolean
+  houseVisits: string[]
   gymBest: number
   seenIntro: boolean
   posX: number
@@ -344,6 +346,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     conference: false,
     robotRead: false,
     houseClaimed: false,
+    houseVisits: [],
     gymBest: 0,
     seenIntro: false,
     posX: 0,
@@ -364,6 +367,17 @@ export function cleanName(value: unknown): string {
   if (typeof value !== 'string') return 'Shrimp'
   const trimmed = value.replace(/\s+/g, ' ').trim().slice(0, 24)
   return trimmed.length ? trimmed : 'Shrimp'
+}
+
+const HOUSE_VISIT_IDS = new Set(['adaeze', 'malik', 'nia', 'vacant'])
+
+export function cleanHouseVisits(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  for (const item of value) {
+    if (typeof item === 'string' && HOUSE_VISIT_IDS.has(item)) seen.add(item)
+  }
+  return [...seen]
 }
 
 export function cleanBody(value: unknown): BodyId {
@@ -434,6 +448,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.conference = bool(row.conference, false)
   fresh.robotRead = bool(row.robotRead, false)
   fresh.houseClaimed = bool(row.houseClaimed, false)
+  fresh.houseVisits = cleanHouseVisits(row.houseVisits)
   fresh.gymBest = num(row.gymBest, 0, 8, 0)
   fresh.seenIntro = bool(row.seenIntro, false)
   fresh.posX = num(row.posX, -CITY_POS, CITY_POS, 0)
