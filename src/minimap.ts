@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ESTATE_PINS } from './estate.ts'
 const LIMIT = 62
 export const MAP_LIMIT = LIMIT
 
@@ -18,6 +19,8 @@ const PLOTS: Array<{ x: number; z: number; w: number; d: number; door?: boolean 
 ]
 
 let sat: HTMLCanvasElement | null = null
+// Satellite photos are always daylit: a soft sky fill is added only for the bake.
+const dayFill = new THREE.HemisphereLight(0xffffff, 0x8a8478, 2.2)
 /** Satellite-style base map: one orthographic top-down render of the real scene, cached in a 2D canvas. */
 export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene, size = 512): void {
   const cam = new THREE.OrthographicCamera(-LIMIT, LIMIT, LIMIT, -LIMIT, 1, 400)
@@ -40,6 +43,7 @@ export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   try {
     scene.fog = null
     scene.background = null
+    scene.add(dayFill)
     renderer.setRenderTarget(rt)
     renderer.render(scene, cam)
     const px = new Uint8Array(size * size * 4)
@@ -56,9 +60,12 @@ export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
     scene.fog = fog
     scene.background = bg
     for (const o of hidden) o.visible = true
+    scene.remove(dayFill)
     rt.dispose()
   }
 }
+
+export const satelliteUrl = (): string => sat?.toDataURL('image/png') ?? ''
 
 export function drawMinimap(
   ctx: CanvasRenderingContext2D,
@@ -106,6 +113,7 @@ export function drawMinimap(
   // Named markers: home, boutique, gym.
   const marks: Array<[number, number, string, string]> = [[36, 32, 'H', '#e8c98f'], [22, -22, 'B', '#f2ece0'], [-22, -22, 'G', '#f2ece0'], [24, 27, '✝', '#f2ece0'], [-24, 27, 'M', '#f2ece0']]
   ctx.font = `700 ${Math.max(9, Math.round(width / 14))}px -apple-system, Inter, sans-serif`
+  for (const [ex, ez, el] of ESTATE_PINS) marks.push([ex, ez, el, '#e8c98f'])
   for (const [mx, mz, letter, col] of marks) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)'
     ctx.beginPath()

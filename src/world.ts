@@ -1,3 +1,4 @@
+import { ESTATE_ZONES } from './estate.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import type { PanelId, Season, TimeOfDay } from './logic.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
@@ -1169,6 +1170,7 @@ export function createWorld(options: {
     if (Math.abs(x) < 5 || Math.abs(z) < 5) return false
     if (Math.hypot(x, z) < 15) return false
     if (Math.hypot(x + 40, z - 40) < 11) return false
+    if (ESTATE_ZONES.some((r) => Math.abs(x - r.x) < r.hx + 1 && Math.abs(z - r.z) < r.hz + 1)) return false
     if (Math.abs(x) > 56 || Math.abs(z) > 56) return false
     if (Math.abs(x) < ROAD_HALF + 2 || Math.abs(z) < ROAD_HALF + 2) return false
     if (SIDE_RECTS.some((r) => Math.abs(x - r.x) < r.hx + 2 && Math.abs(z - r.z) < r.hz + 2)) return false

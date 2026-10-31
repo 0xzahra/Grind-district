@@ -18,7 +18,7 @@ import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
-import { drawMinimap, bakeSatellite } from './minimap.ts'
+import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
 import { createNet } from './net.ts'
 import { encodeShare } from './logic.ts'
 import { dmUnread, mountMessages, openInbox, openThread } from './messages.ts'
@@ -41,6 +41,7 @@ import { createSeating, plazaSeats, seatSpot, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
+import { createEstate } from './estate.ts'
 import './style.css'
 import './glass.css'
 import { createPortrait } from './portrait.ts'
@@ -222,6 +223,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
   const physSky = createPhysicalSky(scene)
+  createEstate(scene, { graphics: getSave().graphics, obstacles: world.obstacles, hotspots: world.hotspots, toast: (m) => ui.toast(m) })
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
@@ -966,6 +968,7 @@ const apiAgents = createRemoteAgents(scene)
   const tryBake = () => { if (!interiors.inside) { bake(); baked = true } else setTimeout(tryBake, 5000) }
   setTimeout(tryBake, 4000)
   void baked
+  if (location.search.includes('debugmap')) Object.assign(window, { __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles })
   setInterval(bake, 10 * 60 * 1000) // refreshed rarely
   const drawMap = () => {
     if (!mapCtx) return
