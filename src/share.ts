@@ -49,7 +49,10 @@ export async function publishProfile(): Promise<boolean> {
     const token = await (await import('./login.ts')).accessToken()
     if (!token) return false
     const s = getSave()
-    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s), pinned: (await import('./career.ts')).pinnedTitles() }) })
+    const mo = await import('./morph.ts')
+    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s), pinned: (await import('./career.ts')).pinnedTitles(), look: mo.hasLocalMorph() ? mo.getMorph() : undefined }) })
+    // Fresh device: adopt the look saved on the account.
+    if (r.ok && !mo.hasLocalMorph()) { const j = await r.json().catch(() => null) as { look?: { h: number; b: number; hair: number | null } | null } | null; if (j?.look) { mo.setMorph(j.look); window.dispatchEvent(new Event('gd:look')) } }
     return r.ok
   } catch { return false }
 }

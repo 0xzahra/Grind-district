@@ -27,8 +27,12 @@ export default async function handler(req: Req, res: Res) {
     skills: Array.isArray(b.skills) ? b.skills.slice(0, 12).map((s) => String(s).slice(0, 60)) : [],
     pinned: Array.isArray(b.pinned) ? b.pinned.slice(0, 3).map((s) => String(s).slice(0, 60)) : [],
     updated_at: new Date().toISOString(),
-  }
+  } as Record<string, unknown>
+  // Character look (height, build, hair colour) rides along so it follows the account across devices.
+  const lk = b.look as { h?: unknown; b?: unknown; hair?: unknown } | undefined
+  if (lk && typeof lk === 'object') row.look = { h: Math.max(0.92, Math.min(1.08, Number(lk.h) || 1)), b: Math.max(0.9, Math.min(1.15, Number(lk.b) || 1)), hair: lk.hair == null ? null : Math.max(0, Math.min(0xffffff, Math.round(Number(lk.hair) || 0))) }
+  const prev = lk ? null : await db.from('public_profiles').select('look').eq('username', p.data.username).maybeSingle()
   const { error } = await db.from('public_profiles').upsert(row, { onConflict: 'username' })
   if (error) return res.status(500).json({ error: 'save failed' })
-  res.status(200).json({ ok: true, username: row.username })
+  res.status(200).json({ ok: true, username: row.username, look: row.look ?? prev?.data?.look ?? null })
 }

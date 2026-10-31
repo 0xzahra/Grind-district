@@ -13,3 +13,5 @@ export const HAIRS = [
 export type Style = 'all' | 'office' | 'street' | 'african'
 /** Citizens vary a little so the crowd is not cloned. Deterministic per variant. */
 export const citizenScale = (variant: number) => { const r = ((variant * 2654435761) >>> 0) / 4294967296; return { h: 0.94 + r * 0.12, b: 0.95 + ((r * 7) % 1) * 0.12 } }
+/** True once the player has touched the creator on this device. */
+export const hasLocalMorph = (): boolean => { try { return localStorage.getItem(KEY) !== null } catch { return false } }
