@@ -304,7 +304,7 @@ body.flat header {
   inset: 0;
   z-index: 9;
   display: grid;
-  align-content: center;
+  align-content: safe center;
   justify-items: center;
   gap: 0.85rem;
   padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
@@ -313,6 +313,66 @@ body.flat header {
     #070a09;
   text-align: center;
   pointer-events: auto;
+  overflow: auto;
+}
+
+#menu-home,
+#menu-page {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  width: min(40rem, 100%);
+}
+
+.menu-actions {
+  display: grid;
+  gap: 0.5rem;
+  width: min(22rem, 100%);
+}
+
+.menu-actions button {
+  min-height: 48px;
+}
+
+#menu-page {
+  text-align: left;
+}
+
+#menu-page h2 {
+  margin: 0;
+  text-align: center;
+}
+
+#menu-back {
+  justify-self: center;
+  min-width: 10rem;
+}
+
+.menu-copy p {
+  margin: 0 0 0.75rem;
+  color: var(--dim);
+  line-height: 1.5;
+}
+
+.menu-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-list li {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid rgba(26, 243, 143, 0.22);
+}
+
+.menu-list strong {
+  display: block;
+  color: var(--ink);
+}
+
+.menu-list span {
+  color: var(--dim);
+  line-height: 1.45;
 }
 
 #menu[hidden] {
