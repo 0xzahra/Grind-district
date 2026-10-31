@@ -1379,3 +1379,6 @@ html body #nav.cc .cc-sheet > header { position: static !important; display: gri
 html body #nav.cc .cc-sheet > header > * { position: static !important; transform: none !important; }
 html body #nav.cc #cc-sheet-body { position: static !important; flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; display: block !important; height: auto !important; }
 html body.cc-sheet-on #nav.cc .cc-grid { visibility: hidden; }
+/* Labels under the quad icons (Messages, Notifications, Map), matching the labelled items. */
+html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: auto; min-height: 64px; }
+.cc-btn-label { font: 500 10.5px/1.1 -apple-system, Inter, system-ui, sans-serif; color: rgba(245,245,247,.85); white-space: nowrap; }

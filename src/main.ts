@@ -1,4 +1,3 @@
-import { openWallet } from './wallet.ts'
 import '@fontsource/archivo-black/400.css'
 import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
@@ -319,7 +318,6 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
-  must('#nav-wallet').addEventListener('click', () => openWallet()) // static import: opens on the same frame
   must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
@@ -469,30 +467,7 @@ const apiAgents = createRemoteAgents(scene)
     const moves = save.activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
     for (const a of moves) { const li = el('li'); li.append(el('strong', a.label), el('time', when(a.at)), el('p', a.detail)); list.append(li) }
     if (!moves.length) list.append(el('li', 'No in-game balance moves yet.', 'empty'))
-    sheetBody.append(list, el('h3', 'Wallet on Base (read-only)'))
-    const chain = el('ol', '', 'cc-list')
-    sheetBody.append(chain)
-    const addr = localStorage.getItem('gd.wallet.addr')
-    if (!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) { chain.append(el('li', 'No wallet linked. Link one from Wallet to see its transactions here.', 'empty')); return }
-    chain.append(el('li', 'Loading…', 'empty'))
-    fetch(`https://base.blockscout.com/api/v2/addresses/${addr}/transactions`, { signal: AbortSignal.timeout(6000) })
-      .then((r) => r.json() as Promise<{ items?: Array<{ hash: string; timestamp: string; value: string; from: { hash: string }; to: { hash: string } | null; method?: string | null }> }>)
-      .then((j) => {
-        chain.replaceChildren()
-        for (const t of (j.items ?? []).slice(0, 20)) {
-          const out = t.from.hash.toLowerCase() === addr.toLowerCase()
-          const eth = Number(BigInt(t.value)) / 1e18
-          const li = el('li')
-          const link = el('a', `${out ? 'Sent' : 'Received'} ${eth ? eth.toFixed(5) + ' ETH' : (t.method ?? 'contract call')}`)
-          ;(link as HTMLAnchorElement).href = `https://basescan.org/tx/${t.hash}`
-          ;(link as HTMLAnchorElement).target = '_blank'
-          ;(link as HTMLAnchorElement).rel = 'noopener noreferrer'
-          li.append(link, el('time', when(Date.parse(t.timestamp))))
-          chain.append(li)
-        }
-        if (!chain.children.length) chain.append(el('li', 'No transactions yet.', 'empty'))
-      })
-      .catch(() => { chain.replaceChildren(el('li', 'Could not reach the explorer. Try again later.', 'empty')) })
+    sheetBody.append(list)
   })
   must('#cc-sheet-back').addEventListener('click', closeSheet)
   railToggle.addEventListener('click', () => setCC(document.body.classList.contains('rail-shut')))
@@ -513,10 +488,8 @@ const apiAgents = createRemoteAgents(scene)
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
   must('#cc-status').addEventListener('click', openBalance)
   onNotesChange(() => { if (!ccSheet.hidden && sheetTitle.textContent === 'Notifications') renderNotes() })
-  must('#cc-agents').addEventListener('click', () => ui.open('settings'))
   // Sliders: while dragging, the menu fades away so the city stays visible; a readout shows the level and zone.
   const readout = must<HTMLElement>('#cc-readout')
-  const zoomEl = must<HTMLInputElement>('#cc-zoom')
   const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
   const paintReadout = (kind: 'zoom' | 'look') => {
     const place = interiors.inside ? 'Indoors' : districtName(avatar.object.position.x, avatar.object.position.z)
@@ -529,21 +502,57 @@ const apiAgents = createRemoteAgents(scene)
       readout.textContent = `Facing ${DIRS[Math.round(deg / 45) % 8]} · ${deg}° · ${place}`
     }
   }
-  const slide = (id: string, kind: 'zoom' | 'look', apply: (delta: number) => void) => {
-    const input = must<HTMLInputElement>(id)
-    let prev = Number(input.value)
-    const paint = () => input.parentElement!.style.setProperty('--v', `${input.value}%`)
-    paint()
-    const start = () => { document.body.classList.add('cc-peek'); input.parentElement!.classList.add('active'); readout.hidden = false; paintReadout(kind) }
-    const end = () => { document.body.classList.remove('cc-peek'); input.parentElement!.classList.remove('active'); readout.hidden = true }
-    input.addEventListener('pointerdown', start)
-    input.addEventListener('touchstart', start, { passive: true })
-    for (const ev of ['pointerup', 'pointercancel', 'touchend', 'change', 'blur']) input.addEventListener(ev, end)
-    input.addEventListener('input', () => { const v = Number(input.value); apply(v - prev); prev = v; paint(); window.setTimeout(() => paintReadout(kind), 40) })
+  // Custom pointer-driven sliders (native vertical range inputs ignore touch-drag on iOS and some Androids).
+  // The whole track is the hit area: finger height sets the value directly; pointer capture keeps the drag alive.
+  const slide = (id: string, kind: 'zoom' | 'look', apply: (v: number, prev: number) => void, read: () => number) => {
+    const inputEl = must<HTMLInputElement>(id)
+    const track = inputEl.parentElement as HTMLElement
+    track.style.touchAction = 'none'
+    inputEl.style.pointerEvents = 'none'
+    const paint = (v: number) => { inputEl.value = String(Math.round(v)); track.style.setProperty('--v', `${v}%`) }
+    let value = 50 // camera state is read lazily (declared later in boot)
+    paint(value)
+    let dragging = -1
+    const at = (e: PointerEvent) => { const r = track.getBoundingClientRect(); return THREE.MathUtils.clamp(((r.bottom - e.clientY) / r.height) * 100, 0, 100) }
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== dragging) return
+      e.preventDefault()
+      const v = at(e)
+      apply(v, value)
+      value = v
+      paint(v)
+      paintReadout(kind)
+    }
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== dragging) return
+      dragging = -1
+      document.body.classList.remove('cc-peek')
+      track.classList.remove('active')
+      readout.hidden = true
+    }
+    track.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragging = e.pointerId
+      track.setPointerCapture?.(e.pointerId)
+      document.body.classList.add('cc-peek')
+      track.classList.add('active')
+      readout.hidden = false
+      value = read()
+      move(e)
+    })
+    track.addEventListener('pointermove', move)
+    track.addEventListener('pointerup', end)
+    track.addEventListener('pointercancel', end)
+    track.addEventListener('lostpointercapture', end)
+    track.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation() })
+    railToggle.addEventListener('click', () => { value = read(); paint(value) })
   }
-  slide('#cc-zoom', 'zoom', () => { camDist = 12 - (Number(zoomEl.value) / 100) * (12 - 3.2) })
-  railToggle.addEventListener('click', () => { zoomEl.value = String(Math.round(((12 - camDist) / (12 - 3.2)) * 100)); zoomEl.parentElement!.style.setProperty('--v', `${zoomEl.value}%`) })
-  slide('#cc-look', 'look', (d) => input.nudgeLook(d * 8))
+  const ZMIN = 3.2, ZMAX = 12
+  slide('#cc-zoom', 'zoom', (v) => { camDist = ZMAX - (v / 100) * (ZMAX - ZMIN) }, () => ((ZMAX - camDist) / (ZMAX - ZMIN)) * 100)
+  // Turn: the full track is one full turn; dragging rotates the camera continuously, the fill shows heading.
+  slide('#cc-look', 'look', (v, prev) => { camYaw += ((v - prev) / 100) * Math.PI * 2; lookIdle = 0 },
+    () => (((((camYaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2)) * 100))
   const dot = railToggle.querySelector('.cc-dot') as HTMLElement
   const bellBadge = must<HTMLElement>('#cc-bell-badge')
   window.setInterval(() => {
@@ -651,33 +660,14 @@ const apiAgents = createRemoteAgents(scene)
   const lookSmooth = new THREE.Vector3()
   const vel = { x: 0, z: 0 }
   let target: THREE.Vector3 | null = null
-  // Go home (button or Home key): reset the camera behind the player and point a waypoint arrow at the house.
-  // It never moves the player.
-  const HOME_DOOR = new THREE.Vector3(36 - 3.5 - 1.45, 0, 32)
-  const homeArrow = new THREE.Group()
-  {
-    const arrowMat = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.7, roughness: 0.4 })
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 10), arrowMat)
-    head.rotation.x = Math.PI / 2
-    head.position.z = 0.35
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8), arrowMat)
-    shaft.rotation.x = Math.PI / 2
-    homeArrow.add(head, shaft)
-    homeArrow.visible = false
-    homeArrow.userData.ghost = true
-    head.userData.ghost = true
-    shaft.userData.ghost = true
-    scene.add(homeArrow)
-  }
-  let homeArrowFor = 0
+  // Go home (button, Home or H key): teleport the player straight inside their house. No on-screen marker.
   const goHome = () => {
-    camYaw = faceYaw + Math.PI
-    camPitch = 0.42
-    camDist = 5.6
-    lookIdle = 0
-    camVel.set(0, 0, 0)
-    homeArrowFor = 20
-    ui.toast(interiors.inside === 'house' ? 'You are home.' : 'Follow the brass arrow. The H on the map is your house.')
+    if (interiors.inside === 'house') { ui.toast('You are home.'); return }
+    const spot = world.hotspots.find((h) => h.house === 'yours' && interiors.roomFor(h.id))
+    if (!spot) { ui.toast('Your house is on the east row.'); return }
+    setCC(false)
+    travelTo(spot)
+    enterRoom(spot)
   }
   must('#go-home').addEventListener('click', goHome)
   window.addEventListener('keydown', (event) => {
@@ -981,15 +971,6 @@ const apiAgents = createRemoteAgents(scene)
       }
     }
     showSpot(best)
-    if (homeArrowFor > 0 && !interiors.inside) {
-      homeArrowFor -= dt
-      const hx = HOME_DOOR.x - pos.x
-      const hz = HOME_DOOR.z - pos.z
-      if (Math.hypot(hx, hz) < 3) homeArrowFor = 0
-      homeArrow.visible = homeArrowFor > 0
-      homeArrow.position.set(pos.x, 2.5 + Math.sin(elapsed * 3) * 0.06, pos.z)
-      homeArrow.rotation.y = Math.atan2(hx, hz)
-    } else homeArrow.visible = false
 
     if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true

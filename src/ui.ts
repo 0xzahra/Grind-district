@@ -1,7 +1,6 @@
-import { openWallet } from './wallet.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
-import { ZAHRA, type MaskId } from './logic.ts'
+import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
 import { track } from './track.ts'
@@ -719,23 +718,12 @@ export function mountUi(
           open('settings')
         }))
     }
-    const madeBy = document.createElement('a')
-    madeBy.href = ZAHRA
-    madeBy.target = '_blank'
-    madeBy.rel = 'noopener noreferrer'
-    madeBy.className = 'help-link made-by'
-    madeBy.textContent = 'Made by Zahra'
     const support = document.createElement('a')
     support.href = 'https://x.com/0xarewah'
     support.target = '_blank'
     support.rel = 'noopener noreferrer'
     support.className = 'help-link'
     support.textContent = 'Get help'
-    const wallet = button('Wallet on Base', 'ghost', () => {
-      // Close the settings sheet first so the wallet is never hidden behind it; always give feedback.
-      close()
-      openWallet()
-    })
     return frame('Settings', stack(
       nameLabel,
       userLabel,
@@ -756,13 +744,10 @@ export function mountUi(
       para('Agents', 'kicker'),
       para('AI agents are labeled and must attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
       agentBox,
-      para('Wallet', 'kicker'),
-      wallet,
-      para('Grind is in-game currency only. The wallet shows your real Base balance; you sign every send yourself.', 'muted'),
+      para('Grind is in-game currency only. Nothing on-chain moves here.', 'muted'),
       para('Support', 'kicker'),
       support,
       button('About this city', 'ghost', () => open('about')),
-      madeBy,
       reset,
     ))
   }
@@ -961,7 +946,7 @@ export function mountUi(
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
           para('This build is the city: districts, a man and a woman you can wear, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do. You pick the name and the username.'),
-          para('The ledger is practice. There is no deployed token and the city never asks for a seed phrase. The optional Base wallet in Settings only reads your balance and asks your own wallet to sign. Nothing here is financial advice. This city does not run on Solana.'),
+          para('The ledger is practice. There is no deployed token and the city never asks for a seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
           para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
           para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
           para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
