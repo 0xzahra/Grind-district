@@ -44,6 +44,8 @@ const RUN = 5.5
 
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
 const topupModule = () => (topupChunk ??= import('./topup.ts').catch((e: unknown) => { topupChunk = null; throw e }))
+// Start fetching right away, while this build's chunks are certainly live (frequent redeploys remove old chunks).
+void topupModule().catch(() => {})
 
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
