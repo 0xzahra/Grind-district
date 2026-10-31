@@ -576,6 +576,7 @@ const apiAgents = createRemoteAgents(scene)
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
   const openCareer = (tab?: unknown) => openSheet('Career', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'overview'))
   const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
+  window.addEventListener('gd:career', (e) => { setCC(true); openCareer((e as CustomEvent).detail) })
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)

@@ -15,6 +15,7 @@ import { track } from './track.ts'
 import { accessToken } from './login.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
+import { renderLearnHome } from './learnUi.ts'
 import { GUIDE } from './guide.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
@@ -424,13 +425,7 @@ export function mountUi(
     const body = document.createElement('div')
     body.className = 'stack'
     const showList = () => {
-      body.replaceChildren(para('Twenty courses. Pass one and it files itself. No certificates for sale.', 'muted'))
-      for (const course of COURSES) {
-        const meta = SKILL_META[course.id]
-        const passed = getSave().skills[course.id]?.passed
-        const node = button(`${meta.title} · ${course.minutes}${passed ? ' · on your CV' : ''}`, passed ? 'ghost' : 'primary', () => showCourse(course.id))
-        body.append(node)
-      }
+      body.replaceChildren(renderLearnHome((id) => showCourse(id)))
       body.append(advice())
     }
     const showCourse = (id: SkillId) => {
@@ -440,7 +435,7 @@ export function mountUi(
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
       if (!passed) track('course_start', { course: id })
-      const wrap = stack(button('All courses', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${course.questions.length} exercises. A miss names the idea to reread.`, 'muted'))
+      const wrap = stack(button('← Your path', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${course.questions.length} exercises. A miss names the idea to reread.`, 'muted'))
       if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
       if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
       for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
