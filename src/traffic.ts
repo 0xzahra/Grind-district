@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ARMS as LANE_ARMS, lanePoint, uturnPoint } from './lanes.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -16,12 +17,7 @@ const CAR_SCALE = 1.5
 
 type Lanes = { roadHalf: number; walk: number; inner: number; outer: number }
 type Arm = { ax: number; az: number } // unit vector pointing out from the plaza
-const ARMS: Arm[] = [
-  { ax: 1, az: 0 },
-  { ax: -1, az: 0 },
-  { ax: 0, az: 1 },
-  { ax: 0, az: -1 },
-]
+const ARMS: Arm[] = [...LANE_ARMS]
 const COUNTS: Record<Graphics, { people: number; cars: number }> = {
   low: { people: 14, cars: 4 },
   medium: { people: 22, cars: 8 },
@@ -33,7 +29,7 @@ const LOD = 70
 const SIGNAL_PERIOD = 14
 
 type Walker = { arm: number; side: number; t: number; dir: number; speed: number; phase: number }
-type Car = { arm: number; outbound: boolean; t: number; speed: number; wait: number }
+type Car = { arm: number; outbound: boolean; t: number; speed: number; wait: number; turn: number }
 
 export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphics): {
   tick: (dt: number, time: number, focus: { x: number; z: number }, people?: Obstacle[]) => Obstacle[]
@@ -164,7 +160,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 7)) break
       t = (t + 0.13) % 1
     }
-    cars.push({ arm, outbound, t, speed: 6 + (i % 3), wait: 0 })
+    cars.push({ arm, outbound, t, speed: 6 + (i % 3), wait: 0, turn: 0 })
     bodiesCar.setColorAt(i, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
   }
   for (const mesh of [bodiesCar, cabins, wheels]) {
@@ -315,11 +311,19 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
         }
         const step = (target * dt) / span
-        if (car.outbound) {
+        if (car.turn > 0) {
+          // U-turn in the turning bay at the arm end (never inside a building, never a lane jump).
+          car.turn += (Math.max(target, 2.5) * dt) / (Math.PI * lanes.roadHalf * 0.5)
+          if (car.turn >= 1) {
+            car.turn = 0
+            car.t = 1
+            car.outbound = false
+          }
+        } else if (car.outbound) {
           car.t += step
           if (car.t >= 1) {
             car.t = 1
-            car.outbound = false
+            car.turn = 0.0001
           }
         } else {
           car.t -= step
@@ -338,15 +342,14 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           }
         }
         const arm = ARMS[car.arm] as Arm
-        const along = lanes.inner + car.t * span
         // Drive on the right: outbound lane is to the right of the outward direction.
-        const lane = (car.outbound ? 1 : -1) * lanes.roadHalf * 0.5
-        const x = arm.ax * along - arm.az * lane
-        const z = arm.az * along + arm.ax * lane
+        const pt = car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound)
+        const x = pt.x
+        const z = pt.z
         const dir = car.outbound ? 1 : -1
         const far = Math.hypot(x - focus.x, z - focus.z) > LOD + 20
         dummy.position.set(x, far ? -50 : 0, z)
-        dummy.rotation.set(0, Math.atan2(arm.ax * dir, arm.az * dir), 0)
+        dummy.rotation.set(0, pt.heading, 0)
         dummy.scale.setScalar(far ? 0.001 : 1)
         dummy.updateMatrix()
         if (slots) {
@@ -361,9 +364,13 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         heads2.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, headLocal))
         tails.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, tailLocal))
         if (!far) {
-          obstacles.push({ kind: 'circle', x: x + arm.ax * dir * 1.1, z: z + arm.az * dir * 1.1, r: 1.05 })
-          obstacles.push({ kind: 'circle', x: x - arm.ax * dir * 1.1, z: z - arm.az * dir * 1.1, r: 1.05 })
+          const hx = Math.sin(pt.heading)
+          const hz = Math.cos(pt.heading)
+          obstacles.push({ kind: 'circle', x: x + hx * 1.1, z: z + hz * 1.1, r: 1.05 })
+          obstacles.push({ kind: 'circle', x: x - hx * 1.1, z: z - hz * 1.1, r: 1.05 })
         }
+        void arm
+        void dir
       })
       bodiesCar.instanceMatrix.needsUpdate = true
       cabins.instanceMatrix.needsUpdate = true

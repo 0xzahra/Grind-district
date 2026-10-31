@@ -50,6 +50,13 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const skyline = createSkyline(scene, grade)
   const ambient = createAmbient(scene, world.obstacles, coarse)
   const sky = createPhysicalSky(scene)
+  // Clean cinematic shot: no name plates, label cards or floating markers (the game keeps them).
+  const hideLabels = () => scene.traverse((o) => {
+    if ((o as THREE.Sprite).isSprite && o.scale.x < 50) o.visible = false
+    if (o.name === 'home-marker') o.visible = false
+  })
+  hideLabels()
+  let relabel = 0
   const PHASE = 0.69 // golden hour
   world.setDaylight(PHASE)
   sky.setPhase(PHASE)
@@ -112,6 +119,8 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     traffic.tick(dt, t, focus, people)
     skyline.tick(t, 0.15)
     ambient.tick(t, focus, 0.1)
+    relabel += dt
+    if (relabel > 1.5 && t < 20) { relabel = 0; hideLabels() }
     composer.render(dt)
   }
   raf = requestAnimationFrame(loop)

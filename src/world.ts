@@ -2,6 +2,7 @@ import { HOUSES, type HouseId } from './houses.ts'
 import type { PanelId, Season, TimeOfDay } from './logic.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
+import { LANE_INNER, LANE_OUTER, ROAD_END, ROAD_HALF } from './lanes.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export type Hotspot = {
@@ -35,9 +36,7 @@ type Door = 'px' | 'nx' | 'pz' | 'nz'
 /** Axis-aligned walkway rectangle, centre and half extents. */
 type Rect = { x: number; z: number; hx: number; hz: number }
 
-const ROAD_HALF = 3.2
 const WALK_HALF = 1.1
-const ROAD_END = 58
 
 const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) < a.hx + b.hx && Math.abs(a.z - b.z) < a.hz + b.hz
 const legRect = (x1: number, z1: number, x2: number, z2: number, half: number): Rect => ({
@@ -1303,7 +1302,7 @@ export function createWorld(options: {
     sun,
     setLook,
     setDaylight,
-    lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: 18, outer: 39 },
+    lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: LANE_INNER, outer: LANE_OUTER },
     setRank(label: string) {
       ladderMap.dispose()
       ladderMap = paintLadder(label)
