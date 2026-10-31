@@ -31,6 +31,9 @@ import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
+import { createSeating, plazaSeats, seatSpot, type Seat } from './seating.ts'
+import { tickTvs } from './tv.ts'
+import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
 import './style.css'
 
@@ -319,7 +322,7 @@ const apiAgents = createRemoteAgents(scene)
     travel: (title, enter) => travelHook(title, enter),
   })
   function hooksTeleport(x: number, z: number) {
-    portrait: (() => { const shot = createPortrait(renderer, () => avatar.object); return () => shot() })(),
+    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
       pos.x = x
       pos.z = z
       vel.x = 0
@@ -720,7 +723,21 @@ const apiAgents = createRemoteAgents(scene)
       faceYaw = yaw
       avatar.object.rotation.y = yaw
     },
+    sit: (s) => sitOn(s),
   })
+  // Sitting: move onto the seat, hold still, pose the rig; any stick, key or tap stands up.
+  const seating = createSeating()
+  const sitOn = (s: Seat) => {
+    seating.sit(s, avatar.object)
+    if (!seating.sitting) return
+    pos.x = s.x
+    pos.z = s.z
+    vel.x = 0
+    vel.z = 0
+    target = null
+    faceYaw = s.yaw
+  }
+  const streetSpots: Hotspot[] = [...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn))]
   let streetDoor = { x: 0, z: 0 }
   const enterRoom = (doorSpot: Hotspot) => {
     const room = interiors.roomFor(doorSpot.id)
@@ -893,6 +910,10 @@ const apiAgents = createRemoteAgents(scene)
           target.x = THREE.MathUtils.clamp(target.x, -CITY_LIMIT + 1, CITY_LIMIT - 1)
           target.z = THREE.MathUtils.clamp(target.z, -CITY_LIMIT + 1, CITY_LIMIT - 1)
         }
+        // A tap on furniture or water would park the walk target inside a blocker, where the player
+        // slides, stalls and gives up. Nudge the target out to the nearest free spot (e.g. the pool rim).
+        const inRoom = interiors.inside ? interiors.obstacles() : world.obstacles
+        resolveCollision(target, { x: 0, z: 0 }, inRoom, PLAYER_R + 0.05, Boolean(interiors.inside))
         stuck = 0
         prevDist = Infinity
       }
@@ -940,7 +961,8 @@ const apiAgents = createRemoteAgents(scene)
       vel.x = 0
       vel.z = 0
     }
-    if (paused || busyFor > 0) {
+    if (seating.sitting && (directed || target)) seating.stand()
+    if (paused || busyFor > 0 || seating.sitting) {
       vel.x = 0
       vel.z = 0
     }
@@ -949,7 +971,7 @@ const apiAgents = createRemoteAgents(scene)
     else blockers.push(...world.obstacles, ...crowdObstacles)
     // Sub-step so a fast frame on a slow phone can never tunnel through a wall; boxes slide.
     const steps = Math.max(1, Math.ceil((Math.hypot(vel.x, vel.z) * dt) / 0.2))
-    for (let i = 0; i < steps; i += 1) {
+    for (let i = 0; i < steps && !seating.sitting; i += 1) {
       pos.x += (vel.x * dt) / steps
       pos.z += (vel.z * dt) / steps
       resolveCollision(pos, vel, blockers, PLAYER_R, Boolean(interiors.inside))
@@ -964,6 +986,9 @@ const apiAgents = createRemoteAgents(scene)
     stillFor = groundSpeed > 0.2 ? 0 : stillFor + dt
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
+    seating.apply(avatar.object, dt)
+    tickTvs(dt, pos.x, pos.z, camera)
+    tickWater(dt, camera)
     if (follower) {
       const goalX = pos.x + 0.85
       const goalZ = pos.z + 0.45
@@ -985,7 +1010,7 @@ const apiAgents = createRemoteAgents(scene)
 
     let best: Hotspot | null = null
     let bestDist = Infinity
-    const candidates: Hotspot[] = interiors.inside ? (interiors.uses() as Hotspot[]) : world.hotspots
+    const candidates: Hotspot[] = interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots
     for (const candidate of candidates) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
       // Walking through a door enters or leaves the 3D room.
