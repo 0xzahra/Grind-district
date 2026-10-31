@@ -1287,3 +1287,6 @@ body.rail-shut #nav-city.top-map { opacity: 0 !important; pointer-events: none !
 #rail-toggle { top: max(14px, env(safe-area-inset-top)) !important; right: max(12px, env(safe-area-inset-right)) !important; width: 42px !important; height: 42px !important; }
 #nav { top: calc(max(14px, env(safe-area-inset-top)) + 54px) !important; }
 #hint { display: none !important; }
+/* Top-right group always on top, chat opens beneath it (never hides bell/menu/message). */
+#msg-btn, #bell, #rail-toggle { z-index: 9 !important; position: fixed !important; }
+#chat { z-index: 6 !important; top: calc(max(14px, env(safe-area-inset-top)) + 58px) !important; right: max(12px, env(safe-area-inset-right)) !important; max-height: calc(100dvh - 140px); }
