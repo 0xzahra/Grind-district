@@ -5,18 +5,21 @@ import { passedCount } from './certs.ts'
 import { rankFor } from './logic.ts'
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
-export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque'
+export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
-type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void }
+type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void }
 
-const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 } }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 13, d: 10 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 } }
+const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 } }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 13, d: 10 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 } }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
   house: { spot: 'yours', cx: 36, cz: 32 },
   gym: { spot: 'gym', cx: -22, cz: -22 },
   boutique: { spot: 'boutique', cx: 22, cz: -22 },
   mosque: { spot: 'prayer', cx: -24, cz: 27 },
+  trading: { spot: 'trade', cx: -48, cz: 0 },
+  campus: { spot: 'learn', cx: 0, cz: -48 },
+  studio: { spot: 'bounty', cx: 48, cz: 0 },
 }
 
 const std = (color: number, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness })
@@ -76,10 +79,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }) => uses.push({ ...u, x: o.x + u.x, z: o.z + u.z })
 
     // Shell: floor, skirting, four walls, ceiling beams, exit door on the west wall.
-    const floorMat = id === 'gym' ? std(0x2b2d30, 0.95) : std(id === 'house' ? 0x8a6243 : 0xd9d2c6, 0.6)
+    const floorMat = id === 'gym' ? std(0x2b2d30, 0.95) : id === 'trading' ? std(0x23262a, 0.5, 0.1) : id === 'campus' ? std(0x9a7550, 0.62) : std(id === 'house' ? 0x8a6243 : 0xd9d2c6, 0.6)
     const floor = add(new THREE.PlaneGeometry(w, d), floorMat, 0, 0.01, 0)
     floor.rotation.x = -Math.PI / 2
-    const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : 0xf1ebe2, 0.92)
+    const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : 0xf1ebe2, 0.92)
     const H = 3.2
     const T = 0.25
     box(w + T * 2, H, T, wallMat, 0, -d / 2 - T / 2)
@@ -248,6 +251,138 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         hooks.toast(sitPrayer().message)
       } })
       box(1.2, 0.5, 0.4, std(0x5a3f2c, 0.7), -w / 2 + 1.0, -d / 2 + 0.6)
+    }
+
+    // Repeated furniture uses InstancedMesh: one draw call per part, however many seats.
+    const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, spots: Array<[number, number, number, number?]>, blockHalf?: [number, number]) => {
+      const im = new THREE.InstancedMesh(geo, mat, spots.length)
+      const m4 = new THREE.Matrix4()
+      const q = new THREE.Quaternion()
+      const one = new THREE.Vector3(1, 1, 1)
+      spots.forEach(([x, y, z, ry = 0], i) => {
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry)
+        im.setMatrixAt(i, m4.compose(new THREE.Vector3(x, y, z), q, one))
+        if (blockHalf) obstacles.push({ kind: 'box', x: o.x + x, z: o.z + z, hx: blockHalf[0], hz: blockHalf[1] })
+      })
+      im.castShadow = true
+      im.receiveShadow = true
+      group.add(im)
+      return im
+    }
+
+    if (id === 'trading') {
+      // Trading floor: six desks with twin screens, a ticker wall, a glass corner office.
+      const chart = canvasTex(256, 160, (g) => {
+        g.fillStyle = '#0f1216'; g.fillRect(0, 0, 256, 160)
+        g.strokeStyle = 'rgba(255,255,255,0.06)'; for (let y = 20; y < 160; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke() }
+        let p = 90
+        for (let i = 0; i < 22; i++) {
+          const n = p + Math.sin(i * 1.7) * 14 + Math.cos(i * 0.6) * 9
+          g.fillStyle = n < p ? '#7fae8e' : '#c4776c'
+          g.fillRect(10 + i * 11, Math.min(p, n), 7, Math.max(2, Math.abs(n - p)))
+          g.fillRect(13 + i * 11, Math.min(p, n) - 5, 1, Math.abs(n - p) + 10)
+          p = n
+        }
+      })
+      const screenMat = new THREE.MeshBasicMaterial({ map: chart })
+      const deskMat = std(0x6b4e37, 0.45)
+      const blackMat = std(0x15171a, 0.4, 0.4)
+      const desks: Array<[number, number, number, number?]> = []
+      for (const x of [-3.5, 0.5, 4.5]) for (const z of [-2.4, 2.0]) desks.push([x, 0.75 / 2, z])
+      inst(new THREE.BoxGeometry(2.6, 0.75, 1.0), deskMat, desks, [1.35, 0.55])
+      const screens: Array<[number, number, number, number?]> = []
+      const chairs: Array<[number, number, number, number?]> = []
+      for (const [x, , z] of desks) { screens.push([x - 0.5, 1.12, z - 0.3], [x + 0.5, 1.12, z - 0.3]); chairs.push([x, 0.25, z + 0.85]) }
+      inst(new THREE.BoxGeometry(0.85, 0.5, 0.04), blackMat, screens)
+      inst(new THREE.PlaneGeometry(0.8, 0.45), screenMat, screens.map(([x, y, z]) => [x, y, z + 0.025]))
+      inst(new THREE.BoxGeometry(0.55, 0.5, 0.55), std(0x22262b, 0.6), chairs)
+      // Ticker wall on the north wall.
+      const tickerTex = canvasTex(1024, 128, (g) => {
+        g.fillStyle = '#121418'; g.fillRect(0, 0, 1024, 128)
+        g.font = '600 40px Inter, sans-serif'; let x = 20
+        for (const [t, v, up] of [['UNIT', '+1.8%', 1], ['MEME', '-4.2%', 0], ['ETH', '+0.6%', 1], ['BTC', '+0.3%', 1], ['USDC', '0.0%', 1]] as const) {
+          g.fillStyle = '#efe9dc'; g.fillText(t, x, 78); x += g.measureText(t).width + 12
+          g.fillStyle = up ? '#8fbf9f' : '#d08a7f'; g.fillText(String(v), x, 78); x += g.measureText(String(v)).width + 44
+        }
+      })
+      add(new THREE.PlaneGeometry(9, 1.1), new THREE.MeshBasicMaterial({ map: tickerTex }), 0.5, 2.5, -d / 2 + 0.02)
+      add(new THREE.PlaneGeometry(4.2, 1.6), screenMat, 0.5, 1.3, -d / 2 + 0.02)
+      // Glass corner office.
+      const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xdfe8ec, roughness: 0.05, transmission: 0, transparent: true, opacity: 0.22 })
+      box(0.05, 2.6, 4.0, glassMat, w / 2 - 3.5, d / 2 - 2.0, 0, true)
+      box(3.4, 2.6, 0.05, glassMat, w / 2 - 1.7, d / 2 - 4.0, 0, false)
+      box(1.6, 0.75, 0.8, deskMat, w / 2 - 1.6, d / 2 - 1.4)
+      use({ id: 'desk', x: 0.5, z: 3.2, r: 1.4, title: 'Trading desk', body: 'A practice book in UNIT. A sized plan can count even when the close is red.', enter: 'Open the book', run: () => hooks.openPanel('trade') })
+      use({ id: 'ticker', x: 0.5, z: -d / 2 + 1.4, r: 1.6, title: 'Ticker wall', body: 'Prices move. Size moves your result.', enter: 'Read', run: () => hooks.toast('The wall is a mood, not a plan. Size first.') })
+    }
+
+    if (id === 'campus') {
+      // Lecture hall: tiered benches facing a lectern and a chalkboard, a library wall.
+      const wood = std(0x6b4e37, 0.55)
+      const benches: Array<[number, number, number, number?]> = []
+      const seats: Array<[number, number, number, number?]> = []
+      for (let r = 0; r < 4; r++) for (const x of [-3.6, 2.6]) {
+        const z = -0.8 + r * 1.5
+        benches.push([x, 0.72 / 2, z])
+        seats.push([x, 0.22, z + 0.6])
+      }
+      inst(new THREE.BoxGeometry(4.2, 0.72, 0.5), wood, benches, [2.15, 0.3])
+      inst(new THREE.BoxGeometry(4.0, 0.44, 0.4), std(0x3c2c20, 0.7), seats)
+      const board = canvasTex(512, 256, (g) => {
+        g.fillStyle = '#1f2a24'; g.fillRect(0, 0, 512, 256)
+        g.fillStyle = '#e8e4d8'; g.font = '500 30px Georgia, serif'
+        g.fillText('Custody · Risk · Liquidity', 28, 70)
+        g.font = '400 22px Georgia, serif'; g.fillText('Not your keys, not your coins.', 28, 130); g.fillText('Size the position before the entry.', 28, 170)
+      })
+      add(new THREE.PlaneGeometry(6, 2.4), new THREE.MeshStandardMaterial({ map: board, roughness: 0.9 }), -0.5, 1.9, -d / 2 + 0.04)
+      box(6.4, 0.12, 0.12, wood, -0.5, -d / 2 + 0.08, 0.64, false)
+      box(0.8, 1.1, 0.6, wood, -0.5, -d / 2 + 2.2)
+      // Library wall (east): shelves with instanced book spines.
+      box(0.4, 2.6, 9.0, wood, w / 2 - 0.25, 0)
+      const books: Array<[number, number, number, number?]> = []
+      for (let shelf = 0; shelf < 5; shelf++) for (let i = 0; i < 26; i++) books.push([w / 2 - 0.5, 0.35 + shelf * 0.5, -4.2 + i * 0.33 + (shelf % 2) * 0.1])
+      inst(new THREE.BoxGeometry(0.22, 0.36, 0.24), std(0x7a3a2c, 0.8), books.filter((_, i) => i % 3 === 0))
+      inst(new THREE.BoxGeometry(0.22, 0.34, 0.24), std(0x2c4a5c, 0.8), books.filter((_, i) => i % 3 === 1))
+      inst(new THREE.BoxGeometry(0.22, 0.38, 0.24), std(0xd8ccb0, 0.8), books.filter((_, i) => i % 3 === 2))
+      const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.4, roughness: 0.2 })
+      for (const x of [-5, -1, 3]) box(1.8, 1.8, 0.04, glass, x, d / 2 - 0.02, 1.0, false)
+      use({ id: 'lectern', x: -0.5, z: -d / 2 + 3.4, r: 1.4, title: 'Lectern', body: 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', enter: 'Open the hall', run: () => hooks.openPanel('learn') })
+      use({ id: 'library', x: w / 2 - 1.6, z: 0, r: 1.4, title: 'Library', body: 'Every course has a source line. The shelf has the rest.', enter: 'Browse', run: () => hooks.toast('Read the source line under each course. Then do the four exercises.') })
+    }
+
+    if (id === 'studio') {
+      // Influencer row studio: backdrop + softbox set, podcast table with mics, lounge.
+      const fabric = std(0xcfc6b8, 1)
+      box(5.0, 3.0, 0.08, std(0x6a5a4c, 1), 2.0, -d / 2 + 0.3, 0, false)
+      box(5.0, 0.04, 2.6, std(0x6a5a4c, 1), 2.0, -d / 2 + 1.6, 0, false)
+      const soft = new THREE.MeshStandardMaterial({ color: 0xfff6e8, emissive: 0xfff1dc, emissiveIntensity: 0.6, roughness: 0.6 })
+      const stand = std(0x1a1c1f, 0.4, 0.6)
+      for (const x of [-0.6, 4.6]) {
+        box(0.04, 1.9, 0.04, stand, x, -d / 2 + 2.8, 0, false)
+        box(0.9, 0.9, 0.06, soft, x, -d / 2 + 2.8, 1.9, false, x < 2 ? 0.5 : -0.5)
+        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z - d / 2 + 2.8, r: 0.3 })
+      }
+      box(0.3, 0.2, 0.25, stand, 2.0, -d / 2 + 4.2, 1.45, false)
+      box(0.04, 1.45, 0.04, stand, 2.0, -d / 2 + 4.2, 0, false)
+      obstacles.push({ kind: 'circle', x: o.x + 2.0, z: o.z - d / 2 + 4.2, r: 0.3 })
+      // Podcast table with three mics on arms.
+      add(new THREE.CylinderGeometry(1.0, 1.0, 0.06, 32), std(0x3a2a20, 0.4), -3.2, 0.76, 2.2)
+      add(new THREE.CylinderGeometry(0.08, 0.12, 0.74, 10), stand, -3.2, 0.37, 2.2)
+      obstacles.push({ kind: 'circle', x: o.x - 3.2, z: o.z + 2.2, r: 1.05 })
+      const mics: Array<[number, number, number, number?]> = [[-3.2, 0.95, 1.5], [-3.8, 0.95, 2.6], [-2.6, 0.95, 2.6]]
+      inst(new THREE.CylinderGeometry(0.04, 0.04, 0.18, 10), stand, mics)
+      inst(new THREE.BoxGeometry(0.5, 0.45, 0.5), fabric, [[-3.2, 0.22, 0.8], [-4.4, 0.22, 3.0], [-2.0, 0.22, 3.0]])
+      // Lounge sofa and a framed wall of covers.
+      box(2.8, 0.45, 0.9, std(0x3d4a3f, 0.95), 3.6, d / 2 - 0.9)
+      box(2.8, 0.5, 0.2, std(0x3d4a3f, 0.95), 3.6, d / 2 - 0.4, 0.45, false)
+      const frames: Array<[number, number, number, number?]> = []
+      for (let i = 0; i < 4; i++) frames.push([-w / 2 + 0.06, 1.7, -3 + i * 1.3, Math.PI / 2])
+      inst(new THREE.BoxGeometry(1.0, 0.7, 0.04), std(0xc9a25e, 0.4, 0.8), frames)
+      use({ id: 'set', x: 2.0, z: -d / 2 + 3.2, r: 1.4, title: 'Studio set', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', enter: 'Post a bounty', run: () => hooks.openPanel('bounty') })
+      use({ id: 'podcast', x: -3.2, z: 0.6, r: 1.2, title: 'Podcast table', body: 'Three mics. Say what you built, not what you hold.', enter: 'Record', run: () => {
+        hooks.busy(1.6, o.x - 3.2, o.z + 0.8, Math.PI)
+        hooks.toast('Recorded. Proof of work reads better than a price call.')
+      } })
     }
     scene.add(group)
     const entry = { group, obstacles, uses }
