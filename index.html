@@ -32,6 +32,7 @@
           <nav id="nav">
             <button id="nav-profile" type="button">Profile</button>
             <button id="nav-learn" type="button">Learn</button>
+            <button id="nav-city" type="button">City</button>
             <button id="nav-settings" type="button">Settings</button>
             <button id="shot" type="button">Shot</button>
             <a id="credit" href="https://0xzahra.github.io" target="_blank" rel="noopener noreferrer">Made by Zahra</a>
@@ -64,10 +65,23 @@
       </div>
       <div id="sheet" hidden></div>
       <div id="menu">
-        <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
-        <p class="tag">No tribe. No continent. Just come grind.</p>
-        <button id="play" type="button" class="primary" autofocus>Enter the district</button>
-        <p id="menu-note">You start as a shrimp. The practice ledger is empty. Rank follows the work.</p>
+        <div id="menu-home">
+          <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
+          <p class="tag">No tribe. No continent. Just come grind.</p>
+          <nav class="menu-actions" aria-label="Game menu">
+            <button id="play" type="button" class="primary" autofocus>Enter the district</button>
+            <button id="menu-how" type="button">How to play</button>
+            <button id="menu-city" type="button">The city</button>
+            <button id="menu-courses" type="button">Courses</button>
+            <button id="menu-credits" type="button">Credits</button>
+          </nav>
+          <p id="menu-note">You start as a shrimp. The practice ledger is empty. Rank follows the work. The houses are on the east row.</p>
+        </div>
+        <div id="menu-page" hidden>
+          <h2 id="menu-page-title"></h2>
+          <div id="menu-page-body"></div>
+          <button id="menu-back" type="button">Back</button>
+        </div>
       </div>
       <div id="boot" class="hidden" role="status" aria-hidden="true">
         <img src="/brand/logo-black.jpg" width="1168" height="784" alt="" />

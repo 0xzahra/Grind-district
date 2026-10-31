@@ -1,4 +1,4 @@
-import { everySkillHasCourse, grade, courseById } from './courses.ts'
+import { COURSES, everySkillHasCourse, grade, courseById } from './courses.ts'
 import {
   buyHolding,
   createSave,
@@ -27,10 +27,11 @@ function check(condition: boolean, message: string): void {
 check(everySkillHasCourse(), 'every skill needs one course')
 const spot = courseById('spot')
 check(!!spot, 'spot course exists')
+check(COURSES.every((course) => course.paragraphs.length >= 4 && course.questions.length === 4), 'each course has a lesson and four exercises')
 if (spot) {
-  const good = grade(spot, [1, 1])
-  check(good.ok, 'spot answers 1,1 pass')
-  const bad = grade(spot, [0, 1])
+  const good = grade(spot, spot.questions.map((question) => question.answer))
+  check(good.ok, 'spot answers pass')
+  const bad = grade(spot, spot.questions.map((question, index) => (index === 0 ? 0 : question.answer)))
   check(!bad.ok && bad.hints[0].length > 0 && bad.hints[1] === '', 'spot hints only the miss')
 }
 
