@@ -30,7 +30,7 @@ function part(
 
 /**
  * Original woman. Longer hair, a softer face, and a fitted coat.
- * Cut so she reads cleaner than Player 8453. Not a licensed collection.
+ * Not a licensed collection. The plate reads the name they signed up with.
  */
 export function createZuri(): ShrimpAvatar {
   const skin = mat(SKIN, 0.46)
