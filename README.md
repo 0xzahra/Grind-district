@@ -51,6 +51,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Church | Rest counts. One visit a day. |
 | Prayer space | Focus adds a quarter to the next course you pass. |
 | Cafés | Season headlines. Gossip, not a signal. |
+| Carbon desk | A practice pledge. It does not retire a real credit. |
 | The houses | Your house, plus Adaeze, Malik, Nia, and a vacant room on the east row. |
 | Gadgets | Scout, courier, and halo drones. Practice funds. A drone follows you. |
 | Conference hall | A short talk. Proof of work, not a slogan. |
