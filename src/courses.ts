@@ -310,6 +310,154 @@ export const COURSES: Course[] = [
       },
     ],
   },
+  {
+    id: 'custody',
+    minutes: '8 min',
+    paragraphs: [
+      'A recovery phrase, often twelve or twenty-four words in the BIP-39 pattern, is a backup of the private keys. Anyone who can read it can move what those keys control. Typing it into a website to "verify" the grind hands the keys over. A real wallet does not need that.',
+      'An ERC-20 approval lets another contract transfer a token up to a limit you set. An unlimited approval stays until you revoke it. A drain often spends an approval you already signed. It does not need your phrase a second time.',
+      'A signature can be a login, a permit, or a transaction. Read the site, the spender, and the amount before you confirm. Speed is not a reason. This city never asks you to sign.',
+      'The practice ledger lives in this browser. It is not a wallet. If a sheet, a neighbor, or a link asks for a phrase, stop.',
+      'Sources: BIP-39, the mnemonic that backs up a key; ERC-20 approve, the allowance another contract can spend. ethereum.org documents token approvals.',
+    ],
+    questions: [
+      {
+        prompt: 'Someone asks for your recovery phrase "to verify the grind." You:',
+        choices: ['Send the words', 'Stop. The phrase is the keys, and this city never asks for it', 'Paste it into a form titled Verify', 'Trade it for XP'],
+        answer: 1,
+        hint: 'The phrase restores the keys. Verification does not need it.',
+      },
+      {
+        prompt: 'A token approval is:',
+        choices: ['Your rank', 'Permission for a contract to move tokens up to a limit', 'A course certificate', 'The practice ledger'],
+        answer: 1,
+        hint: 'ERC-20 approve sets an allowance. It is not a rank and not this ledger.',
+      },
+      {
+        prompt: 'An unlimited approval:',
+        choices: ['Expires when you close the tab', 'Stays until it is revoked', 'Is the same thing as a seed phrase', 'Moves your rank'],
+        answer: 1,
+        hint: 'The allowance remains. Closing a tab does not revoke it.',
+      },
+      {
+        prompt: 'This city’s ledger is:',
+        choices: ['A wallet that needs a phrase to open', 'Practice USD in the browser. It is not a chain and not a phrase', 'A mainnet balance', 'A carbon credit'],
+        answer: 1,
+        hint: 'Local practice funds. No phrase, no chain.',
+      },
+    ],
+  },
+  {
+    id: 'stables',
+    minutes: '8 min',
+    paragraphs: [
+      'A stablecoin is a token built to track a reference, usually one US dollar. The peg is a claim. It holds while people can redeem, or while the market believes redemption will work.',
+      'Fiat-backed designs say an issuer holds reserves, often cash and short government debt, and issues tokens against them. You are trusting the issuer, the reserves, and the attestation. You are not trusting a law of arithmetic.',
+      'Crypto-collateralized designs lock other assets, often more than the tokens issued, and liquidate if that collateral falls. The peg can still gap when the market moves faster than the liquidation.',
+      'Pegs with little or no reserve have broken in public. TerraUSD in May 2022 is the plain example: the design could not redeem at a dollar when the rush came. A logo that says stable is not a redemption window. This city does not sell one.',
+      'Sources: Federal Reserve notes on stablecoins; the May 2022 break of the TerraUSD peg, as a caution about an under-reserved design.',
+    ],
+    questions: [
+      {
+        prompt: 'A stablecoin’s peg is:',
+        choices: ['A promise from this city', 'A claim that the token tracks a reference, only as good as reserves and redemption', 'Your rank', 'A seed phrase'],
+        answer: 1,
+        hint: 'The peg is a claim. Redemption and reserves are what hold it.',
+      },
+      {
+        prompt: 'A fiat-backed stablecoin depends on:',
+        choices: ['The gym set', 'An issuer, the reserves, and someone checking them', 'The café headlines', 'Prayer focus'],
+        answer: 1,
+        hint: 'Reserves and the issuer. Not a headline and not a set.',
+      },
+      {
+        prompt: 'An under-reserved algorithmic peg:',
+        choices: ['Cannot break', 'Has broken in public when redemption was not there', 'Is the same as holding a dollar bill', 'Files your CV'],
+        answer: 1,
+        hint: 'TerraUSD in May 2022 is the public break.',
+      },
+      {
+        prompt: 'This city:',
+        choices: ['Mints a stablecoin when you pass the course', 'Does not sell one. The practice ledger is not a peg', 'Needs a wallet before you can read this', 'Retires a tonne when you finish'],
+        answer: 1,
+        hint: 'Practice USD is a local note. It is not a stablecoin.',
+      },
+    ],
+  },
+  {
+    id: 'liquidity',
+    minutes: '9 min',
+    paragraphs: [
+      'A constant-product pool, the Uniswap v2 shape, holds two reserves. Call them x and y. A swap adds one asset and removes the other so that x times y stays about the same, before the fee. The price you see is the ratio of those reserves.',
+      'A small swap barely moves the ratio. A large swap walks it. The fill lands away from the price you were looking at. That gap is slippage, the same idea as a thin order book on the spot desk.',
+      'People who deposit both assets earn a share of the fees. If the traded price diverges, the pool rebalances them toward more of the asset that fell. That inventory change is called impermanent loss. It becomes a real loss when they withdraw and the fees did not cover the move.',
+      'A pool is not a savings account. The deposit can shrink from the price move, from a hostile token in the pair, or from a fee that was too small. This city has no pool. Practice trades sit on the spot desk and in the trenches.',
+      'Sources: the Uniswap v2 constant-product design; the usual account of impermanent loss for a liquidity provider.',
+    ],
+    questions: [
+      {
+        prompt: 'In a constant-product pool, the price comes from:',
+        choices: ['Your rank', 'The ratio of the two reserves', 'The café board', 'A seed phrase'],
+        answer: 1,
+        hint: 'x times y stays roughly constant. The ratio is the price.',
+      },
+      {
+        prompt: 'A large swap:',
+        choices: ['Cannot move the price', 'Walks the reserves, so the fill can land away from the price you saw', 'Files a course by itself', 'Removes inventory risk'],
+        answer: 1,
+        hint: 'Walking the pool is slippage.',
+      },
+      {
+        prompt: 'Impermanent loss is:',
+        choices: ['A fee this city adds', 'The inventory change when the pool rebalances after prices diverge', 'Proof the deposit profited', 'A carbon credit'],
+        answer: 1,
+        hint: 'The pool shifts you toward the asset that fell. Fees may not cover it.',
+      },
+      {
+        prompt: 'This city:',
+        choices: ['Hides a pool behind the fountain', 'Has no pool. Practice trades are the spot desk and the trenches', 'Needs a signature to finish this lesson', 'Retires a tonne when you deposit'],
+        answer: 1,
+        hint: 'No pool. The books you can open are UNIT and MEME.',
+      },
+    ],
+  },
+  {
+    id: 'records',
+    minutes: '7 min',
+    paragraphs: [
+      'A public explorer shows a transfer that was already sent: status, sender, receiver, asset, and chain. A screenshot can say anything. The fields are the record.',
+      'Match the address character by character. A nickname in an app is not the address. The wrong chain can show a similar transfer that is not the one you meant.',
+      'Failed is not success. Pending has not landed. "It went through" is a sentence someone can type. Success is a status on the transaction itself.',
+      'Nothing in this city writes a transaction. The practice ledger, the CV, and a pledge are local notes. Do not treat them as a hash, and do not send a phrase to anyone who offers to "put them on-chain" for you.',
+      'Sources: the fields a block explorer records (status, from, to, value, chain). This city’s own rule that the ledger stays local.',
+    ],
+    questions: [
+      {
+        prompt: 'A careful read of a transfer starts with:',
+        choices: ['A cropped screenshot', 'The fields: status, from, to, asset, and chain', 'The sender’s rank', 'The theme song'],
+        answer: 1,
+        hint: 'Those fields are the record. A caption is not.',
+      },
+      {
+        prompt: 'A nickname in an app:',
+        choices: ['Is the address', 'Is not the address. Compare the characters', 'Is a course pass', 'Moves the ladder'],
+        answer: 1,
+        hint: 'Names are labels. The address is the characters.',
+      },
+      {
+        prompt: 'A pending transaction:',
+        choices: ['Has already paid you', 'Has not landed. Success is a status, not a caption', 'Is a seed phrase', 'Files your CV'],
+        answer: 1,
+        hint: 'Pending means it has not landed.',
+      },
+      {
+        prompt: 'Grind District’s ledger:',
+        choices: ['Is a mainnet transaction', 'Is a local practice note. It is not a hash and not a wallet', 'Needs a signature before the menu opens', 'Retires carbon when you copy it'],
+        answer: 1,
+        hint: 'Local notes. Not a chain record.',
+      },
+    ],
+  },
 ]
 
 const BULL = [
