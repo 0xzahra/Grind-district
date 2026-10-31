@@ -33,3 +33,6 @@
 .ledger-chip.down { color: #d9a3a3; }
 @keyframes ledger-chip { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
 @media (prefers-reduced-motion: reduce) { #pill-ledger.ledger-up, #pill-ledger.ledger-down, .ledger-chip { animation: none; } }
+
+/* Title/menu screen: no in-game HUD until "Enter the district". */
+body:has(#menu:not([hidden])) :is(#hud, #msg-btn, #chat, #stick, #sheet, #nav, #rail-toggle, #cc-readout, .pills) { display: none !important; }
