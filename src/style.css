@@ -1283,3 +1283,7 @@ body.rail-shut #nav-city.top-map { opacity: 0 !important; pointer-events: none !
 /* Made by Zahra never clipped: panel grows to fit its content (square-ish minimum), safe-area padding. */
 #menu-panel { aspect-ratio: auto !important; min-height: min(440px, calc(100dvh - 32px)); padding-bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px)) !important; }
 #menu-panel .made-by { margin: 12px 0 2px; white-space: nowrap; flex-shrink: 0; }
+/* Top-right group: message · bell · menu (Zahra). Bottom hint text removed; shortcuts live in the menu. */
+#rail-toggle { top: max(14px, env(safe-area-inset-top)) !important; right: max(12px, env(safe-area-inset-right)) !important; width: 42px !important; height: 42px !important; }
+#nav { top: calc(max(14px, env(safe-area-inset-top)) + 54px) !important; }
+#hint { display: none !important; }
