@@ -1290,3 +1290,41 @@ body.rail-shut #nav-city.top-map { opacity: 0 !important; pointer-events: none !
 /* Top-right group always on top, chat opens beneath it (never hides bell/menu/message). */
 #msg-btn, #bell, #rail-toggle { z-index: 9 !important; position: fixed !important; }
 #chat { z-index: 6 !important; top: calc(max(14px, env(safe-area-inset-top)) + 58px) !important; right: max(12px, env(safe-area-inset-right)) !important; max-height: calc(100dvh - 140px); }
+
+/* ===== Control Centre (iPhone-style) — replaces the side rail. ===== */
+#bell, #msg-btn { display: none !important; }
+#rail-toggle { top: max(14px, env(safe-area-inset-top)) !important; right: max(12px, env(safe-area-inset-right)) !important; z-index: 30 !important; }
+#rail-toggle .cc-dot { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: #d9b26a; box-shadow: 0 0 0 2px rgba(20,20,22,.8); }
+#rail-toggle .cc-dot[hidden] { display: none; }
+html body #nav.cc { position: fixed !important; inset: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; transform: none !important;
+  width: auto !important; max-height: none !important; z-index: 25 !important; display: flex !important; flex-direction: column !important; align-items: center; justify-content: flex-start;
+  gap: 14px; padding: calc(max(14px, env(safe-area-inset-top)) + 62px) 16px max(20px, env(safe-area-inset-bottom)) !important; overflow-y: auto !important;
+  background: rgba(14, 14, 16, 0.42) !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  -webkit-backdrop-filter: blur(28px) saturate(150%) !important; backdrop-filter: blur(28px) saturate(150%) !important;
+  opacity: 1; transition: opacity .18s ease; }
+html body.rail-shut #nav.cc { opacity: 0 !important; pointer-events: none !important; transform: none !important; }
+.cc-grid { width: min(360px, 100%); display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
+.cc-card { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.10); border-radius: 28px; }
+.cc-quad { grid-column: 1 / span 2; grid-row: span 2; aspect-ratio: 1; display: grid; grid-template-columns: 1fr 1fr; place-items: center; padding: 12px; gap: 8px; }
+.cc-btn, .cc-circle { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; padding: 0; border: 0; cursor: pointer;
+  background: rgba(255,255,255,.14); color: #f5f5f7; transition: background .15s, transform .1s; }
+.cc-btn:active, .cc-item:active .cc-circle { transform: scale(.94); }
+.cc-btn svg, .cc-circle svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cc-btn.on, .cc-item.on .cc-circle, .cc-accent { background: #c99a4b !important; color: #1b1712 !important; }
+.cc-btn:hover, .cc-item:hover .cc-circle { background: rgba(255,255,255,.24); }
+.cc-slider { grid-row: span 2; position: relative; height: 100%; min-height: 150px; border-radius: 28px; overflow: hidden; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.10); cursor: ns-resize; display: block; }
+.cc-slider .cc-fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--v, 50%); background: rgba(245,243,238,.92); pointer-events: none; }
+.cc-slider svg { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: 26px; height: 26px; fill: none; stroke: #4a4640; stroke-width: 1.9; pointer-events: none; z-index: 1; }
+.cc-slider input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: ns-resize; writing-mode: vertical-lr; direction: rtl; -webkit-appearance: slider-vertical; appearance: slider-vertical; z-index: 2; }
+.cc-wide { grid-column: 1 / span 4; display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: #f5f5f7; }
+.cc-wide strong { display: block; font: 600 17px/1.2 -apple-system, Inter, system-ui, sans-serif; }
+.cc-wide small { display: block; opacity: .75; font-size: 12px; }
+.cc-item { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: #f5f5f7; text-decoration: none; cursor: pointer; }
+.cc-label { font: 600 11.5px/1.2 -apple-system, Inter, system-ui, sans-serif; text-align: center; max-width: 80px; }
+.cc-keys { width: min(360px, 100%); padding: 14px 16px; border-radius: 22px; background: rgba(255,255,255,.10); color: #eee; font: 400 13px/1.45 -apple-system, Inter, system-ui, sans-serif; }
+.cc-keys[hidden] { display: none; }
+.cc-keys dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; } .cc-keys dt { font-weight: 600; } .cc-keys dd { margin: 0; opacity: .8; }
+@media (max-height: 700px) { .cc-btn, .cc-circle { width: 48px; height: 48px; } .cc-slider { min-height: 120px; } .cc-grid { gap: 10px; } }
+/* Chat and inbox open from the Control Centre; keep them under the menu button. */
+#chat, #inbox { z-index: 20 !important; top: calc(max(14px, env(safe-area-inset-top)) + 58px) !important; right: max(12px, env(safe-area-inset-right)) !important; }
+body:not(.rail-shut) #stick { opacity: 0; pointer-events: none; }

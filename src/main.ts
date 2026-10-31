@@ -402,10 +402,47 @@ const apiAgents = createRemoteAgents(scene)
   document.body.classList.add('rail-shut')
   const railToggle = must<HTMLButtonElement>('#rail-toggle')
   railToggle.setAttribute('aria-expanded', 'false')
-  railToggle.addEventListener('click', () => {
-    const shut = document.body.classList.toggle('rail-shut')
-    railToggle.setAttribute('aria-expanded', String(!shut))
+  // Control Centre (iPhone-style): one menu button on screen; everything else lives inside.
+  const nav = must<HTMLElement>('#nav')
+  const paintStatus = () => {
+    must('#cc-balance').textContent = `$${getSave().ledger.toFixed(2)}`
+    must('#cc-rank').textContent = `${rankFor(getSave().xp).label} · in-game balance`
+  }
+  const setCC = (open: boolean) => {
+    document.body.classList.toggle('rail-shut', !open)
+    railToggle.setAttribute('aria-expanded', String(open))
+    if (open) paintStatus()
+  }
+  railToggle.addEventListener('click', () => setCC(document.body.classList.contains('rail-shut')))
+  nav.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement
+    if (target === nav) { setCC(false); return } // tap outside the modules closes
+    const hit = target.closest('button, a')
+    if (!hit || hit.id === 'cc-keys') return
+    window.setTimeout(() => setCC(false), 0)
   })
+  window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !document.body.classList.contains('rail-shut')) setCC(false) })
+  must('#cc-keys').addEventListener('click', () => { const list = must<HTMLElement>('#cc-keylist'); list.hidden = !list.hidden; must('#cc-keys').classList.toggle('on', !list.hidden) })
+  must('#cc-msg').addEventListener('click', () => must<HTMLButtonElement>('#msg-btn').click())
+  must('#cc-bell').addEventListener('click', () => (document.querySelector('#bell') as HTMLButtonElement | null)?.click())
+  must('#cc-agents').addEventListener('click', () => ui.open('settings'))
+  const slide = (id: string, apply: (delta: number) => void) => {
+    const el = must<HTMLInputElement>(id)
+    let prev = Number(el.value)
+    const paint = () => el.parentElement!.style.setProperty('--v', `${el.value}%`)
+    paint()
+    el.addEventListener('input', () => { const v = Number(el.value); apply(v - prev); prev = v; paint() })
+  }
+  slide('#cc-zoom', (d) => input.nudgeZoom(-d * 9))
+  slide('#cc-look', (d) => input.nudgeLook(d * 8))
+  const dot = railToggle.querySelector('.cc-dot') as HTMLElement
+  window.setInterval(() => {
+    const bellUnread = !!document.querySelector('#bell .badge:not([hidden])')
+    const msgUnread = must('#msg-btn').classList.contains('unread')
+    dot.hidden = !(bellUnread || msgUnread)
+    must('#cc-bell').classList.toggle('on', bellUnread)
+    must('#cc-msg').classList.toggle('on', msgUnread)
+  }, 800)
   const msgBtn = must<HTMLButtonElement>('#msg-btn')
   chat.hidden = true
   msgBtn.addEventListener('click', () => {
