@@ -474,47 +474,19 @@ export function mountUi(
     ))
   }
 
+  // Gym: the timing minigame is gone. In 3D you walk to four stations inside; this panel is only the flat-map fallback.
   const renderGym = (): HTMLElement => {
-    const save = getSave()
-    const practice = save.dailies.gym
-    const lane = document.createElement('div')
-    lane.className = 'lane'
-    const zone = document.createElement('div')
-    zone.className = 'zone'
-    const marker = document.createElement('div')
-    marker.className = 'marker'
-    lane.append(zone, marker)
-    const status = para(practice ? 'Practice set. Today’s gym is already filed.' : 'Hit while the marker sits in the mint band. Eight swings.')
     const result = para('', 'result')
-    let swings = 0
-    let hits = 0
-    let t = 0
-    const hit = button('Hit', 'primary', () => {
-      if (swings >= 8) return
-      const markerAt = 0.5 + Math.sin(t) * 0.42
-      const good = Math.abs(markerAt - 0.5) < 0.09
-      swings += 1
-      if (good) hits += 1
-      status.textContent = `${hits} hits · swing ${swings}/8`
-      if (swings >= 8) {
-        const outcome = finishGym(hits, 8)
-        result.textContent = outcome.message
-        finish(outcome.message, outcome.rankedUp)
-        hit.disabled = true
-      }
+    const log = button('Do the four stations', 'primary', () => {
+      const outcome = finishGym(8, 8)
+      result.textContent = outcome.message
+      finish(outcome.message, outcome.rankedUp)
+      log.disabled = true
     })
-    const loop = () => {
-      if (current !== 'gym') return
-      t += document.body.classList.contains('reduce-motion') ? 0.018 : 0.045
-      const markerAt = 0.5 + Math.sin(t) * 0.42
-      marker.style.left = `${markerAt * 100}%`
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    const walk = button('What the lane counts', 'ghost', () => {
+    const walk = button('What the set counts', 'ghost', () => {
       result.textContent = walkGym().message
     })
-    return frame('Gym', stack(status, lane, hit, walk, result, para(`Best filed set: ${save.gymBest}/8. One logged set a day.`, 'muted')))
+    return frame('Gym', stack(para('Treadmill, bench, rack and mats. One logged set a day.'), log, walk, result))
   }
 
   const renderBoutique = (): HTMLElement => {

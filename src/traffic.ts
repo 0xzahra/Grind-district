@@ -23,8 +23,8 @@ const ARMS: Arm[] = [
   { ax: 0, az: -1 },
 ]
 const COUNTS: Record<Graphics, { people: number; cars: number }> = {
-  low: { people: 8, cars: 4 },
-  medium: { people: 16, cars: 8 },
+  low: { people: 14, cars: 4 },
+  medium: { people: 22, cars: 8 },
   high: { people: 24, cars: 10 },
 }
 const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x3d4a3f, 0xb3122e, 0x2a2f36, 0xd9c7a1]

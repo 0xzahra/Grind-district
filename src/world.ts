@@ -13,6 +13,8 @@ export type Hotspot = {
   action?: PanelId
   enter?: string
   house?: HouseId
+  use?: () => void
+  exit?: boolean
 }
 
 export type World = {
@@ -503,7 +505,7 @@ export function createWorld(options: {
     group.add(sign, awning)
     group.position.set(spec.x, 0, spec.z)
     scene.add(group)
-    obstacles.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2, hz: spec.d / 2 })
+    obstacles.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2 + 0.15, hz: spec.d / 2 + 0.15 })
     reserved.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2 + 1.8, hz: spec.d / 2 + 1.8 })
     const stepOut = 1.45
     const doorAt: Record<Door, { x: number; z: number }> = {
@@ -542,7 +544,133 @@ export function createWorld(options: {
   spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'The man, the woman, and the mascots. Masks from the collection list hang on the side wall.', 'boutique', 'Try a body')
   const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', windows: true, seed: 23 })
   spot('gym', gym.x, gym.z, 2.4, 'Gym', 'A short timing set. One logged set a day. Balance is not invited.', 'gym', 'Train')
-  const church = addBuilding({ x: 24, z: 26, w: 9, d: 11, h: 5, door: 'nx', title: 'Church', subtitle: 'charts stay out', windows: false, steeple: true, seed: 29 })
+  // Church: gabled stone nave, tall bell tower + spire + cross on the north facade, arched stained glass,
+  // double doors, steps and a forecourt. Faces north to the plaza, away from the house row.
+  const church = (() => {
+    const cx = 24
+    const cz = 27
+    const W = 8
+    const L = 11
+    const H = 6
+    const g = new THREE.Group()
+    g.position.set(cx, 0, cz)
+    const nave = solid(new THREE.BoxGeometry(W, H, L), stone)
+    nave.position.y = H / 2
+    g.add(nave)
+    // Gabled roof: triangular prism along z, slate dark, with eaves.
+    const roofShape = new THREE.Shape([new THREE.Vector2(-W / 2 - 0.45, 0), new THREE.Vector2(W / 2 + 0.45, 0), new THREE.Vector2(0, 3.6)])
+    const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: L + 0.6, bevelEnabled: false })
+    roofGeo.translate(0, 0, -(L + 0.6) / 2)
+    const roof = solid(roofGeo, new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.75, metalness: 0.1 }))
+    roof.position.y = H
+    g.add(roof)
+    // Cornice band and buttresses.
+    const cornice = solid(new THREE.BoxGeometry(W + 0.3, 0.3, L + 0.3), stoneDark)
+    cornice.position.y = H - 0.15
+    g.add(cornice)
+    for (let i = 0; i < 4; i += 1) {
+      for (const side of [-1, 1]) {
+        const b = solid(new THREE.BoxGeometry(0.5, H * 0.8, 0.7), stoneDark)
+        b.position.set(side * (W / 2 + 0.25), H * 0.4, -L / 2 + 1.6 + i * 2.6)
+        g.add(b)
+      }
+    }
+    // Stained glass texture (arched lancet).
+    const glassTex = paint(128, 256, (c) => {
+      c.fillStyle = '#1a1410'
+      c.fillRect(0, 0, 128, 256)
+      c.save()
+      c.beginPath()
+      c.moveTo(10, 256)
+      c.lineTo(10, 70)
+      c.quadraticCurveTo(64, -20, 118, 70)
+      c.lineTo(118, 256)
+      c.closePath()
+      c.clip()
+      const cols = ['#7a1f2b', '#1f3f7a', '#c99a2e', '#2f6a4a', '#5a2a6a', '#b85a1f']
+      for (let y = 0; y < 256; y += 22) for (let x = 0; x < 128; x += 22) {
+        c.fillStyle = cols[(x / 22 + y / 22 * 2) % cols.length | 0] ?? '#7a1f2b'
+        c.fillRect(x, y, 21, 21)
+      }
+      c.restore()
+      c.strokeStyle = '#2a2018'
+      c.lineWidth = 5
+      c.beginPath()
+      c.moveTo(10, 256)
+      c.lineTo(10, 70)
+      c.quadraticCurveTo(64, -20, 118, 70)
+      c.lineTo(118, 256)
+      c.stroke()
+    })
+    const glassMat = new THREE.MeshStandardMaterial({ map: glassTex, emissive: 0xffffff, emissiveMap: glassTex, emissiveIntensity: 0.25, roughness: 0.2, transparent: true, alphaTest: 0.01 })
+    for (let i = 0; i < 4; i += 1) {
+      for (const side of [-1, 1]) {
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.6), glassMat)
+        win.position.set(side * (W / 2 + 0.02), 3.1, -L / 2 + 2.9 + i * 2.6)
+        win.rotation.y = side * Math.PI / 2
+        win.userData.ghost = true
+        g.add(win)
+      }
+    }
+    // Bell tower on the north facade, open belfry, spire and brass cross.
+    const T = 3.0
+    const tower = solid(new THREE.BoxGeometry(T, 11, T), stone)
+    tower.position.set(0, 5.5, -L / 2 - T / 2 + 0.3)
+    g.add(tower)
+    const belfryZ = -L / 2 - T / 2 + 0.3
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const post = solid(new THREE.BoxGeometry(0.5, 2.2, 0.5), stoneDark)
+      post.position.set(x * (T / 2 - 0.25), 12.1, belfryZ + z * (T / 2 - 0.25))
+      g.add(post)
+    }
+    const bell = solid(new THREE.CylinderGeometry(0.25, 0.55, 0.8, 14, 1, true), trim)
+    bell.position.set(0, 12.0, belfryZ)
+    const deck = solid(new THREE.BoxGeometry(T + 0.3, 0.3, T + 0.3), stoneDark)
+    deck.position.set(0, 13.3, belfryZ)
+    const spire = solid(new THREE.ConeGeometry(T * 0.72, 6, 8), new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.7, metalness: 0.15 }))
+    spire.position.set(0, 16.45, belfryZ)
+    spire.rotation.y = Math.PI / 8
+    const crossV = solid(new THREE.BoxGeometry(0.16, 1.6, 0.16), trim, false)
+    crossV.position.set(0, 20.2, belfryZ)
+    const crossH = solid(new THREE.BoxGeometry(0.9, 0.16, 0.16), trim, false)
+    crossH.position.set(0, 20.5, belfryZ)
+    g.add(bell, deck, spire, crossV, crossH)
+    // Rose-ish arched window over the doors and big double doors.
+    const front = -L / 2 - T + 0.28
+    const rose = new THREE.Mesh(new THREE.CircleGeometry(0.75, 20), glassMat)
+    rose.position.set(0, 6.6, front)
+    rose.rotation.y = Math.PI
+    rose.userData.ghost = true
+    const arch = solid(new THREE.BoxGeometry(2.4, 3.6, 0.3), stoneDark, false)
+    arch.position.set(0, 1.8, front - 0.05)
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x4a2f1f, roughness: 0.7 })
+    for (const side of [-1, 1]) {
+      const leaf = solid(new THREE.BoxGeometry(0.95, 3.0, 0.12), doorMat, false)
+      leaf.position.set(side * 0.5, 1.5, front - 0.22)
+      const ring = solid(new THREE.TorusGeometry(0.08, 0.02, 6, 12), trim, false)
+      ring.position.set(side * 0.18, 1.4, front - 0.3)
+      g.add(leaf, ring)
+    }
+    g.add(rose, arch)
+    // Steps and forecourt with two benches' worth of paving.
+    for (let i = 0; i < 3; i += 1) {
+      const step = solid(new THREE.BoxGeometry(4.2 - i * 0.5, 0.16, 0.5), stone, false)
+      step.position.set(0, 0.08 + i * 0.16, front - 1.6 + i * 0.45)
+      step.userData.ghost = true
+      g.add(step)
+    }
+    const court = solid(new THREE.BoxGeometry(7, 0.04, 3), stoneDark, false)
+    court.position.set(0, 0.02, front - 3.3)
+    court.userData.ghost = true
+    g.add(court)
+    scene.add(g)
+    obstacles.push({ kind: 'box', x: cx, z: cz, hx: W / 2 + 0.55, hz: L / 2 })
+    obstacles.push({ kind: 'box', x: cx, z: cz + belfryZ, hx: T / 2 + 0.05, hz: T / 2 + 0.05 })
+    reserved.push({ kind: 'box', x: cx, z: cz - 3, hx: W / 2 + 1.8, hz: L / 2 + 5 })
+    const at = { x: cx, z: cz + front - 2.0 }
+    doors.push({ x: at.x, z: at.z, own: obstacles[obstacles.length - 2] as Obstacle })
+    return at
+  })()
   spot('church', church.x, church.z, 2.4, 'Church', 'A quiet room. Rest counts. Nobody checks your positions at the door.', 'church', 'Step in')
   for (const home of HOUSES) {
     const door = addBuilding({

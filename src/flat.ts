@@ -54,7 +54,7 @@ const blocks: Block[] = [
   { x: 0, z: 48, w: 16, d: 11, label: 'Trenches' },
   { x: 22, z: -22, w: 8, d: 7, label: 'Boutique' },
   { x: -22, z: -22, w: 8, d: 8, label: 'Gym' },
-  { x: 24, z: 26, w: 9, d: 11, label: 'Church' },
+  { x: 24, z: 25.5, w: 8, d: 14, label: 'Church' },
   ...HOUSES.map((home) => ({ x: home.x, z: home.z, w: home.w, d: home.d, label: home.title })),
   { x: 28, z: -16, w: 8, d: 6, label: 'Terminal café' },
   { x: -28, z: 16, w: 4.4, d: 2.6, label: 'Carbon' },
@@ -71,7 +71,7 @@ function citySpots(): Spot[] {
   const trench = at(7, 'nz')
   const shop = at(8, 'nx')
   const gym = at(9, 'px')
-  const church = at(10, 'nx')
+  const church = at(10, 'nz')
   const homes = HOUSES.map((home, index) => ({ home, at: at(11 + index, home.door) }))
   const net = at(11 + HOUSES.length, 'pz')
   const desk = at(12 + HOUSES.length, 'px')

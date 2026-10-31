@@ -24,6 +24,7 @@ import { getSave, loadSave, rememberPlace, setGraphics, setVolume, tickMarket } 
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
+import { createInteriors } from './interiors.ts'
 import './style.css'
 
 const WALK = 2.7
@@ -412,13 +413,85 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const lookSmooth = new THREE.Vector3()
   const vel = { x: 0, z: 0 }
   let target: THREE.Vector3 | null = null
-  // Go home: walk to the front door of your house (36, 32; door faces -x).
-  must('#go-home').addEventListener('click', () => {
-    target = new THREE.Vector3(36 - 3.5 - 1.2, 0, 32)
-    stuck = 0
-    prevDist = Infinity
-    ui.toast('Heading home. The H on the map is your house.')
+  // Go home (button or Home key): reset the camera behind the player and point a waypoint arrow at the house.
+  // It never moves the player.
+  const HOME_DOOR = new THREE.Vector3(36 - 3.5 - 1.45, 0, 32)
+  const homeArrow = new THREE.Group()
+  {
+    const arrowMat = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.7, roughness: 0.4 })
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 10), arrowMat)
+    head.rotation.x = Math.PI / 2
+    head.position.z = 0.35
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8), arrowMat)
+    shaft.rotation.x = Math.PI / 2
+    homeArrow.add(head, shaft)
+    homeArrow.visible = false
+    homeArrow.userData.ghost = true
+    head.userData.ghost = true
+    shaft.userData.ghost = true
+    scene.add(homeArrow)
+  }
+  let homeArrowFor = 0
+  const goHome = () => {
+    camYaw = faceYaw + Math.PI
+    camPitch = 0.42
+    camDist = 5.6
+    lookIdle = 0
+    camVel.set(0, 0, 0)
+    homeArrowFor = 20
+    ui.toast(interiors.inside === 'house' ? 'You are home.' : 'Follow the brass arrow. The H on the map is your house.')
+  }
+  must('#go-home').addEventListener('click', goHome)
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Home' && !ui.isOpen()) {
+      event.preventDefault()
+      goHome()
+    }
   })
+  let busyFor = 0
+  let exitCooldown = 0
+  const interiors = createInteriors(scene, {
+    toast: (text) => ui.toast(text),
+    openPanel: (panel) => ui.open(panel),
+    onLook: () => applyLook(),
+    busy: (seconds, x, z, yaw) => {
+      busyFor = seconds
+      pos.x = x
+      pos.z = z
+      faceYaw = yaw
+      avatar.object.rotation.y = yaw
+    },
+  })
+  let streetDoor = { x: 0, z: 0 }
+  const enterRoom = (doorSpot: Hotspot) => {
+    const room = interiors.roomFor(doorSpot.id)
+    if (!room) return false
+    streetDoor = { x: doorSpot.x, z: doorSpot.z }
+    const at = interiors.enter(room)
+    pos.x = at.x
+    pos.z = at.z
+    vel.x = 0
+    vel.z = 0
+    target = null
+    camYaw = at.yaw + Math.PI
+    camDist = Math.min(camDist, 4.2)
+    smoothCam.set(pos.x + Math.sin(camYaw) * 3, 2.6, pos.z + Math.cos(camYaw) * 3)
+    camVel.set(0, 0, 0)
+    exitCooldown = 1
+    return true
+  }
+  const leaveRoom = () => {
+    const out = interiors.exit(streetDoor.x, streetDoor.z)
+    pos.x = out.x
+    pos.z = out.z
+    vel.x = 0
+    vel.z = 0
+    target = null
+    camYaw = Math.atan2(out.x - streetDoor.x, out.z - streetDoor.z)
+    smoothCam.set(pos.x + Math.sin(camYaw) * 4, 3, pos.z + Math.cos(camYaw) * 4)
+    camVel.set(0, 0, 0)
+    exitCooldown = 1.2
+  }
   let stuck = 0
   let prevDist = Infinity
   let traveled = 0
@@ -487,7 +560,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     captionTitle.textContent = next.title
     captionBody.textContent = next.body
     caption.hidden = false
-    act.hidden = !next.action
+    act.hidden = !(next.action || next.use || next.exit)
     act.textContent = next.enter ?? 'Enter'
   }
 
@@ -523,7 +596,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
     skyline.tick(elapsed, nightLevel)
-    ui.setPlace(districtName(pos.x, pos.z))
+    if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()
     const paused = ui.isOpen()
@@ -533,15 +606,27 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 3.2, 12)
 
-    if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
+    exitCooldown = Math.max(0, exitCooldown - dt)
+    busyFor = Math.max(0, busyFor - dt)
+    if (!paused && frame.interact && spot) {
+      if (spot.exit) leaveRoom()
+      else if (spot.use) spot.use()
+      else if (!enterRoom(spot) && spot.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
+    }
 
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
       if (raycaster.ray.intersectPlane(floor, tapPoint)) {
         target = tapPoint.clone()
-        target.x = THREE.MathUtils.clamp(target.x, -CITY_LIMIT + 1, CITY_LIMIT - 1)
-        target.z = THREE.MathUtils.clamp(target.z, -CITY_LIMIT + 1, CITY_LIMIT - 1)
+        const room = interiors.bounds()
+        if (room) {
+          target.x = THREE.MathUtils.clamp(target.x, room.x - room.hw, room.x + room.hw)
+          target.z = THREE.MathUtils.clamp(target.z, room.z - room.hd, room.z + room.hd)
+        } else {
+          target.x = THREE.MathUtils.clamp(target.x, -CITY_LIMIT + 1, CITY_LIMIT - 1)
+          target.z = THREE.MathUtils.clamp(target.z, -CITY_LIMIT + 1, CITY_LIMIT - 1)
+        }
         stuck = 0
         prevDist = Infinity
       }
@@ -589,15 +674,20 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       vel.x = 0
       vel.z = 0
     }
-    if (paused) {
+    if (paused || busyFor > 0) {
       vel.x = 0
       vel.z = 0
     }
-    pos.x += vel.x * dt
-    pos.z += vel.z * dt
     blockers.length = 0
-    blockers.push(...world.obstacles, ...crowdObstacles)
-    resolveCollision(pos, vel, blockers, PLAYER_R)
+    if (interiors.inside) blockers.push(...interiors.obstacles())
+    else blockers.push(...world.obstacles, ...crowdObstacles)
+    // Sub-step so a fast frame on a slow phone can never tunnel through a wall; boxes slide.
+    const steps = Math.max(1, Math.ceil((Math.hypot(vel.x, vel.z) * dt) / 0.2))
+    for (let i = 0; i < steps; i += 1) {
+      pos.x += (vel.x * dt) / steps
+      pos.z += (vel.z * dt) / steps
+      resolveCollision(pos, vel, blockers, PLAYER_R, Boolean(interiors.inside))
+    }
     avatar.object.position.set(pos.x, 0, pos.z)
     const groundSpeed = Math.hypot(vel.x, vel.z)
     const moving = groundSpeed > 0.22
@@ -629,14 +719,29 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
 
     let best: Hotspot | null = null
     let bestDist = Infinity
-    for (const candidate of world.hotspots) {
+    const candidates: Hotspot[] = interiors.inside ? (interiors.uses() as Hotspot[]) : world.hotspots
+    for (const candidate of candidates) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
+      // Walking through a door enters or leaves the 3D room.
+      if (!paused && exitCooldown === 0 && dist < 0.75) {
+        if (candidate.exit) { leaveRoom(); break }
+        if (!interiors.inside && interiors.roomFor(candidate.id) && enterRoom(candidate)) break
+      }
       if (dist < candidate.r && dist < bestDist) {
         best = candidate
         bestDist = dist
       }
     }
     showSpot(best)
+    if (homeArrowFor > 0 && !interiors.inside) {
+      homeArrowFor -= dt
+      const hx = HOME_DOOR.x - pos.x
+      const hz = HOME_DOOR.z - pos.z
+      if (Math.hypot(hx, hz) < 3) homeArrowFor = 0
+      homeArrow.visible = homeArrowFor > 0
+      homeArrow.position.set(pos.x, 2.5 + Math.sin(elapsed * 3) * 0.06, pos.z)
+      homeArrow.rotation.y = Math.atan2(hx, hz)
+    } else homeArrow.visible = false
 
     if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true
@@ -768,6 +873,7 @@ function revealCity() {
 async function begin() {
   if (opening) return
   opening = true
+  stopPreview()
   prepareAssets()
   play.disabled = true
   play.textContent = 'Opening the district'
@@ -803,6 +909,12 @@ async function begin() {
     if (shown) clearTimeout(watchdog)
   }
 }
+
+let stopPreview: () => void = () => {}
+void import('./preview.ts').then((m) => {
+  const c = document.querySelector<HTMLCanvasElement>('#menu-preview')
+  if (c && !opening) stopPreview = m.startPreview(c)
+}).catch(() => {})
 
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
 startTracking()

@@ -75,15 +75,19 @@ function pushBox(pos: Vec, vel: Vec, box: Box, radius: number): void {
   }
 }
 
-export function resolveCollision(pos: Vec, vel: Vec, obstacles: readonly Obstacle[], radius: number): void {
-  if (pos.x > CITY_LIMIT) {
+export function resolveCollision(pos: Vec, vel: Vec, obstacles: readonly Obstacle[], radius: number, unbounded = false): void {
+  if (unbounded) {
+    /* interiors live outside the city square */
+  } else if (pos.x > CITY_LIMIT) {
     pos.x = CITY_LIMIT
     if (vel.x > 0) vel.x = 0
   } else if (pos.x < -CITY_LIMIT) {
     pos.x = -CITY_LIMIT
     if (vel.x < 0) vel.x = 0
   }
-  if (pos.z > CITY_LIMIT) {
+  if (unbounded) {
+    /* skip */
+  } else if (pos.z > CITY_LIMIT) {
     pos.z = CITY_LIMIT
     if (vel.z > 0) vel.z = 0
   } else if (pos.z < -CITY_LIMIT) {
