@@ -20,9 +20,8 @@
       <div id="hud">
         <h1 class="sr-only">Grind District</h1>
         <header>
-          <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
-          <p class="tag">No tribe, no continent<br />Just come grind</p>
-          <p class="pills">
+          <img class="lockup hud-logo" src="/brand/lockup.png" alt="Grind District" />
+          <p class="pills hud-cluster">
             <button id="pill-rank" type="button" class="pill">Shrimp</button>
             <button id="pill-place" type="button" class="pill" title="Open the City directory">The Plaza</button>
             <button id="pill-ledger" type="button" class="pill">$0.00</button>
@@ -34,18 +33,15 @@
             <button id="nav-learn" type="button" class="icon-btn" aria-label="Learn" title="Learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l9-3 9 3-9 3-9-3Zm3 2v6c0 1.5 3 3 6 3s6-1.5 6-3V8"/></svg><span>Learn</span></button>
             <button id="nav-city" type="button" class="icon-btn" aria-label="City" title="City"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l5-3v14M9 20V4l7 3v13M16 20v-9l4 2v7M3 20h18"/></svg><span>City</span></button>
             <button id="nav-settings" type="button" class="icon-btn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
+            <span class="music-group">
+              <button id="music" type="button" class="icon-btn" aria-pressed="false" aria-label="Music off" title="Music"></button>
+              <input id="volume" type="range" min="0" max="100" value="70" disabled aria-label="Volume" />
+            </span>
           </nav>
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>
         <div class="tools">
-          <p class="song">City theme</p>
-          <div class="tool-row">
-            <button id="music" type="button" aria-pressed="false">Music off</button>
-          </div>
-          <label class="vol">
-            Volume
-            <input id="volume" type="range" min="0" max="100" value="70" disabled />
-          </label>
+          
           <p id="music-note"></p>
         </div>
         <div id="dock">

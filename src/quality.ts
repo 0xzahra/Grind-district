@@ -28,8 +28,9 @@ const Grade = {
     float l = dot(col, vec3(0.2126,0.7152,0.0722));
     col = mix(col, vec3(l), 0.05);
     col = (col - 0.5) * 1.08 + 0.5;
-    col += vec3(0.024,0.102,0.078) * 0.12 * (1.0 - l);
-    col *= mix(vec3(1.0), vec3(1.03,1.0,0.96), smoothstep(0.5,1.0,l));
+    col += vec3(0.03,0.035,0.04) * 0.10 * (1.0 - l);
+    col *= mix(vec3(1.0), vec3(1.04,1.01,0.95), smoothstep(0.45,1.0,l));
+    col = mix(vec3(l), col, 0.9);
     vec2 d = vUv - 0.5;
     col *= 1.0 - 0.25 * smoothstep(0.25, 0.75, dot(d,d) * 2.0);
     float n = fract(sin(dot(vUv * (time + 1.0), vec2(12.9898,78.233))) * 43758.5453);
@@ -44,6 +45,9 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let bloom: UnrealBloomPass | null = null
   let level: Graphics = 'low'
   let grade: ShaderPass | null = null
+  let broken = false
+  let checks = 0
+  let blackRuns = 0
   let scale = 1
   let want = 1
   let base = 1
@@ -52,7 +56,13 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let h = 1
   const build = () => {
     // MSAA target keeps edges clean through the composer (WebGL2).
-    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: level === 'high' ? 4 : 2 })
+    // Phones: plain 8-bit target with no MSAA (HalfFloat+MSAA renders black on some Android GPUs).
+    const coarse = window.matchMedia('(pointer: coarse)').matches
+    const gl2 = renderer.capabilities.isWebGL2
+    const target = new THREE.WebGLRenderTarget(1, 1, {
+      type: coarse || !gl2 ? THREE.UnsignedByteType : THREE.HalfFloatType,
+      samples: coarse || !gl2 ? 0 : level === 'high' ? 4 : 2,
+    })
     composer = new EffectComposer(renderer, target)
     composer.addPass(new RenderPass(scene, camera))
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 0.85)
@@ -79,14 +89,15 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     /** Night lifts bloom so neon strips read; day keeps it subtle. */
     setNight(night: number) {
       if (bloom) {
-        bloom.threshold = 0.85 - night * 0.2
-        bloom.strength = 0.35 + night * 0.35
+        bloom.threshold = 0.9 - night * 0.12
+        bloom.strength = 0.18 + night * 0.22
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */
     frame(dt: number, t: number) {
       if (grade) grade.uniforms.time.value = t % 100
       if (level === 'low' || !composer) return
+      if (!Number.isFinite(dt) || dt <= 0) return
       slow = dt > 0.02 ? slow + 1 : Math.max(0, slow - 0.25)
       if (slow > 20 && want > 0.6) { want -= 0.1; slow = 0 }
       else if (slow === 0 && dt < 0.014 && want < 1) want = Math.min(1, want + 0.002)
@@ -99,8 +110,33 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       }
     },
     render() {
-      if (level === 'low' || !composer) renderer.render(scene, camera)
-      else composer.render()
+      if (level === 'low' || !composer || broken) {
+        renderer.render(scene, camera)
+        return
+      }
+      try {
+        composer.render()
+      } catch (error) {
+        console.warn('Post stack failed; rendering without it.', error)
+        broken = true
+        renderer.render(scene, camera)
+        return
+      }
+      // Black-frame guard: if the composer output is pure black for ~1.5 s, drop to direct rendering.
+      if (++checks % 30 === 0 && checks < 600) {
+        const gl = renderer.getContext()
+        const px = new Uint8Array(4)
+        let lit = false
+        for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.3], [0.75, 0.3], [0.5, 0.8]]) {
+          gl.readPixels(Math.floor(gl.drawingBufferWidth * fx!), Math.floor(gl.drawingBufferHeight * fy!), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px)
+          if (px[0]! + px[1]! + px[2]! > 0) lit = true
+        }
+        blackRuns = lit ? 0 : blackRuns + 1
+        if (blackRuns >= 3) {
+          console.warn('Post stack produced black frames; rendering without it.')
+          broken = true
+        }
+      }
     },
   }
 }

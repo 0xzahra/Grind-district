@@ -43,25 +43,65 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   const dummy = new THREE.Object3D()
   const color = new THREE.Color()
 
-  // People: one body (torso + legs as a tapered column) and one head.
-  const bodyGeo = new THREE.CylinderGeometry(0.17, 0.12, 1.3, 6)
-  bodyGeo.translate(0, 0.65, 0)
-  const headGeo = new THREE.IcosahedronGeometry(0.15, 0)
-  const bodies = new THREE.InstancedMesh(bodyGeo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), counts.people)
-  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ roughness: 0.6, flatShading: true }), counts.people)
+  // People: fuller stylised bodies built from a few instanced parts (7 draw calls total).
+  const box = (w: number, h: number, d: number, y: number, z = 0) => new THREE.BoxGeometry(w, h, d).translate(0, y, z)
+  const torsoGeo = mergeGeometries([
+    new THREE.CylinderGeometry(0.2, 0.17, 0.56, 10).scale(1, 1, 0.62).translate(0, 1.18, 0), // chest -> waist
+    new THREE.SphereGeometry(0.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1.12, 0.45, 0.66).translate(0, 1.45, 0), // shoulders
+    new THREE.CylinderGeometry(0.18, 0.19, 0.16, 10).scale(1, 1, 0.68).translate(0, 0.88, 0), // hips
+    new THREE.CylinderGeometry(0.055, 0.06, 0.08, 6).translate(0, 1.53, 0), // neck
+  ])!
+  const legGeo = mergeGeometries([
+    new THREE.CylinderGeometry(0.085, 0.065, 0.82, 8).translate(0, -0.41, 0),
+    box(0.11, 0.07, 0.24, -0.84, 0.05), // shoe
+  ])!
+  const armGeo = mergeGeometries([
+    new THREE.CylinderGeometry(0.06, 0.048, 0.6, 8).translate(0, -0.3, 0),
+    new THREE.SphereGeometry(0.05, 6, 4).translate(0, -0.63, 0), // hand
+  ])!
+  const headGeo = mergeGeometries([
+    new THREE.IcosahedronGeometry(0.115, 1).scale(0.9, 1.12, 1).translate(0, 1.7, 0),
+  ])!
+  const hairGeo = new THREE.SphereGeometry(0.124, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55).scale(0.95, 1.05, 1.04).translate(0, 1.72, -0.008)
+  const cloth = new THREE.MeshStandardMaterial({ roughness: 0.78, flatShading: true })
+  const bodies = new THREE.InstancedMesh(torsoGeo, cloth, counts.people)
+  const armsL = new THREE.InstancedMesh(armGeo, cloth, counts.people)
+  const armsR = new THREE.InstancedMesh(armGeo, cloth, counts.people)
+  const trousers = new THREE.MeshStandardMaterial({ roughness: 0.85, flatShading: true })
+  const legsL = new THREE.InstancedMesh(legGeo, trousers, counts.people)
+  const legsR = new THREE.InstancedMesh(legGeo, trousers, counts.people)
+  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ roughness: 0.62, flatShading: true }), counts.people)
+  const hair = new THREE.InstancedMesh(hairGeo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), counts.people)
   const skins = [0xf0c4a8, 0x8d5a3b, 0xc68a62, 0x5a3825, 0xe8b894]
+  const pants = [0x22262b, 0x3a3f47, 0x1d2a3a, 0x5b4a3a, 0x2b2b2b]
+  const hairs = [0x16110e, 0x3b2a1e, 0x0e0e10, 0x6b4a2e, 0xc9a66b]
   const walkers: Walker[] = []
   for (let i = 0; i < counts.people; i += 1) {
     walkers.push({ arm: i % 4, side: i % 8 < 4 ? 1 : -1, t: Math.random(), dir: Math.random() < 0.5 ? 1 : -1, speed: 1.1 + Math.random() * 0.5, phase: Math.random() * 6 })
-    bodies.setColorAt(i, color.setHex(SHIRTS[i % SHIRTS.length] ?? 0xffffff))
+    const shirt = color.setHex(SHIRTS[i % SHIRTS.length] ?? 0xffffff)
+    bodies.setColorAt(i, shirt)
+    armsL.setColorAt(i, shirt)
+    armsR.setColorAt(i, shirt)
+    const leg = color.setHex(pants[(i * 3) % pants.length] ?? 0x222222)
+    legsL.setColorAt(i, leg)
+    legsR.setColorAt(i, leg)
     heads.setColorAt(i, color.setHex(skins[i % skins.length] ?? 0xf0c4a8))
+    hair.setColorAt(i, color.setHex(hairs[(i * 7) % hairs.length] ?? 0x111111))
   }
-  for (const mesh of [bodies, heads]) {
-    mesh.castShadow = graphics !== 'low'
+  const peopleMeshes = [bodies, armsL, armsR, legsL, legsR, heads, hair]
+  for (const mesh of peopleMeshes) {
+    mesh.castShadow = graphics === 'high'
     mesh.frustumCulled = false
     mesh.userData.ghost = true
     mesh.raycast = () => undefined
     scene.add(mesh)
+  }
+  const limb = new THREE.Object3D()
+  const limbAt = (mesh: THREE.InstancedMesh, i: number, x: number, y: number, swing: number) => {
+    limb.position.set(x, y, 0)
+    limb.rotation.set(swing, 0, 0)
+    limb.updateMatrix()
+    mesh.setMatrixAt(i, limb.matrix.premultiply(dummy.matrix))
   }
 
   // Cars: a low body, a glass cabin, and four wheels merged into one instanced mesh.
@@ -190,17 +230,20 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         const far = Math.hypot(x - focus.x, z - focus.z) > LOD
         w.phase += dt * w.speed * 5
         const heading = Math.atan2(arm.ax * w.dir, arm.az * w.dir)
-        dummy.position.set(x, far ? -50 : Math.abs(Math.sin(w.phase)) * 0.05, z)
-        dummy.rotation.set(0, heading, Math.sin(w.phase) * 0.05)
+        const swing = Math.sin(w.phase) * 0.5
+        dummy.position.set(x, far ? -50 : Math.abs(Math.cos(w.phase)) * 0.04, z)
+        dummy.rotation.set(0, heading, 0)
         dummy.scale.setScalar(far ? 0.001 : 1)
         dummy.updateMatrix()
         bodies.setMatrixAt(i, dummy.matrix)
-        dummy.position.y += 1.45
-        dummy.updateMatrix()
         heads.setMatrixAt(i, dummy.matrix)
+        hair.setMatrixAt(i, dummy.matrix)
+        limbAt(legsL, i, -0.09, 0.86, swing)
+        limbAt(legsR, i, 0.09, 0.86, -swing)
+        limbAt(armsL, i, -0.25, 1.46, -swing * 0.8)
+        limbAt(armsR, i, 0.25, 1.46, swing * 0.8)
       })
-      bodies.instanceMatrix.needsUpdate = true
-      heads.instanceMatrix.needsUpdate = true
+      for (const mesh of peopleMeshes) mesh.instanceMatrix.needsUpdate = true
 
       cars.forEach((car, i) => {
         const axisGo = car.arm < 2 ? green : !green

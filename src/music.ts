@@ -78,7 +78,8 @@ export function bindMusic(
   const level = () => Number(slider.value) / 100 * 0.8
 
   const paint = () => {
-    button.textContent = playing ? 'Music on' : 'Music off'
+    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>${playing ? '' : '<path d="M3 3l18 18"/>'}</svg>`
+    button.setAttribute('aria-label', playing ? 'Music on' : 'Music off')
     button.setAttribute('aria-pressed', String(playing))
     slider.disabled = !playing
     audio.volume = playing ? level() : 0

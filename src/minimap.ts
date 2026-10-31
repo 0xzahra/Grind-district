@@ -55,8 +55,6 @@ export function drawMinimap(
   ctx.font = `600 ${Math.max(9, Math.round(width / 12))}px Outfit, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const marks: Array<[number, number, string]> = [[0, -50, 'C'], [-50, 0, 'F'], [50, 0, 'I'], [0, 50, 'T']]
-  for (const [x, z, letter] of marks) ctx.fillText(letter, X(x), Y(z))
   ctx.fillStyle = '#ffd27a'
   for (const other of others) {
     ctx.beginPath()

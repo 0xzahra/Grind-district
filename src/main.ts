@@ -145,7 +145,7 @@ async function main(onReveal: () => void) {
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.shadowMap.type = THREE.PCFShadowMap
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 260)
@@ -369,6 +369,7 @@ async function main(onReveal: () => void) {
   let camDist = 5.6
   let sprinting = false
   let introT = 0
+  let introStart = 0
   const introPos = new THREE.Vector3()
   const shoulder = new THREE.Vector3()
   let lookIdle = 0
@@ -626,11 +627,18 @@ async function main(onReveal: () => void) {
     camera.position.copy(safe)
     // Cinematic intro: a high crane sweep over the skyline that settles behind the player.
     if (introT < 1 && !calmSky()) {
-      introT = Math.min(1, introT + dt / 3.2)
+      introStart ||= performance.now()
+      introT = Math.min(1, (performance.now() - introStart) / 3200)
       const k = introT * introT * (3 - 2 * introT)
       const a = camYaw + (1 - k) * 1.6
       introPos.set(pos.x + Math.sin(a) * 34, 26, pos.z + Math.cos(a) * 34)
       camera.position.lerpVectors(introPos, safe, k)
+    }
+    if (!Number.isFinite(camera.position.x + camera.position.y + camera.position.z)) {
+      camera.position.set(pos.x, 6, pos.z + 8)
+      camVel.set(0, 0, 0)
+      smoothCam.copy(camera.position)
+      introT = 1
     }
     camera.lookAt(lookTarget)
     const baseFov = window.innerWidth < 800 ? 60 : 55

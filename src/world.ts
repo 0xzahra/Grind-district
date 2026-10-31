@@ -950,13 +950,13 @@ export function createWorld(options: {
     hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)
     fill.intensity = 0.12
     lampMat.emissiveIntensity = 0.08 + night * 0.87
-    trimPulse = 0.35 + night * 0.77
+    trimPulse = 0.25 + night * 0.45
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.12 + night * 0.38
     // Wet-street night: the ground picks up neon and the env map after dark.
     groundMat.roughness = 0.92 - night * 0.5
     groundMat.metalness = 0.02 + night * 0.28
-    for (const facade of facades) facade.emissiveIntensity = 0.05 + night * 0.4
+    for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.3
     for (const light of glow) light.intensity = Number(light.userData.night) * Math.max(0, night - 0.1)
     moon.visible = night > 0.25
     moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)

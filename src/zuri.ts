@@ -44,7 +44,8 @@ export function createZuri(): ShrimpAvatar {
   scarf.emissiveIntensity = 0.18
   const dark = mat(0x140e12, 0.45)
   const lip = mat(0xd4536a, 0.38)
-  const iris = mat(0x3e6b4a, 0.3)
+  const iris = mat(0x2a3c2e, 0.95)
+  iris.envMapIntensity = 0
   const pupil = mat(0x100e0c, 0.3)
   const lash = mat(0x140e10, 0.4)
   const gold = mat(FRAME, 0.22, 0.86)
@@ -59,7 +60,7 @@ export function createZuri(): ShrimpAvatar {
   const key = new THREE.PointLight(0xfff1ea, 2.8, 3.8, 2)
   key.position.set(0, 2.2, -1.05)
   avatar.add(key)
-  const faceLight = new THREE.PointLight(0xffe8f0, 2.1, 2.6, 2)
+  const faceLight = new THREE.PointLight(0xffe8f0, 1.0, 2.6, 2)
   faceLight.position.set(0, 1.66, 0.95)
   avatar.add(faceLight)
   const bob = new THREE.Group()

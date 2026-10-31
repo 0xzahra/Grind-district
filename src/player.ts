@@ -102,8 +102,9 @@ export function createPlayer(): ShrimpAvatar {
     metalness: 0.05,
     depthWrite: false,
   })
-  const iris = mat(0x6d8f62, 0.35)
-  const pupil = mat(0x10140f, 0.3)
+  const iris = mat(0x3a4a36, 0.95)
+  iris.envMapIntensity = 0 // matte eyes: no env or bloom sparkle
+  const pupil = mat(0x10140f, 0.95)
   const lip = mat(0xc9897a, 0.52)
 
   const root = new THREE.Group()
@@ -114,7 +115,7 @@ export function createPlayer(): ShrimpAvatar {
   const key = new THREE.PointLight(0xfff6ea, 2.6, 3.6, 2)
   key.position.set(0, 2.15, -1.1)
   avatar.add(key)
-  const faceLight = new THREE.PointLight(0xe7eeff, 1.8, 2.8, 2)
+  const faceLight = new THREE.PointLight(0xe7eeff, 0.9, 2.8, 2)
   faceLight.position.set(0, 1.62, 0.9)
   avatar.add(faceLight)
   const bob = new THREE.Group()

@@ -6,7 +6,7 @@ export function createWatch(scene: THREE.Scene, count: number) {
   const red = new THREE.MeshBasicMaterial({ color: 0xff2a2a })
   const green = new THREE.MeshBasicMaterial({ color: 0x17f790 })
   const cone = new THREE.MeshBasicMaterial({
-    color: 0x45eb98, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    color: 0x45eb98, transparent: true, opacity: 0.02, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   })
   const hull = new THREE.BoxGeometry(1.4, 0.32, 0.9)
   const arm = new THREE.BoxGeometry(2.6, 0.08, 0.12)
@@ -29,7 +29,7 @@ export function createWatch(scene: THREE.Scene, count: number) {
   const tmp = new THREE.Vector3()
   return {
     tick(t: number, player: THREE.Vector3, night: number) {
-      cone.opacity = 0.03 + night * 0.07
+      cone.opacity = 0.012 + night * 0.028
       for (const d of drones) {
         const a = t * d.speed + d.phase
         d.g.position.set(Math.cos(a) * d.radius, d.h + Math.sin(t * 0.7 + d.phase) * 0.5, Math.sin(a) * d.radius)

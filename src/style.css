@@ -1032,3 +1032,19 @@ body.touch .pills span, body.touch button.pill, body.touch #nav { backdrop-filte
 #menu-home .lockup { filter: drop-shadow(0 0 28px rgba(23,247,144,0.35)); }
 @media (prefers-reduced-motion: reduce) { #boot img, .boot-bar i { animation: none; } }
 .voice-rec.live{color:#ff4d5a;border-color:#ff4d5a}.voice-play{padding:2px 8px;font-size:12px;border-radius:10px}
+
+/* Playtest fixes: compact HUD */
+#hud .hud-logo { width: min(96px, 22vw) !important; height: auto; }
+#hud header .tag { display: none; }
+.hud-cluster { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
+.hud-cluster .pill, .hud-cluster span { font-size: 11px !important; padding: 3px 9px !important; min-height: 0 !important; background: rgba(10,12,12,0.6) !important; border: 1px solid rgba(242,253,248,0.14) !important; color: #e8efe9; }
+.hud-cluster #pill-rank { color: #17f790; border-color: rgba(23,247,144,0.35) !important; }
+.tools { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.music-group { display: inline-flex; align-items: center; gap: 4px; }
+#nav #music { min-width: 36px; padding: 6px; }
+#nav #music svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+#nav #volume { width: 0; opacity: 0; transition: width .2s, opacity .2s; }
+.music-group:hover #volume, .music-group:focus-within #volume { width: 70px; opacity: 1; }
+#nav .icon-btn span { display: none; }
+#nav .icon-btn { min-width: 36px; padding: 6px; }
+#nav .icon-btn svg { width: 18px; height: 18px; }
