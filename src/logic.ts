@@ -18,6 +18,10 @@ export const SKILL_ORDER = [
   'agents',
   'building',
   'carbon',
+  'custody',
+  'stables',
+  'liquidity',
+  'records',
 ] as const
 
 export type SkillId = (typeof SKILL_ORDER)[number]
@@ -31,7 +35,13 @@ export const SKILL_META: Record<SkillId, { title: string; cv: string }> = {
   agents: { title: 'Agents', cv: 'Agents — labeled, and attached to robots' },
   building: { title: 'Building', cv: 'Building — proof of work over a purchased certificate' },
   carbon: { title: 'Carbon claims', cv: 'Carbon claims — reads the method before the logo' },
+  custody: { title: 'Custody', cv: 'Custody — a recovery phrase is the keys, and an approval is a spending limit' },
+  stables: { title: 'Stablecoins', cv: 'Stablecoins — a peg is a claim about reserves and redemption, not a law' },
+  liquidity: { title: 'Liquidity pools', cv: 'Liquidity pools — a swap moves the ratio, and providing liquidity takes inventory risk' },
+  records: { title: 'Reading a transfer', cv: 'Reading a transfer — status, from, to, asset, and chain, not a screenshot' },
 }
+
+export type MapSize = 'compact' | 'large'
 
 export type BodyId = 'player' | 'zuri' | 'shrimp' | 'ledger' | 'marina' | 'signal'
 export type MaskId = 'none' | 'punk' | 'ape' | 'pudgy' | 'azuki' | 'nodemonke' | 'degods'
@@ -177,6 +187,11 @@ export type Save = {
   timeOfDay: TimeOfDay
   graphics: Graphics
   volume: number
+  mapSize: MapSize
+  hints: boolean
+  reduceMotion: boolean
+  waterDay: string
+  conferenceNoted: boolean
   conference: boolean
   robotRead: boolean
   houseClaimed: boolean
@@ -373,6 +388,11 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     timeOfDay: 'night',
     graphics: opts?.graphics ?? 'medium',
     volume: 70,
+    mapSize: 'compact',
+    hints: true,
+    reduceMotion: false,
+    waterDay: '',
+    conferenceNoted: false,
     conference: false,
     robotRead: false,
     houseClaimed: false,
@@ -477,6 +497,11 @@ function cleanGraphics(value: unknown): Graphics {
   return 'medium'
 }
 
+function cleanMapSize(value: unknown): MapSize {
+  if (value === 'compact' || value === 'large') return value
+  return 'compact'
+}
+
 function cleanHolding(value: unknown): Holding {
   if (!value || typeof value !== 'object') return { qty: 0, avg: 0 }
   const row = value as Record<string, unknown>
@@ -533,6 +558,11 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.timeOfDay = cleanTime(row.timeOfDay)
   fresh.graphics = cleanGraphics(row.graphics)
   fresh.volume = num(row.volume, 0, 100, 70)
+  fresh.mapSize = cleanMapSize(row.mapSize)
+  fresh.hints = bool(row.hints, true)
+  fresh.reduceMotion = bool(row.reduceMotion, false)
+  fresh.waterDay = typeof row.waterDay === 'string' ? row.waterDay.slice(0, 10) : ''
+  fresh.conferenceNoted = bool(row.conferenceNoted, false)
   fresh.conference = bool(row.conference, false)
   fresh.robotRead = bool(row.robotRead, false)
   fresh.houseClaimed = bool(row.houseClaimed, false)
