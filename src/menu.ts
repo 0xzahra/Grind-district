@@ -42,7 +42,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
         copy('WASD or the arrows walk. Shift runs. Drag looks around. The wheel zooms. Click the ground to walk there. Stand on a mint doorstep and press E, or the mint button.'),
         copy('Esc closes a sheet. Movement pauses while a sheet is open.'),
         copy('Twelve courses are in the learning hall, north of the plaza. A pass writes your CV, resume, and portfolio. The houses are the row to the east: yours, a notes house, a set house, a grove house, and a vacant room.'),
-        copy('Market Velocity stays silent until you press Play theme. The ledger is practice USD. It is not a deposit, not a token, and not advice.'),
+        copy('The theme stays silent until you turn Music on. The ledger is practice USD. It is not a deposit, not a token, and not advice.'),
         copy('If this browser cannot start WebGL, the same streets open as an overhead map. The doors are the same doors.'),
       )
       return { title: 'How to play', body }

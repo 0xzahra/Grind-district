@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mountMask } from './masks.ts'
 import type { MaskId } from './logic.ts'
 import type { ShrimpAvatar } from './shrimp.ts'
+import { humanArm, humanGait, humanLeg } from './rig.ts'
 
 const SKIN = 0xf6c4aa
 const HAIR = 0x1a100e
@@ -64,15 +65,13 @@ export function createZuri(): ShrimpAvatar {
   const bob = new THREE.Group()
   avatar.add(bob)
 
-  part(new THREE.BoxGeometry(0.22, 0.34, 0.16), coat, bob, -0.08, 0.78, 0)
-  part(new THREE.BoxGeometry(0.22, 0.34, 0.16), coat, bob, 0.08, 0.78, 0)
-  part(new THREE.BoxGeometry(0.36, 0.16, 0.22), coat, bob, 0, 0.58, 0.01)
-  part(new THREE.BoxGeometry(0.16, 0.06, 0.2), dark, bob, -0.08, 0.12, 0.05)
-  part(new THREE.BoxGeometry(0.16, 0.06, 0.2), dark, bob, 0.08, 0.12, 0.05)
-  part(new THREE.BoxGeometry(0.06, 0.08, 0.06), dark, bob, -0.08, 0.06, -0.02)
-  part(new THREE.BoxGeometry(0.06, 0.08, 0.06), dark, bob, 0.08, 0.06, -0.02)
+  const skirt = part(new THREE.CylinderGeometry(0.16, 0.24, 0.36, 7), coat, bob, 0, 0.84, 0)
+  skirt.scale.z = 0.78
+  const neck = part(new THREE.CylinderGeometry(0.045, 0.055, 0.12, 6), skin, bob, 0, 1.5, 0.01)
+  neck.castShadow = false
 
-  part(new THREE.BoxGeometry(0.36, 0.42, 0.2), coat, bob, 0, 1.22, 0)
+  const torso = part(new THREE.CylinderGeometry(0.2, 0.15, 0.44, 7), coat, bob, 0, 1.22, 0)
+  torso.scale.z = 0.62
   part(new THREE.BoxGeometry(0.16, 0.28, 0.02), scarf, bob, 0, 1.24, 0.11)
   part(new THREE.BoxGeometry(0.22, 0.05, 0.16), gold, bob, 0, 1.02, 0.02)
   const chain = part(new THREE.TorusGeometry(0.09, 0.01, 6, 14), gold, bob, 0, 1.32, 0.12)
@@ -142,35 +141,13 @@ export function createZuri(): ShrimpAvatar {
   maskAnchor.position.set(0, 1.64, 0.2)
   bob.add(maskAnchor)
 
-  const addLeg = (side: number) => {
-    const hip = new THREE.Group()
-    hip.position.set(side * 0.08, 0.92, 0)
-    part(new THREE.BoxGeometry(0.1, 0.34, 0.12), coat, hip, 0, -0.18, 0)
-    const knee = new THREE.Group()
-    knee.position.y = -0.34
-    part(new THREE.BoxGeometry(0.09, 0.32, 0.11), skin, knee, 0, -0.14, 0.01)
-    part(new THREE.BoxGeometry(0.1, 0.05, 0.16), dark, knee, 0, -0.32, 0.04)
-    hip.add(knee)
-    bob.add(hip)
-    return { hip, knee }
-  }
-
-  const addArm = (side: number) => {
-    const shoulder = new THREE.Group()
-    shoulder.position.set(side * 0.22, 1.38, 0)
-    part(new THREE.BoxGeometry(0.08, 0.26, 0.1), coat, shoulder, side * 0.02, -0.14, 0)
-    const handPivot = new THREE.Group()
-    handPivot.position.set(side * 0.02, -0.32, 0.02)
-    part(new THREE.IcosahedronGeometry(0.042, 0), skin, handPivot, 0, -0.02, 0.02)
-    shoulder.add(handPivot)
-    bob.add(shoulder)
-    return { shoulder }
-  }
-
-  const legL = addLeg(-1)
-  const legR = addLeg(1)
-  const armL = addArm(-1)
-  const armR = addArm(1)
+  const legSpec = { x: 0.075, hipY: 0.94, thigh: 0.45, shin: 0.43, rThigh: 0.07, rKnee: 0.05, rAnkle: 0.036 }
+  const legL = humanLeg(bob, -1, legSpec, coat, skin, dark)
+  const legR = humanLeg(bob, 1, legSpec, coat, skin, dark)
+  const armSpec = { x: 0.23, y: 1.41, upper: 0.25, fore: 0.23, r: 0.045 }
+  const armL = humanArm(bob, -1, armSpec, coat, scarf, skin)
+  const armR = humanArm(bob, 1, armSpec, coat, scarf, skin)
+  const gait = humanGait(bob, [legL, legR], [armL, armR], { swing: 0.5, bounce: 0.04, idle: 0.012 })
 
   const shadowCanvas = document.createElement('canvas')
   shadowCanvas.width = 128
@@ -200,8 +177,6 @@ export function createZuri(): ShrimpAvatar {
   let yaw = Math.PI
   let lean = 0
   let leanTarget = 0
-  let phase = 0
-  let time = 0
 
   return {
     object: root,
@@ -219,19 +194,7 @@ export function createZuri(): ShrimpAvatar {
       avatar.rotation.z = lean
     },
     step(dt, moving, speed) {
-      time += dt
-      const stride = moving ? Math.max(0.6, speed) / 1.05 : 0
-      phase += moving ? stride * Math.PI * 2 * dt : dt * 1.4
-      const swing = Math.sin(phase)
-      const amount = moving ? 0.5 : 0.035
-      legL.hip.rotation.x = -swing * amount
-      legR.hip.rotation.x = swing * amount
-      legL.knee.rotation.x = Math.max(0, -swing) * (moving ? 0.65 : 0)
-      legR.knee.rotation.x = Math.max(0, swing) * (moving ? 0.65 : 0)
-      armL.shoulder.rotation.x = swing * amount * 0.8
-      armR.shoulder.rotation.x = -swing * amount * 0.8
-      bob.position.y = moving ? Math.abs(swing) * 0.04 : Math.sin(time * 1.6) * 0.012
-      bob.rotation.x = moving ? 0.04 * Math.min(1, speed / 5.4) : 0
+      gait(dt, moving, speed)
     },
     setStyle(tint: number, luxury: boolean) {
       scarf.color.setHex(tint)

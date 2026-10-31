@@ -11,6 +11,7 @@ import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
+import { createNet } from './net.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
@@ -268,6 +269,51 @@ async function main(onReveal: () => void) {
   volume.addEventListener('input', () => setVolume(Number(volume.value)))
 
   const input = createInput(canvas, stick, nub)
+
+  const chat = must<HTMLFormElement>('#chat')
+  const chatInput = must<HTMLInputElement>('#chat-input')
+  const chatLog = must<HTMLOListElement>('#chat-log')
+  const chatStatus = must<HTMLParagraphElement>('#chat-status')
+  chat.hidden = false
+  const identity = () => {
+    const save = getSave()
+    return { name: save.name, username: save.username, body: save.body, tint: save.tint }
+  }
+  const net = createNet({
+    scene,
+    me: identity(),
+    getSelf: () => avatar.object,
+    onLine: ({ from, text, self }) => {
+      const item = document.createElement('li')
+      const who = document.createElement('b')
+      who.textContent = self ? 'You' : from
+      item.append(who, ` ${text}`)
+      chatLog.append(item)
+      while (chatLog.children.length > 5) chatLog.firstElementChild?.remove()
+      window.setTimeout(() => item.remove(), 20000)
+    },
+    onStatus: (online) => {
+      chatStatus.textContent = online
+        ? 'Live. Players within 12 m see what you say.'
+        : 'Solo city. Only you see your bubble.'
+    },
+  })
+  chat.addEventListener('submit', (event) => {
+    event.preventDefault()
+    net.setMe(identity())
+    net.say(chatInput.value)
+    chatInput.value = ''
+    chatInput.blur()
+  })
+  chatInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') chatInput.blur()
+  })
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || ui.isOpen()) return
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement || event.target instanceof HTMLTextAreaElement) return
+    event.preventDefault()
+    chatInput.focus()
+  })
   act.addEventListener('click', () => input.requestInteract())
 
   const marker = new THREE.Mesh(
@@ -359,7 +405,7 @@ async function main(onReveal: () => void) {
 
   const drawMap = () => {
     if (!mapCtx) return
-    drawMinimap(mapCtx, map.width, map.height, pos)
+    drawMinimap(mapCtx, map.width, map.height, pos, net.peers())
   }
 
   const update = (dt: number) => {
@@ -493,6 +539,7 @@ async function main(onReveal: () => void) {
     if (safe.y < 0.4) safe.y = 0.4
     camera.position.copy(safe)
     camera.lookAt(lookTarget)
+    net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving })
     drawMap()
     saveAcc += dt
     if (saveAcc > 2) {

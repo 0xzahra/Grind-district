@@ -20,6 +20,7 @@ export function drawMinimap(
   width: number,
   height: number,
   player: { x: number; z: number },
+  others: Array<{ x: number; z: number }> = [],
 ): void {
   const X = (x: number) => ((x / LIMIT) * 0.5 + 0.5) * width
   const Y = (z: number) => ((z / LIMIT) * 0.5 + 0.5) * height
@@ -56,6 +57,12 @@ export function drawMinimap(
   ctx.textBaseline = 'middle'
   const marks: Array<[number, number, string]> = [[0, -50, 'C'], [-50, 0, 'F'], [50, 0, 'I'], [0, 50, 'T']]
   for (const [x, z, letter] of marks) ctx.fillText(letter, X(x), Y(z))
+  ctx.fillStyle = '#ffd27a'
+  for (const other of others) {
+    ctx.beginPath()
+    ctx.arc(X(other.x), Y(other.z), Math.max(2, width / 60), 0, Math.PI * 2)
+    ctx.fill()
+  }
   ctx.strokeStyle = '#f7f9fc'
   ctx.lineWidth = 2
   ctx.beginPath()
