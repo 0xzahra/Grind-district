@@ -175,17 +175,17 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     avatar.object.scale.set(sc.b, sc.h, sc.b)
     upgradeToHuman(avatar, model, {
       glasses: own && !female,
-      look: own ? (female ? { hair, top: tint } : { hair, skin: 0xe8c3a6, top: tint }) : undefined,
+      look: own ? (female ? { hair, top: tint, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6, top: tint }) : undefined,
       height: female ? 1.68 : 1.78,
     })
     if (own) {
       // Boutique colours (blue, mint, sand, coral, ice) recolour the rigged model's top, not just the hidden procedural body.
       const setStyle = avatar.setStyle
-      const base = female ? { hair } : { hair, skin: 0xe8c3a6 }
+      const base: { hair: number; skin?: number } = female ? { hair } : { hair, skin: 0xe8c3a6 }
       avatar.setStyle = (t, lux) => {
         setStyle(t, lux)
         const now = getMorph(); avatar.object.scale.set(now.b, now.h, now.b)
-        const look = { ...base, hair: now.hair ?? base.hair, top: t }
+        const look = { ...base, hair: now.hair ?? base.hair, top: t, ...(now.skin ? { skin: now.skin } : {}) }
         avatar.object.userData.look = look
         const apply = avatar.object.userData.applyLook as ((l: typeof look) => void) | undefined
         apply?.(look)

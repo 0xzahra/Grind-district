@@ -90,8 +90,19 @@ function robot(): { object: THREE.Group; x: number; z: number } {
 
 // Realistic skin tones and hair colours (skin, hair).
 const LOOKS: Array<[number, number]> = [
-  [0x8d5a3b, 0x1b1411], [0xe0b394, 0x3a2618], [0x5c3a26, 0x0f0b0a], [0xc68a64, 0x2a1a12],
-  [0xf0c9ad, 0xd9c08a], [0x7a4a2e, 0x16100d], [0xb47a55, 0x4a2c1a], [0x9a6544, 0x0e0a08],
+  [0x8d5a3b, 0x1b1411], [0xeac3a6, 0x3a2618], [0x3b2316, 0x0f0b0a], [0xcf9f78, 0x2a1a12], [0xf3d9c6, 0xd9c08a],
+  [0x6f4329, 0x16100d], [0xa8714b, 0x4a2c1a], [0x55321f, 0x0e0a08], [0xe0b08e, 0x7a3420], [0xbf8a62, 0x15110e],
+]
+/** Personalities: a trait, a daily routine and a few short lines in their own voice. */
+const PERSONAS = [
+  { name: 'Amara', trait: 'Builder', routine: 'Codes at the café, gym at dusk', lines: ['Shipped a fix before breakfast.', 'Ideas are cheap. Commits are not.', 'Gym, then the hackathon board.'] },
+  { name: 'Leo', trait: 'Careful trader', routine: 'Trading floor mornings, library afternoons', lines: ['Size first, story second.', 'I journal every trade.', 'Stop-loss is self-respect.'] },
+  { name: 'Mei', trait: 'Researcher', routine: 'Library hall all day', lines: ['Read the docs, not the hype.', 'Footnotes win arguments.', 'Heading to the library hall.'] },
+  { name: 'Tunde', trait: 'Community lead', routine: 'Plaza meetups, podium talks', lines: ['Who is speaking at the podium?', 'Bring a friend to the meetup.', 'Good communities compound.'] },
+  { name: 'Sofia', trait: 'Designer', routine: 'Fashion house studio, waterfront walks', lines: ['Taste is a skill. Practise it.', 'Less, but better.', 'The promenade light is perfect now.'] },
+  { name: 'Kenji', trait: 'Security nerd', routine: 'Showroom, then the lounge', lines: ['Never sharing a seed. Ever.', 'Hardware wallet, always.', 'Check the address twice.'] },
+  { name: 'Zainab', trait: 'Founder', routine: 'Pitch practice, investor coffees', lines: ['Demo day is in two weeks.', 'Customers first, token later.', 'Penthouse view keeps me hungry.'] },
+  { name: 'Noah', trait: 'Calm saver', routine: 'Morning run, budget review', lines: ['Testnet points are a score, not a promise.', 'Slow money is still money.', 'Same time at the gym tomorrow?'] },
 ]
 
 const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Learning hall.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
@@ -122,6 +133,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: {
       if (m.name === 'hair') m.color.setHex(look[1])
     })
     avatar.object.userData.look = { skin: look[0], hair: look[1], top: spec.tint }
+    avatar.object.userData.persona = PERSONAS[people.length % PERSONAS.length]
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)
@@ -166,7 +178,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: {
         chatClock = 5 + (chatLine % 3)
         const near = people.filter((p, i) => still.has(i) && Math.hypot(p.sim.x - player.x, p.sim.z - player.z) < 22)
         const a = near[chatLine % Math.max(1, near.length)]
-        if (a && live.length < 2) { const sp = bubble(CHAT[chatLine % CHAT.length]!); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
+        if (a && live.length < 2) { const per = PERSONAS[people.indexOf(a) % PERSONAS.length]!; const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
         chatLine += 1
       }
       // Nearest 5 standing people within 7 m turn to face the player.

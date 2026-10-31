@@ -1,4 +1,4 @@
-import { getMorph, setMorph, HAIRS, type Style } from './morph.ts'
+import { getMorph, setMorph, HAIRS, SKIN_TONES, type Style } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
@@ -676,6 +676,9 @@ export function mountUi(
     const hairs = document.createElement('div'); hairs.className = 'tabs'
     for (const hc of HAIRS) hairs.append(button(hc.label, mo.hair === hc.hex ? 'primary' : 'ghost', () => { setMorph({ hair: hc.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }))
     wrap.append(para('Hair', 'kicker'), hairs)
+    const tones = document.createElement('div'); tones.className = 'tabs skin-tones'
+    for (const st of SKIN_TONES) { const b = button('', mo.skin === st.hex ? 'primary' : 'ghost', () => { setMorph({ skin: st.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }); b.style.background = `#${st.hex.toString(16).padStart(6, '0')}`; b.title = st.label; b.setAttribute('aria-label', `Skin tone ${st.label}`); tones.append(b) }
+    wrap.append(para('Skin tone', 'kicker'), tones)
     wrap.append(para(`Gold chain · ${money(CHAIN_USD)} practice. A want, not a need. Resells for ${money(RESELL_USD)}.`, 'muted'))
     if (save.luxury) {
       wrap.append(button('Resell the chain', 'ghost', () => {

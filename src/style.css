@@ -1523,3 +1523,4 @@ pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .lux-login{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .lux-item{display:flex;flex-direction:column;padding:8px 10px;border-radius:12px;margin-bottom:6px;background:rgba(255,255,255,.04);opacity:.75}
 .lux-item.on{opacity:1;border:1px solid rgba(216,180,106,.5)}.lux-item small{opacity:.7;font-size:11px}
+.skin-tones button{width:30px;height:30px;min-width:0;border-radius:50%;padding:0}.skin-tones button.primary{outline:2px solid #d8b46a;outline-offset:2px}
