@@ -1382,3 +1382,18 @@ html body.cc-sheet-on #nav.cc .cc-grid { visibility: hidden; }
 /* Labels under the quad icons (Messages, Notifications, Map), matching the labelled items. */
 html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: auto; min-height: 64px; }
 .cc-btn-label { font: 500 10.5px/1.1 -apple-system, Inter, system-ui, sans-serif; color: rgba(245,245,247,.85); white-space: nowrap; }
+
+/* Top-up sheet (src/topup.ts) */
+.topup { display: grid; gap: 10px; margin: 6px 0 14px; }
+.topup-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.topup-tabs button { padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: inherit; font: inherit; font-weight: 600; }
+.topup-tabs button.on { background: #f2c94c; color: #111; border-color: #f2c94c; }
+.topup-label { font-size: 13px; opacity: .8; }
+.topup-input { font: inherit; font-size: 22px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: inherit; width: 100%; box-sizing: border-box; }
+.topup-break { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 0; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.topup-break dt, .topup-break dd { margin: 0; }
+.topup-break dd { text-align: right; font-variant-numeric: tabular-nums; }
+.topup-get { font-weight: 700; color: #7ee2a8; }
+.topup-go { padding: 14px; border-radius: 14px; border: 0; background: #f2c94c; color: #111; font: inherit; font-weight: 700; font-size: 16px; }
+.topup-go:disabled { opacity: .5; }
+.topup-status { min-height: 1.2em; font-size: 13px; margin: 0; }

@@ -460,9 +460,13 @@ const apiAgents = createRemoteAgents(scene)
     const save = getSave()
     sheetBody.replaceChildren(
       el('p', `$${save.ledger.toFixed(2)}`, 'cc-big'),
-      el('p', 'In-game virtual balance. Not money; nothing on-chain moves here.', 'cc-muted'),
-      el('h3', 'In-game activity'),
+      el('p', 'In-game virtual balance. Top up with ETH or USDC on Base below.', 'cc-muted'),
     )
+    const topBtn = el('button', 'Top up', 'topup-go')
+    topBtn.type = 'button'
+    topBtn.onclick = () => { topBtn.remove(); void import('./topup.ts').then((m) => m.renderTopup(topSlot, () => { paintStatus(); const big = sheetBody.querySelector('.cc-big'); if (big) big.textContent = `$${getSave().ledger.toFixed(2)}` })) }
+    const topSlot = el('div')
+    sheetBody.append(topBtn, topSlot, el('h3', 'In-game activity'))
     const list = el('ol', '', 'cc-list')
     const moves = save.activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
     for (const a of moves) { const li = el('li'); li.append(el('strong', a.label), el('time', when(a.at)), el('p', a.detail)); list.append(li) }

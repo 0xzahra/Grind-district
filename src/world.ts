@@ -117,27 +117,24 @@ export function createWorld(options: {
     emissiveIntensity: 1.1,
     roughness: 0.38,
   })
-  // CC0 PBR sets (ambientCG). Phones get 512 px, desktops 1k.
-  const texSize = window.matchMedia('(pointer: coarse)').matches ? '512' : '1k'
+  // CC0 PBR sets from Poly Haven (see CREDITS.md), packed to 512 px WebP for phones (tools/pack-tex.mjs).
   const texLoader = new THREE.TextureLoader()
-  const pbr = (name: string, color = true) => {
+  const pbr = (name: string, repeat = 2) => {
     const load = (ch: string, srgb: boolean) => {
-      const t = texLoader.load(`/textures/${name}_${ch}_${texSize}.jpg`)
+      const t = texLoader.load(`/tex/${name}_${ch}.webp`)
       t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.repeat.set(repeat, repeat)
       t.anisotropy = anisotropy
       if (srgb) t.colorSpace = THREE.SRGBColorSpace
       return t
     }
-    // Clean faceted look (Zahra): no photo grain or noise maps; flat, softly lit colour only.
-    void load; void color
-    return { map: null, normalMap: null, roughnessMap: null } as { map: THREE.Texture | null; normalMap: THREE.Texture | null; roughnessMap: THREE.Texture | null }
+    return { map: load('diff', true), normalMap: load('nor_gl', false), roughnessMap: load('rough', false) }
   }
-  const concrete = pbr('concrete')
+  const concrete = pbr('plastered_wall_04')
   Object.assign(stone, concrete, { color: new THREE.Color(0xd8cfc0), roughness: 1, metalness: 0 })
   stone.normalScale.set(0.8, 0.8)
-  Object.assign(stoneDark, pbr('concrete'), { color: new THREE.Color(0x6e675e), roughness: 1, metalness: 0 })
-  const brass = pbr('brass')
-  Object.assign(trim, brass, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
+  Object.assign(stoneDark, pbr('concrete_wall_008'), { color: new THREE.Color(0x6e675e), roughness: 1, metalness: 0 })
+  Object.assign(trim, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
   for (const m of [stone, stoneDark, trim]) m.needsUpdate = true
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4a38, roughness: 0.82 })
   const bark = new THREE.MeshStandardMaterial({ color: 0x4a3428, roughness: 0.9 })
@@ -319,12 +316,13 @@ export function createWorld(options: {
   })
 
   const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 0.92, metalness: 0.02 })
-  if (concrete.normalMap) {
-    const n = concrete.normalMap.clone()
-    n.repeat.set(SPAN / 5, SPAN / 5)
-    n.needsUpdate = true
-    groundMat.normalMap = n
-    groundMat.normalScale.set(0.35, 0.35)
+  {
+    // Poly Haven asphalt: tiled normal + roughness give the painted ground real grain.
+    const asphalt = pbr('asphalt_02', SPAN / 6)
+    groundMat.normalMap = asphalt.normalMap
+    groundMat.roughnessMap = asphalt.roughnessMap
+    groundMat.roughness = 1
+    groundMat.normalScale.set(0.6, 0.6)
   }
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, SPAN), groundMat)
   ground.rotation.x = -Math.PI / 2

@@ -4,14 +4,14 @@ pragma solidity 0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title GrindLedger
 /// @notice In-game "Grind" credits. Player-to-player transfers pay a 2% fee to the treasury.
 ///         topUp()/topUpUSDC() forward payment straight to the treasury and emit TopUp so the
 ///         server can credit Grind at its configured rate (by calling credit()).
-contract GrindLedger is ERC20, Ownable, ReentrancyGuard {
+contract GrindLedger is ERC20, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant FEE_BPS = 200; // 2%
@@ -53,6 +53,11 @@ contract GrindLedger is ERC20, Ownable, ReentrancyGuard {
             isOperator[initialOperator] = true;
             emit OperatorSet(initialOperator, true);
         }
+    }
+
+    /// @dev Renouncing would leave operators un-revocable and the cap unchangeable forever, so it is disabled.
+    function renounceOwnership() public view override onlyOwner {
+        revert("GrindLedger: renounce disabled");
     }
 
     function setOperator(address operator, bool allowed) external onlyOwner {

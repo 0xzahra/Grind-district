@@ -97,7 +97,7 @@ const LOOKS: Array<[number, number]> = [
 export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacle[] } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
-    const avatar = createAvatar(spec.body, spec.tint, spec.luxury)
+    const avatar = createAvatar(spec.body, spec.tint, spec.luxury, people.length)
     // Street citizens show natural faces (licensed NFT faces only ever go on players who own them).
     void spec.mask
     const look = LOOKS[people.length % LOOKS.length]!
@@ -107,6 +107,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
       if (m.name === 'skin') m.color.setHex(look[0])
       if (m.name === 'hair') m.color.setHex(look[1])
     })
+    avatar.object.userData.look = { skin: look[0], hair: look[1], top: spec.tint }
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)

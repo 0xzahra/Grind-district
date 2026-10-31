@@ -29,3 +29,4 @@ contracts/lib
 .vercel
 .env*
 faces-dev.html
+tests/.out

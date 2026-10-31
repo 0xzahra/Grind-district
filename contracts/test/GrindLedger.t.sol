@@ -126,4 +126,51 @@ contract GrindLedgerTest is Test {
         GrindLedger l = new GrindLedger(owner, SAFE, usdc, address(0));
         assertFalse(l.isOperator(address(0)));
     }
+
+    // Fix: renounce would have frozen a (possibly compromised) operator in place forever.
+    function test_renounceDisabled() public {
+        vm.prank(owner);
+        vm.expectRevert(bytes("GrindLedger: renounce disabled"));
+        ledger.renounceOwnership();
+        assertEq(ledger.owner(), owner);
+        vm.prank(owner);
+        ledger.setOperator(op, false);
+        assertFalse(ledger.isOperator(op));
+    }
+
+    // Fix: ownership handoff is two-step, so a typo cannot lose control.
+    function test_ownershipTransferIsTwoStep() public {
+        address newOwner = address(0xBEEF);
+        vm.prank(owner);
+        ledger.transferOwnership(newOwner);
+        assertEq(ledger.owner(), owner);
+        vm.prank(alice);
+        vm.expectRevert();
+        ledger.acceptOwnership();
+        vm.prank(newOwner);
+        ledger.acceptOwnership();
+        assertEq(ledger.owner(), newOwner);
+    }
+
+    function testFuzz_feeConservesSupply(uint256 amt, uint256 sendAmt) public {
+        amt = bound(amt, 1, 1_000_000 ether);
+        sendAmt = bound(sendAmt, 0, amt);
+        vm.prank(owner);
+        ledger.credit(alice, amt, bytes32("f"));
+        vm.prank(alice);
+        ledger.transfer(bob, sendAmt);
+        uint256 fee = sendAmt * 200 / 10_000;
+        assertEq(ledger.balanceOf(bob), sendAmt - fee);
+        assertEq(ledger.balanceOf(SAFE), fee);
+        assertEq(ledger.balanceOf(alice) + ledger.balanceOf(bob) + ledger.balanceOf(SAFE), ledger.totalSupply());
+    }
+
+    function testFuzz_dailyCapNeverExceeded(uint256 a, uint256 b) public {
+        a = bound(a, 0, 2_000_000 ether);
+        b = bound(b, 0, 2_000_000 ether);
+        vm.startPrank(op);
+        try ledger.credit(alice, a, bytes32("a")) {} catch {}
+        try ledger.credit(bob, b, bytes32("b")) {} catch {}
+        assertLe(ledger.totalSupply(), ledger.dailyCreditCap());
+    }
 }

@@ -5,6 +5,7 @@ import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
+import { MEN, WOMEN, upgradeToHuman } from './humans.ts'
 
 export type Avatar = ShrimpAvatar
 
@@ -159,7 +160,32 @@ function createSignal(): Avatar {
   })
 }
 
-export function createAvatar(body: BodyId, tint: number, luxury: boolean): Avatar {
+export function createAvatar(body: BodyId, tint: number, luxury: boolean, variant?: number): Avatar {
+  const avatar = createProcedural(body, tint, luxury)
+  // Real animated people replace the human bodies (player, Zuri, citizens). Masked players keep the procedural body.
+  if (body === 'player' || body === 'zuri') {
+    const female = body === 'zuri'
+    const model = variant === undefined ? (female ? 'woman2' : 'man4') : female ? WOMEN[variant % WOMEN.length]! : MEN[variant % MEN.length]!
+    const own = variant === undefined
+    upgradeToHuman(avatar, model, {
+      glasses: own && !female,
+      look: own ? (female ? { hair: 0x2a1a12 } : { hair: 0xd9c08a, skin: 0xe8c3a6 }) : undefined,
+      height: female ? 1.68 : 1.78,
+    })
+    const setMask = avatar.setMask
+    avatar.setMask = (mask) => {
+      setMask(mask)
+      const root = avatar.object
+      root.userData.masked = mask !== 'none'
+      const person = root.userData.person as THREE.Object3D | undefined
+      const procedural = root.userData.body as THREE.Object3D | undefined
+      if (person && procedural) { person.visible = mask === 'none'; procedural.visible = mask !== 'none' }
+    }
+  }
+  return avatar
+}
+
+function createProcedural(body: BodyId, tint: number, luxury: boolean): Avatar {
   switch (body) {
     case 'player': {
       const avatar = createPlayer()

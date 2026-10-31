@@ -6,6 +6,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 import type { Graphics } from './logic.ts'
 
 /** One-time PMREM env map so metal, glass and cars have something to reflect. */
@@ -16,6 +17,16 @@ export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   scene.environmentIntensity = 0.5
   room.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
   pmrem.dispose()
+  // Then swap in a real sky: Poly Haven "Kloofendal 48d Partly Cloudy (Pure Sky)" (CC0), 512x256.
+  new HDRLoader().setDataType(THREE.HalfFloatType).load('/tex/sky.hdr', (hdr) => {
+    hdr.mapping = THREE.EquirectangularReflectionMapping
+    const gen = new THREE.PMREMGenerator(renderer)
+    const old = scene.environment
+    scene.environment = gen.fromEquirectangular(hdr).texture
+    old?.dispose()
+    hdr.dispose()
+    gen.dispose()
+  }, undefined, () => { /* keep the room environment */ })
 }
 
 /** Cheap combined grade: teal shadows, warm highlights, contrast, saturation, vignette, grain (high). */

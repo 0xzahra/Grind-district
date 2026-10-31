@@ -647,3 +647,19 @@ export function grantSignupBonus(verifiedId: string): boolean {
   emit()
   return true
 }
+
+/** On-chain top-up credited by /api/topup-confirm. Applied once per payment tx hash. */
+export function applyTopup(hash: string, amount: number, asset: string): boolean {
+  const key = 'gd.topups.v1'
+  let seen: string[] = []
+  try { seen = JSON.parse(localStorage.getItem(key) ?? '[]') as string[] } catch { seen = [] }
+  const h = hash.toLowerCase()
+  if (seen.includes(h) || !(amount > 0)) return false
+  seen.push(h)
+  localStorage.setItem(key, JSON.stringify(seen))
+  save.ledger = Math.round((save.ledger + amount) * 100) / 100
+  log('money', 'Top-up credited', `$${amount.toFixed(2)} in-game from a ${asset} top-up on Base (after the 2% fee).`)
+  persist()
+  emit()
+  return true
+}
