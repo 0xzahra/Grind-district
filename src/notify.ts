@@ -1,20 +1,27 @@
 // In-game notifications: bell + unread badge + glass inbox. localStorage only (Supabase sync not added: kept cheap).
 import { notificationsOn } from './agent.ts'
 
-export type Note = { id: string; title: string; body: string; at: number; read: boolean }
+// `go` deep-links: 'place:<hotspot title>', 'panel:<panel id>', or 'chat'.
+export type Note = { id: string; title: string; body: string; at: number; read: boolean; go?: string }
 const KEY = 'gd.notes.v1'
 let notes: Note[] = []
 try { notes = JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[] } catch { notes = [] }
 let render: () => void = () => {}
-const save = () => { localStorage.setItem(KEY, JSON.stringify(notes.slice(0, 50))); render() }
+const save = () => { localStorage.setItem(KEY, JSON.stringify(notes.slice(0, 50))); render(); for (const fn of changeListeners) fn() }
 
-export function notify(title: string, body = '', onceKey?: string): void {
+const recent = new Map<string, number>()
+export function notify(title: string, body = '', onceKey?: string, go?: string): void {
   if (!notificationsOn()) return
+  // One per event: identical title+body within 60 s is dropped (no spam from repeated taps).
+  const sig = title + '|' + body
+  const now = Date.now()
+  if (now - (recent.get(sig) ?? 0) < 60_000) return
+  recent.set(sig, now)
   if (onceKey) {
     if (localStorage.getItem('gd.note.once.' + onceKey)) return
     localStorage.setItem('gd.note.once.' + onceKey, '1')
   }
-  notes.unshift({ id: Math.random().toString(36).slice(2), title, body, at: Date.now(), read: false })
+  notes.unshift({ id: Math.random().toString(36).slice(2), title, body, at: Date.now(), read: false, go })
   save()
 }
 
@@ -57,3 +64,11 @@ export function mountNotifications(): void {
   bell.onclick = () => { panel.hidden = !panel.hidden; render() }
   render()
 }
+
+export const getNotes = (): readonly Note[] => notes
+export const unreadCount = (): number => (notificationsOn() ? notes.filter((n) => !n.read).length : 0)
+export function markRead(id?: string): void { for (const n of notes) if (!id || n.id === id) n.read = true; save() }
+const changeListeners = new Set<() => void>()
+export function onNotesChange(fn: () => void): void { changeListeners.add(fn) }
+const _save = save
+void _save

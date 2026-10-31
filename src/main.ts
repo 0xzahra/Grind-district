@@ -7,7 +7,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
-import { mountNotifications, notify } from './notify.ts'
+import { getNotes, markRead, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -391,59 +391,164 @@ const apiAgents = createRemoteAgents(scene)
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
   mountNotifications()
-  notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome')
+  notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome', 'place:The Grind Ring')
   onActivity((kind, label, detail) => {
-    if (kind === 'tax') notify('Family request', `${label}. ${detail}`)
-    else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`)
-    else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail)
+    if (kind === 'tax') notify('Family request', `${label}. ${detail}`, undefined, 'panel:profile')
+    else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`, undefined, 'panel:profile')
+    else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail, undefined, 'balance')
   })
-  subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`) })
+  subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`, undefined, 'panel:profile') })
   // Map lives inside the three-line menu; the menu starts collapsed so the screen stays clear.
   document.body.classList.add('rail-shut')
   const railToggle = must<HTMLButtonElement>('#rail-toggle')
   railToggle.setAttribute('aria-expanded', 'false')
   // Control Centre (iPhone-style): one menu button on screen; everything else lives inside.
   const nav = must<HTMLElement>('#nav')
+  const ccSheet = must<HTMLElement>('#cc-sheet')
+  const sheetTitle = must<HTMLElement>('#cc-sheet-title')
+  const sheetBody = must<HTMLElement>('#cc-sheet-body')
   const paintStatus = () => {
     must('#cc-balance').textContent = `$${getSave().ledger.toFixed(2)}`
-    must('#cc-rank').textContent = `${rankFor(getSave().xp).label} · in-game balance`
+    must('#cc-rank').textContent = `${rankFor(getSave().xp).label} · in-game balance · tap for history`
   }
+  const closeSheet = () => { ccSheet.hidden = true; sheetBody.replaceChildren() }
   const setCC = (open: boolean) => {
     document.body.classList.toggle('rail-shut', !open)
     railToggle.setAttribute('aria-expanded', String(open))
     if (open) paintStatus()
+    else closeSheet()
   }
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
+  const when = (at: number) => new Date(at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  // Deep links from notifications/messages: travel to a place, open a panel, chat or balance.
+  const follow = (go?: string) => {
+    if (!go) return false
+    setCC(false)
+    if (go === 'chat') { if (chat.hidden) must<HTMLButtonElement>('#msg-btn').click(); return true }
+    if (go === 'balance') { setCC(true); openBalance(); return true }
+    if (go.startsWith('place:')) { travelHook(go.slice(6), true); return true }
+    if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
+    return false
+  }
+  const openSheet = (title: string, fill: () => void) => {
+    sheetTitle.textContent = title
+    ccSheet.hidden = false
+    fill()
+  }
+  const renderNotes = () => {
+    sheetBody.replaceChildren()
+    const all = el('button', 'Mark all read', 'cc-link')
+    all.type = 'button'
+    all.onclick = () => { markRead(); renderNotes() }
+    const list = el('ol', '', 'cc-list')
+    for (const n of getNotes()) {
+      const li = el('li', '', n.read ? 'read' : 'unread')
+      const btn = el('button', '', 'cc-row')
+      btn.type = 'button'
+      btn.append(el('strong', n.title), el('time', when(n.at)), el('p', n.body))
+      if (n.go) btn.append(el('span', n.go === 'chat' ? 'Open chat ›' : n.go === 'balance' ? 'Open balance ›' : n.go.startsWith('place:') ? `Go to ${n.go.slice(6)} ›` : 'Open ›', 'cc-go'))
+      btn.onclick = () => { markRead(n.id); if (!follow(n.go)) renderNotes() }
+      li.append(btn)
+      list.append(li)
+    }
+    if (!getNotes().length) list.append(el('li', 'Nothing yet.', 'empty'))
+    sheetBody.append(all, list)
+  }
+  const openBalance = () => openSheet('Balance', () => {
+    const save = getSave()
+    sheetBody.replaceChildren(
+      el('p', `$${save.ledger.toFixed(2)}`, 'cc-big'),
+      el('p', 'In-game virtual balance. Not money; nothing on-chain moves here.', 'cc-muted'),
+      el('h3', 'In-game activity'),
+    )
+    const list = el('ol', '', 'cc-list')
+    const moves = save.activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
+    for (const a of moves) { const li = el('li'); li.append(el('strong', a.label), el('time', when(a.at)), el('p', a.detail)); list.append(li) }
+    if (!moves.length) list.append(el('li', 'No in-game balance moves yet.', 'empty'))
+    sheetBody.append(list, el('h3', 'Wallet on Base (read-only)'))
+    const chain = el('ol', '', 'cc-list')
+    sheetBody.append(chain)
+    const addr = localStorage.getItem('gd.wallet.addr')
+    if (!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) { chain.append(el('li', 'No wallet linked. Link one from Wallet to see its transactions here.', 'empty')); return }
+    chain.append(el('li', 'Loading…', 'empty'))
+    fetch(`https://base.blockscout.com/api/v2/addresses/${addr}/transactions`, { signal: AbortSignal.timeout(6000) })
+      .then((r) => r.json() as Promise<{ items?: Array<{ hash: string; timestamp: string; value: string; from: { hash: string }; to: { hash: string } | null; method?: string | null }> }>)
+      .then((j) => {
+        chain.replaceChildren()
+        for (const t of (j.items ?? []).slice(0, 20)) {
+          const out = t.from.hash.toLowerCase() === addr.toLowerCase()
+          const eth = Number(BigInt(t.value)) / 1e18
+          const li = el('li')
+          const link = el('a', `${out ? 'Sent' : 'Received'} ${eth ? eth.toFixed(5) + ' ETH' : (t.method ?? 'contract call')}`)
+          ;(link as HTMLAnchorElement).href = `https://basescan.org/tx/${t.hash}`
+          ;(link as HTMLAnchorElement).target = '_blank'
+          ;(link as HTMLAnchorElement).rel = 'noopener noreferrer'
+          li.append(link, el('time', when(Date.parse(t.timestamp))))
+          chain.append(li)
+        }
+        if (!chain.children.length) chain.append(el('li', 'No transactions yet.', 'empty'))
+      })
+      .catch(() => { chain.replaceChildren(el('li', 'Could not reach the explorer. Try again later.', 'empty')) })
+  })
+  must('#cc-sheet-back').addEventListener('click', closeSheet)
   railToggle.addEventListener('click', () => setCC(document.body.classList.contains('rail-shut')))
   nav.addEventListener('click', (event) => {
     const target = event.target as HTMLElement
     if (target === nav) { setCC(false); return } // tap outside the modules closes
+    if (target.closest('#cc-sheet')) return
     const hit = target.closest('button, a')
-    if (!hit || hit.id === 'cc-keys') return
+    if (!hit || ['cc-keys', 'cc-bell', 'cc-status'].includes(hit.id)) return
     window.setTimeout(() => setCC(false), 0)
   })
-  window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !document.body.classList.contains('rail-shut')) setCC(false) })
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || document.body.classList.contains('rail-shut')) return
+    if (!ccSheet.hidden) closeSheet(); else setCC(false)
+  })
   must('#cc-keys').addEventListener('click', () => { const list = must<HTMLElement>('#cc-keylist'); list.hidden = !list.hidden; must('#cc-keys').classList.toggle('on', !list.hidden) })
-  must('#cc-msg').addEventListener('click', () => must<HTMLButtonElement>('#msg-btn').click())
-  must('#cc-bell').addEventListener('click', () => (document.querySelector('#bell') as HTMLButtonElement | null)?.click())
+  must('#cc-msg').addEventListener('click', () => { if (chat.hidden) must<HTMLButtonElement>('#msg-btn').click() })
+  must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
+  must('#cc-status').addEventListener('click', openBalance)
+  onNotesChange(() => { if (!ccSheet.hidden && sheetTitle.textContent === 'Notifications') renderNotes() })
   must('#cc-agents').addEventListener('click', () => ui.open('settings'))
-  const slide = (id: string, apply: (delta: number) => void) => {
-    const el = must<HTMLInputElement>(id)
-    let prev = Number(el.value)
-    const paint = () => el.parentElement!.style.setProperty('--v', `${el.value}%`)
-    paint()
-    el.addEventListener('input', () => { const v = Number(el.value); apply(v - prev); prev = v; paint() })
+  // Sliders: while dragging, the menu fades away so the city stays visible; a readout shows the level and zone.
+  const readout = must<HTMLElement>('#cc-readout')
+  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+  const paintReadout = (kind: 'zoom' | 'look') => {
+    const place = interiors.inside ? 'Indoors' : districtName(avatar.object.position.x, avatar.object.position.z)
+    if (kind === 'zoom') {
+      const pct = Math.round(((camDist - 3.2) / (12 - 3.2)) * 100)
+      readout.textContent = `Zoom ${pct < 25 ? 'Close' : pct < 60 ? 'Street' : 'Wide'} · ${pct}% · ${place}`
+    } else {
+      const deg = ((Math.round(THREE.MathUtils.radToDeg(camYaw)) % 360) + 360) % 360
+      readout.textContent = `Facing ${DIRS[Math.round(deg / 45) % 8]} · ${deg}° · ${place}`
+    }
   }
-  slide('#cc-zoom', (d) => input.nudgeZoom(-d * 9))
-  slide('#cc-look', (d) => input.nudgeLook(d * 8))
+  const slide = (id: string, kind: 'zoom' | 'look', apply: (delta: number) => void) => {
+    const input = must<HTMLInputElement>(id)
+    let prev = Number(input.value)
+    const paint = () => input.parentElement!.style.setProperty('--v', `${input.value}%`)
+    paint()
+    const start = () => { document.body.classList.add('cc-peek'); input.parentElement!.classList.add('active'); readout.hidden = false; paintReadout(kind) }
+    const end = () => { document.body.classList.remove('cc-peek'); input.parentElement!.classList.remove('active'); readout.hidden = true }
+    input.addEventListener('pointerdown', start)
+    input.addEventListener('touchstart', start, { passive: true })
+    for (const ev of ['pointerup', 'pointercancel', 'touchend', 'change', 'blur']) input.addEventListener(ev, end)
+    input.addEventListener('input', () => { const v = Number(input.value); apply(v - prev); prev = v; paint(); window.setTimeout(() => paintReadout(kind), 40) })
+  }
+  slide('#cc-zoom', 'zoom', (d) => input.nudgeZoom(-d * 9))
+  slide('#cc-look', 'look', (d) => input.nudgeLook(d * 8))
   const dot = railToggle.querySelector('.cc-dot') as HTMLElement
+  const bellBadge = must<HTMLElement>('#cc-bell-badge')
   window.setInterval(() => {
-    const bellUnread = !!document.querySelector('#bell .badge:not([hidden])')
+    const n = unreadCount()
     const msgUnread = must('#msg-btn').classList.contains('unread')
-    dot.hidden = !(bellUnread || msgUnread)
-    must('#cc-bell').classList.toggle('on', bellUnread)
-    must('#cc-msg').classList.toggle('on', msgUnread)
+    dot.hidden = !(n || msgUnread)
+    bellBadge.hidden = n === 0
+    bellBadge.textContent = n > 9 ? '9+' : String(n)
+    must('#cc-msg').classList.toggle('has-unread', msgUnread)
   }, 800)
   const msgBtn = must<HTMLButtonElement>('#msg-btn')
+  must('#chat-close').addEventListener('click', () => { if (!chat.hidden) msgBtn.click() })
   chat.hidden = true
   msgBtn.addEventListener('click', () => {
     chat.hidden = !chat.hidden
@@ -480,7 +585,7 @@ const apiAgents = createRemoteAgents(scene)
       }
       chatLog.append(item)
       if (chat.hidden && !self) msgBtn.classList.add('unread')
-      if (!self) notify('Nearby message', `${from}: ${text}`.slice(0, 120))
+      if (!self) notify('Nearby message', `${from}: ${text}`.slice(0, 120), undefined, 'chat')
       while (chatLog.children.length > 5) chatLog.firstElementChild?.remove()
       window.setTimeout(() => item.remove(), 20000)
     },

@@ -140,8 +140,14 @@ export function mountUi(
   let raf = 0
   let toastTimer = 0
 
+  let lastToast = ''
+  let lastToastAt = 0
   const toast = (text: string) => {
     if (!notificationsOn()) return
+    // Same message again within 4 s: keep the one on screen (no stacking/spam from repeated taps).
+    if (text === lastToast && Date.now() - lastToastAt < 4000) return
+    lastToast = text
+    lastToastAt = Date.now()
     toastNode.hidden = false
     toastNode.textContent = text
     window.clearTimeout(toastTimer)

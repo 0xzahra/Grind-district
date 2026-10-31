@@ -130,6 +130,7 @@ export function openWallet(): void {
         const accs = (await p.request({ method: 'eth_requestAccounts' })) as string[]
         await ensureBase(p)
         account = accs[0] ?? ''
+        if (account) localStorage.setItem('gd.wallet.addr', account)
         void renderConnected()
       } catch (e) {
         status.textContent = `Not connected: ${(e as Error).message}`
@@ -203,6 +204,7 @@ export function openWallet(): void {
     const disc = el('button', 'Disconnect', 'ghost')
     disc.onclick = async () => {
       account = ''
+      localStorage.removeItem('gd.wallet.addr')
       try { await p.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }) } catch { /* not all wallets support it */ }
       renderDisconnected()
     }
