@@ -1,4 +1,5 @@
-import { getSave } from './state'
+import { getSave, balanceSplit } from './state'
+import { COINS } from './logic'
 import { TOPUP, TRANSFER_FEE_BPS, topupReady } from './economy'
 import { track } from './track'
 // Optional real wallet on Base (8453). Injected EIP-1193 only; the city never holds keys.
@@ -57,6 +58,11 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''):
   return n
 }
 
+function qrNode(addr: string): HTMLElement {
+  const q = qrcode(0, 'M'); q.addData(addr); q.make()
+  const d = el('div', '', 'wallet-qr'); d.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 }); return d
+}
+
 export function openWallet(): void {
   document.getElementById('wallet-dlg')?.remove()
   const dlg = el('div', '', 'wallet-dlg')
@@ -68,14 +74,51 @@ export function openWallet(): void {
   closeBtn.onclick = () => dlg.remove()
   // In-game wallet: every player has one. Linking an external wallet is optional.
   const econ = el('div', '', 'wallet-econ')
-  const money = getSave().ledger
-  econ.append(
-    el('p', `In-game balance: $${money.toFixed(2)}`, 'wallet-ingame'),
-    el('p', `Upgrades and purchases spend this balance. Transfers between players carry a ${TRANSFER_FEE_BPS / 100}% fee to the city treasury.`, 'muted'),
-  )
+  const sv = getSave()
+  const split = balanceSplit()
+  const rows: Array<[string, string, number, number]> = []
+  for (const c of COINS) {
+    const h = sv.coins[c.id]
+    if (h && h.qty > 0) rows.push([c.label.split(' · ')[0], c.label.split(' · ')[1] ?? '', h.qty, h.qty * (sv.coinPrices[c.id] ?? c.base)])
+  }
+  if (sv.unit.qty > 0) rows.push(['UNIT', 'City index', sv.unit.qty, sv.unit.qty * sv.unitPrice])
+  if (sv.meme.qty > 0) rows.push(['MEME', 'Trench token', sv.meme.qty, sv.meme.qty * sv.memePrice])
+  const practice = rows.reduce((a, r) => a + r[3], 0)
+  const usd = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const hero = el('div', '', 'wx-hero')
+  hero.append(el('small', 'Total balance (in-game)'), el('b', usd(split.total + practice)), el('span', `Cash ${usd(split.total)} · Practice assets ${usd(practice)}`))
+  const tabs = el('div', '', 'wx-tabs')
+  const pane = el('div', '', 'wx-pane')
+  const asset = (sym: string, name: string, right: string, sub: string, tag?: string) => {
+    const r = el('div', '', 'wx-row')
+    const ic = el('span', sym.slice(0, 1), 'wx-ic')
+    const mid = el('div'); mid.append(el('b', sym), el('small', name))
+    if (tag) mid.append(el('em', tag, 'wx-tag'))
+    const rt = el('div', '', 'wx-rt'); rt.append(el('b', right), el('small', sub))
+    r.append(ic, mid, rt); return r
+  }
+  const showAssets = () => {
+    pane.replaceChildren(
+      asset('Cash', 'Earned in the city', usd(split.earned), 'Spendable', 'In-game'),
+      asset('Cash', 'Topped up (USDC on Base)', usd(split.toppedUp), 'Spendable', 'In-game'),
+    )
+    for (const [sym, name, qty, val] of rows) pane.append(asset(sym, name, usd(val), `${qty.toFixed(qty < 1 ? 4 : 2)} units`, 'Practice — not real'))
+    if (!rows.length) pane.append(el('p', 'No practice holdings yet. Try the trading floor.', 'muted'))
+    pane.append(el('p', 'Practice assets are simulated prices for learning. They are not real crypto and cannot be withdrawn.', 'muted'))
+  }
+  const showActivity = () => {
+    pane.replaceChildren()
+    const acts = sv.activities.slice(-25).reverse()
+    if (!acts.length) pane.append(el('p', 'No activity yet.', 'muted'))
+    for (const a of acts) pane.append(asset(a.kind.slice(0, 1).toUpperCase() + a.kind.slice(1), a.label, new Date(a.at).toLocaleDateString(), new Date(a.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })))
+  }
+  const showReceive = () => { pane.replaceChildren(deposit) }
+  const tab = (label: string, f: () => void) => { const b = el('button', label, 'ghost'); b.onclick = () => { tabs.querySelectorAll('button').forEach((x) => x.removeAttribute('aria-pressed')); b.setAttribute('aria-pressed', 'true'); f() }; return b }
+  const tA = tab('Assets', showAssets)
+  tabs.append(tA, tab('Activity', showActivity), tab('Receive', showReceive))
+  econ.append(hero, tabs, pane, el('p', `Upgrades spend earned cash first. Player transfers carry a ${TRANSFER_FEE_BPS / 100}% fee to the city treasury.`, 'muted'))
   const deposit = el('div', '', 'wallet-deposit')
   deposit.append(el('p', 'Checking top-ups…', 'muted'))
-  econ.append(deposit)
   void (async () => {
     // Never block the panel: the Privy SDK is only loaded for a signed-in player, and every await has a timeout.
     const within = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))])
@@ -103,6 +146,7 @@ export function openWallet(): void {
     track('topup_attempt', { shown: true })
     deposit.append(
       el('p', 'Top up with USDC on Base', 'wallet-ingame'),
+      qrNode(info.depositAddress),
       el('p', info.depositAddress, 'wallet-addr'),
       el('p', `End the amount with your tag: e.g. 10.${info.wallet.deposit_tag} USDC. Credits land within a day.`, 'muted'),
     )
@@ -115,6 +159,7 @@ export function openWallet(): void {
   void topupReady
   dlg.append(el('h2', 'Wallet'), econ, body, closeBtn)
   document.body.append(dlg)
+  tA.click()
   const status = el('p', '', 'muted')
 
   const renderDisconnected = () => {
