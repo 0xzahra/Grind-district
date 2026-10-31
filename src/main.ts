@@ -6,6 +6,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { createAgentCompanion } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
+import { mountTitleMusic } from './titleMusic.ts'
 import { mountNotifications, notify } from './notify.ts'
 import { applyVolume, door, isMuted, mountSfx, setMuted, step } from './sfx.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
@@ -1014,7 +1015,9 @@ void import('./preview.ts').then((m) => {
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
 startTracking()
 
+const unmountTitleMusic = mountTitleMusic(menu)
 mountMenu(() => {
+  unmountTitleMusic()
   void begin()
 })
 

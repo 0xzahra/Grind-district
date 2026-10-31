@@ -71,3 +71,8 @@ export function mountSfx(): void {
   window.addEventListener('keydown', unlock, { once: true })
   document.addEventListener('click', (e) => { if ((e.target as HTMLElement | null)?.closest('button')) click() }, true)
 }
+
+/** The one shared AudioContext (created on demand, after a gesture). */
+export function sharedContext(): AudioContext | null {
+  return ensure()
+}
