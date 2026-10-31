@@ -1,4 +1,5 @@
 import { COURSES, headlines } from './courses.ts'
+import { logoutPrivy } from './privy.ts'
 import { GUIDE } from './guide.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
@@ -706,9 +707,15 @@ export function mountUi(
       maps,
       para('Comfort', 'kicker'),
       comfort,
-      para('The theme stays silent until you turn Music on. Volume is the slider by that button. With reduced motion on, it never resumes by itself.', 'muted'),
+      para('Market Velocity stays silent until you press Play theme. Volume is the slider by that button.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
+      save.privyId ? para(`Privy · ${save.privyId.slice(-6)}`, 'muted') : para('Privy login is on the title screen.', 'muted'),
+      button('Log out of Privy', 'ghost', () => {
+        void logoutPrivy().then(() => {
+          finish('Privy login ended. The district save stayed.')
+        })
+      }),
       support,
       button('About this city', 'ghost', () => open('about')),
       reset,
