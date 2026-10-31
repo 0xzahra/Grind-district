@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { PrivyClient } from '@privy-io/server-auth'
 import { confirmTopup, type Store } from './_grind.js'
 
-// POST { hash }: verify a GrindLedger TopUp on Base and credit the player as operator (GRIND_OPERATOR_KEY, server-only).
+// POST { hash }: verify a GrindLedger TopUp or GrindTreasury deposit on Base and credit the player as operator (GRIND_OPERATOR_KEY, server-only).
 // GET ?player=0x..: the player's credited top-ups (for refreshing the in-game balance).
 type Req = { method?: string; body?: { hash?: string }; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined> }
 type Res = { status(n: number): { json(b: unknown): void } }

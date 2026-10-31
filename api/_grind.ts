@@ -2,7 +2,8 @@ import { createPublicClient, createWalletClient, http, parseEventLogs, type Hash
 import { privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { grindLedgerAbi } from '../src/grindLedgerAbi.js'
-import { GRIND_LEDGER, BASE_USDC, ETH_USD_FEED, feedAbi, breakdown, ethToUsdMicro } from '../src/grindConfig.js'
+import { grindTreasuryAbi } from '../src/grindTreasuryAbi.js'
+import { GRIND_LEDGER, GRIND_TREASURY_VAULT, BASE_USDC, ETH_USD_FEED, feedAbi, breakdown, ethToUsdMicro } from '../src/grindConfig.js'
 
 // Core of /api/topup-confirm, kept free of HTTP/Supabase so it can run against an Anvil fork.
 export type Store = {
@@ -20,12 +21,24 @@ export async function confirmTopup(opts: { hash: Hash; rpc: string; operatorKey:
   const receipt = await pub.getTransactionReceipt({ hash: opts.hash }).catch(() => null)
   if (!receipt) return { ok: false, code: 409, error: 'transaction not found or not mined yet' }
   if (receipt.status !== 'success') return { ok: false, code: 400, error: 'transaction reverted' }
-  if ((receipt.to ?? '').toLowerCase() !== GRIND_LEDGER) return { ok: false, code: 400, error: 'not a GrindLedger transaction' }
+  const to = (receipt.to ?? '').toLowerCase()
+  if (to !== GRIND_LEDGER && to !== GRIND_TREASURY_VAULT) return { ok: false, code: 400, error: 'not a GrindLedger or GrindTreasury transaction' }
   const head = await pub.getBlockNumber()
   if (head - receipt.blockNumber + 1n < BigInt(opts.minConfirmations ?? 2)) return { ok: false, code: 409, error: 'waiting for confirmations' }
-  const ev = parseEventLogs({ abi: grindLedgerAbi, logs: receipt.logs, eventName: 'TopUp' }).find((l) => l.address.toLowerCase() === GRIND_LEDGER)
-  if (!ev) return { ok: false, code: 400, error: 'no TopUp event' }
-  const { player, asset, amount } = ev.args
+  // Payment event: GrindLedger.TopUp, or GrindTreasury.ERC20Deposited / EthDeposited (emitted by the treasury itself).
+  let player: Address, asset: Address, amount: bigint
+  if (to === GRIND_LEDGER) {
+    const ev = parseEventLogs({ abi: grindLedgerAbi, logs: receipt.logs, eventName: 'TopUp' }).find((l) => l.address.toLowerCase() === GRIND_LEDGER)
+    if (!ev) return { ok: false, code: 400, error: 'no TopUp event' }
+    ;({ player, asset, amount } = ev.args)
+  } else {
+    const logs = receipt.logs.filter((l) => l.address.toLowerCase() === GRIND_TREASURY_VAULT)
+    const erc = parseEventLogs({ abi: grindTreasuryAbi, logs, eventName: 'ERC20Deposited' })[0]
+    const ethEv = parseEventLogs({ abi: grindTreasuryAbi, logs, eventName: 'EthDeposited' })[0]
+    if (erc) ({ token: asset, from: player, amount } = erc.args)
+    else if (ethEv) { player = ethEv.args.from; amount = ethEv.args.amount; asset = '0x0000000000000000000000000000000000000000' }
+    else return { ok: false, code: 400, error: 'no treasury deposit event' }
+  }
   if (player.toLowerCase() !== receipt.from.toLowerCase()) return { ok: false, code: 400, error: 'player mismatch' }
   const isEth = asset === '0x0000000000000000000000000000000000000000'
   if (!isEth && asset.toLowerCase() !== BASE_USDC.toLowerCase()) return { ok: false, code: 400, error: 'unknown asset' }

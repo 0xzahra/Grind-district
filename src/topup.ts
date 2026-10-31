@@ -1,8 +1,9 @@
-// Top-up sheet: pay ETH or USDC on Base to GrindLedger, see the fee breakdown first, then the server credits in-game $.
+// Top-up sheet: pay ETH or USDC on Base (USDC -> GrindTreasury.depositERC20, ETH -> GrindLedger.topUp; both end with the treasury Safe), see the fee breakdown first, then the server credits in-game $.
 import { createPublicClient, createWalletClient, custom, http, parseEther, parseUnits, erc20Abi, type Address, type EIP1193Provider } from 'viem'
 import { base } from 'viem/chains'
+import { grindTreasuryAbi } from './grindTreasuryAbi.ts'
 import { grindLedgerAbi } from './grindLedgerAbi.ts'
-import { GRIND_LEDGER, BASE_USDC, BASE_CHAIN_ID, ETH_USD_FEED, TREASURY_SAFE, feedAbi, breakdown, ethToUsdMicro } from './grindConfig.ts'
+import { GRIND_LEDGER, GRIND_TREASURY_VAULT, BASE_USDC, BASE_CHAIN_ID, ETH_USD_FEED, TREASURY_SAFE, feedAbi, breakdown, ethToUsdMicro } from './grindConfig.ts'
 import { applyTopup } from './state.ts'
 import { Attribution } from 'ox/erc8021'
 
@@ -64,7 +65,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const status = el('p', '', 'topup-status')
   const go = el('button', 'Connect wallet', 'topup-go') as HTMLButtonElement
   go.type = 'button'
-  const fine = el('p', `Paid on Base to GrindLedger ${short(GRIND_LEDGER)}. Funds go straight to the treasury Safe ${short(TREASURY_SAFE)}. In-game $ is a game balance, not a token you can withdraw.`, 'cc-muted')
+  const fine = el('p', `USDC is paid to GrindTreasury ${short(GRIND_TREASURY_VAULT)}; ETH via GrindLedger ${short(GRIND_LEDGER)}. Both are controlled by the treasury Safe ${short(TREASURY_SAFE)}. In-game $ is a game balance, not a token you can withdraw.`, 'cc-muted')
   box.append(tabs, label, input, rate, table, go, status, fine)
   root.append(box)
 
@@ -117,19 +118,21 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     if (!a || !p || !account) return
     if (Number(await p.request({ method: 'eth_chainId' })) !== BASE_CHAIN_ID) { status.textContent = 'Switch your wallet to Base.'; return }
     const wallet = createWalletClient({ account, chain: base, transport: custom(p) })
-    const ref = `0x${[...crypto.getRandomValues(new Uint8Array(32))].map((x) => x.toString(16).padStart(2, '0')).join('')}` as `0x${string}`
     let hash: `0x${string}`
     if (asset === 'USDC') {
-      const allowance = await pub.readContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'allowance', args: [account, GRIND_LEDGER] })
+      const allowance = await pub.readContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'allowance', args: [account, GRIND_TREASURY_VAULT] })
       if (allowance < a.raw) {
         status.textContent = 'Step 1 of 2: approve USDC in your wallet…'
-        const ap = await wallet.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'approve', args: [GRIND_LEDGER, a.raw], dataSuffix: DATA_SUFFIX })
+        const ap = await wallet.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'approve', args: [GRIND_TREASURY_VAULT, a.raw], dataSuffix: DATA_SUFFIX })
         await pub.waitForTransactionReceipt({ hash: ap })
       }
       status.textContent = 'Confirm the top-up in your wallet…'
-      hash = await wallet.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'topUpUSDC', args: [a.raw, ref], dataSuffix: DATA_SUFFIX })
+      hash = await wallet.writeContract({ address: GRIND_TREASURY_VAULT, abi: grindTreasuryAbi, functionName: 'depositERC20', args: [BASE_USDC, a.raw], dataSuffix: DATA_SUFFIX })
     } else {
       status.textContent = 'Confirm the top-up in your wallet…'
+      // GrindTreasury has receive() but no fallback, so an ETH send carrying the Builder Code suffix reverts.
+      // ETH therefore stays on GrindLedger.topUp, which forwards straight to the same treasury Safe and keeps attribution.
+      const ref = `0x${[...crypto.getRandomValues(new Uint8Array(32))].map((x) => x.toString(16).padStart(2, '0')).join('')}` as `0x${string}`
       hash = await wallet.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'topUp', args: [ref], value: a.raw, dataSuffix: DATA_SUFFIX })
     }
     status.textContent = 'Paid. Waiting for Base to confirm…'

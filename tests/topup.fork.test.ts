@@ -5,7 +5,9 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { confirmTopup, type Store } from '../api/_grind.ts'
 import { grindLedgerAbi } from '../src/grindLedgerAbi.ts'
-import { GRIND_LEDGER, BASE_USDC, TREASURY_SAFE } from '../src/grindConfig.ts'
+import { GRIND_LEDGER, GRIND_TREASURY_VAULT, BASE_USDC, TREASURY_SAFE } from '../src/grindConfig.ts'
+import { grindTreasuryAbi } from '../src/grindTreasuryAbi.ts'
+import { Attribution } from 'ox/erc8021'
 
 const RPC = process.env.FORK_RPC ?? 'http://127.0.0.1:8546'
 const chain = { ...base, rpcUrls: { default: { http: [RPC] } } }
@@ -67,6 +69,27 @@ async function main() {
   await pub.waitForTransactionReceipt({ hash: h3 })
   const r3 = await run(h3); ok(!r3.ok && r3.code === 400, `wrong contract rejected (${!r3.ok && r3.error})`)
   const r4 = await run(`0x${'ab'.repeat(32)}`); ok(!r4.ok && r4.code === 409, 'unknown hash -> 409')
+
+  // GrindTreasury USDC: approve + depositERC20 with the Builder Code suffix (what src/topup.ts sends)
+  const SUFFIX = Attribution.toDataSuffix({ codes: ['bc_ke1fy1yi'] })
+  const vault0 = await pub.readContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'balanceOf', args: [GRIND_TREASURY_VAULT] })
+  const g0 = await pub.readContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'balanceOf', args: [PLAYER] })
+  await pub.waitForTransactionReceipt({ hash: await pw.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'approve', args: [GRIND_TREASURY_VAULT, parseUnits('20', 6)], dataSuffix: SUFFIX }) })
+  const ht = await pw.writeContract({ address: GRIND_TREASURY_VAULT, abi: grindTreasuryAbi, functionName: 'depositERC20', args: [BASE_USDC, parseUnits('20', 6)], dataSuffix: SUFFIX })
+  await pub.waitForTransactionReceipt({ hash: ht })
+  ok((await pub.getTransaction({ hash: ht })).input.endsWith(SUFFIX.slice(2)), 'treasury deposit tx carries Builder Code suffix')
+  ok((await pub.readContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'balanceOf', args: [GRIND_TREASURY_VAULT] })) - vault0 === parseUnits('20', 6), '20 USDC landed in GrindTreasury')
+  const rt = await run(ht)
+  ok(rt.ok && rt.creditUsd === 19.6 && rt.feeUsd === 0.4 && rt.asset === 'USDC', `treasury USDC confirm credits $19.60 (${JSON.stringify(rt).slice(0, 100)})`)
+  ok((await pub.readContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'balanceOf', args: [PLAYER] })) - g0 === parseEther('19.6'), 'GrindLedger credited 19.6 GRIND for treasury deposit')
+  ok((await run(ht)).ok, 'treasury deposit confirm idempotent')
+  // GrindTreasury ETH: plain send credits; ETH with calldata (suffix) reverts (no fallback)
+  const he = await pw.sendTransaction({ to: GRIND_TREASURY_VAULT, value: parseEther('0.001') })
+  await pub.waitForTransactionReceipt({ hash: he })
+  const re = await run(he); ok(re.ok && re.asset === 'ETH' && re.creditUsd > 0.5, 'plain ETH to treasury credits')
+  let reverted = false
+  try { await pub.call({ account: PLAYER, to: GRIND_TREASURY_VAULT, value: parseEther('0.001'), data: SUFFIX }) } catch { reverted = true }
+  ok(reverted, 'ETH + Builder Code suffix to treasury reverts (so ETH stays on GrindLedger.topUp)')
 
   // Cap: Safe lowers the cap to 1 GRIND; next top-up is refused with 429 and nothing minted
   await pub.waitForTransactionReceipt({ hash: await safeW.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'setDailyCreditCap', args: [parseEther('1')] }) })
