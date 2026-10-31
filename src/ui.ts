@@ -78,7 +78,8 @@ import {
 } from './state.ts'
 
 type Tab = 'today' | 'cv' | 'resume' | 'portfolio' | 'books'
-type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId }
+type PeerView = { shot: string | null; partial: boolean; onMessage: () => void }
+type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId; peer?: PeerView }
 
 type Hooks = {
   onStyle: () => void
@@ -138,6 +139,7 @@ export function mountUi(
   let current: PanelId | null = null
   let place = 'The Plaza'
   let sharedHold: SharedProfile | null = null
+  let peerHold: PeerView | null = null
   let raf = 0
   let toastTimer = 0
 
@@ -958,7 +960,15 @@ export function mountUi(
         const body = stack()
         if (!p) body.append(para('That link did not include a profile.', 'muted'))
         else {
-          const inviter = new URLSearchParams(location.search).get('src') === 'invite' ? p.u : ''
+          const peer = peerHold
+          if (peer?.shot) { const img = document.createElement('img'); img.className = 'peer-shot'; img.alt = `${p.n}, full body`; img.src = peer.shot; body.append(img) }
+          if (peer) {
+            const row = document.createElement('div'); row.className = 'peer-actions'
+            row.append(button(p.u ? `Message @${p.u}` : 'Message', 'primary', () => { close(); peer.onMessage() }))
+            body.append(row)
+            if (peer.partial) body.append(para('Their full profile did not arrive. They may be on a slow connection.', 'muted'))
+          }
+          const inviter = !peer && new URLSearchParams(location.search).get('src') === 'invite' ? p.u : ''
           if (inviter) body.append(para(`You were invited by @${inviter}. Sign up and it shows as joined via their invite link.`, 'muted'))
           const intro = document.createElement('pre')
           intro.className = 'doc'
@@ -971,7 +981,8 @@ export function mountUi(
           g.append(h('Books'), renderBookRows((p.b ?? []).map(([section, label, value]) => ({ section: section as BookRow['section'], label, value }))))
           body.append(intro, g)
         }
-        body.append(para('Your own save was not touched.', 'muted'), button('Walk in', 'primary', close))
+        if (peerHold) body.append(para('Public profile only. Emails, wallets, family requests and location are never shown.', 'muted'))
+        else body.append(para('Your own save was not touched.', 'muted'), button('Walk in', 'primary', close))
         const card = frame(p ? `${p.n}'s profile` : 'Shared profile', body)
         card.classList.add('glass-sheet')
         return card
@@ -988,6 +999,7 @@ export function mountUi(
     stop()
     current = panel
     if (extra?.shared) sharedHold = extra.shared
+    if (extra?.shared) peerHold = extra.peer ?? null
     if (extra?.house) houseId = extra.house
     sheet.hidden = false
     sheet.setAttribute('role', 'dialog')

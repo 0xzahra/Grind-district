@@ -34,6 +34,10 @@ export type Net = {
   canVoice: () => boolean
   tick: (dt: number, me: { x: number; z: number; yaw: number; moving: boolean }) => void
   setMe: (me: Me) => void
+  /** Peer under a ray (tap), or null. */
+  pick: (ray: THREE.Raycaster) => { id: string; name: string; username: string; object: THREE.Object3D } | null
+  /** Ask a peer for their public profile (encodeShare payload). Resolves null after 4 s. */
+  requestProfile: (peerId: string) => Promise<string | null>
 }
 
 function bubble(text: string): THREE.Sprite {
@@ -110,6 +114,8 @@ export function createNet(options: {
   getSelf: () => THREE.Object3D
   onLine: (line: { from: string; text: string; self: boolean; audio?: string }) => void
   onStatus: (online: boolean) => void
+  /** Public profile payload (encodeShare: no emails, wallets, family requests or location). */
+  getProfile?: () => string
 }): Net {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -123,6 +129,8 @@ export function createNet(options: {
   const VOICE = import.meta.env.VITE_VOICE_NOTES === '1'
   const BUCKET = 'voice-notes'
   let sendAcc = 0
+  const waiting = new Map<string, (d: string | null) => void>()
+  const answered = new Map<string, number>()
 
   const near = (x: number, z: number) => Math.hypot(x - pos.x, z - pos.z) <= HEAR_RADIUS
 
@@ -178,6 +186,20 @@ export function createNet(options: {
             if (typeof m.url !== 'string' || !m.url.startsWith(`${url}/storage/v1/object/public/${BUCKET}/`)) return
             options.onLine({ from: clean(String(m.name ?? '')) || 'Someone', text: `voice note ${Math.round(Number(m.s) || 0)}s`, self: false, audio: m.url })
           })
+          .on('broadcast', { event: 'prof-req' }, ({ payload }) => {
+            const m = payload as { to: string; from: string }
+            if (m.to !== id || !options.getProfile || typeof m.from !== 'string') return
+            const now = Date.now()
+            if (now - (answered.get(m.from) ?? 0) < 2000) return // one answer per asker every 2 s
+            answered.set(m.from, now)
+            void room.send({ type: 'broadcast', event: 'prof', payload: { to: m.from, from: id, d: options.getProfile().slice(0, 12000) } })
+          })
+          .on('broadcast', { event: 'prof' }, ({ payload }) => {
+            const m = payload as { to: string; from: string; d: string }
+            if (m.to !== id || typeof m.d !== 'string') return
+            waiting.get(m.from)?.(m.d)
+            waiting.delete(m.from)
+          })
           .on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
           .subscribe((status) => {
             connected = status === 'SUBSCRIBED'
@@ -194,6 +216,28 @@ export function createNet(options: {
   return {
     online: () => connected,
     peers: () => [...peers.values()].map((peer) => ({ x: peer.avatar.object.position.x, z: peer.avatar.object.position.z })),
+    pick(ray) {
+      let best: { id: string; name: string; username: string; object: THREE.Object3D } | null = null
+      let bestD = Infinity
+      for (const [peerId, peer] of peers) {
+        const o = peer.avatar.object
+        if (!o.visible) continue
+        // Cheap capsule test: distance from the ray to the body's axis at chest height.
+        const c = new THREE.Vector3(o.position.x, 1, o.position.z)
+        const d = ray.ray.distanceSqToPoint(c)
+        const along = c.clone().sub(ray.ray.origin).dot(ray.ray.direction)
+        if (along > 0 && d < 0.7 * 0.7 && along < bestD) { bestD = along; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), object: o } }
+      }
+      return best
+    },
+    requestProfile(peerId) {
+      if (!connected || !channel) return Promise.resolve(null)
+      return new Promise((resolve) => {
+        waiting.set(peerId, resolve)
+        void channel!.send({ type: 'broadcast', event: 'prof-req', payload: { to: peerId, from: id } })
+        window.setTimeout(() => { if (waiting.get(peerId) === resolve) { waiting.delete(peerId); resolve(null) } }, 4000)
+      })
+    },
     setMe(next) {
       me = next
     },

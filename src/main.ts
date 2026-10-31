@@ -17,6 +17,8 @@ import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { createNet } from './net.ts'
+import { encodeShare } from './logic.ts'
+import { dmUnread, mountMessages, openInbox, openThread } from './messages.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
@@ -443,6 +445,8 @@ const apiAgents = createRemoteAgents(scene)
     if (!go) return false
     setCC(false)
     if (go === 'chat') { if (chat.hidden) must<HTMLButtonElement>('#msg-btn').click(); return true }
+    if (go === 'messages') { setCC(true); void openInbox(); return true }
+    if (go.startsWith('dm:')) { setCC(true); void openThread(go.slice(3)); return true }
     if (go === 'balance') { setCC(true); openBalance(); return true }
     if (go.startsWith('place:')) { travelHook(go.slice(6), true); return true }
     if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
@@ -464,7 +468,7 @@ const apiAgents = createRemoteAgents(scene)
       const btn = el('button', '', 'cc-row')
       btn.type = 'button'
       btn.append(el('strong', n.title), el('time', when(n.at)), el('p', n.body))
-      if (n.go) btn.append(el('span', n.go === 'chat' ? 'Open chat ›' : n.go === 'balance' ? 'Open balance ›' : n.go.startsWith('place:') ? `Go to ${n.go.slice(6)} ›` : 'Open ›', 'cc-go'))
+      if (n.go) btn.append(el('span', n.go === 'chat' ? 'Open chat ›' : n.go.startsWith('dm:') ? 'Open thread ›' : n.go === 'balance' ? 'Open balance ›' : n.go.startsWith('place:') ? `Go to ${n.go.slice(6)} ›` : 'Open ›', 'cc-go'))
       btn.onclick = () => { markRead(n.id); if (!follow(n.go)) renderNotes() }
       li.append(btn)
       list.append(li)
@@ -506,7 +510,7 @@ const apiAgents = createRemoteAgents(scene)
     // composedPath, not closest: a sheet button that removes itself on click (Top up) is detached by now and would close everything.
     if (event.composedPath().includes(ccSheet) || !target.isConnected) return
     const hit = target.closest('button, a')
-    if (!hit || ['cc-keys', 'cc-bell', 'cc-status'].includes(hit.id)) return
+    if (!hit || ['cc-keys', 'cc-bell', 'cc-status', 'cc-msg'].includes(hit.id)) return
     window.setTimeout(() => setCC(false), 0)
   })
   window.addEventListener('keydown', (event) => {
@@ -514,7 +518,14 @@ const apiAgents = createRemoteAgents(scene)
     if (!ccSheet.hidden) closeSheet(); else setCC(false)
   })
   must('#cc-keys').addEventListener('click', () => { const list = must<HTMLElement>('#cc-keylist'); list.hidden = !list.hidden; must('#cc-keys').classList.toggle('on', !list.hidden) })
-  must('#cc-msg').addEventListener('click', () => { if (chat.hidden) must<HTMLButtonElement>('#msg-btn').click() })
+  // Messages tab: direct threads (server-side) plus a row into nearby chat.
+  must('#cc-msg').addEventListener('click', () => void openInbox())
+  mountMessages({
+    openSheet,
+    body: () => sheetBody,
+    openNearby: () => { setCC(false); if (chat.hidden) must<HTMLButtonElement>('#msg-btn').click() },
+    isOpen: (title) => !ccSheet.hidden && sheetTitle.textContent === title,
+  })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
   must('#cc-status').addEventListener('click', openBalance)
   // Fetch the top-up chunk now (while this build's assets are live) and re-sync credited top-ups for a known wallet.
@@ -593,7 +604,8 @@ const apiAgents = createRemoteAgents(scene)
     dot.hidden = !(n || msgUnread)
     bellBadge.hidden = n === 0
     bellBadge.textContent = n > 9 ? '9+' : String(n)
-    must('#cc-msg').classList.toggle('has-unread', msgUnread)
+    must('#cc-msg').classList.toggle('has-unread', msgUnread || dmUnread() > 0)
+    if (dmUnread() > 0) dot.hidden = false
   }, 800)
   const msgBtn = must<HTMLButtonElement>('#msg-btn')
   must('#chat-close').addEventListener('click', () => { if (!chat.hidden) msgBtn.click() })
@@ -637,6 +649,7 @@ const apiAgents = createRemoteAgents(scene)
       while (chatLog.children.length > 5) chatLog.firstElementChild?.remove()
       window.setTimeout(() => item.remove(), 20000)
     },
+    getProfile: () => encodeShare(getSave()),
     onStatus: (online) => {
       chatStatus.textContent = online
         ? 'Live · 12 m'
@@ -648,6 +661,24 @@ const apiAgents = createRemoteAgents(scene)
     if (import.meta.env.VITE_VOICE_NOTES !== '1') return 'Voice notes open soon.'
     return null
   }))
+  // Tap another player: their public profile (full-body shot + what they chose to share), then Message.
+  let peerTarget: THREE.Object3D | null = null
+  const peerShot = createPortrait(renderer, () => peerTarget!)
+  let peerBusy = false
+  const openPeer = async (p: { id: string; name: string; username: string; object: THREE.Object3D }) => {
+    if (peerBusy) return
+    peerBusy = true
+    ui.toast(`Opening ${p.name || 'player'}…`)
+    try {
+      peerTarget = p.object
+      const shot = peerShot()
+      const raw = await net.requestProfile(p.id)
+      const full = raw ? decodeShare(raw) : null
+      const shared = full ?? { n: p.name || 'Player', u: p.username, x: 0, p: 0, s: 0, k: [], a: [] }
+      if (full && p.username) shared.u = p.username // the plate everyone sees wins over the payload
+      ui.open('shared', { shared, peer: { shot, partial: !full, onMessage: () => { setCC(true); void openThread(shared.u || p.username) } } })
+    } finally { peerBusy = false; peerTarget = null }
+  }
   chat.addEventListener('submit', (event) => {
     event.preventDefault()
     net.setMe(identity())
@@ -902,7 +933,9 @@ const apiAgents = createRemoteAgents(scene)
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
-      if (raycaster.ray.intersectPlane(floor, tapPoint)) {
+      const tapped = interiors.inside ? null : net.pick(raycaster)
+      if (tapped) void openPeer(tapped)
+      else if (raycaster.ray.intersectPlane(floor, tapPoint)) {
         target = tapPoint.clone()
         const room = interiors.bounds()
         if (room) {
