@@ -169,7 +169,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     return
   }
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMapping = THREE.AgXToneMapping
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
@@ -215,6 +215,10 @@ const apiAgents = createRemoteAgents(scene)
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
   void loadSkinPermissions().then(() => { if (getSave().mask !== 'none') avatar.setMask(getSave().mask) })
   const pos = { x: getSave().posX, z: getSave().posZ }
+  { // Test hook: ?at=x,z starts the player there (used by the automated screenshots).
+    const at = new URLSearchParams(location.search).get('at')?.split(',').map(Number)
+    if (at && at.length === 2 && at.every(Number.isFinite)) { pos.x = at[0]!; pos.z = at[1]! }
+  }
   if (blocked(world.obstacles, pos.x, pos.z, PLAYER_R)) {
     pos.x = 0
     pos.z = 8
@@ -411,7 +415,7 @@ const apiAgents = createRemoteAgents(scene)
     must('#cc-balance').textContent = `$${getSave().ledger.toFixed(2)}`
     must('#cc-rank').textContent = `${rankFor(getSave().xp).label} · in-game balance · tap for history`
   }
-  const closeSheet = () => { ccSheet.hidden = true; sheetBody.replaceChildren() }
+  const closeSheet = () => { ccSheet.hidden = true; document.body.classList.remove('cc-sheet-on'); sheetBody.replaceChildren() }
   const setCC = (open: boolean) => {
     document.body.classList.toggle('rail-shut', !open)
     railToggle.setAttribute('aria-expanded', String(open))
@@ -432,7 +436,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   const openSheet = (title: string, fill: () => void) => {
     sheetTitle.textContent = title
-    ccSheet.hidden = false
+    ccSheet.hidden = false; document.body.classList.add('cc-sheet-on')
     fill()
   }
   const renderNotes = () => {
@@ -512,12 +516,14 @@ const apiAgents = createRemoteAgents(scene)
   must('#cc-agents').addEventListener('click', () => ui.open('settings'))
   // Sliders: while dragging, the menu fades away so the city stays visible; a readout shows the level and zone.
   const readout = must<HTMLElement>('#cc-readout')
+  const zoomEl = must<HTMLInputElement>('#cc-zoom')
   const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
   const paintReadout = (kind: 'zoom' | 'look') => {
     const place = interiors.inside ? 'Indoors' : districtName(avatar.object.position.x, avatar.object.position.z)
     if (kind === 'zoom') {
-      const pct = Math.round(((camDist - 3.2) / (12 - 3.2)) * 100)
-      readout.textContent = `Zoom ${pct < 25 ? 'Close' : pct < 60 ? 'Street' : 'Wide'} · ${pct}% · ${place}`
+      // Slider up = zoom in. The readout mirrors the camera distance the frame loop actually uses.
+      const pct = Math.round(((12 - camDist) / (12 - 3.2)) * 100)
+      readout.textContent = `Zoom ${pct > 75 ? 'Close' : pct > 40 ? 'Street' : 'Wide'} · ${pct}% · ${place}`
     } else {
       const deg = ((Math.round(THREE.MathUtils.radToDeg(camYaw)) % 360) + 360) % 360
       readout.textContent = `Facing ${DIRS[Math.round(deg / 45) % 8]} · ${deg}° · ${place}`
@@ -535,7 +541,8 @@ const apiAgents = createRemoteAgents(scene)
     for (const ev of ['pointerup', 'pointercancel', 'touchend', 'change', 'blur']) input.addEventListener(ev, end)
     input.addEventListener('input', () => { const v = Number(input.value); apply(v - prev); prev = v; paint(); window.setTimeout(() => paintReadout(kind), 40) })
   }
-  slide('#cc-zoom', 'zoom', (d) => input.nudgeZoom(-d * 9))
+  slide('#cc-zoom', 'zoom', () => { camDist = 12 - (Number(zoomEl.value) / 100) * (12 - 3.2) })
+  railToggle.addEventListener('click', () => { zoomEl.value = String(Math.round(((12 - camDist) / (12 - 3.2)) * 100)); zoomEl.parentElement!.style.setProperty('--v', `${zoomEl.value}%`) })
   slide('#cc-look', 'look', (d) => input.nudgeLook(d * 8))
   const dot = railToggle.querySelector('.cc-dot') as HTMLElement
   const bellBadge = must<HTMLElement>('#cc-bell-badge')
@@ -829,7 +836,7 @@ const apiAgents = createRemoteAgents(scene)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
       scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.1 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.92, nightLevel)
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.18, 1.0, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }

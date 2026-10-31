@@ -68,3 +68,72 @@ export function insideFootprint(x: number, z: number, margin: number): Footprint
   for (const f of FOOTPRINTS) if (Math.abs(x - f.x) < f.w / 2 + margin && Math.abs(z - f.z) < f.d / 2 + margin) return f
   return null
 }
+
+// Side road: leaves the east arm, runs past the house row and out of the city at the south-east edge.
+// Rects (centre + half extents) for painting; the route polyline is the centre line cars follow.
+export const SIDE_RECTS = [
+  { x: 30, z: 6, hx: ROAD_HALF, hz: 6 + ROAD_HALF },
+  { x: 37, z: 12, hx: 7 + ROAD_HALF, hz: ROAD_HALF },
+  { x: 44, z: 50.5, hx: ROAD_HALF, hz: 38.5 },
+]
+export const SIDE_LINES = [
+  { horizontal: false, at: 30, from: 0, to: 12 },
+  { horizontal: true, at: 12, from: 30, to: 44 },
+  { horizontal: false, at: 44, from: 12, to: 89 },
+]
+const SIDE_POLY: [number, number][] = [[24, 0], [30, 0], [30, 12], [44, 12], [44, 89]]
+export const SIDE_JOIN_T = (24 - LANE_INNER) / (LANE_OUTER - LANE_INNER) // east-arm progress where the side road starts
+
+/** Dense centre line with rounded corners (radius 3.4). */
+function buildSide(): { x: number; z: number; s: number }[] {
+  const R = 3.4
+  const out: { x: number; z: number; s: number }[] = []
+  const push = (x: number, z: number) => {
+    const last = out[out.length - 1]
+    out.push({ x, z, s: last ? last.s + Math.hypot(x - last.x, z - last.z) : 0 })
+  }
+  push(SIDE_POLY[0]![0], SIDE_POLY[0]![1])
+  for (let i = 1; i < SIDE_POLY.length; i++) {
+    const [px, pz] = SIDE_POLY[i - 1]!
+    const [cx, cz] = SIDE_POLY[i]!
+    const next = SIDE_POLY[i + 1]
+    const inX = Math.sign(cx - px), inZ = Math.sign(cz - pz)
+    if (!next) { push(cx, cz); break }
+    const outX = Math.sign(next[0] - cx), outZ = Math.sign(next[1] - cz)
+    const ax = cx - inX * R, az = cz - inZ * R // arc start
+    push(ax, az)
+    // Arc centre sits at start + R * outward-turn direction.
+    const ox = ax + outX * R, oz = az + outZ * R
+    const a0 = Math.atan2(az - oz, ax - ox)
+    const a1 = Math.atan2(cz + outZ * R - oz, cx + outX * R - ox)
+    let da = a1 - a0
+    while (da > Math.PI) da -= Math.PI * 2
+    while (da < -Math.PI) da += Math.PI * 2
+    for (let k = 1; k <= 8; k++) { const a = a0 + (da * k) / 8; push(ox + Math.cos(a) * R, oz + Math.sin(a) * R) }
+  }
+  return out
+}
+export const SIDE = buildSide()
+export const SIDE_LEN = SIDE[SIDE.length - 1]!.s
+/** Stops on the side road: by each house, and the city edge at the end. */
+export const SIDE_STOPS = [
+  { label: 'Notes house', z: 18 }, { label: 'Set house', z: 28 }, { label: 'Your house', z: 32 },
+  { label: 'Grove house', z: 40 }, { label: 'Vacant house', z: 46 },
+].map((h) => ({ label: h.label, s: SIDE_LEN - (89 - h.z) }))
+
+/** Lane point on the side road at distance s; outbound = away from the arm. Drive on the right. */
+export function sidePoint(s: number, outbound: boolean): { x: number; z: number; heading: number } {
+  s = Math.max(0, Math.min(SIDE_LEN, s))
+  let i = 1
+  while (i < SIDE.length - 1 && SIDE[i]!.s < s) i++
+  const a = SIDE[i - 1]!, b = SIDE[i]!
+  const f = (s - a.s) / Math.max(1e-6, b.s - a.s)
+  const x = a.x + (b.x - a.x) * f, z = a.z + (b.z - a.z) * f
+  let hx = b.x - a.x, hz = b.z - a.z
+  const l = Math.hypot(hx, hz) || 1
+  hx /= l; hz /= l
+  if (!outbound) { hx = -hx; hz = -hz }
+  // Right of travel (y up): (-hz, hx)... for +z travel right is -x, i.e. (-hz, ?): right = (-hz, hx) gives (-1, 0) for (0,1).
+  const off = ROAD_HALF * 0.5
+  return { x: x - hz * off, z: z + hx * off, heading: Math.atan2(hx, hz) }
+}

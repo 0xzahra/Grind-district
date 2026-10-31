@@ -16,6 +16,8 @@ export type FaceOpts = {
 
 const sharedWhite = new THREE.MeshStandardMaterial({ color: 0xf1ede6, roughness: 0.55, flatShading: true, envMapIntensity: 0.2 })
 const sharedPupil = new THREE.MeshStandardMaterial({ color: 0x0f0d0c, roughness: 0.4, envMapIntensity: 0 })
+const catchMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x2a1812, roughness: 0.9 })
 const lashMat = new THREE.MeshStandardMaterial({ color: 0x15100e, roughness: 0.6 })
 
 export function buildFace(bob: THREE.Group, o: FaceOpts): void {
@@ -60,6 +62,14 @@ export function buildFace(bob: THREE.Group, o: FaceOpts): void {
     white.scale.set(f ? 1.2 : 1.1, f ? 0.62 : 0.55, 0.55)
     add(new THREE.CircleGeometry(f ? 0.0105 : 0.0095, 12), irisMat, x, eyeY - 0.001, z + 0.0035)
     add(new THREE.CircleGeometry(0.0045, 10), sharedPupil, x, eyeY - 0.001, z + 0.0040)
+    // Catchlight: a tiny specular glint up and to the side, the single biggest cue that eyes are alive.
+    add(new THREE.CircleGeometry(0.0022, 8), catchMat, x + 0.003, eyeY + 0.003, z + 0.0046)
+    // Lower lid crease and a soft cheek plane under each eye give the face structure in raking light.
+    const lower = add(new THREE.BoxGeometry(0.04, 0.004, 0.01), o.skin, x, eyeY - 0.011, z - 0.002)
+    lower.rotation.x = 0.25
+    const cy = eyeY - hh * 0.2
+    const cheek = add(new THREE.IcosahedronGeometry(0.032, 1), o.skin, s * hw * 0.5, cy, surf(s * hw * 0.5, cy - c.y) - 0.018)
+    cheek.scale.set(1.1, 0.75, 0.6)
     const lid = add(new THREE.BoxGeometry(0.05, 0.008, 0.014), o.skin, x, eyeY + 0.012, z - 0.001)
     lid.rotation.x = -0.3
     if (f) {
@@ -92,6 +102,7 @@ export function buildFace(bob: THREE.Group, o: FaceOpts): void {
     wing.scale.set(1, 0.8, 0.8)
   }
 
+  for (const s of [-1, 1]) add(new THREE.CircleGeometry(0.0035, 8), nostrilMat, s * 0.0085, tipY - 0.011, tz + 0.006).rotation.x = Math.PI / 2.4
   // Lips: small and calm; fuller for women.
   const mouthY = tipY - hh * (f ? 0.2 : 0.21)
   const mz = surf(0, mouthY - c.y)

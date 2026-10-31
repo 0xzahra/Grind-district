@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ARMS as LANE_ARMS, lanePoint, uturnPoint } from './lanes.ts'
+import { ARMS as LANE_ARMS, lanePoint, uturnPoint, sidePoint, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS } from './lanes.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -29,7 +29,7 @@ const LOD = 70
 const SIGNAL_PERIOD = 14
 
 type Walker = { arm: number; side: number; t: number; dir: number; speed: number; phase: number }
-type Car = { park: number; arm: number; outbound: boolean; t: number; speed: number; wait: number; turn: number; swing: number; a0: number; a1: number }
+type Car = { side: boolean; s: number; sOut: boolean; goal: number; gone: number; park: number; arm: number; outbound: boolean; t: number; speed: number; wait: number; turn: number; swing: number; a0: number; a1: number }
 
 export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphics): {
   tick: (dt: number, time: number, focus: { x: number; z: number }, people?: Obstacle[]) => Obstacle[]
@@ -160,7 +160,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 7)) break
       t = (t + 0.13) % 1
     }
-    cars.push({ park: 0, arm, outbound, t, speed: 6 + (i % 3), wait: 0, turn: 0, swing: 0, a0: 0, a1: 0 })
+    cars.push({ side: false, s: 0, sOut: true, goal: 0, gone: 0, park: 0, arm, outbound, t, speed: 6 + (i % 3), wait: 0, turn: 0, swing: 0, a0: 0, a1: 0 })
     bodiesCar.setColorAt(i, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
   }
   for (const mesh of [bodiesCar, cabins, wheels]) {
@@ -256,6 +256,73 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
 
   const span = lanes.outer - lanes.inner
   const obstacles: Obstacle[] = []
+  type Pt = { x: number; z: number; heading: number }
+  const HIDE = 50 // cars only leave or re-enter the city edge when the player is this far away (no popping in view)
+  const uAt = (sv: number, u: number): Pt => {
+    // U-turn across the side road at distance sv, from the outbound lane to the inbound lane.
+    const p = sidePoint(sv, true)
+    const fx = Math.sin(p.heading), fz = Math.cos(p.heading)
+    const rx = -Math.cos(p.heading), rz = Math.sin(p.heading)
+    const r = lanes.roadHalf * 0.5
+    const cx = p.x - rx * r, cz = p.z - rz * r
+    const a = u * Math.PI
+    const hx = fx * Math.cos(a) - rx * Math.sin(a), hz = fz * Math.cos(a) - rz * Math.sin(a)
+    return { x: cx + fx * Math.sin(a) * r + rx * Math.cos(a) * r, z: cz + fz * Math.sin(a) * r + rz * Math.cos(a) * r, heading: Math.atan2(hx, hz) }
+  }
+  /** Side road (houses + city edge). Returns the pose, or null while the car is out of town. */
+  const sideStep = (car: Car, dt: number, focus: { x: number; z: number }, people: Obstacle[]): Pt | null => {
+    if (car.gone > 0) {
+      car.gone -= dt
+      if (car.gone > 0) return null
+      const back = sidePoint(SIDE_LEN, false)
+      const busy = cars.some((o) => o !== car && o.side && !o.gone && !o.sOut && SIDE_LEN - o.s < 7)
+      if (Math.hypot(back.x - focus.x, back.z - focus.z) < HIDE || busy) { car.gone = 1; return null }
+      car.sOut = false
+      car.s = SIDE_LEN
+    }
+    let target = car.speed
+    for (const o of cars) {
+      if (o === car || !o.side || o.gone > 0 || o.wait > 0 || o.turn > 0 || o.sOut !== car.sOut) continue
+      const ahead = car.sOut ? o.s - car.s : car.s - o.s
+      if (ahead > 0 && ahead < 9) target = Math.min(target, Math.max(0, (ahead - 6.2) * 2))
+    }
+    const here = sidePoint(car.s, car.sOut)
+    const fx = Math.sin(here.heading), fz = Math.cos(here.heading)
+    const blocked = (x: number, z: number) => {
+      const f = (x - here.x) * fx + (z - here.z) * fz
+      const sd = Math.abs((x - here.x) * fz - (z - here.z) * fx)
+      return f > 0 && f < 5.5 && sd < 1.6
+    }
+    if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
+    if (car.turn > 0) {
+      car.turn += (Math.max(target, 2.5) * dt) / (Math.PI * lanes.roadHalf * 0.5)
+      if (car.turn >= 1) { car.turn = 0; car.sOut = false; return sidePoint(car.s, false) }
+      return uAt(car.s, car.turn)
+    }
+    if (car.wait > 0) {
+      car.wait -= dt
+      car.park = Math.min(1, car.park + dt / 1.5)
+      const off = 1.9 * Math.min(car.park, Math.max(0, car.wait) / 1.5)
+      if (car.wait <= 0) { car.wait = 0; car.park = 0; car.turn = 0.0001 }
+      return { x: here.x - Math.cos(here.heading) * off, z: here.z + Math.sin(here.heading) * off, heading: here.heading }
+    }
+    if (car.sOut) {
+      car.s = Math.min(car.goal, car.s + target * dt)
+      if (car.s >= car.goal) {
+        if (car.goal < SIDE_LEN) car.wait = 8 + Math.random() * 12 // at a house: park by the kerb and visit
+        else if (Math.hypot(here.x - focus.x, here.z - focus.z) > HIDE) { car.gone = 6 + Math.random() * 14; return null } // left the city
+        else car.turn = 0.0001 // player is watching the edge: turn back instead of vanishing
+      }
+    } else {
+      car.s = Math.max(0, car.s - target * dt)
+      if (car.s <= 0) {
+        // Rejoin the east arm heading into the plaza once the inbound lane is clear.
+        const clear = cars.every((o) => o === car || o.side || o.arm !== 0 || o.outbound || Math.abs(o.t - SIDE_JOIN_T) * span > 7)
+        if (clear) { car.side = false; car.arm = 0; car.outbound = false; car.t = SIDE_JOIN_T; return lanePoint(0, SIDE_JOIN_T, false) }
+      }
+    }
+    return sidePoint(car.s, car.sOut)
+  }
 
   return {
     tick(dt, time, focus, people = []) {
@@ -296,6 +363,9 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       for (const mesh of peopleMeshes) mesh.instanceMatrix.needsUpdate = true
 
       cars.forEach((car, i) => {
+        let pt: Pt | null
+        if (car.side) pt = sideStep(car, dt, focus, people)
+        else {
         const axisGo = car.arm < 2 ? green : !green
         // Inbound cars stop at the stop line on red, and for any car ahead in the same lane.
         let target = car.speed
@@ -304,7 +374,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           if (!axisGo && gap < 6) target = gap < 0.6 ? 0 : Math.min(car.speed, gap)
         }
         for (const other of cars) {
-          if (other === car || other.wait > 0 || other.arm !== car.arm || other.outbound !== car.outbound) continue
+          if (other === car || other.side || other.wait > 0 || other.arm !== car.arm || other.outbound !== car.outbound) continue
           const ahead = car.outbound ? other.t - car.t : car.t - other.t
           if (ahead > 0 && ahead * span < 9) target = Math.min(target, Math.max(0, (ahead * span - 6.2) * 2))
         }
@@ -341,7 +411,16 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           car.wait -= dt
           if (car.wait <= 0) { car.wait = 0; car.turn = 0.0001 }
         } else if (car.outbound) {
+          const before = car.t
           car.t += step
+          // Some drivers take the side road: to one of the houses, or out of the city at the edge.
+          if (car.arm === 0 && before < SIDE_JOIN_T && car.t >= SIDE_JOIN_T && Math.random() < 0.55 &&
+            cars.every((o) => o === car || !o.side || !o.sOut || o.s > 7)) {
+            car.side = true
+            car.sOut = true
+            car.s = 0
+            car.goal = Math.random() < 0.5 ? SIDE_LEN : (SIDE_STOPS[Math.floor(Math.random() * SIDE_STOPS.length)]?.s ?? SIDE_LEN)
+          }
           if (car.t >= 1) {
             car.t = 1
             // Some drivers park and rest at the destination, others turn straight back.
@@ -356,7 +435,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
             if (axisGo) {
               // Only swing onto the next arm if its outbound lane is clear for a car length plus margin.
               const nextArm = (car.arm + 1 + (Math.random() < 0.5 ? 0 : 1)) % 4 // pick a destination: right or straight across
-              const clear = cars.every((o) => o === car || o.arm !== nextArm || !o.outbound || o.t * span > 6.5)
+              const clear = cars.every((o) => o === car || o.side || o.arm !== nextArm || !o.outbound || o.t * span > 6.5)
               if (clear) {
                 // Drive round the plaza ring to the next arm instead of jumping across it.
                 const from = lanePoint(car.arm, 0, false)
@@ -373,31 +452,32 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
             }
           }
         }
-        const arm = ARMS[car.arm] as Arm
         // Drive on the right: outbound lane is to the right of the outward direction.
-        let pt = car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound)
+        pt = car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound)
         if (car.swing > 0) {
           const a = car.a0 + (car.a1 - car.a0) * car.swing
           const r = Math.hypot(pt.x, pt.z) - 2.5 * Math.sin(Math.PI * car.swing)
           const sgn = Math.sign(car.a1 - car.a0) || 1
           pt = { x: Math.cos(a) * r, z: Math.sin(a) * r, heading: Math.atan2(-Math.sin(a) * sgn, Math.cos(a) * sgn) }
         }
+        }
+        const hidden = pt === null
+        if (!pt) pt = { x: 0, z: -400, heading: 0 }
         let x = pt.x
         let z = pt.z
-        if (car.wait <= 0) car.park = 0
-        if (car.wait > 0 && car.turn === 0 && car.swing === 0) {
+        if (!car.side && car.wait <= 0) car.park = 0
+        if (!car.side && car.wait > 0 && car.turn === 0 && car.swing === 0) {
           // Ease onto the shoulder while parked (right of travel), so through traffic can pass.
           car.park = Math.min(1, car.park + dt / 1.5)
           const off = 1.9 * Math.min(car.park, car.wait / 1.5)
           x += -Math.cos(pt.heading) * off
           z += Math.sin(pt.heading) * off
         }
-        const dir = car.outbound ? 1 : -1
         // Cars are never hidden by distance (only ~10 instances): no popping at the arm-end entrances.
         const far = Math.hypot(x - focus.x, z - focus.z) > LOD + 20
-        dummy.position.set(x, 0, z)
+        dummy.position.set(x, hidden ? -60 : 0, z)
         dummy.rotation.set(0, pt.heading, 0)
-        dummy.scale.setScalar(1)
+        dummy.scale.setScalar(hidden ? 0.001 : 1)
         dummy.updateMatrix()
         if (slots) {
           const slot = slots[i]!
@@ -411,14 +491,12 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         heads2.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, headLocal))
         roofSigns.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, roofLocal))
         tails.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, tailLocal))
-        if (!far) {
+        if (!far && !hidden) {
           const hx = Math.sin(pt.heading)
           const hz = Math.cos(pt.heading)
           obstacles.push({ kind: 'circle', x: x + hx * 1.1, z: z + hz * 1.1, r: 1.05 })
           obstacles.push({ kind: 'circle', x: x - hx * 1.1, z: z - hz * 1.1, r: 1.05 })
         }
-        void arm
-        void dir
       })
       bodiesCar.instanceMatrix.needsUpdate = true
       cabins.instanceMatrix.needsUpdate = true

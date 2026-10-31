@@ -2,7 +2,7 @@ import { HOUSES, type HouseId } from './houses.ts'
 import type { PanelId, Season, TimeOfDay } from './logic.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
-import { LANE_INNER, LANE_OUTER, ROAD_END, ROAD_HALF } from './lanes.ts'
+import { LANE_INNER, LANE_OUTER, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export type Hotspot = {
@@ -483,6 +483,8 @@ export function createWorld(options: {
   spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'West, to the spot book. Practice funds only.')
   spot('east-arch', 13.4, 0, 2.5, 'Row road', 'East. Post a bounty. It lands on the portfolio.')
 
+  // Dark, reflective storefront glass (picks up the PMREM environment): reads as real glazing, not paint.
+  const shopGlass = new THREE.MeshStandardMaterial({ color: 0x33414a, roughness: 0.1, metalness: 0.7, envMapIntensity: 1.4 })
   const addBuilding = (spec: {
     x: number
     z: number
@@ -537,6 +539,30 @@ export function createWorld(options: {
           bx(dark, along ? 1.7 : 0.04, 0.5, along ? 0.04 : 1.7, along ? px : px + side * 0.3, h * 0.5 + 0.42, along ? pz + side * 0.3 : pz)
         }
       }
+      // Upgrade: recessed-window relief (slim vertical fins between window bays), a glazed shopfront band at
+      // street level, and rooftop plant (AC units, a water tank, a stair core) so silhouettes read as real buildings.
+      const glazing: THREE.BufferGeometry[] = []
+      if (spec.windows) {
+        for (const side of [-1, 1]) {
+          const nW = Math.max(2, Math.floor(w / 1.7))
+          for (let k = 1; k < nW; k++) bx(dark, 0.07, h - 1.9, 0.16, -w / 2 + (k * w) / nW, (h + 1.5) / 2, side * (d / 2 + 0.08))
+          const nD = Math.max(2, Math.floor(d / 1.7))
+          for (let k = 1; k < nD; k++) bx(dark, 0.16, h - 1.9, 0.07, side * (w / 2 + 0.08), (h + 1.5) / 2, -d / 2 + (k * d) / nD)
+        }
+        bx(glazing, w + 0.05, 1.05, d + 0.05, 0, 1.08, 0)
+        bx(dark, w + 0.3, 0.1, d + 0.3, 0, 1.66, 0) // shopfront fascia
+      }
+      if (w >= 6 && d >= 5) {
+        const r = mulberry32((spec.seed ?? 3) * 7 + 1)
+        for (let k = 0; k < 2 + Math.floor(r() * 3); k++) bx(light, 0.9 + r() * 0.6, 0.55, 0.7 + r() * 0.5, (r() - 0.5) * (w - 2.4), h + 0.6, (r() - 0.5) * (d - 2.4))
+        bx(dark, 1.8, 1.3, 1.6, w / 2 - 1.6, h + 0.95, -d / 2 + 1.5) // stair core
+        if (r() > 0.4) {
+          dark.push(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 10).translate(-w / 2 + 1.4, h + 1.35, d / 2 - 1.4))
+          for (const lx of [-0.35, 0.35]) dark.push(new THREE.BoxGeometry(0.06, 0.8, 0.06).translate(-w / 2 + 1.4 + lx, h + 0.6, d / 2 - 1.4))
+        }
+      }
+      const gm = glazing.length ? mergeGeometries(glazing) : null
+      if (gm) group.add(solid(gm, shopGlass, false))
       const lm = mergeGeometries(light)
       const dm = mergeGeometries(dark)
       if (lm) group.add(solid(lm, stone))
@@ -799,6 +825,7 @@ export function createWorld(options: {
     const lines: Line[] = [
       { horizontal: true, at: 0, from: -ROAD_END, to: ROAD_END },
       { horizontal: false, at: 0, from: -ROAD_END, to: ROAD_END },
+      ...SIDE_LINES,
     ]
     const clear = (rect: Rect, own: Obstacle) =>
       blockers.every((b) => (own.kind === 'box' && b.x === own.x && b.z === own.z) || !overlaps(rect, b))
@@ -851,12 +878,23 @@ export function createWorld(options: {
       const roads: Rect[] = [
         { x: 0, z: 0, hx: ROAD_END, hz: ROAD_HALF },
         { x: 0, z: 0, hx: ROAD_HALF, hz: ROAD_END },
+        ...SIDE_RECTS,
       ]
       // Sidewalks first, then the asphalt over them, then walkways.
       g.fillStyle = '#77706a'
       for (const road of roads) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
+      g.fillStyle = '#5f5a50'
+      for (const path of paths) fillRect({ ...path, hx: path.hx + 0.18, hz: path.hz + 0.18 })
+      g.fillStyle = '#8d8676'
+      for (const path of paths) fillRect(path)
       g.fillStyle = '#1e2624'
       for (const road of roads) fillRect(road)
+      // Rounded inside corners on the side road so the asphalt matches the driven curve.
+      for (const [cx, cz] of [[30, 0], [30, 12], [44, 12]] as const) {
+        g.beginPath()
+        g.arc(mid + cx * scale, mid + cz * scale, (ROAD_HALF + 1.2) * scale, 0, Math.PI * 2)
+        g.fill()
+      }
       g.strokeStyle = 'rgba(230, 236, 232, 0.5)'
       g.lineWidth = 3
       g.setLineDash([18, 16])
@@ -869,12 +907,12 @@ export function createWorld(options: {
       g.lineTo(mid, mid - 16 * scale)
       g.moveTo(mid, mid + 16 * scale)
       g.lineTo(mid, mid + ROAD_END * scale)
+      for (const l of SIDE_LINES) {
+        if (l.horizontal) { g.moveTo(mid + (l.from + 3) * scale, mid + l.at * scale); g.lineTo(mid + (l.to - 3) * scale, mid + l.at * scale) }
+        else { g.moveTo(mid + l.at * scale, mid + (l.from + 3) * scale); g.lineTo(mid + l.at * scale, mid + (l.to - 3) * scale) }
+      }
       g.stroke()
       g.setLineDash([])
-      g.fillStyle = '#5f5a50'
-      for (const path of paths) fillRect({ ...path, hx: path.hx + 0.18, hz: path.hz + 0.18 })
-      g.fillStyle = '#8d8676'
-      for (const path of paths) fillRect(path)
       // The plaza paving sits on top so the roads meet it cleanly.
       g.fillStyle = '#857a6b'
       g.beginPath()
@@ -1096,6 +1134,7 @@ export function createWorld(options: {
     if (Math.hypot(x + 40, z - 40) < 11) return false
     if (Math.abs(x) > 56 || Math.abs(z) > 56) return false
     if (Math.abs(x) < ROAD_HALF + 2 || Math.abs(z) < ROAD_HALF + 2) return false
+    if (SIDE_RECTS.some((r) => Math.abs(x - r.x) < r.hx + 2 && Math.abs(z - r.z) < r.hz + 2)) return false
     if (paths.some((path) => overlaps(path, { x, z, hx: 0.7, hz: 0.7 }))) return false
     return reserved.every((box) => {
       if (box.kind !== 'box') return true
@@ -1171,6 +1210,7 @@ export function createWorld(options: {
     [-4.8, 14],
     [-4.8, 28],
     [-4.8, 38],
+    [48, 22], [48, 34], [48, 46], [48, 62], [40, 76], [35.6, 16.4],
   ] as const) addLamp(x, z)
 
   const basinWater = new THREE.Mesh(new THREE.CircleGeometry(6.2, 32), waterMat)

@@ -55,3 +55,18 @@ console.log('lanes ok: no lane point inside any building footprint')
   if (bad) (globalThis as unknown as { process: { exit(n: number): void } }).process.exit(1)
   console.log('ring swing ok: cars stay visible and clear of buildings between arms')
 }
+
+// Side road (houses + city edge): both lanes stay clear of every footprint and join the east arm seamlessly.
+{
+  const { sidePoint, SIDE_LEN, SIDE_JOIN_T, lanePoint: lp, insideFootprint: inside } = await import('./lanes.ts')
+  for (let s = 0; s <= SIDE_LEN; s += 0.25) for (const o of [true, false]) {
+    const p = sidePoint(s, o)
+    const hit = inside(p.x, p.z, 1.1)
+    if (hit) throw new Error(`side road lane at s=${s.toFixed(1)} enters ${hit.label}`)
+  }
+  for (const o of [true, false]) {
+    const a = sidePoint(0, o), b = lp(0, SIDE_JOIN_T, o)
+    if (Math.hypot(a.x - b.x, a.z - b.z) > 0.01) throw new Error('side road does not join the east arm lane')
+  }
+  console.log('side road ok: lanes clear of buildings, joins the east arm without a jump')
+}
