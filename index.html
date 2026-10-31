@@ -37,7 +37,7 @@
             <button id="shot" type="button">Shot</button>
             <a id="credit" href="https://0xzahra.github.io" target="_blank" rel="noopener noreferrer">Made by Zahra</a>
           </nav>
-          <canvas id="map" width="180" height="180" aria-label="City map. C campus, F trading floor, I influencer row, T trenches."></canvas>
+          <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>
         <div class="tools">
           <p class="song">Market Velocity · 3:00</p>
@@ -89,6 +89,17 @@
               Username
               <input id="signup-user" name="username" type="text" maxlength="16" autocapitalize="off" autocomplete="username" spellcheck="false" required />
             </label>
+            <fieldset class="bodies">
+              <legend>Body</legend>
+              <label>
+                <input type="radio" name="body" value="player" checked />
+                Man
+              </label>
+              <label>
+                <input type="radio" name="body" value="zuri" />
+                Woman
+              </label>
+            </fieldset>
             <p id="signup-error" class="menu-error" hidden></p>
             <button type="submit" class="primary">Enter the district</button>
           </form>
