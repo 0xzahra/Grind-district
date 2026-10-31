@@ -2,12 +2,12 @@ import { ImageResponse } from '@vercel/og'
 
 // GET /api/og?u=<username>: 1200x630 share card. Dark, gold accents, city skyline, logo.
 
-type P = { username: string; name: string; rank: string; reputation: number; balance: number }
+type P = { username: string; name: string; rank: string; reputation: number; balance: number; pinned?: string[] }
 async function getProfile(raw: string): Promise<P | null> {
   const u = raw.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!u || !url || !key) return null
-  const r = await fetch(`${url}/rest/v1/public_profiles?username=eq.${u}&select=username,name,rank,reputation,balance`, { headers: { apikey: key, authorization: `Bearer ${key}` } })
+  const r = await fetch(`${url}/rest/v1/public_profiles?username=eq.${u}&select=username,name,rank,reputation,balance,pinned`, { headers: { apikey: key, authorization: `Bearer ${key}` } })
   const rows = r.ok ? ((await r.json()) as P[]) : []
   return rows[0] ? { ...rows[0], balance: Number(rows[0].balance) } : null
 }
@@ -42,6 +42,7 @@ export async function GET(req: Request): Promise<Response> {
         h('div', { marginLeft: 24, fontSize: 26, color: GOLD, letterSpacing: 6 }, 'GRIND DISTRICT')),
       h('div', { fontSize: 72, color: '#f2ece0', marginTop: 36, fontWeight: 700 }, name.slice(0, 28)),
       h('div', { fontSize: 32, color: GOLD, marginTop: 4 }, handle),
+      ...(p?.pinned?.length ? [h('div', { marginTop: 22, flexWrap: 'wrap' }, ...p.pinned.slice(0, 3).map((t) => h('div', { fontSize: 22, color: '#e6dcc8', border: '1px solid rgba(201,162,94,0.5)', borderRadius: 999, padding: '8px 18px', marginRight: 12 }, `✓ ${t}`)))] : []),
       h('div', { marginTop: 'auto' }, ...(p ? [stat('Rank', p.rank || 'Shrimp'), stat('Reputation', String(p.reputation)), stat('Balance', `$${p.balance.toLocaleString('en-US', { maximumFractionDigits: 2 })}`)] : [h('div', { fontSize: 32, color: '#d8cfbf' }, 'Learn, trade and climb from shrimp to whale.')]))))
   return new ImageResponse(tree as never, { width: 1200, height: 630, headers: { 'cache-control': 'public, max-age=300, s-maxage=300' } })
 }

@@ -5,7 +5,9 @@ import { loadSkinPermissions } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
-import { getNotes, markRead, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
+import { publishProfile } from './share.ts'
+import { initCareer, renderCareer, renderFeed, onCareer, feedRankUp } from './career.ts'
+import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -425,6 +427,9 @@ const apiAgents = createRemoteAgents(scene)
     else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`, undefined, 'panel:profile')
     else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail, undefined, 'balance')
   })
+  const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
+  initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
+  subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })
   subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`, undefined, 'panel:profile') })
   // Map lives inside the three-line menu; the menu starts collapsed so the screen stays clear.
   document.body.classList.add('rail-shut')
@@ -456,10 +461,12 @@ const apiAgents = createRemoteAgents(scene)
     if (go === 'messages') { setCC(true); void openInbox(); return true }
     if (go.startsWith('dm:')) { setCC(true); void openThread(go.slice(3)); return true }
     if (go === 'balance') { setCC(true); openBalance(); return true }
+    if (go === 'feed' || go === 'career') { setCC(true); careerOpeners[go](); return true }
     if (go.startsWith('place:')) { travelHook(go.slice(6), true); return true }
     if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
     return false
   }
+  setNoteFollow(follow)
   const openSheet = (title: string, fill: () => void) => {
     sheetTitle.textContent = title
     ccSheet.hidden = false; document.body.classList.add('cc-sheet-on')
@@ -535,6 +542,12 @@ const apiAgents = createRemoteAgents(scene)
     isOpen: (title) => !ccSheet.hidden && sheetTitle.textContent === title,
   })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
+  const openCareer = () => openSheet('Career', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }))
+  const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
+  careerOpeners.career = openCareer; careerOpeners.feed = openFeed
+  must('#cc-career').addEventListener('click', openCareer)
+  must('#cc-feed').addEventListener('click', openFeed)
+  onCareer(() => { if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
   must('#cc-status').addEventListener('click', openBalance)
   // Fetch the top-up chunk now (while this build's assets are live) and re-sync credited top-ups for a known wallet.
   void topupModule().then((m) => m.autoSyncTopups(paintStatus)).catch(() => {})

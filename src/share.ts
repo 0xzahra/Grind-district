@@ -49,7 +49,7 @@ export async function publishProfile(): Promise<boolean> {
     const token = await (await import('./login.ts')).accessToken()
     if (!token) return false
     const s = getSave()
-    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s) }) })
+    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s), pinned: (await import('./career.ts')).pinnedTitles() }) })
     return r.ok
   } catch { return false }
 }

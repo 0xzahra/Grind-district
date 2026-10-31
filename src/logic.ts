@@ -109,6 +109,14 @@ export const TINTS = [
   { id: 'ice', hex: 0x9fd4ff, label: 'Ice' },
 ] as const
 
+/** Free season-track shirt tints (earned in Career > Weekly, never sold). */
+export const SEASON_TINTS = [
+  { id: 'graphite', hex: 0x3a3d42, label: 'Graphite' },
+  { id: 'olive', hex: 0x6b7350, label: 'Olive' },
+  { id: 'oxblood', hex: 0x6e2a2a, label: 'Oxblood' },
+  { id: 'champagne', hex: 0xd9c49a, label: 'Champagne' },
+] as const
+
 export const ALL_BODIES: { id: BodyId; label: string; blurb: string }[] = [
   { id: 'player', label: 'Man', blurb: 'Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
   { id: 'zuri', label: 'Woman', blurb: 'Longer hair, a softer face, lashes, and a fitted coat. Original.' },
@@ -580,7 +588,7 @@ export function quoteDrone(
 
 export function cleanTint(value: unknown): number {
   const hex = typeof value === 'number' ? value : Number.NaN
-  return TINTS.some((tint) => tint.hex === hex) ? hex : TINTS[0].hex
+  return [...TINTS, ...SEASON_TINTS].some((tint) => tint.hex === hex) ? hex : TINTS[0].hex
 }
 
 function cleanTime(value: unknown): TimeOfDay {

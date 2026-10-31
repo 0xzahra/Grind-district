@@ -145,10 +145,18 @@ export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): {
   return { ok: true, message: `${side === 'buy' ? 'Bought' : 'Sold'} ${sym} · ${money(result.cash)}${pnl != null ? ` · P&L ${pnl >= 0 ? '+' : ''}${money(pnl)}` : ''}.${extra}` }
 }
 
-let activityHook: (kind: Activity['kind'], label: string, detail: string) => void = () => {}
-export function onActivity(fn: typeof activityHook): void { activityHook = fn }
+type ActivityHook = (kind: Activity['kind'], label: string, detail: string) => void
+const activityHooks = new Set<ActivityHook>()
+export function onActivity(fn: ActivityHook): void { activityHooks.add(fn) }
+/** Career duties: reputation for showing up. Logged like any other activity. */
+export function addReputation(n: number, label: string, detail: string): void {
+  save.reputation += Math.max(0, Math.round(n))
+  log('gig', label, detail)
+  persist()
+  emit()
+}
 function log(kind: Activity['kind'], label: string, detail: string): void {
-  activityHook(kind, label, detail)
+  for (const fn of activityHooks) { try { fn(kind, label, detail) } catch { /* a listener never breaks the log */ } }
   save.activities.unshift({ id: makeId(), at: Date.now(), kind, label, detail })
   if (save.activities.length > 40) save.activities.length = 40
 }

@@ -7,6 +7,9 @@ const KEY = 'gd.notes.v1'
 let notes: Note[] = []
 try { notes = JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[] } catch { notes = [] }
 let render: () => void = () => {}
+let followHook: (go?: string) => boolean = () => false
+/** Deep-link handler (set by main): place/panel/chat/dm/balance. */
+export function setNoteFollow(fn: (go?: string) => boolean): void { followHook = fn }
 const save = () => { localStorage.setItem(KEY, JSON.stringify(notes.slice(0, 50))); render(); for (const fn of changeListeners) fn() }
 
 const recent = new Map<string, number>()
@@ -55,7 +58,8 @@ export function mountNotifications(): void {
       const time = document.createElement('time'); time.textContent = new Date(n.at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
       const b = document.createElement('p'); b.textContent = n.body
       li.append(t, time, b)
-      li.onclick = () => { n.read = true; save() }
+      li.onclick = () => { n.read = true; save(); if (n.go && followHook(n.go)) panel.hidden = true }
+      li.style.cursor = 'pointer'
       list.append(li)
     }
     if (!notes.length) { const e = document.createElement('p'); e.textContent = 'Nothing yet.'; list.append(e) }

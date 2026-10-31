@@ -23,6 +23,7 @@ export default async function handler(req: Req, res: Res) {
     name: String(b.name ?? '').slice(0, 40), rank: String(b.rank ?? '').slice(0, 24),
     reputation: Math.round(n(b.reputation, 1_000_000)), balance: Math.round(n(b.balance, 1e11) * 100) / 100,
     skills: Array.isArray(b.skills) ? b.skills.slice(0, 12).map((s) => String(s).slice(0, 60)) : [],
+    pinned: Array.isArray(b.pinned) ? b.pinned.slice(0, 3).map((s) => String(s).slice(0, 60)) : [],
     updated_at: new Date().toISOString(),
   }
   const { error } = await db.from('public_profiles').upsert(row, { onConflict: 'username' })

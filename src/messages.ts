@@ -127,6 +127,7 @@ export async function openThread(withUser: string): Promise<void> {
     log.scrollTop = log.scrollHeight
   }
   form.append(ta, count, send)
+  window.setTimeout(() => ta.focus({ preventScroll: true }), 60)
   const safety = el('div', '', 'dm-safety')
   const block = el('button', r.data.blocked ? 'Unblock' : 'Block', 'cc-link'); block.type = 'button'
   block.onclick = async () => {

@@ -33,7 +33,8 @@ export default async function handler(req: Req, res: Res) {
     heading = p?.name ? `${p.name} (@${u})` : `@${u} · Grind District`
     title = `${p?.name || `@${u}`} is grinding in Grind District`
     desc = p ? `${p.rank} · reputation ${p.reputation}. Join @${u} in a shared 3D city.` : `Join @${u} in a shared 3D city. Learn, trade and climb from shrimp to whale.`
-    if (p?.skills.length) sub = `${desc} Skills: ${p.skills.slice(0, 4).join(', ')}`
+    if (p?.pinned?.length) sub = `${desc} Pinned: ${p.pinned.join(', ')}`
+    else if (p?.skills.length) sub = `${desc} Skills: ${p.skills.slice(0, 4).join(', ')}`
   }
   const ref = kind === 'cv' ? String(req.query.username ?? '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16) : ''
   const image = kind === 'cv' ? `${origin}/api/og?u=${ref}` : `${origin}/og-image.png`
