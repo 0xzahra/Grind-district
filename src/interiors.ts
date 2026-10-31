@@ -39,6 +39,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   const lamp = new THREE.PointLight(0xffe3c0, 0, 18, 1.6)
   lamp.position.set(0, -50, 0)
   scene.add(lamp)
+  // Indoors always reads clearly: soft room fill independent of the street's time of day.
+  const roomFill = new THREE.HemisphereLight(0xfff3e2, 0x5a4636, 0)
+  roomFill.position.set(0, -50, 0)
+  scene.add(roomFill)
   let inside: RoomId | null = null
   const gymDone = new Set<string>()
   let cvTex: THREE.CanvasTexture | null = null
@@ -435,7 +439,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inside = id
       const o = ORIGIN[id]
       lamp.position.set(o.x, 2.9, o.z)
-      lamp.intensity = 22
+      lamp.intensity = 22 + SIZE[id].w * 1.2
+      lamp.distance = Math.max(18, SIZE[id].w * 1.3)
+      roomFill.intensity = 0.9
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
       return { x: o.x - SIZE[id].w / 2 + 2.0, z: o.z, yaw: -Math.PI / 2 }
     },
@@ -443,6 +449,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const id = inside
       inside = null
       lamp.intensity = 0
+      roomFill.intensity = 0
       lamp.position.set(0, -50, 0)
       if (id) built.get(id)!.group.visible = false
       const s = id ? STREET[id] : { cx: 0, cz: 0 }

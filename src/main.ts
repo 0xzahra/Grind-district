@@ -398,8 +398,10 @@ const apiAgents = createRemoteAgents(scene)
     else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail)
   })
   subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`) })
-  document.body.append(must('#nav-city'))
+  // Map lives inside the three-line menu; the menu starts collapsed so the screen stays clear.
+  document.body.classList.add('rail-shut')
   const railToggle = must<HTMLButtonElement>('#rail-toggle')
+  railToggle.setAttribute('aria-expanded', 'false')
   railToggle.addEventListener('click', () => {
     const shut = document.body.classList.toggle('rail-shut')
     railToggle.setAttribute('aria-expanded', String(!shut))
@@ -684,8 +686,8 @@ const apiAgents = createRemoteAgents(scene)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
-      scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.03 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.8, nightLevel)
+      scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.1 * nightLevel
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.92, nightLevel)
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }
