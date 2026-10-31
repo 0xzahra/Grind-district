@@ -9,6 +9,10 @@ import {
   hydrate,
   lagosDay,
   markDaily,
+  cleanDrone,
+  cleanMask,
+  cleanOwnedDrones,
+  quoteDrone,
   rankFor,
   seasonAt,
   sellHolding,
@@ -82,6 +86,17 @@ const junk = hydrate({ v: 1, xp: -40, ledger: -5, body: 'punk', username: '  ' }
 check(junk.xp === 0 && junk.ledger === 0 && junk.body === 'shrimp' && junk.username === 'Shrimp', 'hydrate refuses a broken save')
 check(hydrate({ v: 2 }).username === 'Player 8453', 'unknown save versions start clean')
 check(hydrate({ v: 2 }).body === 'player', 'a fresh city starts in the low-poly suit')
+check(cleanMask('azuki') === 'azuki' && cleanMask('bayc') === 'none', 'masks accept the city list')
+check(cleanDrone('scout') === 'scout' && cleanDrone('solana') === 'none', 'drones accept scout, courier, and halo')
+check(cleanOwnedDrones(['scout', 'scout', 'nope']).join() === 'scout', 'owned drones stay unique')
+const boughtDrone = quoteDrone(40, [], 'courier')
+check(boughtDrone.ok && boughtDrone.ok && boughtDrone.ledger === 8 && boughtDrone.spent === 32, 'courier costs 32 practice')
+check(!quoteDrone(10, [], 'scout').ok, 'a short ledger leaves the drone on the shelf')
+const ownedDrone = quoteDrone(10, ['scout'], 'scout')
+check(ownedDrone.ok && ownedDrone.already, 'an owned drone equips without another charge')
+const geared = hydrate({ v: 1, mask: 'punk', drone: 'halo', ownedDrones: ['halo'], body: 'zuri' })
+check(geared.mask === 'punk' && geared.drone === 'halo' && geared.body === 'zuri', 'a save keeps Zuri, her mask, and a drone she owns')
+check(hydrate({ v: 1, drone: 'halo', ownedDrones: [] }).drone === 'none', 'a drone that was never bought does not fly')
 
 const pos = { x: 0.2, z: 0 }
 const vel = { x: 1, z: 0 }
