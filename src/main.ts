@@ -400,10 +400,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     const shut = document.body.classList.toggle('rail-shut')
     railToggle.setAttribute('aria-expanded', String(!shut))
   })
-  const clock = must<HTMLParagraphElement>('#hud-clock')
-  const tickClock = () => { clock.textContent = new Date().toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
-  tickClock()
-  window.setInterval(tickClock, 30000)
   const msgBtn = must<HTMLButtonElement>('#msg-btn')
   chat.hidden = true
   msgBtn.addEventListener('click', () => {

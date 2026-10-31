@@ -186,7 +186,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   const lightOffset = new THREE.Matrix4()
   const headLocal = new THREE.Matrix4().makeTranslation(0, 0.66, 1.92)
   // The Grind District logo lives only here: a small roof sign on every car (one instanced draw call).
-  const logoTex = new THREE.TextureLoader().load('/brand/lockup.png')
+  const logoTex = new THREE.TextureLoader().load('/brand/logo-car.jpg')
   logoTex.colorSpace = THREE.SRGBColorSpace
   const roofSigns = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.34, 0.62), [
     new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.5 }), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.5 }),
