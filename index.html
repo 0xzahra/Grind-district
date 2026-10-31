@@ -40,9 +40,9 @@
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>
         <div class="tools">
-          <p class="song">City theme</p>
+          <p class="song">Market Velocity · 3:00</p>
           <div class="tool-row">
-            <button id="music" type="button" aria-pressed="false">Music off</button>
+            <button id="music" type="button" aria-pressed="false">Play theme</button>
           </div>
           <label class="vol">
             Volume
@@ -60,14 +60,6 @@
           <p id="hint"></p>
         </div>
       </div>
-      <form id="chat" autocomplete="off" hidden>
-        <ol id="chat-log" aria-live="polite"></ol>
-        <div class="chat-row">
-          <input id="chat-input" type="text" maxlength="140" placeholder="Say something nearby" aria-label="Message players near you" enterkeyhint="send" />
-          <button type="submit">Say</button>
-        </div>
-        <p id="chat-status">Solo city. Only you see your bubble.</p>
-      </form>
       <div id="stick" aria-hidden="true">
         <div id="nub"></div>
       </div>
@@ -77,6 +69,7 @@
           <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
           <p class="tag">No tribe. No continent. Just come grind.</p>
           <nav class="menu-actions" aria-label="Game menu">
+            <button id="privy-login" type="button">Log in with Privy</button>
             <button id="play" type="button" class="primary" autofocus>Enter the district</button>
             <button id="menu-how" type="button">How to play</button>
             <button id="menu-city" type="button">The city</button>
