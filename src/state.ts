@@ -724,3 +724,16 @@ export function applyTopup(hash: string, amount: number, asset: string): boolean
   emit()
   return true
 }
+
+/** Join an in-game Web3 event at the Conference centre (once per event; doors open 2 h before). */
+export function joinEvent(ev: { id: string; title: string; kind: string; xp: number; rep: number; open: boolean }): { message: string; rankedUp?: RankId; already: boolean } {
+  if (!ev.open) return { already: false, message: `Doors open two hours before. Come back for ${ev.title}.` }
+  if (save.eventsJoined.includes(ev.id)) return { already: true, message: 'You are already on the list for this one. Take a seat.' }
+  save.eventsJoined = [...save.eventsJoined, ev.id].slice(-30)
+  save.reputation += ev.rep
+  const rankedUp = gainXp(ev.xp)
+  log('skill', `Joined ${ev.kind}: ${ev.title}`, 'Attended at the Conference centre.')
+  persist()
+  emit(rankedUp)
+  return { already: false, rankedUp, message: `You joined. +${ev.xp} XP, reputation +${ev.rep}. It is on your portfolio.` }
+}

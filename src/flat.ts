@@ -76,7 +76,7 @@ function citySpots(): Spot[] {
   const desk = at(12 + HOUSES.length, 'px')
   return [
     { id: 'learn', ...hall, r: 2.5, title: 'Learning hall', body: 'Take short courses. Each one you pass is added to your CV.', action: 'learn', enter: 'Open the hall' },
-    { id: 'conference', ...conference, r: 2.3, title: 'Conference hall', body: 'Take a seat and watch a short talk.', action: 'conference', enter: 'Take a seat' },
+    { id: 'conference', ...conference, r: 2.3, title: 'Conference centre', body: 'Web3 events: AMAs, talks, demo days. Join for XP.', action: 'conference', enter: 'Go inside' },
     { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'Grab a coffee and read today\'s market headlines.', action: 'cafe', enter: 'Read the room' },
     { id: 'booths', x: 0, z: -35.2, r: 2.2, title: 'Campus booths', body: 'Project stands. Browse what teams are building.' },
     { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'Buy and sell UNIT with in-game cash and practise sizing your trades.', action: 'trade', enter: 'Open the book' },

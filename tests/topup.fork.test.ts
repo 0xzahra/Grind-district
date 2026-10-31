@@ -25,7 +25,7 @@ const store: Store = {
   async claim(r) { if (rows.has(String(r.tx_hash))) return false; rows.set(String(r.tx_hash), { ...r }); return true },
   async update(h, p) { rows.set(h, { ...rows.get(h), ...p }) },
 }
-const run = (hash: `0x${string}`) => confirmTopup({ hash, rpc: RPC, operatorKey: OP_KEY, store, chain, minConfirmations: 1 })
+const run = (hash: `0x${string}`, from: string = PLAYER) => confirmTopup({ hash, rpc: RPC, operatorKey: OP_KEY, store, chain, minConfirmations: 1, from })
 
 async function main() {
   const id = await pub.getChainId(); ok(id === 8453, `fork chain id ${id}`)
@@ -90,6 +90,36 @@ async function main() {
   let reverted = false
   try { await pub.call({ account: PLAYER, to: GRIND_TREASURY_VAULT, value: parseEther('0.001'), data: SUFFIX }) } catch { reverted = true }
   ok(reverted, 'ETH + Builder Code suffix to treasury reverts (so ETH stays on GrindLedger.topUp)')
+
+  // No-wallet-connect flow: plain USDC transfer to the treasury (only the USDC Transfer event, no ERC20Deposited)
+  const OTHER = '0x00000000000000000000000000000000000b0b01' as Address
+  const g1 = await pub.readContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'balanceOf', args: [PLAYER] })
+  const hp = await pw.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'transfer', args: [GRIND_TREASURY_VAULT, parseUnits('5', 6)] })
+  await pub.waitForTransactionReceipt({ hash: hp })
+  const rpBad = await run(hp, OTHER); ok(!rpBad.ok && rpBad.code === 403, `plain USDC: wrong declared sender rejected (${!rpBad.ok && rpBad.error})`)
+  ok(!rows.has(hp), 'rejected claim leaves no row (owner can still claim)')
+  const rpMissing = await run(hp, ''); ok(!rpMissing.ok && rpMissing.code === 400, 'missing sender address rejected')
+  const rp = await run(hp); ok(rp.ok && rp.asset === 'USDC' && rp.creditUsd === 4.9 && !rp.already, `plain USDC transfer to treasury credits $4.90 (${JSON.stringify(rp).slice(0, 90)})`)
+  ok((await pub.readContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'balanceOf', args: [PLAYER] })) - g1 === parseEther('4.9'), 'ledger credited 4.9 GRIND to the declared sender')
+  const rpAgain = await run(hp, OTHER); ok(!rpAgain.ok, 'same hash cannot be claimed by another address')
+  const rpSame = await run(hp); ok(rpSame.ok && rpSame.already, 'same hash, same sender: idempotent, no second credit')
+  // Smart-wallet style: tx.from is a relayer, the USDC Transfer.from is the player
+  const RELAY = '0x00000000000000000000000000000000000Re1a7'.replace('Re1a7', 'e1a7f') as Address
+  await test.impersonateAccount({ address: RELAY }); await test.setBalance({ address: RELAY, value: parseEther('1') })
+  await pub.waitForTransactionReceipt({ hash: await pw.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'approve', args: [RELAY, parseUnits('3', 6)] }) })
+  const rw = createWalletClient({ account: RELAY, chain, transport: http(RPC) })
+  const hs = await rw.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'transferFrom', args: [PLAYER, GRIND_TREASURY_VAULT, parseUnits('3', 6)] })
+  await pub.waitForTransactionReceipt({ hash: hs })
+  const rs = await run(hs); ok(rs.ok && rs.creditUsd === 2.94 && rs.player.toLowerCase() === PLAYER.toLowerCase(), 'smart-wallet style (relayer tx.from, Transfer.from = player) credits the player')
+  // Plain ETH send: wrong sender rejected
+  const he2 = await pw.sendTransaction({ to: GRIND_TREASURY_VAULT, value: parseEther('0.0005') })
+  await pub.waitForTransactionReceipt({ hash: he2 })
+  const re2b = await run(he2, OTHER); ok(!re2b.ok && re2b.code === 403, 'plain ETH: wrong declared sender rejected')
+  const re2 = await run(he2); ok(re2.ok && re2.asset === 'ETH', 'plain ETH: right sender credited')
+  // USDC transfer to someone else is not a top-up
+  const hx = await pw.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'transfer', args: [OTHER, 1n] })
+  await pub.waitForTransactionReceipt({ hash: hx })
+  const rx = await run(hx); ok(!rx.ok && rx.code === 400, 'USDC transfer not to the treasury rejected')
 
   // Cap: Safe lowers the cap to 1 GRIND; next top-up is refused with 429 and nothing minted
   await pub.waitForTransactionReceipt({ hash: await safeW.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'setDailyCreditCap', args: [parseEther('1')] }) })

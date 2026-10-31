@@ -1413,3 +1413,8 @@ html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; alig
 }
 #caption h2 { font-size: 1.06rem; }
 .sheet-head h2 { font-size: 1.28rem; }
+.topup-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-all; }
+.topup-addr { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.topup-qr { background: #fff; border-radius: 8px; padding: 4px; line-height: 0; }
+.topup-qr svg { width: 100%; height: auto; }
+.topup-warn { margin: 0; font-size: 13px; font-weight: 600; color: #f2c94c; }

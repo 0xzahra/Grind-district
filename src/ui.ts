@@ -1,4 +1,5 @@
 import { isLicensed, skinSlots } from './skins.ts'
+import { schedule } from './events.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
@@ -56,6 +57,7 @@ import {
   finishGym,
   getSave,
   hearTalk,
+  joinEvent,
   noteTalk,
   orderWater,
   payTax,
@@ -981,7 +983,22 @@ export function mountUi(
         ])
       }
       case 'conference':
-        return renderSimple('Conference hall', [
+        return renderSimple('Conference centre', [
+          para('Upcoming Web3 events in the hall. Doors open two hours before each one; join to get XP and reputation.'),
+          ...schedule().slice(0, 4).map((ev) => {
+            const joined = getSave().eventsJoined.includes(ev.id)
+            const row = stack(
+              para(`${ev.label} · ${ev.kind} · ${ev.host}`, 'muted'),
+              para(ev.title),
+              button(joined ? 'Joined' : ev.open ? `Join event (+${ev.xp} XP)` : 'Doors not open yet', ev.open && !joined ? 'primary' : 'ghost', () => {
+                const outcome = joinEvent(ev)
+                finish(outcome.message, outcome.rankedUp)
+                open('conference')
+              }),
+            )
+            return row
+          }),
+          para('The house talk, any time:', 'muted'),
           para('The talk is short. Proof of work is a course, a bounty, a pledge. It is not a slogan and it is not a balance.'),
           para('Ninety seconds, then the street again. The hall does not take a fee.'),
           button(getSave().conference ? 'You already sat' : 'Stay for it', 'primary', () => {

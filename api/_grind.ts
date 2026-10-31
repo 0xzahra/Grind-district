@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, parseEventLogs, type Hash, type Address, type Chain } from 'viem'
+import { createPublicClient, createWalletClient, http, parseEventLogs, erc20Abi, type Hash, type Address, type Chain } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { grindLedgerAbi } from '../src/grindLedgerAbi.js'
@@ -15,31 +15,42 @@ export type Result =
   | { ok: true; already: boolean; player: Address; asset: 'ETH' | 'USDC'; paid: string; feeUsd: number; creditUsd: number; creditTx?: Hash }
   | { ok: false; code: number; error: string }
 
-export async function confirmTopup(opts: { hash: Hash; rpc: string; operatorKey: `0x${string}`; store: Store; chain?: Chain; minConfirmations?: number; userId?: string | null }): Promise<Result> {
+export async function confirmTopup(opts: { hash: Hash; rpc: string; operatorKey: `0x${string}`; store: Store; chain?: Chain; minConfirmations?: number; userId?: string | null; from?: string }): Promise<Result> {
   const chain = opts.chain ?? base
   const pub = createPublicClient({ chain, transport: http(opts.rpc) })
   const receipt = await pub.getTransactionReceipt({ hash: opts.hash }).catch(() => null)
   if (!receipt) return { ok: false, code: 409, error: 'transaction not found or not mined yet' }
   if (receipt.status !== 'success') return { ok: false, code: 400, error: 'transaction reverted' }
+  // The player declares the address they sent from (in the Balance sheet, before sending). It must match the
+  // transaction sender (tx.from) or the payer in the event (smart wallets: tx.from is a bundler, Transfer/EthDeposited.from is the wallet).
+  const declared = (opts.from ?? '').toLowerCase()
+  if (!/^0x[0-9a-f]{40}$/.test(declared)) return { ok: false, code: 400, error: 'enter the address you sent from' }
+  const txFrom = receipt.from.toLowerCase()
+  const senderOk = (f: string) => f.toLowerCase() === declared || txFrom === declared
   const to = (receipt.to ?? '').toLowerCase()
-  if (to !== GRIND_LEDGER && to !== GRIND_TREASURY_VAULT) return { ok: false, code: 400, error: 'not a GrindLedger or GrindTreasury transaction' }
   const head = await pub.getBlockNumber()
   if (head - receipt.blockNumber + 1n < BigInt(opts.minConfirmations ?? 2)) return { ok: false, code: 409, error: 'waiting for confirmations' }
-  // Payment event: GrindLedger.TopUp, or GrindTreasury.ERC20Deposited / EthDeposited (emitted by the treasury itself).
   let player: Address, asset: Address, amount: bigint
+  const ZERO = '0x0000000000000000000000000000000000000000' as Address
   if (to === GRIND_LEDGER) {
+    // Legacy path: GrindLedger.topUp / topUpUSDC from older builds.
     const ev = parseEventLogs({ abi: grindLedgerAbi, logs: receipt.logs, eventName: 'TopUp' }).find((l) => l.address.toLowerCase() === GRIND_LEDGER)
     if (!ev) return { ok: false, code: 400, error: 'no TopUp event' }
     ;({ player, asset, amount } = ev.args)
+    if (player.toLowerCase() !== declared) return { ok: false, code: 403, error: 'sender does not match the address you entered' }
   } else {
-    const logs = receipt.logs.filter((l) => l.address.toLowerCase() === GRIND_TREASURY_VAULT)
-    const erc = parseEventLogs({ abi: grindTreasuryAbi, logs, eventName: 'ERC20Deposited' })[0]
-    const ethEv = parseEventLogs({ abi: grindTreasuryAbi, logs, eventName: 'EthDeposited' })[0]
-    if (erc) ({ token: asset, from: player, amount } = erc.args)
-    else if (ethEv) { player = ethEv.args.from; amount = ethEv.args.amount; asset = '0x0000000000000000000000000000000000000000' }
-    else return { ok: false, code: 400, error: 'no treasury deposit event' }
+    // Treasury path: plain USDC transfer (or depositERC20) -> USDC Transfer to the treasury; plain ETH send -> EthDeposited.
+    const usdc = parseEventLogs({ abi: erc20Abi, logs: receipt.logs.filter((l) => l.address.toLowerCase() === BASE_USDC.toLowerCase()), eventName: 'Transfer' })
+      .filter((l) => l.args.to.toLowerCase() === GRIND_TREASURY_VAULT)
+    const ethEv = parseEventLogs({ abi: grindTreasuryAbi, logs: receipt.logs.filter((l) => l.address.toLowerCase() === GRIND_TREASURY_VAULT), eventName: 'EthDeposited' })
+    if (!usdc.length && !ethEv.length) return { ok: false, code: 400, error: 'no USDC or ETH payment to the Grind District treasury in this transaction' }
+    const usdcMine = usdc.filter((l) => senderOk(l.args.from))
+    const ethMine = ethEv.filter((l) => senderOk(l.args.from))
+    if (usdcMine.length) { asset = BASE_USDC; amount = usdcMine.reduce((a, l) => a + l.args.value, 0n) }
+    else if (ethMine.length) { asset = ZERO; amount = ethMine.reduce((a, l) => a + l.args.amount, 0n) }
+    else return { ok: false, code: 403, error: 'sender does not match the address you entered' }
+    player = declared as Address
   }
-  if (player.toLowerCase() !== receipt.from.toLowerCase()) return { ok: false, code: 400, error: 'player mismatch' }
   const isEth = asset === '0x0000000000000000000000000000000000000000'
   if (!isEth && asset.toLowerCase() !== BASE_USDC.toLowerCase()) return { ok: false, code: 400, error: 'unknown asset' }
   let usdMicro = amount

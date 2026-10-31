@@ -260,6 +260,7 @@ export type Save = {
   waterDay: string
   conferenceNoted: boolean
   conference: boolean
+  eventsJoined: string[]
   robotRead: boolean
   houseClaimed: boolean
   houseVisits: string[]
@@ -470,6 +471,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     waterDay: '',
     conferenceNoted: false,
     conference: false,
+    eventsJoined: [],
     robotRead: false,
     houseClaimed: false,
     houseVisits: [],
@@ -651,6 +653,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.waterDay = typeof row.waterDay === 'string' ? row.waterDay.slice(0, 10) : ''
   fresh.conferenceNoted = bool(row.conferenceNoted, false)
   fresh.conference = bool(row.conference, false)
+  fresh.eventsJoined = Array.isArray(row.eventsJoined) ? row.eventsJoined.filter((x): x is string => typeof x === 'string').slice(-30).map((x) => x.slice(0, 40)) : []
   fresh.robotRead = bool(row.robotRead, false)
   fresh.houseClaimed = bool(row.houseClaimed, false)
   fresh.houseVisits = cleanHouseVisits(row.houseVisits)

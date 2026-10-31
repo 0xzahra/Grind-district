@@ -2,9 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { PrivyClient } from '@privy-io/server-auth'
 import { confirmTopup, type Store } from './_grind.js'
 
-// POST { hash }: verify a GrindLedger TopUp or GrindTreasury deposit on Base and credit the player as operator (GRIND_OPERATOR_KEY, server-only).
+// POST { hash, from }: verify a USDC Transfer / EthDeposited to GrindTreasury (or a legacy GrindLedger TopUp) sent from `from` on Base and credit the player as operator (GRIND_OPERATOR_KEY, server-only).
 // GET ?player=0x..: the player's credited top-ups (for refreshing the in-game balance).
-type Req = { method?: string; body?: { hash?: string }; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined> }
+type Req = { method?: string; body?: { hash?: string; from?: string }; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined> }
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
@@ -22,6 +22,8 @@ export default async function handler(req: Req, res: Res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const hash = String(req.body?.hash ?? '')
   if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) return res.status(400).json({ error: 'bad hash' })
+  const from = String(req.body?.from ?? '')
+  if (!/^0x[0-9a-fA-F]{40}$/.test(from)) return res.status(400).json({ error: 'enter the address you sent from' })
   let userId: string | null = null
   const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
   const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '')
@@ -33,7 +35,7 @@ export default async function handler(req: Req, res: Res) {
     async claim(row) { const { error } = await db.from('topups').insert(row); return !error },
     async update(h, patch) { await db.from('topups').update(patch).eq('tx_hash', h) },
   }
-  const r = await confirmTopup({ hash: hash.toLowerCase() as `0x${string}`, rpc: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org', operatorKey: op as `0x${string}`, store, userId })
+  const r = await confirmTopup({ hash: hash.toLowerCase() as `0x${string}`, rpc: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org', operatorKey: op as `0x${string}`, store, userId, from })
   if (!r.ok) return res.status(r.code).json({ error: r.error })
   res.status(200).json(r)
 }
