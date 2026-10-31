@@ -1,3 +1,4 @@
+import { HOUSES, type HouseId } from './houses.ts'
 import type { PanelId, Season, TimeOfDay } from './logic.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
@@ -11,6 +12,7 @@ export type Hotspot = {
   body: string
   action?: PanelId
   enter?: string
+  house?: HouseId
 }
 
 export type World = {
@@ -28,6 +30,7 @@ type Series = { unit: number[]; meme: number[] }
 const SPAN = 180
 
 export function districtName(x: number, z: number): string {
+  if (x > 30 && z > 14 && z < 54) return 'The houses'
   if (Math.hypot(x, z + 48) < 24) return 'Campus'
   if (Math.hypot(x + 48, z) < 22) return 'Trading floor'
   if (Math.hypot(x - 48, z) < 22) return 'Influencer row'
@@ -299,8 +302,8 @@ export function createWorld(options: {
   curb(-edge - thick / 2, 0, thick, span)
   curb(edge + thick / 2, 0, thick, span)
 
-  const spot = (id: string, x: number, z: number, r: number, title: string, body: string, action?: PanelId, enter?: string) => {
-    hotspots.push({ id, x, z, r, title, body, action, enter })
+  const spot = (id: string, x: number, z: number, r: number, title: string, body: string, action?: PanelId, enter?: string, house?: HouseId) => {
+    hotspots.push({ id, x, z, r, title, body, action, enter, house })
   }
 
   const addArch = (title: string, subtitle: string, x: number, z: number, rotationY: number) => {
@@ -447,13 +450,26 @@ export function createWorld(options: {
   spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'MEME moves like attention. It can leave. Rank will not follow it down.', 'trench', 'Open the trench book')
 
   const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', windows: true, seed: 19 })
-  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Four original bodies, free. Licensed collections stay off the street until there is a license.', 'boutique', 'Try a body')
+  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Five original bodies, free. Licensed collections stay off the street until there is a license.', 'boutique', 'Try a body')
   const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', windows: true, seed: 23 })
   spot('gym', gym.x, gym.z, 2.4, 'Gym', 'A short timing set. One logged set a day. Balance is not invited.', 'gym', 'Train')
   const church = addBuilding({ x: 24, z: 26, w: 9, d: 11, h: 5, door: 'nx', title: 'Church', subtitle: 'charts stay out', windows: false, steeple: true, seed: 29 })
   spot('church', church.x, church.z, 2.4, 'Church', 'A quiet room. Rest counts. Nobody checks your positions at the door.', 'church', 'Step in')
-  const house = addBuilding({ x: 36, z: 32, w: 7, d: 6, h: 3.6, door: 'nx', title: 'House', subtitle: 'your room', windows: true, seed: 31 })
-  spot('house', house.x, house.z, 2.3, 'House', 'A private room. Messaging and voice are not in this build. The key is still yours.', 'house', 'Your room')
+  for (const home of HOUSES) {
+    const door = addBuilding({
+      x: home.x,
+      z: home.z,
+      w: home.w,
+      d: home.d,
+      h: home.h,
+      door: home.door,
+      title: home.title,
+      subtitle: home.subtitle,
+      windows: true,
+      seed: home.seed,
+    })
+    spot(home.id, door.x, door.z, 2.2, home.spotTitle, home.body, 'house', home.enter, home.id)
+  }
   const net = addBuilding({ x: 28, z: -16, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', windows: true, seed: 37 })
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Same board as campus, closer to the row. Read it once a day.', 'cafe', 'Read the room')
   const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.7, door: 'px', title: 'Carbon', subtitle: 'practice pledge', seed: 41 })
