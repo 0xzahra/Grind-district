@@ -9,7 +9,9 @@ import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
+import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
@@ -218,6 +220,7 @@ async function main(onReveal: () => void) {
 
   applyLook()
   applyGraphics()
+  applyPrefs()
 
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
@@ -236,6 +239,7 @@ async function main(onReveal: () => void) {
     onBody: applyBody,
     onLook: applyLook,
     onGraphics: applyGraphics,
+    onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
   })
 
@@ -243,6 +247,7 @@ async function main(onReveal: () => void) {
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
+  map.addEventListener('click', () => ui.open('city'))
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
@@ -354,41 +359,11 @@ async function main(onReveal: () => void) {
 
   const drawMap = () => {
     if (!mapCtx) return
-    const width = map.width
-    const height = map.height
-    const limit = 62
-    const X = (x: number) => (x / limit * 0.5 + 0.5) * width
-    const Y = (z: number) => (z / limit * 0.5 + 0.5) * height
-    mapCtx.clearRect(0, 0, width, height)
-    mapCtx.fillStyle = '#101816'
-    mapCtx.fillRect(0, 0, width, height)
-    mapCtx.strokeStyle = '#7d8c84'
-    mapCtx.lineWidth = 5
-    mapCtx.beginPath()
-    mapCtx.moveTo(X(-46), Y(0))
-    mapCtx.lineTo(X(46), Y(0))
-    mapCtx.moveTo(X(0), Y(-46))
-    mapCtx.lineTo(X(0), Y(46))
-    mapCtx.stroke()
-    mapCtx.fillStyle = '#9dccb6'
-    mapCtx.font = '600 16px Outfit, sans-serif'
-    mapCtx.textAlign = 'center'
-    const marks: Array<[number, number, string]> = [[0, -46, 'C'], [-46, 0, 'F'], [46, 0, 'I'], [0, 46, 'T']]
-    for (const [x, z, letter] of marks) {
-      mapCtx.fillText(letter, X(x), Y(z) + 5)
-    }
-    mapCtx.fillStyle = '#1a6a5c'
-    mapCtx.beginPath()
-    mapCtx.arc(X(-40), Y(40), 7, 0, Math.PI * 2)
-    mapCtx.fill()
-    mapCtx.fillStyle = '#1af38f'
-    mapCtx.beginPath()
-    mapCtx.arc(X(pos.x), Y(pos.z), 4, 0, Math.PI * 2)
-    mapCtx.fill()
+    drawMinimap(mapCtx, map.width, map.height, pos)
   }
 
   const update = (dt: number) => {
-    const now = performance.now()
+    const now = Date.now()
     tickMarket(dt, now)
     const nextSeason = seasonAt(now)
     if (nextSeason !== season) {
