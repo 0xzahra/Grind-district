@@ -12,7 +12,7 @@ npm run check
 
 ## Name and username
 
-A save starts with `name: ''`, `username: ''`, and `signedUp: false`. The title screen asks for both before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept) and the username (3–16, `[a-z0-9_]`, stored lowercase). Settings can edit both later. Reset progress keeps them.
+A save starts with `name: ''`, `username: ''`, and `signedUp: false`. The title screen asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, and the body.
 
 The plate (`tagPlayer`) draws the display name in block letters and `@username` under it. The profile, CV, resume, and portfolio use the same pair. Share links put the display name in `n` and the username in `u`. An old link with no `u` still opens.
 
@@ -65,7 +65,13 @@ The title screen is a menu: Enter the district, How to play, The city, Courses, 
 
 `src/houses.ts` is the east row: your house, the notes house (`adaeze`), the set house (`malik`), the grove house (`nia`), and a vacant room. Keep those ids so old `houseVisits` still match. The signs and sheets do not use personal names. The same list builds the 3D meshes and the overhead map. Claim the room once (+3 reputation). A first visit to each neighbor is +2. Messaging and voice stay out.
 
-`src/courses.ts` holds eight lessons. Each one is several paragraphs with a source line, plus four exercises. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
+`src/courses.ts` holds twelve lessons. Each one is several paragraphs with a source line, plus four exercises. The first eight match the city’s original hall: spot, risk, staking, airdrops, memes, agents, building, carbon. The four added in the city only are custody, stablecoins, liquidity pools, and reading a transfer. `GrindRecord` still has bits for the original eight. Do not add contract bits in a city pass. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
+
+Twelve courses at 70 XP are 840 before streak and focus. Whale stays at 1100, so courses alone still stop short of whale. That split is intentional.
+
+Café: read the board, then order water (free, once that day, after the board). Gym: the timing set, plus a line that says what a second set does. Carbon desk: the method is on the sheet before the pledge buttons. Conference hall: sit once, then keep the note. Mint squares on the overhead map are those doors. The corner map is clickable and opens the directory. `#map` sets `pointer-events: auto` because `#hud` ignores pointers.
+
+`tickMarket` uses its clock argument for the season. The Lagos day is always `new Date()`. Do not pass `performance.now()` into that day. A frame timestamp is milliseconds since the page opened, and `new Date` of that value is 1970, which wipes every daily on the next frame. Both loops pass `Date.now()`.
 
 `districtName` labels the band east of x 30 and south of z 14 as The houses, including the notes-house door, which sits inside the old influencer-row circle.
 
@@ -75,7 +81,7 @@ The title screen is a menu: Enter the district, How to play, The city, Courses, 
 
 `src/drones.ts` is Scout ($18), Courier ($32), and Halo ($48) practice. `buyDrone` in `src/state.ts` equips one the player owns. The mesh follows the player in `src/main.ts` and is drawn on the overhead map. NPCs with a drone carry one as a child. Drones do not deliver, photograph, or open a camera.
 
-The gadgets stall is south of the plaza (`x: -16, z: 14`). The boutique sheet wears masks. Save fields are `mask`, `drone`, and `ownedDrones` on version 1.
+The gadgets stall is south of the plaza (`x: -16, z: 14`). The boutique sheet wears masks. Save fields are `mask`, `drone`, and `ownedDrones` on version 1. Settings also store `mapSize` (`compact` or `large`), `hints`, and `reduceMotion`. `applyPrefs` in `src/prefs.ts` toggles the body classes. `src/minimap.ts` draws the corner map for both the 3D path and the overhead map.
 
 ## What a later session can still add
 
@@ -107,7 +113,7 @@ forge test
 
 `contracts/lib` is gitignored. Install forge-std locally. Do not commit `out/` or `cache/`.
 
-Whale is 1100 XP. Eight courses at the maximum bonus are 760 XP, which is shark. That split is intentional. Reputation does not add XP.
+Whale is 1100 XP. Reputation does not add XP. The original eight courses, with focus and a streak, were described as 760 XP. Twelve courses at 70 XP are 840 before those bonuses. Do not retune the ladder to make whale a course reward.
 
 ## Theme
 
