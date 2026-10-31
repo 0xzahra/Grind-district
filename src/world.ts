@@ -25,6 +25,20 @@ export type World = {
 }
 
 type Door = 'px' | 'nx' | 'pz' | 'nz'
+/** Axis-aligned walkway rectangle, centre and half extents. */
+type Rect = { x: number; z: number; hx: number; hz: number }
+
+const ROAD_HALF = 3.2
+const WALK_HALF = 1.1
+const ROAD_END = 58
+
+const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) < a.hx + b.hx && Math.abs(a.z - b.z) < a.hz + b.hz
+const legRect = (x1: number, z1: number, x2: number, z2: number, half: number): Rect => ({
+  x: (x1 + x2) / 2,
+  z: (z1 + z2) / 2,
+  hx: Math.abs(x2 - x1) / 2 + half,
+  hz: Math.abs(z2 - z1) / 2 + half,
+})
 type Series = { unit: number[]; meme: number[] }
 
 const SPAN = 180
@@ -70,6 +84,8 @@ export function createWorld(options: {
   const facades: THREE.MeshStandardMaterial[] = []
   const ripples: { mesh: THREE.Mesh; offset: number }[] = []
   const glow: THREE.PointLight[] = []
+  const doors: { x: number; z: number; own: Obstacle }[] = []
+  const paths: Rect[] = []
 
   const stone = new THREE.MeshStandardMaterial({ color: 0x3c4b45, roughness: 0.88, metalness: 0.04 })
   const stoneDark = new THREE.MeshStandardMaterial({ color: 0x24302b, roughness: 0.9, metalness: 0.05 })
@@ -425,6 +441,7 @@ export function createWorld(options: {
       nx: { x: spec.x - spec.w / 2 - stepOut, z: spec.z },
     }
     const at = doorAt[spec.door]
+    doors.push({ x: at.x, z: at.z, own: obstacles[obstacles.length - 1] as Obstacle })
     const mat = solid(new THREE.BoxGeometry(1.5, 0.04, 1.5), trim, false)
     mat.position.set(at.x, 0.03, at.z)
     mat.userData.ghost = true
@@ -476,6 +493,114 @@ export function createWorld(options: {
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a project with practice funds. It records the pledge. It does not retire a real tonne.', 'climate', 'The desk')
   const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'drones', windows: true, seed: 47 })
   spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Scout, courier, and halo. A drone follows you. Practice funds.', 'gadgets', 'Open the case')
+
+  // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
+  // Paths are routed around building footprints and the basin, and trees keep off them.
+  {
+    const blockers: Rect[] = obstacles
+      .filter((o): o is Extract<Obstacle, { kind: 'box' }> => o.kind === 'box')
+      .map((o) => ({ x: o.x, z: o.z, hx: o.hx, hz: o.hz }))
+    blockers.push({ x: -40, z: 40, hx: 6.6, hz: 6.6 })
+    type Line = { horizontal: boolean; at: number; from: number; to: number }
+    const lines: Line[] = [
+      { horizontal: true, at: 0, from: -ROAD_END, to: ROAD_END },
+      { horizontal: false, at: 0, from: -ROAD_END, to: ROAD_END },
+    ]
+    const clear = (rect: Rect, own: Obstacle) =>
+      blockers.every((b) => (own.kind === 'box' && b.x === own.x && b.z === own.z) || !overlaps(rect, b))
+    const ordered = [...doors].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z))
+    for (const door of ordered) {
+      let best: Rect[] | null = null
+      let bestLen = Infinity
+      const consider = (legs: Rect[], length: number) => {
+        if (length < bestLen && legs.every((leg) => clear(leg, door.own))) {
+          best = legs
+          bestLen = length
+        }
+      }
+      for (const line of lines) {
+        if (line.horizontal) {
+          // Straight north/south onto the line.
+          if (door.x >= line.from && door.x <= line.to) consider([legRect(door.x, door.z, door.x, line.at, WALK_HALF)], Math.abs(door.z - line.at))
+          // Across, then north/south onto it.
+          const tx = THREE.MathUtils.clamp(door.x, line.from, line.to)
+          consider(
+            [legRect(door.x, door.z, tx, door.z, WALK_HALF), legRect(tx, door.z, tx, line.at, WALK_HALF)],
+            Math.abs(door.x - tx) + Math.abs(door.z - line.at),
+          )
+        } else {
+          if (door.z >= line.from && door.z <= line.to) consider([legRect(door.x, door.z, line.at, door.z, WALK_HALF)], Math.abs(door.x - line.at))
+          const tz = THREE.MathUtils.clamp(door.z, line.from, line.to)
+          consider(
+            [legRect(door.x, door.z, door.x, tz, WALK_HALF), legRect(door.x, tz, line.at, tz, WALK_HALF)],
+            Math.abs(door.z - tz) + Math.abs(door.x - line.at),
+          )
+        }
+      }
+      const chosen = best as Rect[] | null
+      if (!chosen) continue
+      for (const leg of chosen) {
+        paths.push(leg)
+        const horizontal = leg.hx > leg.hz
+        lines.push(horizontal
+          ? { horizontal: true, at: leg.z, from: leg.x - leg.hx + WALK_HALF, to: leg.x + leg.hx - WALK_HALF }
+          : { horizontal: false, at: leg.x, from: leg.z - leg.hz + WALK_HALF, to: leg.z + leg.hz - WALK_HALF })
+      }
+    }
+
+    const canvas = groundMap.image as HTMLCanvasElement
+    const g = canvas.getContext('2d')
+    if (g) {
+      const scale = canvas.width / SPAN
+      const mid = canvas.width / 2
+      const fillRect = (r: Rect) => g.fillRect(mid + (r.x - r.hx) * scale, mid + (r.z - r.hz) * scale, r.hx * 2 * scale, r.hz * 2 * scale)
+      const roads: Rect[] = [
+        { x: 0, z: 0, hx: ROAD_END, hz: ROAD_HALF },
+        { x: 0, z: 0, hx: ROAD_HALF, hz: ROAD_END },
+      ]
+      // Sidewalks first, then the asphalt over them, then walkways.
+      g.fillStyle = '#7d8a83'
+      for (const road of roads) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
+      g.fillStyle = '#2f3a36'
+      for (const road of roads) fillRect(road)
+      g.strokeStyle = 'rgba(230, 236, 232, 0.5)'
+      g.lineWidth = 3
+      g.setLineDash([18, 16])
+      g.beginPath()
+      g.moveTo(mid - ROAD_END * scale, mid)
+      g.lineTo(mid - 16 * scale, mid)
+      g.moveTo(mid + 16 * scale, mid)
+      g.lineTo(mid + ROAD_END * scale, mid)
+      g.moveTo(mid, mid - ROAD_END * scale)
+      g.lineTo(mid, mid - 16 * scale)
+      g.moveTo(mid, mid + 16 * scale)
+      g.lineTo(mid, mid + ROAD_END * scale)
+      g.stroke()
+      g.setLineDash([])
+      g.fillStyle = '#5f5a50'
+      for (const path of paths) fillRect({ ...path, hx: path.hx + 0.18, hz: path.hz + 0.18 })
+      g.fillStyle = '#8d8676'
+      for (const path of paths) fillRect(path)
+      // The plaza paving sits on top so the roads meet it cleanly.
+      g.fillStyle = '#8b9b93'
+      g.beginPath()
+      g.arc(mid, mid, 15 * scale, 0, Math.PI * 2)
+      g.fill()
+      g.strokeStyle = 'rgba(16, 24, 22, 0.45)'
+      g.lineWidth = 2
+      for (let radius = 3; radius <= 14; radius += 1.6) {
+        g.beginPath()
+        g.arc(mid, mid, radius * scale, 0, Math.PI * 2)
+        g.stroke()
+      }
+      g.strokeStyle = 'rgba(26, 243, 143, 0.85)'
+      g.lineWidth = 4
+      g.beginPath()
+      g.arc(mid, mid, 3.1 * scale, 0, Math.PI * 2)
+      g.stroke()
+      groundMap.needsUpdate = true
+    }
+  }
 
   const prayer = new THREE.Group()
   prayer.position.set(-24, 0, 26)
@@ -597,6 +722,8 @@ export function createWorld(options: {
     if (Math.hypot(x, z) < 15) return false
     if (Math.hypot(x + 40, z - 40) < 11) return false
     if (Math.abs(x) > 56 || Math.abs(z) > 56) return false
+    if (Math.abs(x) < ROAD_HALF + 2 || Math.abs(z) < ROAD_HALF + 2) return false
+    if (paths.some((path) => overlaps(path, { x, z, hx: 0.7, hz: 0.7 }))) return false
     return reserved.every((box) => {
       if (box.kind !== 'box') return true
       return Math.abs(x - box.x) > box.hx || Math.abs(z - box.z) > box.hz

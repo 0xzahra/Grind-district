@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { MaskId } from './logic.ts'
 import { mountMask } from './masks.ts'
 import type { ShrimpAvatar } from './shrimp.ts'
+import { humanArm, humanGait, humanLeg } from './rig.ts'
 
 const SKIN = 0xf0c4a8
 const HAIR = 0xf3e2a4
@@ -119,11 +120,11 @@ export function createPlayer(): ShrimpAvatar {
   const bob = new THREE.Group()
   avatar.add(bob)
 
-  part(new THREE.BoxGeometry(0.34, 0.42, 0.22), suit, bob, 0, 0.72, 0)
-  part(new THREE.BoxGeometry(0.16, 0.4, 0.2), suit, bob, -0.16, 0.7, 0.02)
-  part(new THREE.BoxGeometry(0.16, 0.4, 0.2), suit, bob, 0.16, 0.7, 0.02)
-  part(new THREE.BoxGeometry(0.18, 0.08, 0.24), dark, bob, -0.1, 0.08, 0.04)
-  part(new THREE.BoxGeometry(0.18, 0.08, 0.24), dark, bob, 0.1, 0.08, 0.04)
+  const pelvis = part(new THREE.CylinderGeometry(0.2, 0.17, 0.2, 6), suit, bob, 0, 0.9, 0)
+  pelvis.scale.z = 0.7
+  part(new THREE.BoxGeometry(0.4, 0.04, 0.2), dark, bob, 0, 0.99, 0)
+  const neck = part(new THREE.CylinderGeometry(0.055, 0.065, 0.12, 6), skin, bob, 0, 1.5, 0.01)
+  neck.castShadow = false
 
   const jacket = part(new THREE.BoxGeometry(0.5, 0.56, 0.28), suit, bob, 0, 1.2, 0)
   jacket.scale.set(1.08, 1, 1.02)
@@ -227,36 +228,12 @@ export function createPlayer(): ShrimpAvatar {
   chain.rotation.x = Math.PI / 2.3
   chain.visible = false
 
-  const addLeg = (side: number) => {
-    const hip = new THREE.Group()
-    hip.position.set(side * 0.1, 0.9, 0)
-    part(new THREE.BoxGeometry(0.14, 0.36, 0.16), suit, hip, 0, -0.2, 0)
-    const knee = new THREE.Group()
-    knee.position.y = -0.38
-    part(new THREE.BoxGeometry(0.13, 0.34, 0.15), suit, knee, 0, -0.16, 0.01)
-    part(new THREE.BoxGeometry(0.14, 0.08, 0.2), dark, knee, 0, -0.34, 0.03)
-    hip.add(knee)
-    bob.add(hip)
-    return { hip, knee }
-  }
-
-  const addArm = (side: number) => {
-    const shoulder = new THREE.Group()
-    shoulder.position.set(side * 0.28, 1.38, 0)
-    part(new THREE.BoxGeometry(0.12, 0.28, 0.14), suit, shoulder, side * 0.02, -0.16, 0)
-    part(new THREE.BoxGeometry(0.125, 0.06, 0.145), shirt, shoulder, side * 0.02, -0.3, 0)
-    const handPivot = new THREE.Group()
-    handPivot.position.set(side * 0.02, -0.4, 0.02)
-    part(new THREE.IcosahedronGeometry(0.055, 0), skin, handPivot, 0, -0.02, 0.02)
-    shoulder.add(handPivot)
-    bob.add(shoulder)
-    return { shoulder }
-  }
-
-  const legL = addLeg(-1)
-  const legR = addLeg(1)
-  const armL = addArm(-1)
-  const armR = addArm(1)
+  const shoe = dark
+  const legL = humanLeg(bob, -1, { x: 0.1, hipY: 0.92, thigh: 0.44, shin: 0.41, rThigh: 0.085, rKnee: 0.065, rAnkle: 0.05 }, suit, suit, shoe)
+  const legR = humanLeg(bob, 1, { x: 0.1, hipY: 0.92, thigh: 0.44, shin: 0.41, rThigh: 0.085, rKnee: 0.065, rAnkle: 0.05 }, suit, suit, shoe)
+  const armL = humanArm(bob, -1, { x: 0.3, y: 1.42, upper: 0.27, fore: 0.25, r: 0.06 }, suit, shirt, skin)
+  const armR = humanArm(bob, 1, { x: 0.3, y: 1.42, upper: 0.27, fore: 0.25, r: 0.06 }, suit, shirt, skin)
+  const gait = humanGait(bob, [legL, legR], [armL, armR], { swing: 0.55, bounce: 0.045, idle: 0.012 })
 
   const shadowCanvas = document.createElement('canvas')
   shadowCanvas.width = 128
@@ -286,8 +263,6 @@ export function createPlayer(): ShrimpAvatar {
   let yaw = Math.PI
   let lean = 0
   let leanTarget = 0
-  let phase = 0
-  let time = 0
 
   return {
     object: root,
@@ -305,19 +280,7 @@ export function createPlayer(): ShrimpAvatar {
       avatar.rotation.z = lean
     },
     step(dt, moving, speed) {
-      time += dt
-      const stride = moving ? Math.max(0.6, speed) / 1.05 : 0
-      phase += moving ? stride * Math.PI * 2 * dt : dt * 1.4
-      const swing = Math.sin(phase)
-      const amount = moving ? 0.55 : 0.04
-      legL.hip.rotation.x = -swing * amount
-      legR.hip.rotation.x = swing * amount
-      legL.knee.rotation.x = Math.max(0, -swing) * (moving ? 0.7 : 0)
-      legR.knee.rotation.x = Math.max(0, swing) * (moving ? 0.7 : 0)
-      armL.shoulder.rotation.x = swing * amount * 0.85
-      armR.shoulder.rotation.x = -swing * amount * 0.85
-      bob.position.y = moving ? Math.abs(swing) * 0.045 : Math.sin(time * 1.5) * 0.012
-      bob.rotation.x = moving ? 0.05 * Math.min(1, speed / 5.4) : 0
+      gait(dt, moving, speed)
     },
     setStyle(tint: number, luxury: boolean) {
       shirt.color.setHex(tint)
