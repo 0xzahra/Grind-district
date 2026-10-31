@@ -505,7 +505,7 @@ export function mountUi(
 
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Original bodies, free. The man and the woman are on this wall, with the mascots. Collection masks hang beside them.', 'muted'))
+    const wrap = stack(para('Original bodies, free. The man and the woman are on this wall.', 'muted'))
     const bodies = document.createElement('div')
     bodies.className = 'tabs'
     for (const body of BODIES) {
