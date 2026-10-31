@@ -1,4 +1,6 @@
 import { COURSES, headlines } from './courses.ts'
+import { GUIDE } from './guide.ts'
+import { HOUSES, type HouseId } from './houses.ts'
 import {
   BODIES,
   CHAIN_USD,
@@ -30,6 +32,7 @@ import {
   attendChurch,
   buyChain,
   claimHouse,
+  markHouseVisit,
   declineTax,
   describeTrade,
   dismissIntro,
@@ -56,6 +59,7 @@ import {
 } from './state.ts'
 
 type Tab = 'today' | 'cv' | 'resume' | 'portfolio' | 'books'
+type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId }
 
 type Hooks = {
   onStyle: () => void
@@ -67,7 +71,7 @@ type Hooks = {
 
 export type Ui = {
   isOpen: () => boolean
-  open: (panel: PanelId, extra?: { shared?: SharedProfile; tab?: Tab }) => void
+  open: (panel: PanelId, extra?: OpenExtra) => void
   close: () => void
   toast: (text: string) => void
   setPlace: (place: string) => void
@@ -148,7 +152,8 @@ export function mountUi(
     raf = 0
   }
 
-  let open!: (panel: PanelId, extra?: { shared?: SharedProfile; tab?: Tab }) => void
+  let open!: (panel: PanelId, extra?: OpenExtra) => void
+  let houseId: HouseId = 'yours'
 
   const close = () => {
     const was = current
@@ -303,8 +308,8 @@ export function mountUi(
       if (!course) return
       const save = getSave()
       const passed = save.skills[id]?.passed
-      const picks: Array<number | null> = [null, null]
-      const wrap = stack(button('All courses', 'ghost', showList), para(SKILL_META[id].title, 'kicker'))
+      const picks: Array<number | null> = course.questions.map(() => null)
+      const wrap = stack(button('All courses', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${course.questions.length} exercises. A miss names the idea to reread.`, 'muted'))
       if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
       for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
       const result = para('', 'result')
@@ -326,11 +331,11 @@ export function mountUi(
         })
       })
       const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP`, 'primary', () => {
-        if (picks[0] === null || picks[1] === null) {
-          result.textContent = 'Answer both, then check.'
+        if (picks.some((pick) => pick === null)) {
+          result.textContent = 'Answer every exercise, then check.'
           return
         }
-        const outcome: CourseResult = submitCourse(id, [picks[0], picks[1]])
+        const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
         if (outcome.ok) {
           const extra = outcome.stipend ? ' Campus put $25 practice on your ledger.' : ''
           const focus = outcome.focus ? ' Focus added a quarter.' : ''
@@ -598,12 +603,72 @@ export function mountUi(
 
   const renderSimple = (title: string, nodes: HTMLElement[]): HTMLElement => frame(title, stack(...nodes))
 
+  const renderHouse = (): HTMLElement => {
+    const home = HOUSES.find((item) => item.id === houseId) ?? HOUSES[0]
+    if (!home) return renderSimple('House', [para('That door did not open.')])
+    const visit = (line: string) => {
+      const outcome = markHouseVisit(home.id)
+      finish(outcome.already ? 'You already stopped here.' : `${line} Reputation +2.`)
+      open('house', { house: home.id })
+    }
+    switch (home.id) {
+      case 'yours': {
+        const claimed = getSave().houseClaimed
+        return renderSimple('Your house', [
+          para('Front room, a desk, and a closet. Messaging and voice are later.'),
+          para(claimed ? 'The key is yours. Adaeze, Malik, Nia, and a vacant room are on this row.' : 'The room is empty until you claim it.'),
+          button(claimed ? 'The room is yours' : 'Claim the room', 'primary', () => {
+            const outcome = claimHouse()
+            finish(outcome.message)
+            open('house', { house: 'yours' })
+          }),
+          button('Desk · profile', 'ghost', () => open('profile')),
+          button('Closet · boutique', 'ghost', () => open('boutique')),
+          button('Lamp · GN night', 'ghost', () => {
+            setTime('night')
+            hooks.onLook()
+          }),
+          button('Window · day', 'ghost', () => {
+            setTime('day')
+            hooks.onLook()
+          }),
+        ])
+      }
+      case 'adaeze':
+        return renderSimple("Adaeze's house", [
+          para('Notes from the hall, in her handwriting. Spot means you hold the asset. The spread is a cost you pay before the idea can be right.'),
+          para('She will not tell you the next mark.'),
+          button('Sit with the notes', 'primary', () => visit('You sat with Adaeze.')),
+        ])
+      case 'malik':
+        return renderSimple("Malik's house", [
+          para('Mats by the door. He logs one set and leaves. The chart is not invited in.'),
+          para('A second set the same day does not stack the streak.'),
+          button('Stay for the set', 'primary', () => visit('You stopped at Malik’s.')),
+        ])
+      case 'nia':
+        return renderSimple("Nia's house", [
+          para('Seedlings in jars. She can say what a pledge is: a note that you showed up. A tonne is a serial on a registry, and this city does not retire one.'),
+          button('Hear her out', 'primary', () => visit('You heard Nia.')),
+        ])
+      case 'vacant':
+        return renderSimple('Vacant house', [
+          para('The bed is made. The key is on the hook. Nobody lives here yet. The row kept the room.'),
+          button('Look through', 'primary', () => visit('You looked through the vacant house.')),
+        ])
+      default: {
+        const neverHouse: never = home.id
+        return neverHouse
+      }
+    }
+  }
+
   const render = (panel: PanelId): HTMLElement => {
     switch (panel) {
       case 'intro':
         return renderSimple('You start at zero', [
           para('You are a shrimp in a shared city. The practice ledger is empty. Rank does not read it.'),
-          para('Walk north to the learning hall, or follow a mint road. Music stays off until you want Market Velocity.'),
+          para('Walk north to the learning hall, or east to the houses. Music stays off until you want Market Velocity.'),
           button("I'm here", 'primary', close),
         ])
       case 'profile':
@@ -649,18 +714,11 @@ export function mountUi(
           }),
         ])
       case 'house':
-        return renderSimple('Your room', [
-          para('Messaging and proximity voice are not in this build. The room is still private.'),
-          para('GN time is in settings. You can set the light from here too.'),
-          button('Claim the room', 'primary', () => {
-            const outcome = claimHouse()
-            finish(outcome.message)
-            open('house')
-          }),
-          button('GN night', 'ghost', () => {
-            setTime('night')
-            hooks.onLook()
-          }),
+        return renderHouse()
+      case 'city':
+        return renderSimple('The city', [
+          para('Every door on the street. Walk there and press E.'),
+          ...GUIDE.map((stop) => para(`${stop.title} · ${stop.where}. ${stop.text}`)),
         ])
       case 'climate':
         return renderSimple('Carbon desk', [
@@ -715,8 +773,8 @@ export function mountUi(
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
           para('This build is the city: districts, the original low-poly citizen, the shrimp mascot, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do.'),
-          para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice.'),
-          para('GrindRecord.sol sits in the repository. It can record a course and reputation, it uses the same rank cuts as the city, and it refuses ether. It is not deployed, and this city does not send transactions.'),
+          para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
+          para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
           para('Licensed NFT bodies, a live chain, messaging, and proximity voice are later. The ladder does not wait on them.'),
           para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
           button('Made by Zahra', 'primary', () => window.open(ZAHRA, '_blank', 'noopener')),
@@ -761,12 +819,13 @@ export function mountUi(
     }
   }
 
-  open = (panel: PanelId, extra?: { shared?: SharedProfile; tab?: Tab }) => {
+  open = (panel: PanelId, extra?: OpenExtra) => {
     const previous = current
     stop()
     current = panel
     if (extra?.shared) sharedHold = extra.shared
     if (extra?.tab) profileTab = extra.tab
+    if (extra?.house) houseId = extra.house
     sheet.hidden = false
     sheet.setAttribute('role', 'dialog')
     sheet.setAttribute('aria-modal', 'true')
