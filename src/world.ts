@@ -342,7 +342,7 @@ export function createWorld(options: {
   sun.shadow.camera.right = 18
   sun.shadow.camera.top = 18
   sun.shadow.camera.bottom = -18
-  sun.shadow.bias = -0.00035
+  sun.shadow.bias = -0.00025
   sun.shadow.normalBias = 0.04
   scene.add(sun)
   scene.add(sun.target)
@@ -482,7 +482,7 @@ export function createWorld(options: {
   spot('east-arch', 13.4, 0, 2.5, 'Row road', 'East. Post a bounty. It lands on the portfolio.')
 
   // Dark, reflective storefront glass (picks up the PMREM environment): reads as real glazing, not paint.
-  const shopGlass = new THREE.MeshStandardMaterial({ color: 0x33414a, roughness: 0.1, metalness: 0.7, envMapIntensity: 1.0 })
+  const shopGlass = new THREE.MeshStandardMaterial({ color: 0x2c3940, roughness: 0.06, metalness: 0.75, envMapIntensity: 0.9 })
   const addBuilding = (spec: {
     x: number
     z: number
@@ -1299,7 +1299,7 @@ export function createWorld(options: {
     seasonBear = bear
     background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
     fog.color.copy(background)
-    fog.density = night ? 0.009 : dusk ? 0.007 : 0.0045
+    fog.density = night ? 0.0065 : dusk ? 0.005 : 0.003 // depth haze only, never a wash
     sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xffb27a : 0xfff1d6)
     sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
     hemi.intensity = night ? 0.4 : dusk ? 0.66 : 1.08
@@ -1340,7 +1340,7 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.009 - day * 0.0045
+    fog.density = 0.0065 - day * 0.0035
     // Day: the sun drives everything. Night: a faint cool moon and almost no ambient; lamps do the rest.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)

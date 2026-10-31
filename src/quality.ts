@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
@@ -39,12 +40,13 @@ const Grade = {
     vec3 col = c.rgb;
     float l = dot(col, vec3(0.2126,0.7152,0.0722));
     col = mix(col, vec3(l), 0.05);
-    col = (col - 0.5) * 1.08 + 0.5;
+    col = (col - 0.5) * 1.05 + 0.5;
     col += vec3(0.03,0.035,0.04) * 0.10 * (1.0 - l);
-    col *= mix(vec3(1.0), vec3(1.04,1.01,0.95), smoothstep(0.45,1.0,l));
+    col *= mix(vec3(1.0), vec3(1.02,1.0,0.96), smoothstep(0.5,1.0,l));
+    col = col / (1.0 + 0.06 * max(col - 0.85, 0.0) * 4.0); // gentle highlight shoulder: no blown whites
     col = mix(vec3(l), col, 0.9);
     vec2 d = vUv - 0.5;
-    col *= 1.0 - 0.25 * smoothstep(0.25, 0.75, dot(d,d) * 2.0);
+    col *= 1.0 - 0.16 * smoothstep(0.25, 0.75, dot(d,d) * 2.0);
     float n = fract(sin(dot(vUv * (time + 1.0), vec2(12.9898,78.233))) * 43758.5453);
     col += (n - 0.5) * grain;
     gl_FragColor = vec4(clamp(col,0.0,1.0), c.a);
@@ -94,6 +96,10 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     composer.addPass(new OutputPass())
     grade = new ShaderPass(Grade)
     composer.addPass(grade)
+    // SMAA after the grade on High desktop only: cleans shader/alpha edges MSAA misses (thin trims, foliage).
+    if (level === 'high' && !coarse && gl2) {
+      try { composer.addPass(new SMAAPass()) } catch (error) { console.warn('[grind] SMAA unavailable', error) }
+    }
   }
   return {
     configure(graphics: Graphics, width: number, height: number, ratio: number) {
@@ -113,8 +119,9 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     /** Night lifts bloom so neon strips read; day keeps it subtle. */
     setNight(night: number) {
       if (bloom) {
-        bloom.threshold = 0.92 - night * 0.08
-        bloom.strength = 0.06 + night * 0.09
+        // Premium, not neon: only true highlights (lamps, sun glints) bloom, and barely.
+        bloom.threshold = 0.95 - night * 0.05
+        bloom.strength = 0.035 + night * 0.05
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */

@@ -1402,3 +1402,14 @@ html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; alig
 .agent-join input[type='email']::placeholder { color: rgba(242,236,224,.5); }
 .agent-join input[type='email']:focus { border-color: rgba(242,236,224,.45); }
 .agent-join .agent-note { margin: 0; font-size: 12.5px; color: rgba(242,236,224,.72); border-top: 1px solid rgba(255,255,255,.1); padding-top: 10px; }
+
+/* Premium pass: classic serif headings in muted gold on ivory/charcoal glass (title logo untouched). */
+:root { --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; --ivory: #efe8da; --charcoal: #121412; }
+#caption h2, .sheet-head h2, #menu h2:not(.sr-only), .cc-sheet header h2, #menu-page-title {
+  font-family: var(--serif) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #d8bd84;
+}
+#caption h2 { font-size: 1.06rem; }
+.sheet-head h2 { font-size: 1.28rem; }

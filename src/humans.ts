@@ -16,7 +16,7 @@ export type Look = { skin?: number; hair?: number; top?: number }
 type Template = { scene: THREE.Group; clips: THREE.AnimationClip[]; parts: { name: string; start: number; count: number }[]; height: number }
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const cache = new Map<HumanModel, Promise<Template>>()
-const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 })
+const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0, envMapIntensity: 0.7 }) // matte cloth/skin: no plastic sheen
 
 function toFloat(attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, size: number): THREE.BufferAttribute {
   const out = new Float32Array(attr.count * size)
