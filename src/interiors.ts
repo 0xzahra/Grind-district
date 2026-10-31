@@ -64,7 +64,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   // Home: ladder-tiered furniture (homeFurniture.ts) and a simple second floor reached by the stairs.
   const UP = { x: 400, z: -40, w: 12, d: 9 }
   let floorLevel = 0
-  let homeFurn: { tier: number; group: THREE.Group; obstacles: Obstacle[]; dispose: () => void } | null = null
+  let savedFog: THREE.Scene['fog'] = null
+  let savedEnv = 1
+  let homeFurn: { tier: number; group: THREE.Group; obstacles: Obstacle[]; uses: Use[]; dispose: () => void } | null = null
   let upper: { group: THREE.Group; obstacles: Obstacle[]; uses: Use[] } | null = null
   const rankIndex = () => Math.max(0, RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id))
   const syncFurniture = (house: THREE.Group) => {
@@ -72,8 +74,16 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (homeFurn?.tier === tier) return
     if (homeFurn) { house.remove(homeFurn.group); homeFurn.dispose() }
     const f = buildHomeFurniture(tier, ORIGIN.house.x, ORIGIN.house.z)
+    const fUses: Use[] = f.seats.map((st) => { const sp = seatSpot(`house-seat-${st.id}`, st.title, { x: ORIGIN.house.x + st.x, z: ORIGIN.house.z + st.z, yaw: st.yaw, y: st.y }, hooks.sit, 0.7); return { ...sp, run: sp.use } as Use })
+    for (const sc of f.screens) {
+      const t = createTvScreen(sc.width)
+      t.mesh.position.set(sc.x, sc.y, sc.z)
+      t.mesh.rotation.y = sc.ry
+      f.group.add(t.mesh)
+      fUses.push({ id: 'house-tv', x: ORIGIN.house.x + sc.x, z: ORIGIN.house.z + sc.z + 1.2, r: 0.9, title: 'TV', body: 'City news and your file.', enter: 'Switch channel', run: t.toggle } as Use)
+    }
     house.add(f.group)
-    homeFurn = { tier, ...f }
+    homeFurn = { tier, group: f.group, obstacles: f.obstacles, uses: fUses, dispose: f.dispose }
   }
   const buildUpper = () => {
     const group = new THREE.Group()
@@ -158,7 +168,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const floor = add(new THREE.PlaneGeometry(w, d), floorMat, 0, 0.01, 0)
     floor.rotation.x = -Math.PI / 2
     const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : 0xf1ebe2, 0.92)
-    const H = 3.2
+    // Home: cutaway-height walls and no beams, so the phone's high follow camera sees over them.
+    const H = id === 'house' ? 2.6 : 3.2
     const T = 0.25
     box(w + T * 2, H, T, wallMat, 0, -d / 2 - T / 2)
     box(w + T * 2, H, T, wallMat, 0, d / 2 + T / 2)
@@ -166,7 +177,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     box(T, H, d, wallMat, -w / 2 - T / 2, 0)
     const trim = std(0xc9a25e, 0.45, 0.8)
     for (const z of [-d / 2 + 0.03, d / 2 - 0.03]) box(w, 0.12, 0.04, trim, 0, z, 0, false)
-    for (let x = -w / 2 + 2; x < w / 2; x += 3) box(0.22, 0.25, d, std(0x5a4636, 0.8), x, 0, H - 0.25, false)
+    if (id !== 'house') for (let x = -w / 2 + 2; x < w / 2; x += 3) box(0.22, 0.25, d, std(0x5a4636, 0.8), x, 0, H - 0.25, false)
     // Exit door (double leaf) with brass handle.
     const doorMat = std(0x4a3426, 0.6)
     box(0.08, 2.3, 0.75, doorMat, -w / 2 + 0.04, -0.4, 0, false)
@@ -174,7 +185,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     box(0.06, 0.06, 0.3, trim, -w / 2 + 0.12, 0, 1.05, false)
     const exitSign = add(new THREE.PlaneGeometry(0.9, 0.3), new THREE.MeshBasicMaterial({ map: canvasTex(256, 86, (g) => {
       g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 86); g.fillStyle = '#f2ece0'; g.font = '700 44px Inter, sans-serif'; g.textAlign = 'center'; g.fillText(id === 'house' ? 'EXIT' : 'STREET', 128, 60)
-    }) }), -w / 2 + 0.06, 2.6, 0)
+    }) }), -w / 2 + 0.06, Math.min(2.6, H - 0.2), 0)
     exitSign.rotation.y = Math.PI / 2
     use({ id: `${id}-exit`, x: -w / 2 + 0.9, z: 0, r: 0.9, title: 'Door', body: 'Back to the street.', enter: 'Go outside', run: () => {}, exit: true })
 
@@ -203,23 +214,20 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const x of [-w / 2 + 0.06, w / 2 - 0.06]) box(0.06, 0.35, d, brick, x, 0, 0, false)
       const part = std(0xe9e0d0, 0.9)
       // Partitions with doorways (blocking).
-      box(0.15, 3.2, 4.0, part, -5.5, -5.5)            // garage | living
-      box(0.15, 3.2, 4.0, part, 4.5, -5.5)             // living | kitchen
-      box(5.0, 3.2, 0.15, part, -7.5, 0.6)             // garage/dining split (west)
-      box(6.0, 3.2, 0.15, part, 0.5, 1.2)              // living | bedroom (doorway at x 4)
-      box(3.0, 3.2, 0.15, part, 8.5, -0.8)             // kitchen | pool
-      box(0.15, 3.2, 5.0, part, -2.6, 4.9)             // dining | bedroom
-      box(0.15, 3.2, 5.0, part, 4.6, 4.9)              // bedroom | pool
-      // Warm ceiling lights: emissive discs (no extra real lights; the shared lamp does the work).
-      const bulb = new THREE.MeshStandardMaterial({ color: 0xfff1d8, emissive: 0xffd9a0, emissiveIntensity: 0.55 })
-      inst(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16), bulb, [[-7.5, 3.15, -4.5], [-0.5, 3.15, -4], [7, 3.15, -4.5], [-6, 3.15, 4.5], [1, 3.15, 4.5], [7.3, 3.15, 4.5]])
+      box(0.15, H, 4.0, part, -5.5, -5.5)            // garage | living
+      box(0.15, H, 4.0, part, 4.5, -5.5)             // living | kitchen
+      box(5.0, H, 0.15, part, -7.5, 0.6)             // garage/dining split (west)
+      box(6.0, H, 0.15, part, 0.5, 1.2)              // living | bedroom (doorway at x 4)
+      box(3.0, H, 0.15, part, 8.5, -0.8)             // kitchen | pool
+      box(0.15, H, 5.0, part, -2.6, 4.9)             // dining | bedroom
+      box(0.15, H, 5.0, part, 4.6, 4.9)              // bedroom | pool
       // Garage (NW) with a parked car.
       box(4.0, 0.02, 5.2, std(0x5d5f62, 0.9), -7.8, -4.4, 0, false)
       box(1.8, 0.55, 3.8, std(0x7a1f24, 0.35, 0.5), -7.8, -4.6, 0.25)
       box(1.5, 0.45, 1.9, std(0x1d2226, 0.1, 0.6), -7.8, -4.9, 0.8, false)
       // Living room: rug, L sofa, coffee table, TV wall.
       // Furniture itself is tiered by ladder rank: see homeFurniture.ts (rebuilt on enter).
-      use({ id: 'sofa', x: -0.5, z: -1.1, r: 1.2, title: 'Sofa', body: 'Sit a while. The window sets the light.', enter: 'Turn the lamp on (night)', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
+      use({ id: 'lights', x: -4.8, z: -1.2, r: 0.8, title: 'Light switch', body: 'Dim the house for the evening.', enter: 'Lights to night', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
       // Kitchen (NE): counters, island, fridge, stove; stairs up.
       box(4.6, 0.9, 0.7, std(0xe7e2d8, 0.45), 7.4, -d / 2 + 0.45)
       box(0.7, 0.04, 0.6, std(0x1b1c1e, 0.3, 0.6), 6.4, -d / 2 + 0.45, 0.9, false)
@@ -521,6 +529,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const o = ORIGIN[id]
       lamp.position.set(o.x, 2.9, o.z)
       if (id === 'house') { syncFurniture(room.group); floorLevel = 0 }
+      // Indoors: no street fog (it washed the home out to white on phones) and a dimmer HDRI.
+      if (scene.fog) { savedFog = scene.fog; scene.fog = null }
+      savedEnv = scene.environmentIntensity
+      scene.environmentIntensity = Math.min(savedEnv, 0.45)
       lamp.intensity = id === 'house' ? 14 : 22 + SIZE[id].w * 1.2
       lamp.distance = Math.max(18, SIZE[id].w * 1.3)
       roomFill.intensity = id === 'house' ? 0.6 : 0.9
@@ -534,6 +546,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inside = null
       lamp.intensity = 0
       roomFill.intensity = 0
+      if (savedFog) { scene.fog = savedFog; savedFog = null }
+      scene.environmentIntensity = savedEnv
       lamp.position.set(0, -50, 0)
       if (id) built.get(id)!.group.visible = false
       if (upper) upper.group.visible = false
@@ -549,7 +563,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (inside === 'house' && floorLevel === 1 && upper) return upper.obstacles
       return inside === 'house' && homeFurn ? [...built.get(inside)!.obstacles, ...homeFurn.obstacles] : built.get(inside)!.obstacles
     },
-    uses() { return inside ? (inside === 'house' && floorLevel === 1 && upper ? upper.uses : built.get(inside)!.uses).map((u) => ({ ...u, use: u.exit ? undefined : u.run })) : [] },
+    uses() { return inside ? (inside === 'house' && floorLevel === 1 && upper ? upper.uses : inside === 'house' && homeFurn ? [...built.get(inside)!.uses, ...homeFurn.uses] : built.get(inside)!.uses).map((u) => ({ ...u, use: u.exit ? undefined : u.run })) : [] },
     bounds(): { x: number; z: number; hw: number; hd: number } | null {
       if (!inside) return null
       if (inside === 'house' && floorLevel === 1) return { x: UP.x, z: UP.z, hw: UP.w / 2 - 0.5, hd: UP.d / 2 - 0.5 }

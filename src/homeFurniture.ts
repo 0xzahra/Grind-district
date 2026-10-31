@@ -32,6 +32,10 @@ export type FurnitureTier = { rank: string; items: string[] }
 export function buildHomeFurniture(tier: number, ox: number, oz: number) {
   const parts = new Map<Mat, THREE.BufferGeometry[]>()
   const obstacles: Obstacle[] = []
+  // Sittable spots (room-local, facing yaw, seat-top height) and wall-TV screens, wired up by interiors.ts.
+  const seats: Array<{ id: string; title: string; x: number; z: number; yaw: number; y: number }> = []
+  const screens: Array<{ x: number; y: number; z: number; ry: number; width: number }> = []
+  const sit = (id: string, title: string, x: number, z: number, yaw: number, y: number) => seats.push({ id, title, x, z, yaw, y })
   const m4 = new THREE.Matrix4()
   const q = new THREE.Quaternion()
   const up = new THREE.Vector3(0, 1, 0)
@@ -108,6 +112,7 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number) {
     for (const sx of [-0.37, 0.37]) b('oak', 0.7, 0.36, 0.01, sx, 0.1, 0.21)
     b('metal', 0.3, 0.02, 0.18, 0, 0.51, 0); b('metal', 0.05, 0.12, 0.03, 0, 0.53, 0)
     b('screen', 1.2, 0.7, 0.04, 0, 0.62, 0)
+    screens.push({ x: px + Math.sin(pry) * 0.025, y: 0.97, z: pz + Math.cos(pry) * 0.025, ry: pry, width: 1.12 })
   }
   const dresser = () => { b('white', 1.1, 0.8, 0.45, 0, 0.08, 0); legs4('oak', 1.1, 0.45, 0.08, 0.04); for (const y of [0.22, 0.47, 0.72]) b('oak', 0.2, 0.03, 0.02, 0, y, 0.23) }
   const coffeeTable = () => table(0.9, 0.5, 0.4, 'walnut')
@@ -119,17 +124,18 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number) {
       piece(1.0, 6.35, Math.PI, 0.6, 1.05, () => bed(1.0))
       piece(2.0, 7.0, 0, 0.25, 0.22, () => { nightstand(); tableLamp(0.54) })
       piece(1.0, 4.4, 0, 0, 0, () => rug(2.0, 1.3), false)
-      piece(-1.4, 2.75, Math.PI, 0.24, 0.24, () => chair())
+      piece(-1.4, 2.75, Math.PI, 0.24, 0.24, () => chair()); sit('desk', 'Desk chair', -1.4, 2.75, Math.PI, 0.48)
     } },
     { items: ['Small dining table + 2 chairs', 'Wall shelf with books'], place: () => {
       piece(-6.0, 4.4, 0, 0.62, 0.42, () => table(1.2, 0.8, 0.76))
-      piece(-6.0, 3.6, Math.PI, 0.24, 0.24, () => chair())
-      piece(-6.0, 5.2, 0, 0.24, 0.24, () => chair())
+      piece(-6.0, 3.6, 0, 0.24, 0.24, () => chair()); sit('din1', 'Dining chair', -6.0, 3.6, 0, 0.48)
+      piece(-6.0, 5.2, Math.PI, 0.24, 0.24, () => chair()); sit('din2', 'Dining chair', -6.0, 5.2, Math.PI, 0.48)
       piece(-1.4, 7.35, 0, 0, 0, () => shelf(), false)
     } },
     { items: ['Two-seat sofa', 'Coffee table', 'Living-room rug', 'Potted plant'], place: () => {
       piece(-0.5, -3.2, 0, 0, 0, () => rug(3.0, 2.0, 'rug2'), false)
       piece(-0.5, -2.0, Math.PI, 0.88, 0.42, () => sofa())
+      sit('sofa-l', 'Sofa', -0.9, -2.05, Math.PI, 0.5); sit('sofa-r', 'Sofa', -0.1, -2.05, Math.PI, 0.5)
       piece(-0.5, -3.4, 0, 0.47, 0.27, () => coffeeTable())
       piece(-4.8, -6.8, 0, 0.2, 0.2, () => plant())
     } },
@@ -138,10 +144,10 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number) {
       piece(2.0, -2.0, 0, 0.2, 0.2, () => floorLamp())
     } },
     { items: ['Armchair', 'Bookcase', 'Two more dining chairs', 'Second plant'], place: () => {
-      piece(-3.4, -3.3, Math.PI / 2, 0.42, 0.42, () => armchair())
+      piece(-3.4, -3.3, Math.PI / 2, 0.42, 0.42, () => armchair()); sit('arm', 'Armchair', -3.4, -3.3, Math.PI / 2, 0.48)
       piece(3.7, -7.1, 0, 0.48, 0.18, () => bookcase())
-      piece(-7.0, 4.4, Math.PI / 2, 0.24, 0.24, () => chair())
-      piece(-5.0, 4.4, -Math.PI / 2, 0.24, 0.24, () => chair())
+      piece(-7.0, 4.4, Math.PI / 2, 0.24, 0.24, () => chair()); sit('din3', 'Dining chair', -7.0, 4.4, Math.PI / 2, 0.48)
+      piece(-5.0, 4.4, -Math.PI / 2, 0.24, 0.24, () => chair()); sit('din4', 'Dining chair', -5.0, 4.4, -Math.PI / 2, 0.48)
       piece(-3.2, 7.0, 0, 0.2, 0.2, () => plant(1.2))
     } },
     { items: ['Full-size bed upgrade', 'Dresser', 'Framed wall art'], place: () => {
@@ -155,7 +161,7 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number) {
       piece(1.0, 6.35, Math.PI, 0.8, 1.05, () => bed(1.4))
       piece(2.2, 7.0, 0, 0.25, 0.22, () => { nightstand(); tableLamp(0.54) })
       piece(1.0, 4.4, 0, 0, 0, () => rug(2.2, 1.3), false)
-      piece(-1.4, 2.75, Math.PI, 0.24, 0.24, () => chair())
+      piece(-1.4, 2.75, Math.PI, 0.24, 0.24, () => chair()); sit('desk', 'Desk chair', -1.4, 2.75, Math.PI, 0.48)
       continue
     }
     T[i].place()
@@ -170,7 +176,7 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number) {
     for (const g of geos) g.dispose()
   }
   const dispose = () => group.traverse((o) => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
-  return { group, obstacles, dispose }
+  return { group, obstacles, seats, screens, dispose }
 }
 
 export const FURNITURE_TIERS: FurnitureTier[] = ['Twin bed, nightstand + table lamp, desk chair, bedroom rug', 'Small dining table + 2 chairs, wall shelf with books', 'Two-seat sofa, coffee table, living-room rug, potted plant', 'TV on media stand, floor lamp', 'Armchair, bookcase, two more dining chairs, second plant', 'Full-size bed upgrade, dresser, framed wall art']
