@@ -207,6 +207,7 @@ const apiAgents = createRemoteAgents(scene)
   const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
   phoneFill.visible = matchMedia('(pointer: coarse)').matches
   scene.add(phoneFill)
+  if (phoneFill.visible) scene.add(new THREE.AmbientLight(0xfff4e6, 0.25))
   let lightAcc = 1
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
@@ -255,7 +256,7 @@ const apiAgents = createRemoteAgents(scene)
     const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? 1.5 : 2)
     renderer.setPixelRatio(ratio)
     // Shadows only on high: the biggest single cost on mid-range Android.
-    const shadows = graphics === 'high'
+    const shadows = graphics === 'high' && !matchMedia('(pointer: coarse)').matches
     renderer.shadowMap.enabled = shadows
     world.sun.castShadow = shadows
     const size = graphics === 'high' ? 2048 : 1024

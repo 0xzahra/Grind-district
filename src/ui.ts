@@ -725,8 +725,12 @@ export function mountUi(
     support.className = 'help-link'
     support.textContent = 'Get help'
     const wallet = button('Wallet on Base', 'ghost', () => {
-      void import('./wallet.ts').then((m) => m.openWallet())
+      // Close the settings sheet first so the wallet is never hidden behind it; always give feedback.
+      close()
+      toast('Opening wallet…')
+      void import('./wallet.ts').then((m) => m.openWallet()).catch(() => toast('Wallet could not load. Check your connection and try again.'))
     })
+    void import('./wallet.ts') // warm the chunk while Settings is open
     return frame('Settings', stack(
       nameLabel,
       userLabel,

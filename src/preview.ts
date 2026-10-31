@@ -25,11 +25,14 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     canvas.hidden = true
     return () => {}
   }
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); canvas.style.opacity = '0' })
+  canvas.addEventListener('webglcontextrestored', () => { canvas.style.opacity = '' })
   renderer.setPixelRatio(coarse ? Math.min(0.8, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.95
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.shadowMap.enabled = true
+  // Phones: no shadow maps (some mobile GPUs return an all-shadow depth map = black ground).
+  renderer.shadowMap.enabled = !coarse
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 600)
@@ -60,7 +63,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const PHASE = 0.69 // golden hour
   world.setDaylight(PHASE)
   sky.setPhase(PHASE)
-  world.sun.castShadow = true
+  world.sun.castShadow = !coarse
   // Phones: same light as desktop. Firm shadow bias (no acne darkening), and a little more fill so
   // backlit figures never read as silhouettes on small, dim screens.
   world.sun.shadow.bias = -0.0004
@@ -68,7 +71,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   if (coarse) {
     renderer.toneMappingExposure = 1.08
     scene.environmentIntensity = 0.75
-    scene.add(new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0.45))
+    scene.add(new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0.45), new THREE.AmbientLight(0xfff4e6, 0.35))
   }
   world.sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048)
   const cam = world.sun.shadow.camera
