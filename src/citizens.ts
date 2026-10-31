@@ -19,7 +19,6 @@ export type CitizenSim = {
 }
 
 export const CITIZENS: CitizenSpec[] = [
-  { rank: 'Clerk · permits', body: 'player', tint: 0x2a2d33, luxury: true, mask: 'none', drone: 'none', speed: 0, points: [{ x: 6.4, z: 10.4 }] },
   { rank: 'Crab', body: 'zuri', tint: 0xff6f61, luxury: false, mask: 'none', drone: 'none', speed: 1.15, points: [{ x: -2.2, z: -37 }, { x: 2.2, z: -37 }] },
   { rank: 'Fish', body: 'player', tint: 0x9fd4ff, luxury: false, mask: 'none', drone: 'none', speed: 1.25, points: [{ x: -37, z: -2 }, { x: -37, z: 2 }] },
   { rank: 'Dolphin', body: 'zuri', tint: 0x1a4cff, luxury: false, mask: 'azuki', drone: 'none', speed: 1.2, points: [{ x: 37, z: -2 }, { x: 37, z: 2 }] },

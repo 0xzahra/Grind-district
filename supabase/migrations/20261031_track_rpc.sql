@@ -10,7 +10,7 @@ begin
          case when jsonb_typeof(e->'props')='object' and length((e->'props')::text) < 4000 then e->'props' else '{}'::jsonb end,
          case when (e->>'at') ~ '^\d{4}-\d\d-\d\dT' then (e->>'at')::timestamptz else null end
   from jsonb_array_elements(p_events) e
-  where e->>'name' in ('bribe','first_visit','session_start','signup','course_start','course_complete','cert_shared','cv_shared','share_click','transfer','topup_attempt');
+  where e->>'name' in ('first_visit','session_start','signup','course_start','course_complete','cert_shared','cv_shared','share_click','transfer','topup_attempt');
   get diagnostics n = row_count;
   return n;
 end $$;

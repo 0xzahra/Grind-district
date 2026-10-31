@@ -298,7 +298,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
-    onTeleport: (x, z) => hooksTeleport(x, z),
     travel: (title) => travelHook(title),
   })
   function hooksTeleport(x: number, z: number) {

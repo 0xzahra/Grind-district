@@ -1,5 +1,5 @@
 // Activity log: buffers events locally, flushes to /api/track when VITE_TRACKING=1.
-export type EventName = 'bribe' | 'first_visit' | 'session_start' | 'signup' | 'course_start' | 'course_complete' | 'cert_shared'
+export type EventName = 'first_visit' | 'session_start' | 'signup' | 'course_start' | 'course_complete' | 'cert_shared'
   | 'cv_shared' | 'share_click' | 'transfer' | 'topup_attempt'
 
 const ON = import.meta.env.VITE_TRACKING === '1'
