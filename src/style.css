@@ -1245,3 +1245,6 @@ body.rail-shut #nav-city.top-map { opacity: 1 !important; pointer-events: auto !
 .sheet-card .tabs { justify-content: flex-start; }
 #nav #nav-sound, #nav #nav-support, #nav .music-group { display: none !important; }
 .map-entry > button { justify-self: stretch; text-align: left !important; }
+#menu-panel .panel-logo { display: block; height: 92px; width: auto; margin: 0 auto 6px; }
+.hud-logo-new { display: block; height: 34px; width: auto; filter: drop-shadow(0 1px 4px rgba(0,0,0,.45)); }
+@media (max-width: 520px) { #menu-panel .panel-logo { height: 70px; } .hud-logo-new { height: 28px; } }
