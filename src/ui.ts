@@ -1,4 +1,5 @@
 import { isLicensed, skinSlots } from './skins.ts'
+import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
 import type { MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
@@ -144,6 +145,7 @@ export function mountUi(
   let toastTimer = 0
 
   const toast = (text: string) => {
+    if (!notificationsOn()) return
     toastNode.hidden = false
     toastNode.textContent = text
     window.clearTimeout(toastTimer)
@@ -686,6 +688,34 @@ export function mountUi(
       close()
       toast('Back to zero. Your name stayed. GN time and volume stayed.')
     })
+    const notifyRow = document.createElement('div')
+    notifyRow.className = 'tabs'
+    notifyRow.append(button(notificationsOn() ? 'Notifications on' : 'Notifications off', notificationsOn() ? 'primary' : 'ghost', () => {
+      setNotifications(!notificationsOn())
+      open('settings')
+    }))
+    const agentBox = document.createElement('div')
+    agentBox.className = 'stack'
+    const agent = getAgent()
+    if (agent) {
+      agentBox.append(para(`${agent.name} is attached to your robot${agent.role ? ` (${agent.role})` : ''}. It walks with you, labeled AI agent.`, 'muted'),
+        button('Detach agent', 'ghost', () => { setAgent(null); open('settings') }))
+    } else {
+      const agentName = document.createElement('input')
+      agentName.type = 'text'
+      agentName.maxLength = 20
+      agentName.placeholder = 'Agent name'
+      const agentRole = document.createElement('input')
+      agentRole.type = 'text'
+      agentRole.maxLength = 24
+      agentRole.placeholder = 'What it does (optional)'
+      agentBox.append(para('Bring an AI agent into the city? It must attach to a robot and stays labeled.', 'muted'), agentName, agentRole,
+        button('Attach to a robot', 'primary', () => {
+          if (!agentName.value.trim()) { agentName.focus(); return }
+          setAgent({ name: agentName.value, role: agentRole.value })
+          open('settings')
+        }))
+    }
     const support = document.createElement('a')
     support.href = 'https://x.com/0xarewah'
     support.target = '_blank'
@@ -699,7 +729,8 @@ export function mountUi(
       nameLabel,
       userLabel,
       nameError,
-      para('GN time. The city stays open in all three.', 'kicker'),
+      para('GN time', 'kicker'),
+      para('Choose your GN time. The city stays open in all three.', 'muted'),
       times,
       para('Graphics', 'kicker'),
       graphics,
@@ -709,7 +740,11 @@ export function mountUi(
       comfort,
       para('The theme stays silent until you turn Music on. Volume is the slider by that button. With reduced motion on, it never resumes by itself.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
-      para('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
+      para('Notifications', 'kicker'),
+      notifyRow,
+      para('Agents', 'kicker'),
+      para('AI agents are labeled and must attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
+      agentBox,
       para('Wallet', 'kicker'),
       wallet,
       para('Grind is in-game currency only. The wallet shows your real Base balance; you sign every send yourself.', 'muted'),

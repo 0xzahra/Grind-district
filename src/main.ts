@@ -4,6 +4,7 @@ import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
+import { createAgentCompanion } from './agent.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -190,6 +191,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
   const crowd = createCrowd(scene)
+  const agentBot = createAgentCompanion(scene)
   const physSky = createPhysicalSky(scene)
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
@@ -593,6 +595,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       ui.refresh()
     }
     crowdObstacles = crowd.tick(dt)
+    agentBot.tick(dt, avatar.object.position)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
     if (!calmSky()) dayPhase = (dayPhase + dt / DAY_SECONDS) % 1

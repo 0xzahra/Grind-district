@@ -12,7 +12,7 @@ type Person = {
   radius: number
 }
 
-function label(primary: string, secondary = ''): THREE.Sprite {
+export function label(primary: string, secondary = ''): THREE.Sprite {
   const canvas = document.createElement('canvas')
   canvas.width = 256
   canvas.height = 96
