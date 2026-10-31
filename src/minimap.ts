@@ -1,4 +1,5 @@
 const LIMIT = 62
+export const MAP_LIMIT = LIMIT
 
 const PLOTS: Array<{ x: number; z: number; w: number; d: number; door?: boolean }> = [
   { x: 0, z: -48, w: 16, d: 11 },

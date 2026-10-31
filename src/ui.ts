@@ -91,6 +91,7 @@ type Hooks = {
   onPrefs: () => void
   onRank: (label: string) => void
   onTeleport?: (x: number, z: number) => void
+  travel?: (title: string) => void
 }
 
 export type Ui = {
@@ -927,8 +928,12 @@ export function mountUi(
         return renderHouse()
       case 'city':
         return renderSimple('The city', [
-          para('Every door on the street. Walk there and press E.'),
-          ...GUIDE.map((stop) => para(`${stop.title} · ${stop.where}. ${stop.text}`)),
+          para('Every door on the street. Tap one to travel there, or tap the map.'),
+          ...GUIDE.map((stop) => {
+            const row = button(`${stop.title} · ${stop.where}`, 'ghost', () => hooks.travel?.(stop.title))
+            row.title = stop.text
+            return row
+          }),
         ])
       case 'climate':
         return renderSimple('Carbon desk', [

@@ -951,7 +951,7 @@ body.sheet-open #toast {
 }
 
 #chat-log li b {
-  color: #17f790;
+  color: #e8d3a6;
   font-weight: 600;
 }
 
@@ -966,9 +966,11 @@ body.sheet-open #toast {
   min-height: 38px;
   padding: 0 0.7rem;
   border-radius: 999px;
-  border: 1px solid rgba(26, 243, 143, 0.4);
-  background: rgba(6, 16, 12, 0.8);
-  color: #e9fff4;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(28, 28, 30, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  color: #f5f5f7;
   font: inherit;
 }
 
@@ -1125,3 +1127,39 @@ body.touch #hint{display:none}
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 .made-by:hover { background: rgba(255, 255, 255, 0.16); }
+
+#chat[hidden] { display: none !important; }
+#chat { padding: 10px; border-radius: 18px; background: rgba(28, 28, 30, 0.5); border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); }
+#msg-btn { position: fixed; z-index: 6; left: max(14px, env(safe-area-inset-left)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 1rem);
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer; pointer-events: auto;
+  background: rgba(28, 28, 30, 0.55); border: 1px solid rgba(255, 255, 255, 0.16); color: #f5f5f7;
+  -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+#msg-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+#msg-btn.unread::after { content: ''; position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #d9b26a; }
+#msg-btn[aria-expanded="true"] { background: rgba(245, 245, 247, 0.9); color: #111; }
+body.touch #msg-btn { left: auto; right: max(14px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 5.6rem); }
+body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
+
+/* Title screen: the live city fills the screen; one square glass menu sits on top. Logo left, profile right. */
+#menu { display: block !important; padding: 0 !important; background: #0b0a08 !important; overflow: hidden; }
+#menu-preview { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+#menu-panel { position: absolute !important; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0 !important;
+  width: min(440px, calc(100vw - 32px)); aspect-ratio: 1 / 1; max-height: calc(100dvh - 120px); padding: 28px !important;
+  border-radius: 28px !important; background: rgba(22, 22, 24, 0.42) !important; border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important; overflow: auto; align-content: center; }
+#menu-panel .lockup { display: none; }
+#menu .menu-title { margin: 0; font: 700 clamp(26px, 4vw, 34px)/1.05 'Archivo Black', Inter, sans-serif; letter-spacing: -0.01em; color: #f5f5f7; }
+#menu .title-desc { margin: 6px 0 4px; color: rgba(245, 245, 247, 0.82); font-size: 14px; line-height: 1.5; }
+.menu-logo { position: absolute; z-index: 2; top: max(18px, env(safe-area-inset-top)); left: max(20px, env(safe-area-inset-left)); height: 40px; width: auto; filter: drop-shadow(0 2px 10px rgba(0,0,0,.4)); }
+.menu-profile { position: absolute; z-index: 2; top: max(16px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right));
+  display: flex; align-items: center; gap: 8px; height: 44px; min-width: 44px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  color: #f5f5f7; background: rgba(28, 28, 30, 0.5); border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%); font: 600 13px Inter, sans-serif; }
+.menu-profile svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.menu-profile span:empty { display: none; }
+#menu .menu-actions-col { flex-direction: column; align-items: stretch; }
+#menu .menu-actions-col button { width: 100% !important; }
+#menu-account[hidden] { display: none; }
+@media (max-width: 520px) { #menu-panel { aspect-ratio: auto; } .menu-logo { height: 32px; } }

@@ -109,10 +109,11 @@ export function mountMenu(enter: () => void): void {
   const userInput = must<HTMLInputElement>('#signup-user')
   const error = must<HTMLParagraphElement>('#signup-error')
   const note = must<HTMLParagraphElement>('#menu-note')
+  const account = must<HTMLElement>('#menu-account')
+  const profileName = must<HTMLElement>('#menu-profile-name')
   const saved = getSave()
-  if (saved.signedUp) {
-    note.textContent = `Welcome back, @${saved.username}.`
-  }
+  note.textContent = saved.signedUp ? `Welcome back, @${saved.username}.` : ''
+  profileName.textContent = saved.signedUp ? `@${saved.username}` : ''
 
   const show = (next: Page) => {
     const built = pageBody(next)
@@ -120,20 +121,31 @@ export function mountMenu(enter: () => void): void {
     slot.replaceChildren(built.body)
     home.hidden = true
     signup.hidden = true
+    account.hidden = true
     page.hidden = false
   }
 
   const back = () => {
     page.hidden = true
     signup.hidden = true
+    account.hidden = true
     slot.replaceChildren()
     home.hidden = false
     play.focus()
   }
 
+  const showAccount = () => {
+    home.hidden = true
+    page.hidden = true
+    signup.hidden = true
+    account.hidden = false
+    must<HTMLButtonElement>('#account-new').focus()
+  }
+
   const showSignup = () => {
     home.hidden = true
     page.hidden = true
+    account.hidden = true
     error.hidden = true
     error.textContent = ''
     signup.hidden = false
@@ -145,12 +157,15 @@ export function mountMenu(enter: () => void): void {
       enter()
       return
     }
-    showSignup()
+    showAccount()
   }
 
   play.addEventListener('click', start)
   must('#menu-agents').addEventListener('click', () => show('agents'))
-  must('#menu-signin').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
+  must('#account-new').addEventListener('click', showSignup)
+  must('#account-existing').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
+  must('#account-back').addEventListener('click', back)
+  must('#menu-profile').addEventListener('click', () => { if (getSave().signedUp) enter(); else showAccount() })
   if (location.search.includes('privy_oauth_code')) void import('./login.ts').then((m) => m.resumeOAuth())
   must('#menu-back').addEventListener('click', back)
   must('#signup-back').addEventListener('click', back)
@@ -175,12 +190,12 @@ export function mountMenu(enter: () => void): void {
   window.addEventListener('keydown', (event) => {
     const menu = document.querySelector('#menu')
     if (!(menu instanceof HTMLElement) || menu.hidden || event.repeat) return
-    if (event.key === 'Escape' && (!page.hidden || !signup.hidden)) {
+    if (event.key === 'Escape' && (!page.hidden || !signup.hidden || !account.hidden)) {
       event.preventDefault()
       back()
       return
     }
-    if (!signup.hidden) return
+    if (!signup.hidden || !account.hidden) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     if (!page.hidden) return
     const target = event.target

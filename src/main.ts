@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { createAgentCompanion } from './agent.ts'
+import { MAP_LIMIT } from './minimap.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -190,6 +191,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     rankLabel: rankFor(getSave().xp).label,
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
+  let travelHook: (title: string) => void = () => {}
   const crowd = createCrowd(scene)
   const agentBot = createAgentCompanion(scene)
   const physSky = createPhysicalSky(scene)
@@ -296,22 +298,51 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
-    onTeleport: (x, z) => {
+    onTeleport: (x, z) => hooksTeleport(x, z),
+    travel: (title) => travelHook(title),
+  })
+  function hooksTeleport(x: number, z: number) {
       pos.x = x
       pos.z = z
       vel.x = 0
       vel.z = 0
       target = null
       cameraReady = false
-    },
-  })
+  }
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
   must('#nav-wallet').addEventListener('click', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
   must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
-  map.addEventListener('click', () => ui.open('city'))
+  // Click-to-travel: tap a spot on the map and arrive outside the nearest door.
+  const travelTo = (spot: Hotspot) => {
+    if (interiors.inside) leaveRoom()
+    const len = Math.hypot(spot.x, spot.z) || 1
+    const step = Math.min(2.4, len)
+    ui.close()
+    hooksTeleport(spot.x - (spot.x / len) * step, spot.z - (spot.z / len) * step)
+    ui.setPlace(districtName(pos.x, pos.z))
+    ui.toast(`Travelled to ${spot.title}.`)
+  }
+  travelHook = (title) => {
+    const spot = world.hotspots.find((h) => h.title === title)
+    if (spot) travelTo(spot)
+  }
+  map.addEventListener('click', (event) => {
+    const rect = map.getBoundingClientRect()
+    const wx = (((event.clientX - rect.left) / rect.width) - 0.5) * 2 * MAP_LIMIT
+    const wz = (((event.clientY - rect.top) / rect.height) - 0.5) * 2 * MAP_LIMIT
+    let best: Hotspot | null = null
+    let bestD = Infinity
+    for (const h of world.hotspots) {
+      if (!h.action) continue
+      const d = (h.x - wx) ** 2 + (h.z - wz) ** 2
+      if (d < bestD) { bestD = d; best = h }
+    }
+    if (best && bestD < 14 * 14) travelTo(best)
+    else ui.open('city')
+  })
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
@@ -346,7 +377,15 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const chatInput = must<HTMLInputElement>('#chat-input')
   const chatLog = must<HTMLOListElement>('#chat-log')
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
-  chat.hidden = false
+  // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
+  const msgBtn = must<HTMLButtonElement>('#msg-btn')
+  chat.hidden = true
+  msgBtn.addEventListener('click', () => {
+    chat.hidden = !chat.hidden
+    msgBtn.classList.remove('unread')
+    msgBtn.setAttribute('aria-expanded', String(!chat.hidden))
+    if (!chat.hidden) chatInput.focus()
+  })
   const identity = () => {
     const save = getSave()
     return { name: save.name, username: save.username, body: save.body, tint: save.tint }
@@ -375,16 +414,21 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
         item.append(' ', play)
       }
       chatLog.append(item)
+      if (chat.hidden && !self) msgBtn.classList.add('unread')
       while (chatLog.children.length > 5) chatLog.firstElementChild?.remove()
       window.setTimeout(() => item.remove(), 20000)
     },
     onStatus: (online) => {
       chatStatus.textContent = online
-        ? 'Live. Players within 12 m see what you say.'
-        : 'Solo city. Only you see your bubble.'
+        ? 'Live · 12 m'
+        : 'Solo city.'
     },
   })
-  if (import.meta.env.VITE_VOICE_NOTES === '1') void import('./voice.ts').then((m) => m.mountVoice(chat, net, (t) => ui.toast(t)))
+  void import('./voice.ts').then((m) => m.mountVoice(chat, net, (t) => ui.toast(t), () => {
+    if (!interiors.inside) return 'Voice notes are off on the street. Step inside a room to record.'
+    if (import.meta.env.VITE_VOICE_NOTES !== '1') return 'Voice notes open soon.'
+    return null
+  }))
   chat.addEventListener('submit', (event) => {
     event.preventDefault()
     net.setMe(identity())

@@ -74,13 +74,14 @@
           <p id="hint"></p>
         </div>
       </div>
+      <button id="msg-btn" type="button" class="glass-fab" aria-label="Messages" aria-expanded="false" title="Messages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg></button>
       <form id="chat" autocomplete="off" hidden>
         <ol id="chat-log" aria-live="polite"></ol>
         <div class="chat-row">
           <input id="chat-input" type="text" maxlength="140" placeholder="Say something nearby" aria-label="Message players near you" enterkeyhint="send" />
           <button type="submit">Say</button>
         </div>
-        <p id="chat-status">Solo city. Only you see your bubble.</p>
+        <p id="chat-status">Solo city.</p>
       </form>
       <div id="stick" role="group" aria-label="Move joystick">
         <div id="nub"></div>
@@ -88,18 +89,28 @@
       <div id="sheet" hidden></div>
       <div id="menu">
         <canvas id="menu-preview" aria-hidden="true"></canvas>
+        <img class="menu-logo" src="/brand/lockup.png" alt="Grind District" />
+        <button id="menu-profile" type="button" class="menu-profile" aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg><span id="menu-profile-name"></span></button>
         <div id="menu-panel">
         <div id="menu-home">
-          <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
-          <p class="title-desc">Live a Web3 life. Learn, earn, climb from shrimp to whale.</p>
+          <h2 class="menu-title">Grind District</h2>
+          <p class="title-desc">A Web3 life-simulation game. Live in one shared 3D city, learn real on-chain skills, and climb from shrimp to whale.</p>
           <p class="tag tag-serif">No tribe, no continent, just come and grind.</p>
           <nav class="menu-actions" aria-label="Game menu">
             <button id="play" type="button" class="primary" autofocus>Enter the district</button>
-            <button id="menu-signin" type="button">Sign in</button>
             <button id="menu-agents" type="button">Agents</button>
           </nav>
           <p id="menu-note"></p>
           <a id="made-by" class="made-by" href="https://0xzahra.github.io" target="_blank" rel="noopener noreferrer">Made by Zahra</a>
+        </div>
+        <div id="menu-account" hidden>
+          <h2>Enter the district</h2>
+          <p>Sign in to keep your name, rank and CV.</p>
+          <nav class="menu-actions menu-actions-col" aria-label="Account">
+            <button id="account-new" type="button" class="primary">Create a new account</button>
+            <button id="account-existing" type="button">I already have an account</button>
+            <button id="account-back" type="button">Back</button>
+          </nav>
         </div>
         <div id="menu-signup" hidden>
           <h2>Pick a name</h2>
