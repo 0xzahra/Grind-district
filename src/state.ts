@@ -356,7 +356,24 @@ export function claimHouse(): { message: string; already: boolean } {
   log('social', 'Claimed a room', 'Private for now. Messaging and voice are not in this build.')
   persist()
   emit()
-  return { already: false, message: 'The room is yours. Reputation +3. Nobody else has the key in this build.' }
+  return { already: false, message: 'The room is yours. Reputation +3. Adaeze, Malik, and Nia are on the same row.' }
+}
+
+export function markHouseVisit(id: string): { already: boolean } {
+  if (id === 'yours' || save.houseVisits.includes(id)) return { already: true }
+  if (id !== 'adaeze' && id !== 'malik' && id !== 'nia' && id !== 'vacant') return { already: true }
+  save.houseVisits = [...save.houseVisits, id]
+  save.reputation += 2
+  const names: Record<string, string> = {
+    adaeze: 'Sat with Adaeze',
+    malik: 'Stopped at Malik’s',
+    nia: 'Heard Nia on credits',
+    vacant: 'Looked through the vacant house',
+  }
+  log('social', names[id] ?? 'Visited a house', 'The east row is part of the city.')
+  persist()
+  emit()
+  return { already: false }
 }
 
 export function payTax(): { message: string; ok: boolean; rankedUp?: RankId } {
