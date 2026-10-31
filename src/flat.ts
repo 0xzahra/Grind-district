@@ -2,6 +2,8 @@ import { assetUrl } from './assets.ts'
 import { bootCitizens, stepCitizens, type CitizenSim } from './citizens.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import { createInput } from './input.ts'
+import { drawMinimap } from './minimap.ts'
+import { applyPrefs } from './prefs.ts'
 import type { DroneId, MaskId, PanelId } from './logic.ts'
 import { decodeShare, seasonAt } from './logic.ts'
 import { bindMusic } from './music.ts'
@@ -74,7 +76,7 @@ function citySpots(): Spot[] {
   const net = at(11 + HOUSES.length, 'pz')
   const desk = at(12 + HOUSES.length, 'px')
   return [
-    { id: 'learn', ...hall, r: 2.5, title: 'Learning hall', body: 'Eight short courses. Pass one and it writes your CV, resume, and portfolio.', action: 'learn', enter: 'Open the hall' },
+    { id: 'learn', ...hall, r: 2.5, title: 'Learning hall', body: 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', action: 'learn', enter: 'Open the hall' },
     { id: 'conference', ...conference, r: 2.3, title: 'Conference hall', body: 'One talk. Proof of work, not a slogan.', action: 'conference', enter: 'Take a seat' },
     { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'Headlines change with the season. They are not a signal to size up.', action: 'cafe', enter: 'Read the room' },
     { id: 'booths', x: 0, z: -35.2, r: 2.2, title: 'Campus booths', body: 'Projects pin a one-pager here. None of them can ask for your seed.' },
@@ -194,6 +196,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     onBody: () => undefined,
     onLook: () => undefined,
     onGraphics: () => undefined,
+    onPrefs: applyPrefs,
     onRank: () => undefined,
   })
 
@@ -201,6 +204,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
+  map.addEventListener('click', () => ui.open('city'))
+  applyPrefs()
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
@@ -250,33 +255,11 @@ export async function startFlat(onReady: () => void): Promise<void> {
     act.textContent = next.enter ?? 'Enter'
   }
 
+  const viewScale = () => Math.min(canvas.width, canvas.height) / 96
+
   const drawMap = () => {
     if (!mapCtx) return
-    const width = map.width
-    const height = map.height
-    const limit = 62
-    const X = (x: number) => (x / limit * 0.5 + 0.5) * width
-    const Y = (z: number) => (z / limit * 0.5 + 0.5) * height
-    mapCtx.clearRect(0, 0, width, height)
-    mapCtx.fillStyle = '#101816'
-    mapCtx.fillRect(0, 0, width, height)
-    mapCtx.strokeStyle = '#7d8c84'
-    mapCtx.lineWidth = 5
-    mapCtx.beginPath()
-    mapCtx.moveTo(X(-46), Y(0))
-    mapCtx.lineTo(X(46), Y(0))
-    mapCtx.moveTo(X(0), Y(-46))
-    mapCtx.lineTo(X(0), Y(46))
-    mapCtx.stroke()
-    mapCtx.fillStyle = '#9dccb6'
-    mapCtx.font = '600 16px Outfit, sans-serif'
-    mapCtx.textAlign = 'center'
-    const marks: Array<[number, number, string]> = [[0, -46, 'C'], [-46, 0, 'F'], [46, 0, 'I'], [0, 46, 'T']]
-    for (const [x, z, letter] of marks) mapCtx.fillText(letter, X(x), Y(z) + 5)
-    mapCtx.fillStyle = '#1af38f'
-    mapCtx.beginPath()
-    mapCtx.arc(X(pos.x), Y(pos.z), 4, 0, Math.PI * 2)
-    mapCtx.fill()
+    drawMinimap(mapCtx, map.width, map.height, pos)
   }
 
   const maskInk = (mask: MaskId): string => {
@@ -383,7 +366,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     const width = canvas.width
     const height = canvas.height
     const colors = palette(getSave().timeOfDay)
-    const scale = Math.min(width, height) / 96
+    const scale = viewScale()
     const project = (x: number, z: number) => ({
       x: width / 2 + (x - pos.x) * scale,
       y: height / 2 + (z - pos.z) * scale,
@@ -408,13 +391,19 @@ export async function startFlat(onReady: () => void): Promise<void> {
       context.lineWidth = Math.max(2, scale * 0.12)
       context.fillRect(top.x, top.y, block.w * scale, block.d * scale)
       context.strokeRect(top.x, top.y, block.w * scale, block.d * scale)
-      if (block.w * scale > 46) {
+      if (block.w * scale > 28) {
         context.fillStyle = colors.label
-        context.font = `600 ${Math.max(13, Math.min(22, block.w * scale * 0.16))}px Outfit, sans-serif`
+        context.font = `600 ${Math.max(11, Math.min(18, block.w * scale * 0.18))}px Outfit, sans-serif`
         context.textAlign = 'center'
         context.textBaseline = 'middle'
         context.fillText(block.label, top.x + (block.w * scale) / 2, top.y + (block.d * scale) / 2)
       }
+    }
+    for (const place of spots) {
+      if (!place.action) continue
+      const at = project(place.x, place.z)
+      context.fillStyle = '#1af38f'
+      context.fillRect(at.x - 5, at.y - 5, 10, 10)
     }
     const ring = project(0, 0)
     context.strokeStyle = '#1af38f'
@@ -455,7 +444,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
   }
 
   const update = (dt: number) => {
-    const now = performance.now()
+    const now = Date.now()
     tickMarket(dt, now)
     const nextSeason = seasonAt(now)
     if (nextSeason !== season) {
@@ -467,7 +456,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     const paused = ui.isOpen()
     if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
     if (!paused && frame.tap) {
-      const scale = Math.min(canvas.width, canvas.height) / 78
+      const scale = viewScale()
       target = {
         x: pos.x + frame.tap.nx * (canvas.width / 2) / scale,
         z: pos.z - frame.tap.ny * (canvas.height / 2) / scale,
