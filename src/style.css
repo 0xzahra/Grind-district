@@ -1518,3 +1518,8 @@ pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .wx-ic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1);font-weight:700}
 .wx-rt{display:flex;flex-direction:column;align-items:flex-end}
 .wx-tag{font-style:normal;font-size:10px;color:#d8b46a}
+.lux-badges{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
+.lux-badge{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid rgba(216,180,106,.55);color:#e9cf96;background:rgba(0,0,0,.35)}
+.lux-login{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.lux-item{display:flex;flex-direction:column;padding:8px 10px;border-radius:12px;margin-bottom:6px;background:rgba(255,255,255,.04);opacity:.75}
+.lux-item.on{opacity:1;border:1px solid rgba(216,180,106,.5)}.lux-item small{opacity:.7;font-size:11px}

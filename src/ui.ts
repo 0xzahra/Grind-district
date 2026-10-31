@@ -16,6 +16,7 @@ import { accessToken } from './login.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
+import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
@@ -275,13 +276,14 @@ export function mountUi(
     const pn = document.createElement('strong'); pn.textContent = save.name || 'Player'
     const pu = document.createElement('span'); pu.textContent = save.username ? `@${save.username}` : rankFor(save.xp).label
     plate.append(pn, pu)
-    hero.append(plate)
+    hero.append(plate, renderBadges())
     const glass = document.createElement('section')
     glass.className = 'glass'
     const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
     const docs = documents(save)
     const doc = (text: string) => { const pre = document.createElement('pre'); pre.className = 'doc'; pre.textContent = text; return pre }
     glass.append(
+      renderLuxury(),
       head('CV'), doc(docs.cv), document.createElement('hr'),
       head('Resume'), doc(docs.resume), document.createElement('hr'),
       head('Portfolio'), doc(docs.portfolio), document.createElement('hr'),
