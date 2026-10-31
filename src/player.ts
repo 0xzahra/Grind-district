@@ -34,31 +34,43 @@ function part(
   return mesh
 }
 
-/** Block letters, the same cut as the PLAYER 8453 plate. */
-export function tagPlayer(root: THREE.Object3D, name: string): void {
+/** Block letters on a blue plate. The words are the name and username they chose. */
+export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void {
   const previous = root.getObjectByName('player-tag')
   if (previous) previous.removeFromParent()
+  if (!name) return
   const canvas = document.createElement('canvas')
   canvas.width = 640
-  canvas.height = 160
+  canvas.height = 220
   const context = canvas.getContext('2d')
   if (!context) return
   context.clearRect(0, 0, canvas.width, canvas.height)
   const label = name.toUpperCase()
-  context.font = '700 72px "Archivo Black", sans-serif'
+  let size = 64
+  context.font = `700 ${size}px "Archivo Black", sans-serif`
+  while (size > 28 && context.measureText(label).width > 560) {
+    size -= 4
+    context.font = `700 ${size}px "Archivo Black", sans-serif`
+  }
   context.textAlign = 'center'
   context.textBaseline = 'middle'
   const plate = Math.min(600, context.measureText(label).width + 56)
+  const top = handle ? 24 : 58
+  const height = handle ? 148 : 88
   context.fillStyle = '#1236d6'
-  context.fillRect((canvas.width - plate) / 2, 36, plate, 88)
+  context.fillRect((canvas.width - plate) / 2, top, plate, height)
   context.fillStyle = '#f7f9fc'
-  context.fillText(label, 320, 82)
+  context.fillText(label, 320, top + (handle ? 48 : 44))
+  if (handle) {
+    context.font = '600 30px Outfit, sans-serif'
+    context.fillText(`@${handle}`, 320, top + 108)
+  }
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }))
   sprite.name = 'player-tag'
-  sprite.scale.set(1.7, 0.42, 1)
-  sprite.position.y = 2.22
+  sprite.scale.set(1.7, 0.58, 1)
+  sprite.position.y = 2.28
   sprite.userData.ghost = true
   sprite.raycast = () => undefined
   root.add(sprite)
@@ -66,7 +78,7 @@ export function tagPlayer(root: THREE.Object3D, name: string): void {
 
 /**
  * Original low-poly citizen. Blonde swept hair, thin glasses, grey suit, blue shirt.
- * Not taken from a licensed collection. The plate reads whatever name the city stored.
+ * Not taken from a licensed collection. The plate reads the name they signed up with.
  */
 export function createPlayer(): ShrimpAvatar {
   const skin = mat(SKIN, 0.58)
