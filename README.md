@@ -34,7 +34,8 @@ npm run build
 - Stand on a mint doorstep and press **E**, or the mint button, to enter.
 - Esc closes a sheet. Movement pauses while a sheet is open. Looking still works.
 - **Shot** saves a picture of the city.
-- **Play theme** starts Market Velocity (3:00, looping). The city stays silent until you press it. Volume is remembered. Playback starts paused each visit.
+- **Music** toggles the looping theme (`public/assets/audio/theme.mp3`, falling back to Market Velocity if that file is missing). It is off by default. Once on, it resumes on your first tap next visit, unless reduced motion is set.
+- **Chat** (Enter, or the chat bar) sends a line to players within 12 m. Their bubbles show above their heads. Without Supabase keys the city stays single-player and only your own bubble shows.
 
 The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a streak. Skip a day and the streak starts over. Bull and bear seasons flip every six minutes on a shared clock and change the practice books and the café copy. The street still works when the marks fall.
 
