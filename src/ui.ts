@@ -6,6 +6,8 @@ import {
   CHAIN_USD,
   CLIMATE_USD,
   COURSE_XP,
+  DRONES,
+  MASKS,
   PROJECTS,
   RESELL_USD,
   SKILL_META,
@@ -31,6 +33,7 @@ import {
 import {
   attendChurch,
   buyChain,
+  buyDrone,
   claimHouse,
   markHouseVisit,
   declineTax,
@@ -45,8 +48,10 @@ import {
   readCafe,
   readRobot,
   resetProgress,
+  pocketDrone,
   sellChain,
   setBody,
+  setMask,
   setGraphics,
   setTime,
   setTint,
@@ -489,7 +494,7 @@ export function mountUi(
 
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Original bodies, free to everyone. Holder collections are not on this street.', 'muted'))
+    const wrap = stack(para('Original bodies, free. Player 8453 is the man. Zuri is the woman. Collection masks are on this wall.', 'muted'))
     const bodies = document.createElement('div')
     bodies.className = 'tabs'
     for (const body of BODIES) {
@@ -528,8 +533,54 @@ export function mountUi(
         open('boutique')
       }))
     }
-    wrap.append(para('CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, DeGods, and the rest of the design list need a license or a holder check before a body can wear them. The bodies on this wall do not.', 'muted'))
+    wrap.append(para('Masks', 'kicker'))
+    wrap.append(para('The collection names from the city list, worn as masks. Each mesh is a Grind District cut. It is not the licensed artwork.', 'muted'))
+    const masks = document.createElement('div')
+    masks.className = 'tabs'
+    masks.append(button('Bare face', save.mask === 'none' ? 'primary' : 'ghost', () => {
+      setMask('none')
+      hooks.onStyle()
+      open('boutique')
+    }))
+    for (const mask of MASKS) {
+      masks.append(button(mask.label, save.mask === mask.id ? 'primary' : 'ghost', () => {
+        setMask(mask.id)
+        hooks.onStyle()
+        open('boutique')
+      }))
+    }
+    const worn = MASKS.find((mask) => mask.id === save.mask)
+    wrap.append(masks, para(worn?.blurb ?? 'No mask. The face is yours.', 'muted'))
     return frame('Boutique', wrap)
+  }
+
+  const renderGadgets = (): HTMLElement => {
+    const save = getSave()
+    const wrap = stack(
+      para('Drones are gadgets. Buy one with practice funds and it follows you. Pocket it and it stays yours.'),
+      para('They do not carry messages, take photos, or leave the city.', 'muted'),
+    )
+    for (const drone of DRONES) {
+      const owned = save.ownedDrones.includes(drone.id)
+      const equipped = save.drone === drone.id
+      const label = equipped ? `${drone.label} · flying` : owned ? `Equip ${drone.label}` : `Buy ${drone.label} · ${money(drone.price)}`
+      wrap.append(para(drone.blurb, 'muted'))
+      wrap.append(button(label, equipped ? 'primary' : 'ghost', () => {
+        const outcome = buyDrone(drone.id)
+        hooks.onStyle()
+        finish(outcome.message)
+        open('gadgets')
+      }))
+    }
+    if (save.drone !== 'none') {
+      wrap.append(button('Pocket the drone', 'ghost', () => {
+        hooks.onStyle()
+        finish(pocketDrone().message)
+        open('gadgets')
+      }))
+    }
+    wrap.append(advice())
+    return frame('Gadgets', wrap)
   }
 
   const renderSettings = (): HTMLElement => {
@@ -681,6 +732,8 @@ export function mountUi(
         return renderTrade('meme')
       case 'boutique':
         return renderBoutique()
+      case 'gadgets':
+        return renderGadgets()
       case 'gym':
         return renderGym()
       case 'church':
@@ -772,10 +825,10 @@ export function mountUi(
       case 'about':
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
-          para('This build is the city: districts, the original low-poly citizen, the shrimp mascot, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do.'),
+          para('This build is the city: districts, Player 8453, Zuri, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do.'),
           para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
           para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
-          para('Licensed NFT bodies, a live chain, messaging, and proximity voice are later. The ladder does not wait on them.'),
+          para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
           para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
           button('Made by Zahra', 'primary', () => window.open(ZAHRA, '_blank', 'noopener')),
         ])
