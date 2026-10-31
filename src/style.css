@@ -1243,3 +1243,5 @@ body.rail-shut #nav-city.top-map { opacity: 1 !important; pointer-events: auto !
 .sheet-card button.ghost { background: transparent !important; border: 0 !important; border-left: 2px solid transparent !important; }
 .sheet-card button.ghost:hover, .sheet-card button.ghost:focus-visible { background: rgba(255,255,255,.07) !important; border-left-color: rgba(255,255,255,.7) !important; padding-left: 18px !important; }
 .sheet-card .tabs { justify-content: flex-start; }
+#nav #nav-sound, #nav #nav-support, #nav .music-group { display: none !important; }
+.map-entry > button { justify-self: stretch; text-align: left !important; }

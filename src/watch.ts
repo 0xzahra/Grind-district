@@ -29,7 +29,7 @@ export function createWatch(scene: THREE.Scene, count: number) {
   const tmp = new THREE.Vector3()
   return {
     tick(t: number, player: THREE.Vector3, night: number) {
-      cone.opacity = 0.012 + night * 0.028
+      cone.opacity = 0.01 * (1 - night)
       for (const d of drones) {
         const a = t * d.speed + d.phase
         d.g.position.set(Math.cos(a) * d.radius, d.h + Math.sin(t * 0.7 + d.phase) * 0.5, Math.sin(a) * d.radius)
