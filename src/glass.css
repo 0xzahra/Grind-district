@@ -42,3 +42,10 @@ html.title-on #app > :not(#menu):not(#boot):not(#view), html.title-on body > :no
 
 /* Loader never lingers once the city is revealed. */
 #boot.hidden, #boot[aria-hidden="true"] { display: none !important; }
+/* Profile nameplate + season frames (flat, low sheen, no glow). */
+.nameplate { display: grid; justify-items: center; gap: 2px; padding: 8px 18px; border-radius: 12px; background: rgba(20,18,15,.72); border: 1px solid rgba(242,236,224,.14); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; }
+.nameplate strong { font-weight: 600; font-size: 15px; color: #f2ece0; }
+.nameplate span { font-size: 12px; color: rgba(242,236,224,.66); }
+.nameplate.frame-slate { border: 2px solid #6b7280; }
+.nameplate.frame-brass { border: 2px solid #a8865a; box-shadow: inset 0 0 0 1px rgba(255,240,210,.18); }
+.nameplate.frame-gold { border: 2px solid #cdb27a; box-shadow: inset 0 0 0 1px rgba(255,248,230,.25); }

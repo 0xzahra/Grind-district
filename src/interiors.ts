@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ownedHouseItems } from './career.ts'
 import { pbrSet } from './pbrTex.ts'
 import type { Obstacle } from './physics.ts'
 import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
@@ -13,7 +14,7 @@ import { paintSchedule } from './events.ts'
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
 export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
-type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number }
+type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
 const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 }, conference: { w: 18, d: 14 }, lounge: { w: 16, d: 12 } }
@@ -74,10 +75,18 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   let upper: { group: THREE.Group; obstacles: Obstacle[]; uses: Use[] } | null = null
   const rankIndex = () => Math.max(0, RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id))
   const syncFurniture = (house: THREE.Group) => {
-    const tier = rankIndex()
+    const items = ownedHouseItems()
+    const tier = rankIndex() * 100 + items.length
     if (homeFurn?.tier === tier) return
     if (homeFurn) { house.remove(homeFurn.group); homeFurn.dispose() }
-    const f = buildHomeFurniture(tier, ORIGIN.house.x, ORIGIN.house.z)
+    const f = buildHomeFurniture(rankIndex(), ORIGIN.house.x, ORIGIN.house.z)
+    // Season track rewards appear in the home: plant, reading lamp, kilim rug.
+    const extra: Array<THREE.BufferGeometry | THREE.Material> = []
+    const put = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => { const me = new THREE.Mesh(g, m); me.position.set(x, y, z); f.group.add(me); extra.push(g, m); return me }
+    if (items.includes('house-rug')) { const r = put(new THREE.PlaneGeometry(3.2, 2.1), std(0x7a3b2a, 0.95), 1.5, 0.015, 2.2); r.rotation.x = -Math.PI / 2; put(new THREE.PlaneGeometry(2.6, 1.5), std(0xc9a46a, 0.95), 1.5, 0.02, 2.2).rotation.x = -Math.PI / 2 }
+    if (items.includes('house-plant')) { put(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 10), std(0xd8d2c6, 0.6), -8.6, 0.25, 6.4); for (const [dx, dy, s] of [[0, 1.1, 0.5], [0.15, 1.55, 0.38], [-0.12, 1.35, 0.34]]) put(new THREE.IcosahedronGeometry(s, 0), std(0x3f5a34, 0.85), -8.6 + dx, dy, 6.4) }
+    if (items.includes('house-lamp')) { put(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), std(0x4e3626, 0.5), 8.6, 0.75, -6.3); put(new THREE.CylinderGeometry(0.18, 0.28, 0.3, 12, 1, true), std(0xe8dcc4, 0.9), 8.6, 1.55, -6.3); put(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), std(0x4e3626, 0.5), 8.6, 0.02, -6.3) }
+
     const fUses: Use[] = f.seats.map((st) => { const sp = seatSpot(`house-seat-${st.id}`, st.title, { x: ORIGIN.house.x + st.x, z: ORIGIN.house.z + st.z, yaw: st.yaw, y: st.y }, hooks.sit, 0.7); return { ...sp, run: sp.use } as Use })
     for (const sc of f.screens) {
       const t = createTvScreen(sc.width)
@@ -524,23 +533,27 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Members' lounge: quiet walnut, leather and brass. Stations unlock by the visitor's rank; friends and guests may walk in.
       const walnut = std(0x4e3626, 0.55), leather = std(0x3a2a20, 0.7), brass = std(0xb08d57, 0.35, 0.6), rugM = std(0x6b4b3a, 0.95)
       const rug = add(new THREE.PlaneGeometry(7, 4.5), rugM, 0, 0.02, 0); rug.rotation.x = -Math.PI / 2
-      const STATIONS: Array<{ sid: string; title: string; rank: number; x: number; z: number; text: string }> = [
-        { sid: 'library', title: 'Library desk', rank: 0, x: -5.5, z: -4, text: 'A quiet desk. Reread a lesson in Career, Earn Paths.' },
-        { sid: 'strategy', title: 'Strategy room', rank: 1, x: -1.8, z: -4.6, text: 'A whiteboard with the week\u2019s challenges. Plan before you act.' },
-        { sid: 'terrace', title: 'Terrace bar', rank: 2, x: 1.8, z: -4.6, text: 'Water and tea only. Good place to meet your party.' },
-        { sid: 'board', title: 'Boardroom', rank: 3, x: 5.5, z: -4, text: 'Long table, twelve chairs. Hosts DAO-style debates.' },
-        { sid: 'study', title: 'Private study', rank: 4, x: 5.5, z: 3.5, text: 'Soundproofed. Research and writing.' },
-        { sid: 'suite', title: 'Whale suite', rank: 5, x: -5.5, z: 3.5, text: 'The top floor view. Mentors meet here.' },
+      // Each station opens a real tool: study, practice trading, certificates, Career / Earn Paths.
+      const STATIONS: Array<{ sid: string; title: string; rank: number; x: number; z: number; text: string; go: () => void }> = [
+        { sid: 'library', title: 'Study desk', rank: 0, x: -5.5, z: -4, text: 'Opens the courses. Pick up where you left off.', go: () => hooks.openPanel('learn') },
+        { sid: 'strategy', title: 'Trading desk', rank: 0, x: -1.8, z: -4.6, text: 'Practice trading with in-game balance only.', go: () => hooks.openPanel('trade') },
+        { sid: 'trophy', title: 'Trophy wall', rank: 0, x: 1.8, z: -4.6, text: 'Your course certificates, ready to share.', go: () => hooks.openCerts?.() },
+        { sid: 'board', title: 'Career board', rank: 0, x: 5.5, z: -4, text: 'Career progress, Earn Paths and jobs.', go: () => hooks.openCareer?.('paths') },
+        { sid: 'study', title: 'Weekly planner', rank: 2, x: 5.5, z: 3.5, text: 'This week\u2019s challenges in Career.', go: () => hooks.openCareer?.('weekly') },
+        { sid: 'suite', title: 'Mentor suite', rank: 4, x: -5.5, z: 3.5, text: 'Jobs and duties for senior members.', go: () => hooks.openCareer?.('jobs') },
       ]
       const RN = ['Shrimp', 'Crab', 'Fish', 'Dolphin', 'Shark', 'Whale']
       for (const st of STATIONS) {
         box(1.6, 0.75, 0.8, walnut, st.x, st.z)
         box(0.12, 0.35, 0.12, brass, st.x + 0.55, st.z, 0.75, false)
-        use({ id: `lounge-${st.sid}`, x: st.x, z: st.z + 1, r: 1.2, title: st.title, body: `${RN[st.rank]}+ · ${st.text}`, enter: 'Use station', run: () => {
+        use({ id: `lounge-${st.sid}`, x: st.x, z: st.z + 1, r: 1.2, title: st.title, body: st.rank ? `${RN[st.rank]}+ · ${st.text}` : st.text, enter: 'Open', run: () => {
           const lvl = hooks.rankIndex?.() ?? 0
-          hooks.toast(lvl >= st.rank ? `${st.title}: ${st.text}` : `${st.title} unlocks at ${RN[st.rank]}. Keep learning and showing up.`)
+          if (lvl >= st.rank) st.go()
+          else hooks.toast(`${st.title} unlocks at ${RN[st.rank]}. Keep learning and showing up.`)
         } })
       }
+      // Trophy wall: brass frames on the north wall behind the trophy station.
+      for (let k = 0; k < 4; k++) box(0.55, 0.42, 0.05, brass, 1.0 + k * 0.55, -d / 2 + 0.06, 1.5, false)
       for (const [x, z, ry] of [[-2, 1.5, 0], [2, 1.5, 0], [0, 3.2, Math.PI]] as Array<[number, number, number]>) { box(1.8, 0.45, 0.8, leather, x, z, 0, true, ry); box(1.8, 0.5, 0.18, leather, x, z + (ry ? -0.35 : 0.35), 0.45, false, ry) }
       box(1.2, 0.4, 0.7, walnut, 0, 2.4)
     }

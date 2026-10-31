@@ -271,6 +271,8 @@ const apiAgents = createRemoteAgents(scene)
   }
   syncDrone()
 
+  window.addEventListener('gd:look', () => applyLook())
+  setTimeout(() => void publishProfile(), 4000) // pull the account look on a fresh device
   const applyLook = () => {
     const time = getSave().timeOfDay
     world.setLook({ time, season: seasonAt() })
@@ -565,7 +567,7 @@ const apiAgents = createRemoteAgents(scene)
     isOpen: (title) => !ccSheet.hidden && sheetTitle.textContent === title,
   })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
-  const openCareer = () => openSheet('Career', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }))
+  const openCareer = (tab?: unknown) => openSheet('Career', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'overview'))
   const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
   must('#cc-career').addEventListener('click', openCareer)
@@ -802,6 +804,8 @@ const apiAgents = createRemoteAgents(scene)
       avatar.object.rotation.y = yaw
     },
     sit: (s) => sitOn(s),
+    openCareer: (tab) => { setCC(true); openCareer(tab) },
+    openCerts: () => ui.open('profile'),
   })
   // Sitting: move onto the seat, hold still, pose the rig; any stick, key or tap stands up.
   const seating = createSeating()

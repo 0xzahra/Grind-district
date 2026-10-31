@@ -5,6 +5,10 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
+import { equippedFrame } from './career.ts'
+// Signed-in players: the look saves to the account through the existing profile upsert (debounced).
+let lookTimer = 0
+const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
 import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { track } from './track.ts'
@@ -263,6 +267,14 @@ export function mountUi(
       img.alt = `${save.name}, full body`
       hero.append(img)
     }
+    // Nameplate under the portrait wears the equipped season frame (slate, brass, gold).
+    const plate = document.createElement('div')
+    const fr = equippedFrame()
+    plate.className = `nameplate${fr ? ` ${fr}` : ''}`
+    const pn = document.createElement('strong'); pn.textContent = save.name || 'Player'
+    const pu = document.createElement('span'); pu.textContent = save.username ? `@${save.username}` : rankFor(save.xp).label
+    plate.append(pn, pu)
+    hero.append(plate)
     const glass = document.createElement('section')
     glass.className = 'glass'
     const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
@@ -660,12 +672,12 @@ export function mountUi(
       const row = document.createElement('label'); row.className = 'morph-row'
       const t = document.createElement('span'); t.textContent = label
       const r = document.createElement('input'); r.type = 'range'; r.min = String(min); r.max = String(max); r.step = '0.01'; r.value = String(mo[key])
-      r.oninput = () => { setMorph({ [key]: Number(r.value) }); hooks.onStyle() }
+      r.oninput = () => { setMorph({ [key]: Number(r.value) }); hooks.onStyle(); saveLookSoon() }
       row.append(t, r); return row
     }
     wrap.append(para('Body', 'kicker'), slider('Height', 'h', 0.92, 1.08), slider('Build', 'b', 0.9, 1.15))
     const hairs = document.createElement('div'); hairs.className = 'tabs'
-    for (const hc of HAIRS) hairs.append(button(hc.label, mo.hair === hc.hex ? 'primary' : 'ghost', () => { setMorph({ hair: hc.hex }); hooks.onStyle(); open('boutique') }))
+    for (const hc of HAIRS) hairs.append(button(hc.label, mo.hair === hc.hex ? 'primary' : 'ghost', () => { setMorph({ hair: hc.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }))
     wrap.append(para('Hair', 'kicker'), hairs)
     wrap.append(para(`Gold chain · ${money(CHAIN_USD)} practice. A want, not a need. Resells for ${money(RESELL_USD)}.`, 'muted'))
     if (save.luxury) {

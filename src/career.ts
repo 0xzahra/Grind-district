@@ -205,3 +205,8 @@ export function renderFeed(root: HTMLElement, go: (to: string) => void): void {
   if (!c.feed.length) list.append(el('li', 'Quiet so far. Pass a course, rank up or join an event.', 'empty'))
   root.replaceChildren(el('p', 'Real city events. No likes, no counts.', 'cc-muted'), list)
 }
+
+/** Equipped season plate frame id ('' when none), for the profile nameplate. */
+export function equippedFrame(): string { return c.frame }
+/** Season house rewards the player has unlocked, placed in their home. */
+export function ownedHouseItems(): string[] { return [...new Set(c.houseItems)] }
