@@ -4,7 +4,7 @@ import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
-import { createAgentCompanion } from './agent.ts'
+import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { mountNotifications, notify } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
@@ -190,6 +190,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   let travelHook: (title: string, enter?: boolean) => void = () => {}
   const crowd = createCrowd(scene)
   const agentBot = createAgentCompanion(scene)
+const apiAgents = createRemoteAgents(scene)
   const physSky = createPhysicalSky(scene)
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
@@ -668,6 +669,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     }
     crowdObstacles = crowd.tick(dt)
     agentBot.tick(dt, avatar.object.position)
+  apiAgents.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
     if (!calmSky()) dayPhase = (dayPhase + dt / DAY_SECONDS) % 1

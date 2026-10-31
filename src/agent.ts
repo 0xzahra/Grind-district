@@ -70,3 +70,44 @@ export function createAgentCompanion(scene: THREE.Scene): { tick: (dt: number, t
     },
   }
 }
+
+/** API agents (registered via /api/agent-register) appear as labelled robots. Polls a public, read-only list. */
+export function createRemoteAgents(scene: THREE.Scene): { tick: (dt: number) => void } {
+  const shell = new THREE.MeshStandardMaterial({ color: 0x2a2f33, roughness: 0.4, metalness: 0.55 })
+  const glass = new THREE.MeshStandardMaterial({ color: 0xd9c08a, emissive: 0xd9c08a, emissiveIntensity: 0.5, roughness: 0.3 })
+  const bodyGeo = new THREE.CapsuleGeometry(0.16, 0.22, 4, 10)
+  const headGeo = new THREE.BoxGeometry(0.26, 0.18, 0.22)
+  const bots = new Map<string, { root: THREE.Group; goal: THREE.Vector3; name: string }>()
+  const make = (name: string) => {
+    const root = new THREE.Group()
+    const body = new THREE.Mesh(bodyGeo, shell); body.position.y = 0.62; body.castShadow = true
+    const head = new THREE.Mesh(headGeo, shell); head.position.y = 0.95
+    const eye = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.05), glass); eye.position.set(0, 0.95, 0.111)
+    const tag = label(name, 'AI agent'); tag.position.y -= 0.6
+    root.add(body, head, eye, tag)
+    scene.add(root)
+    return root
+  }
+  const poll = async () => {
+    try {
+      const r = await fetch('/api/agent-list', { signal: AbortSignal.timeout(5000) })
+      const { agents = [] } = (await r.json()) as { agents?: Array<{ id: string; name: string; x: number; z: number }> }
+      const seen = new Set<string>()
+      for (const a of agents) {
+        seen.add(a.id)
+        let bot = bots.get(a.id)
+        if (!bot) { bot = { root: make(a.name), goal: new THREE.Vector3(a.x, 0, a.z), name: a.name }; bot.root.position.copy(bot.goal); bots.set(a.id, bot) }
+        bot.goal.set(a.x, 0, a.z)
+      }
+      for (const [id, bot] of bots) if (!seen.has(id)) { scene.remove(bot.root); bots.delete(id) }
+    } catch { /* offline: keep last positions */ }
+  }
+  void poll()
+  window.setInterval(() => { if (!document.hidden) void poll() }, 15000)
+  return {
+    tick(dt) {
+      const k = 1 - Math.exp(-2 * dt)
+      for (const bot of bots.values()) bot.root.position.lerp(bot.goal, k)
+    },
+  }
+}

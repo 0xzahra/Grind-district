@@ -87,14 +87,16 @@ export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void
  * Not taken from a licensed collection. The plate reads the name they signed up with.
  */
 export function createPlayer(): ShrimpAvatar {
-  const skin = mat(SKIN, 0.58)
+  const skin = mat(SKIN, 0.72)
   skin.name = 'skin'
   const hairMat = mat(HAIR, 0.75)
   hairMat.name = 'hair'
   hairMat.emissive = new THREE.Color(0x4a3a12)
   hairMat.emissiveIntensity = 0
   const suit = mat(SUIT, 0.64)
+  suit.flatShading = false // clothes smooth, faces faceted
   const shirt = mat(SHIRT, 0.48)
+  shirt.flatShading = false
   shirt.emissive = new THREE.Color(SHIRT)
   shirt.emissiveIntensity = 0
   const metal = mat(FRAME, 0.16, 0.9)
@@ -153,7 +155,7 @@ export function createPlayer(): ShrimpAvatar {
     x *= 0.9
     if (y < -0.01) {
       const jaw = Math.min(1, -y / 0.16)
-      x *= 1 - 0.36 * jaw
+      x *= 1 - 0.22 * jaw // squarer jaw
       z *= 1 - 0.05 * jaw
     }
     if (y < -0.1 && z > 0.02) {
@@ -175,7 +177,16 @@ export function createPlayer(): ShrimpAvatar {
     [-0.04, 1.86, 0.09, 0.1, 0.035, 0.07, 0.45, 0.15, 0.2],
     [0.05, 1.85, 0.1, 0.09, 0.032, 0.07, 0.4, -0.12, -0.16],
   ] as const
-  void shards // replaced by the full-coverage faceted cap in face.ts
+  void shards
+  // Swept-back pompadour: matte faceted blocks rising off the forehead, over the full-coverage cap.
+  for (const [x, y, z, sx, sy, sz, rx, ry, rz] of [
+    [0, 1.815, 0.1, 0.24, 0.07, 0.12, 0.5, 0, 0], [-0.07, 1.825, 0.04, 0.14, 0.06, 0.16, 0.25, 0.15, 0.3],
+    [0.07, 1.825, 0.04, 0.14, 0.06, 0.16, 0.25, -0.15, -0.3], [0, 1.835, -0.02, 0.22, 0.05, 0.16, -0.15, 0, 0],
+  ] as const) {
+    const tuft = part(new THREE.IcosahedronGeometry(0.5, 0), hairMat, bob, x, y, z)
+    tuft.scale.set(sx, sy, sz)
+    tuft.rotation.set(rx, ry, rz)
+  }
 
   buildFace(bob, { head, female: false, skin, hair: hairMat, lip: 0xb98274, iris: 0x4f6a52, eyeY: 0.015 })
   void iris; void pupil; void lip

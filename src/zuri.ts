@@ -35,13 +35,14 @@ function part(
  * Not a licensed collection. The plate reads the name they signed up with.
  */
 export function createZuri(): ShrimpAvatar {
-  const skin = mat(SKIN, 0.46)
+  const skin = mat(SKIN, 0.7)
   skin.name = 'skin'
   const hairMat = mat(HAIR, 0.7, 0.05)
   hairMat.name = 'hair'
   hairMat.emissive = new THREE.Color(0x4a241c)
   hairMat.emissiveIntensity = 0
-  const coat = mat(COAT, 0.48, 0.12)
+  const coat = mat(COAT, 0.55, 0.05)
+  coat.flatShading = false
   const scarf = mat(0xff6f91, 0.4, 0.08)
   scarf.emissive = new THREE.Color(0xff6f91)
   scarf.emissiveIntensity = 0

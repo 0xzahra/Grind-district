@@ -71,7 +71,7 @@ export function buildFace(bob: THREE.Group, o: FaceOpts): void {
     // Brows: thin, slightly arched, sit just above the eye.
     const by = eyeY + (f ? 0.036 : 0.032)
     const brow = add(new THREE.BoxGeometry(f ? 0.048 : 0.056, f ? 0.006 : 0.009, 0.01), browMat, x + s * 0.004, by, surf(x, by - c.y) + 0.002)
-    brow.rotation.z = s * (f ? 0.12 : 0.04)
+    brow.rotation.z = s * (f ? -0.1 : -0.03)
     // Ears at eye level.
     const ear = add(new THREE.IcosahedronGeometry(0.03, 0), o.skin, s * (hw * 0.98), eyeY - 0.012, c.z - 0.01)
     ear.scale.set(0.42, f ? 0.95 : 1.15, 0.75)
