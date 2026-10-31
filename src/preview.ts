@@ -93,7 +93,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     bokeh = new BokehPass(scene, camera, { focus: 45, aperture: 0.00012, maxblur: 0.006 })
     composer.addPass(bokeh)
   }
-  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.14, 0.5, 0.9))
+  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.06, 0.4, 0.95))
   composer.addPass(new OutputPass())
 
   const resize = () => {

@@ -121,7 +121,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       if (bloom) {
         // Premium, not neon: only true highlights (lamps, sun glints) bloom, and barely.
         bloom.threshold = 0.95 - night * 0.05
-        bloom.strength = 0.035 + night * 0.05
+        bloom.strength = 0.02 + night * 0.03
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */

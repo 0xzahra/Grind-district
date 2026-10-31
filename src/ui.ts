@@ -368,7 +368,7 @@ export function mountUi(
     const body = document.createElement('div')
     body.className = 'stack'
     const showList = () => {
-      body.replaceChildren(para('Twelve courses. Pass one and it files itself. No certificates for sale.', 'muted'))
+      body.replaceChildren(para('Twenty courses. Pass one and it files itself. No certificates for sale.', 'muted'))
       for (const course of COURSES) {
         const meta = SKILL_META[course.id]
         const passed = getSave().skills[course.id]?.passed
@@ -406,7 +406,7 @@ export function mountUi(
           wrap.append(node)
         })
       })
-      const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP`, 'primary', () => {
+      const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP · +5 rep`, 'primary', () => {
         if (picks.some((pick) => pick === null)) {
           result.textContent = 'Answer every exercise, then check.'
           return

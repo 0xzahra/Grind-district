@@ -353,6 +353,8 @@ export type CourseResult =
   | { ok: false; already: true }
   | { ok: false; already?: false; hints: string[]; tries: number }
 
+const COURSE_REP = 5
+
 export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   const course = courseById(id)
   if (!course) return { ok: false, hints: ['That course is not on the board.'], tries: 0 }
@@ -372,6 +374,7 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   if (focused) save.focus = false
   const gained = Math.round(COURSE_XP * (focused ? 1.25 : 1))
   save.skills[id] = { passed: true, tries }
+  save.reputation += COURSE_REP
   track('course_complete', { course: id, tries })
   const rankedUp = gainXp(gained + bonus)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')

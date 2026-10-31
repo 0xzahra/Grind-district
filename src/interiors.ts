@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { pbrSet } from './pbrTex.ts'
 import type { Obstacle } from './physics.ts'
 import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
 import { passedCount } from './certs.ts'
@@ -170,10 +171,13 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
 
     // Shell: floor, skirting, four walls, ceiling beams, exit door on the west wall.
     const floorMat = id === 'gym' ? std(0x2b2d30, 0.95) : id === 'trading' ? std(0x23262a, 0.5, 0.1) : id === 'campus' ? std(0x9a7550, 0.62) : id === 'conference' ? std(0x5b4636, 0.7) : std(id === 'house' ? 0x8a6243 : 0xd9d2c6, 0.6)
+    // Real oak boards (Poly Haven wood_floor, CC0) on the warm floors; plaster grain on the walls.
+    if (id === 'house' || id === 'campus' || id === 'conference') Object.assign(floorMat, pbrSet('wood_floor', Math.max(2, Math.round(w / 3))), { roughness: 1 })
     const floor = add(new THREE.PlaneGeometry(w, d), floorMat, 0, 0.01, 0)
     floor.rotation.x = -Math.PI / 2
     const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : 0xf1ebe2, 0.92)
     // Home: cutaway-height walls and no beams, so the phone's high follow camera sees over them.
+    if (id !== 'trading' && id !== 'conference') { const pl = pbrSet('plastered_wall_04', 3); wallMat.normalMap = pl.normalMap; wallMat.roughnessMap = pl.roughnessMap; wallMat.normalScale.set(0.5, 0.5) }
     const H = id === 'house' ? 2.6 : 3.2
     const T = 0.25
     box(w + T * 2, H, T, wallMat, 0, -d / 2 - T / 2)
@@ -470,7 +474,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inst(new THREE.BoxGeometry(0.22, 0.38, 0.24), std(0xd8ccb0, 0.8), books.filter((_, i) => i % 3 === 2))
       const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.4, roughness: 0.2 })
       for (const x of [-5, -1, 3]) box(1.8, 1.8, 0.04, glass, x, d / 2 - 0.02, 1.0, false)
-      use({ id: 'lectern', x: -0.5, z: -d / 2 + 3.4, r: 1.4, title: 'Lectern', body: 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', enter: 'Open the hall', run: () => hooks.openPanel('learn') })
+      use({ id: 'lectern', x: -0.5, z: -d / 2 + 3.4, r: 1.4, title: 'Lectern', body: 'Twenty short courses. Pass one and it writes your CV, resume, and portfolio.', enter: 'Open the hall', run: () => hooks.openPanel('learn') })
       use({ id: 'library', x: w / 2 - 1.6, z: 0, r: 1.4, title: 'Library', body: 'Every course has a source line. The shelf has the rest.', enter: 'Browse', run: () => hooks.toast('Read the source line under each course. Then do the four exercises.') })
     }
 

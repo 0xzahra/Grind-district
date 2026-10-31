@@ -1,3 +1,4 @@
+import { MORE_COURSES } from './coursesMore.ts'
 import { SKILL_ORDER, type Season, type SkillId } from './logic.ts'
 
 export type Question = {
@@ -14,7 +15,7 @@ export type Course = {
   questions: Question[]
 }
 
-export const COURSES: Course[] = [
+const BASE_COURSES: Course[] = [
   {
     id: 'spot',
     minutes: '8 min',
@@ -475,6 +476,8 @@ const BEAR = [
   'Your CV does not mark to market.',
   'The houses stay open when the marks fall.',
 ]
+
+export const COURSES: Course[] = [...BASE_COURSES, ...MORE_COURSES]
 
 export function courseById(id: SkillId): Course | undefined {
   return COURSES.find((course) => course.id === id)

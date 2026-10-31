@@ -14,3 +14,14 @@ All assets are free for commercial use. None are paid assets or ripped from game
 | Kloofendal 48d Partly Cloudy (Pure Sky) HDRI | public/tex/sky.hdr | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky | CC0 1.0 |
 
 Processing: tools/pack-people.mjs (meshopt compression, quantised, only 3 animations kept) and tools/pack-tex.mjs (512 px WebP, 512x256 HDRI).
+
+## Added Oct 2026 (realism pass)
+
+| Asset | Files | Author | Source | Licence |
+|---|---|---|---|---|
+| Red Brick 03 (PBR) | public/tex/red_brick_03_*.webp | Poly Haven | https://polyhaven.com/a/red_brick_03 | CC0 1.0 |
+| Grey Cartago 02 (stone, PBR) | public/tex/grey_cartago_02_*.webp | Poly Haven | https://polyhaven.com/a/grey_cartago_02 | CC0 1.0 |
+| Wood Floor (PBR) | public/tex/wood_floor_*.webp | Poly Haven | https://polyhaven.com/a/wood_floor | CC0 1.0 |
+| Fabric Pattern 07 (PBR) | public/tex/fabric_pattern_07_*.webp | Poly Haven | https://polyhaven.com/a/fabric_pattern_07 | CC0 1.0 |
+
+Poly Haven licence: https://polyhaven.com/license (CC0, commercial use allowed, no attribution required).

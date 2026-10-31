@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { pbrSet } from './pbrTex.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { Obstacle } from './physics.ts'
 import { RANKS } from './logic.ts'
@@ -13,7 +14,7 @@ const MATS: Record<Mat, () => THREE.Material> = {
   walnut: () => new THREE.MeshStandardMaterial({ color: 0x5e4330, roughness: 0.65 }),
   white: () => new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.8 }),
   linen: () => new THREE.MeshStandardMaterial({ color: 0xf1ede4, roughness: 0.95 }),
-  fabric: () => new THREE.MeshStandardMaterial({ color: 0x8f8a80, roughness: 0.95 }),
+  fabric: () => new THREE.MeshStandardMaterial({ ...pbrSet('fabric_pattern_07', 1), color: 0xb8b2a6, roughness: 1 }),
   blue: () => new THREE.MeshStandardMaterial({ color: 0x4d6070, roughness: 0.95 }),
   metal: () => new THREE.MeshStandardMaterial({ color: 0x3a3c3f, roughness: 0.45, metalness: 0.6 }),
   // Lamp shades: faint warm self-light only (no extra real lights).

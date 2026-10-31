@@ -5,7 +5,7 @@ export type GuideStop = {
 }
 
 export const GUIDE: GuideStop[] = [
-  { title: 'Learning hall', where: 'North', text: 'Twelve courses. A pass writes the CV, resume, and portfolio. The first Spot pass drops a $25 practice stipend.' },
+  { title: 'Learning hall', where: 'North', text: 'Twenty courses. A pass writes the CV, resume, and portfolio. The first Spot pass drops a $25 practice stipend.' },
   { title: 'Conference centre', where: 'Campus', text: 'Stage, rows of seats and a schedule of in-game Web3 events: AMAs, Spaces-style talks, hackathon demo days. Join one for XP and reputation.' },
   { title: 'Campus café', where: 'Campus', text: 'Season headlines. Gossip, not a signal. One read a day.' },
   { title: 'Trading floor', where: 'West', text: 'Practice spot book in UNIT. Size the clip. A red close can still count if the plan was sized.' },

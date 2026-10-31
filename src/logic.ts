@@ -23,6 +23,14 @@ export const SKILL_ORDER = [
   'stables',
   'liquidity',
   'records',
+  'wallets',
+  'explorer',
+  'scams',
+  'community',
+  'content',
+  'defi',
+  'nfts',
+  'daos',
 ] as const
 
 export type SkillId = (typeof SKILL_ORDER)[number]
@@ -39,6 +47,14 @@ export const SKILL_META: Record<SkillId, { title: string; cv: string }> = {
   custody: { title: 'Custody', cv: 'Custody — a recovery phrase is the keys, and an approval is a spending limit' },
   stables: { title: 'Stablecoins', cv: 'Stablecoins — a peg is a claim about reserves and redemption, not a law' },
   liquidity: { title: 'Liquidity pools', cv: 'Liquidity pools — a swap moves the ratio, and providing liquidity takes inventory risk' },
+  wallets: { title: 'Wallet safety & seed phrases', cv: 'Wallet safety — keeps the seed phrase offline and never shares it' },
+  explorer: { title: 'Reading a block explorer (Basescan)', cv: 'Block explorers — verifies a payment by its hash on Basescan' },
+  scams: { title: 'Spotting scams & rug pulls', cv: 'Scam awareness — reads approvals and spots rug-pull signs' },
+  community: { title: 'Community management in Web3', cv: 'Community management — runs a safe, honest Web3 community' },
+  content: { title: 'Content & threads that grow', cv: 'Content — writes clear, sourced threads and discloses holdings' },
+  defi: { title: 'Intro to DeFi', cv: 'DeFi basics — swaps, slippage, liquidity pools and their risks' },
+  nfts: { title: 'NFT basics', cv: 'NFT basics — checks the contract and reads the licence' },
+  daos: { title: 'DAOs & governance', cv: 'DAO governance — reads proposals, votes and delegates' },
   records: { title: 'Reading a transfer', cv: 'Reading a transfer — status, from, to, asset, and chain, not a screenshot' },
 }
 

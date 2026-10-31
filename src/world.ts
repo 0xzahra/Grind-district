@@ -136,6 +136,10 @@ export function createWorld(options: {
   Object.assign(stoneDark, pbr('concrete_wall_008'), { color: new THREE.Color(0x6e675e), roughness: 1, metalness: 0 })
   Object.assign(trim, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
   for (const m of [stone, stoneDark, trim]) m.needsUpdate = true
+  // Classic brick (red_brick_03) for the low civic blocks; honed grey stone (grey_cartago_02) for the city wall.
+  const brick = new THREE.MeshStandardMaterial({ ...pbr('red_brick_03'), color: 0xe6d6c8, roughness: 1, metalness: 0 })
+  Object.assign(stoneDark, pbr('grey_cartago_02'), { color: new THREE.Color(0x8a857c) })
+  stoneDark.needsUpdate = true
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4a38, roughness: 0.82 })
   const bark = new THREE.MeshStandardMaterial({ color: 0x4a3428, roughness: 0.9 })
   const leaf = new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.8, flatShading: true })
@@ -154,7 +158,7 @@ export function createWorld(options: {
   })
 
   const solid = (geometry: THREE.BufferGeometry, material: THREE.Material, cast = true) => {
-    if (material === stone || material === stoneDark || material === trim) boxProjectUV(geometry, material === trim ? 1.2 : 0.35)
+    if (material === stone || material === stoneDark || material === trim || material === brick) boxProjectUV(geometry, material === trim ? 1.2 : 0.35)
     const item = new THREE.Mesh(geometry, material)
     item.castShadow = cast
     item.receiveShadow = true
@@ -534,9 +538,9 @@ export function createWorld(options: {
           metalness: 0.04,
           emissive: 0xfff1dd,
           emissiveMap: facadeTex(spec.seed ?? 1),
-          emissiveIntensity: 0.12,
+          emissiveIntensity: 0.08,
         })
-      : stone
+      : (spec.seed ?? 0) % 2 === 1 && !spec.steeple ? brick : stone
     if (spec.windows && material instanceof THREE.MeshStandardMaterial) facades.push(material)
     // Varied silhouettes: bigger civic blocks step up by seed.
     if (spec.windows && spec.w >= 8) spec = { ...spec, h: spec.h + ((spec.seed ?? 0) % 3) * 1.3 }
