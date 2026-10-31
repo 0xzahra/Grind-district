@@ -134,6 +134,8 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
   scene.add(dust)
 
   return {
+    /** Street bench seats (seat-top height, facing away from the backrest) for the sitting system. */
+    benchSeats: spots.map((s) => ({ x: s.x, z: s.z, yaw: s.rot, y: 0.49 })),
     tick(time: number, focus: THREE.Vector3, night: number) {
       for (const [i, c] of clouds.entries()) {
         const a = (i / clouds.length) * Math.PI * 2 + time * 0.004

@@ -2,12 +2,15 @@ import * as THREE from 'three'
 import type { Obstacle } from './physics.ts'
 import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
 import { passedCount } from './certs.ts'
+import { seatSpot, type Seat } from './seating.ts'
+import { createTvScreen } from './tv.ts'
+import { animateWater } from './water.ts'
 import { rankFor } from './logic.ts'
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
 export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
-type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void }
+type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 } }
 const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 } }
@@ -81,6 +84,18 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const box = (bw: number, bh: number, bd: number, mat: THREE.Material, x: number, z: number, y = 0, block = true, ry = 0) =>
       add(new THREE.BoxGeometry(bw, bh, bd), mat, x, y + bh / 2, z, block, ry)
     const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }) => uses.push({ ...u, x: o.x + u.x, z: o.z + u.z })
+    // Seats: room-local position, facing yaw, seat-top height. Tap or E sits; any move stands.
+    const seat = (sid: string, title: string, x: number, z: number, yaw: number, y: number) => {
+      const sp = seatSpot(`${id}-seat-${sid}`, title, { x: o.x + x, z: o.z + z, yaw, y }, hooks.sit, 0.7)
+      uses.push({ ...sp, run: sp.use })
+    }
+    const tv = (x: number, y: number, z: number, width: number, ry = 0) => {
+      const t = createTvScreen(width)
+      t.mesh.position.set(x, y, z)
+      t.mesh.rotation.y = ry
+      group.add(t.mesh)
+      return t
+    }
 
     // Shell: floor, skirting, four walls, ceiling beams, exit door on the west wall.
     const floorMat = id === 'gym' ? std(0x2b2d30, 0.95) : id === 'trading' ? std(0x23262a, 0.5, 0.1) : id === 'campus' ? std(0x9a7550, 0.62) : std(id === 'house' ? 0x8a6243 : 0xd9d2c6, 0.6)
@@ -189,8 +204,13 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Indoor pool (SE) with a stone deck.
       box(4.6, 0.04, 5.8, std(0xd8d0c2, 0.7), 7.4, 3.8, 0, false)
       const water = new THREE.MeshStandardMaterial({ color: 0x3f8fb8, emissive: 0x1d5f80, emissiveIntensity: 0.35, roughness: 0.05, metalness: 0.1 })
-      add(new THREE.PlaneGeometry(2.6, 4.6), water, 7.6, 0.06, 4.0).rotation.x = -Math.PI / 2
-      obstacles.push({ kind: 'box', x: o.x + 7.6, z: o.z + 4.0, hx: 1.3, hz: 2.3 })
+      const pool = add(new THREE.PlaneGeometry(2.6, 4.6), water, 7.6, 0.06, 4.0)
+      pool.rotation.x = -Math.PI / 2
+      pool.castShadow = false
+      animateWater(pool)
+      // Slightly inside the water edge so the player can stand right at the rim on the narrow deck.
+      obstacles.push({ kind: 'box', x: o.x + 7.6, z: o.z + 4.0, hx: 1.15, hz: 2.15 })
+      seat('pool', 'Pool edge', 6.3, 4.0, Math.PI / 2, 0.1)
       // Windows.
       for (const x of [-0.5, 7.0]) box(1.8, 1.2, 0.04, new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.35, roughness: 0.1 }), x, -d / 2 + 0.02, 1.4, false)
     }
@@ -235,6 +255,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       station('mats', 'Mats', -0.8, 3.6, -0.8, 2.4)
       use({ id: 'board', x: -5.6, z: 3.8, r: 0.9, title: 'Whiteboard', body: 'What the set counts.', enter: 'Read', run: () => hooks.toast(walkGym().message) })
       box(0.05, 1.0, 1.6, std(0xf6f6f2, 0.4), -w / 2 + 0.05, 3.8, 1.2, false)
+      box(1.7, 1.0, 0.06, std(0x0d0f12, 0.2, 0.5), -3.6, d / 2 - 0.06, 1.7, false)
+      const gymTv = tv(-3.6, 2.2, d / 2 - 0.1, 1.6, Math.PI)
+      use({ id: 'tv', x: -3.6, z: d / 2 - 1.3, r: 0.9, title: 'TV', body: 'City news while you train.', enter: 'Change channel', run: gymTv.toggle })
     }
 
     if (id === 'boutique') {
@@ -333,6 +356,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inst(new THREE.BoxGeometry(0.85, 0.5, 0.04), blackMat, screens)
       inst(new THREE.PlaneGeometry(0.8, 0.45), screenMat, screens.map(([x, y, z]) => [x, y, z + 0.025]))
       inst(new THREE.BoxGeometry(0.55, 0.5, 0.55), std(0x22262b, 0.6), chairs)
+      chairs.forEach(([x, , z], i) => seat(`desk${i}`, 'Desk chair', x, z, Math.PI, 0.5))
       // Ticker wall on the north wall.
       const tickerTex = canvasTex(1024, 128, (g) => {
         g.fillStyle = '#121418'; g.fillRect(0, 0, 1024, 128)
@@ -365,6 +389,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       }
       inst(new THREE.BoxGeometry(4.2, 0.72, 0.5), wood, benches, [2.15, 0.3])
       inst(new THREE.BoxGeometry(4.0, 0.44, 0.4), std(0x3c2c20, 0.7), seats)
+      // Lecture seats face the board (north, -z): two places per bench.
+      seats.forEach(([x, , z], i) => { seat(`row${i}a`, 'Lecture seat', x - 1.0, z, Math.PI, 0.44); seat(`row${i}b`, 'Lecture seat', x + 1.0, z, Math.PI, 0.44) })
       const board = canvasTex(512, 256, (g) => {
         g.fillStyle = '#1f2a24'; g.fillRect(0, 0, 512, 256)
         g.fillStyle = '#e8e4d8'; g.font = '500 30px Georgia, serif'
@@ -409,9 +435,16 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const mics: Array<[number, number, number, number?]> = [[-3.2, 0.95, 1.5], [-3.8, 0.95, 2.6], [-2.6, 0.95, 2.6]]
       inst(new THREE.CylinderGeometry(0.04, 0.04, 0.18, 10), stand, mics)
       inst(new THREE.BoxGeometry(0.5, 0.45, 0.5), fabric, [[-3.2, 0.22, 0.8], [-4.4, 0.22, 3.0], [-2.0, 0.22, 3.0]])
+      seat('mic1', 'Podcast stool', -3.2, 0.8, 0, 0.45)
+      seat('mic2', 'Podcast stool', -4.4, 3.0, Math.atan2(1.2, -0.8), 0.45); seat('mic3', 'Podcast stool', -2.0, 3.0, Math.atan2(-1.2, -0.8), 0.45)
       // Lounge sofa and a framed wall of covers.
       box(2.8, 0.45, 0.9, std(0x3d4a3f, 0.95), 3.6, d / 2 - 0.9)
       box(2.8, 0.5, 0.2, std(0x3d4a3f, 0.95), 3.6, d / 2 - 0.4, 0.45, false)
+      seat('lounge-l', 'Sofa', 2.9, d / 2 - 0.95, Math.PI, 0.45); seat('lounge-r', 'Sofa', 4.3, d / 2 - 0.95, Math.PI, 0.45)
+      // Monitor wall TV beside the set.
+      box(0.06, 1.0, 1.7, std(0x0d0f12, 0.2, 0.5), w / 2 - 0.06, -1.0, 1.4, false)
+      const studioTv = tv(w / 2 - 0.1, 1.9, -1.0, 1.6, -Math.PI / 2)
+      use({ id: 'tv', x: w / 2 - 1.3, z: -1.0, r: 0.9, title: 'TV', body: 'What the city is talking about.', enter: 'Change channel', run: studioTv.toggle })
       const frames: Array<[number, number, number, number?]> = []
       for (let i = 0; i < 4; i++) frames.push([-w / 2 + 0.06, 1.7, -3 + i * 1.3, Math.PI / 2])
       inst(new THREE.BoxGeometry(1.0, 0.7, 0.04), std(0xc9a25e, 0.4, 0.8), frames)
