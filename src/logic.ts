@@ -266,6 +266,8 @@ export type Save = {
   xp: number
   reputation: number
   ledger: number
+  /** Part of ledger that came from on-chain top-ups; the rest is earned. Earned is spent first. */
+  toppedUp: number
   focus: boolean
   skills: Partial<Record<SkillId, { passed: boolean; tries: number }>>
   activities: Activity[]
@@ -477,6 +479,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     xp: 0,
     reputation: 0,
     ledger: 0,
+    toppedUp: 0,
     focus: false,
     skills: {},
     activities: [],
@@ -664,6 +667,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.xp = num(row.xp, 0, 1_000_000, 0)
   fresh.reputation = num(row.reputation, 0, 1_000_000, 0)
   fresh.ledger = cents(num(row.ledger, 0, 1_000_000, 0))
+  fresh.toppedUp = cents(Math.min(fresh.ledger, num(row.toppedUp, 0, 1_000_000, 0)))
   fresh.focus = bool(row.focus, false)
   fresh.unit = cleanHolding(row.unit)
   fresh.meme = cleanHolding(row.meme)

@@ -8,6 +8,8 @@ import { openCertificate, shareCv } from './certs.ts'
 import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { track } from './track.ts'
+import { accessToken } from './login.ts'
+import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { HOUSES, type HouseId } from './houses.ts'
@@ -58,6 +60,7 @@ import {
   dismissIntro,
   finishGym,
   getSave,
+  balanceSplit,
   hearTalk,
   joinEvent,
   noteTalk,
@@ -286,7 +289,7 @@ export function mountUi(
     if (save.username) void fetch(`/api/referrals?u=${encodeURIComponent(save.username)}`).then((r) => r.json()).then((j: { joined?: string[] }) => {
       joined.textContent = j.joined?.length ? j.joined.map((p) => `@${p} joined via your invite link.`).join(' ') : 'No one has joined via your link yet.'
     }).catch(() => {})
-    const card = frame(save.name, stack(hero, renderToday(save), glass, share, advice()))
+    const card = frame(save.name, stack(hero, renderToday(save), glass, share, renderRewardWallet(), advice()))
     card.classList.add('glass-sheet')
     return card
   }
@@ -341,10 +344,49 @@ export function mountUi(
     return wrap
   }
 
+  const renderRewardWallet = (): HTMLElement => {
+    const box = document.createElement('section')
+    box.className = 'glass'
+    const h = document.createElement('h3'); h.textContent = 'Rewards wallet (Base)'
+    const input = document.createElement('input')
+    input.type = 'text'; input.placeholder = '0x… (paste)'; input.autocomplete = 'off'; input.spellcheck = false; input.maxLength = 42
+    input.setAttribute('aria-label', 'Rewards wallet address on Base')
+    input.addEventListener('keydown', (e) => { if (!(e.ctrlKey || e.metaKey) && e.key.length === 1) e.preventDefault() })
+    input.addEventListener('drop', (e) => e.preventDefault())
+    const msg = para('Optional. Kept private. Never share seed phrases or private keys.', 'muted')
+    const check = (v: string): string | null => { if (!/^0x[0-9a-fA-F]{40}$/.test(v)) return null; try { return getAddress(v) } catch { return null } }
+    input.addEventListener('paste', (e) => {
+      e.preventDefault()
+      const v = (e.clipboardData?.getData('text') ?? '').trim()
+      const a = check(v)
+      if (a) { input.value = a; msg.textContent = 'Looks valid. Save to keep it.' } else { msg.textContent = 'That is not a valid Base address (0x + 40 hex, checksum). Never share seed phrases or private keys.' }
+    })
+    const call = async (method: 'GET' | 'POST' | 'DELETE', body?: unknown) => {
+      const t = await accessToken()
+      if (!t) throw new Error('sign in')
+      const r = await fetch('/api/reward-wallet', { method, headers: { authorization: `Bearer ${t}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined })
+      const j = await r.json().catch(() => ({})) as { address?: string | null; error?: string }
+      if (!r.ok) throw new Error(j.error ?? 'failed')
+      return j
+    }
+    void call('GET').then((j) => { if (j.address) input.value = j.address }).catch(() => {})
+    box.append(h, input, msg,
+      button('Save wallet', 'ghost', () => {
+        const a = check(input.value.trim())
+        if (!a) { msg.textContent = 'Paste a valid 0x address first.'; return }
+        void call('POST', { address: a }).then(() => { msg.textContent = 'Saved privately. No payouts yet.' }).catch((e: Error) => { msg.textContent = `Could not save: ${e.message}.` })
+      }),
+      button('Remove', 'ghost', () => void call('DELETE').then(() => { input.value = ''; msg.textContent = 'Removed.' }).catch((e: Error) => { msg.textContent = `Could not remove: ${e.message}.` })),
+    )
+    return box
+  }
+
   const renderBooks = (): HTMLElement => {
     const save = getSave()
     const wrap = stack(para('Assets earn. Liabilities (cars, jets, houses, chains) cost upkeep. Investments are coins, new coins and stocks. In-game values only.', 'muted'))
     wrap.append(renderBookRows(bookRows(save)))
+    const split = balanceSplit()
+    wrap.append(para(`Balance history: $${split.total.toFixed(2)} spendable · $${split.earned.toFixed(2)} earned · $${split.toppedUp.toFixed(2)} topped up. Earned is spent first.`, 'muted'))
     if (save.luxury) wrap.append(button('Resell the chain', 'ghost', () => {
       const result = sellChain()
       hooks.onStyle()

@@ -87,7 +87,19 @@ function startAutosave(): void {
   window.addEventListener('pagehide', persist)
 }
 
+/** Spend earned first: the topped-up bucket only shrinks once earned is gone. */
+function settleBuckets(): void {
+  save.toppedUp = cents(Math.max(0, Math.min(save.toppedUp || 0, save.ledger)))
+}
+
+/** Spendable total split into earned (free rewards) and topped-up (from /api/topup-confirm). */
+export function balanceSplit(): { total: number; earned: number; toppedUp: number } {
+  settleBuckets()
+  return { total: save.ledger, earned: cents(save.ledger - save.toppedUp), toppedUp: save.toppedUp }
+}
+
 function persist(): void {
+  settleBuckets()
   try {
     const json = JSON.stringify(save)
     localStorage.setItem(slotKey(), json)
@@ -99,6 +111,7 @@ function persist(): void {
 }
 
 function emit(rankedUp?: RankId): void {
+  settleBuckets()
   for (const listener of listeners) listener(rankedUp)
 }
 
@@ -745,7 +758,9 @@ export function applyTopup(hash: string, amount: number, asset: string): boolean
   if (seen.includes(h) || !(amount > 0)) return false
   seen.push(h)
   localStorage.setItem(key, JSON.stringify(seen))
+  settleBuckets()
   save.ledger = Math.round((save.ledger + amount) * 100) / 100
+  save.toppedUp = cents(save.toppedUp + amount)
   log('money', 'Top-up credited', `$${amount.toFixed(2)} in-game from a ${asset} top-up on Base (after the 2% fee).`)
   persist()
   emit()
