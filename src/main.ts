@@ -4,6 +4,7 @@ import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
+import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { getNotes, markRead, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
@@ -212,7 +213,7 @@ const apiAgents = createRemoteAgents(scene)
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
-  void loadSkinPermissions().then(() => { if (getSave().mask !== 'none') avatar.setMask(getSave().mask) })
+  if (NFT_COLLECTIONS_ENABLED) void loadSkinPermissions().then(() => { if (getSave().mask !== 'none') avatar.setMask(getSave().mask) })
   const pos = { x: getSave().posX, z: getSave().posZ }
   { // Test hook: ?at=x,z starts the player there (used by the automated screenshots).
     const at = new URLSearchParams(location.search).get('at')?.split(',').map(Number)

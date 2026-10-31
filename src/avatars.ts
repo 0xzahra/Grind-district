@@ -1,3 +1,4 @@
+import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import * as THREE from 'three'
 import type { BodyId, MaskId } from './logic.ts'
 import { mountMask } from './masks.ts'
@@ -169,11 +170,24 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     const own = variant === undefined
     upgradeToHuman(avatar, model, {
       glasses: own && !female,
-      look: own ? (female ? { hair: 0x2a1a12 } : { hair: 0xd9c08a, skin: 0xe8c3a6 }) : undefined,
+      look: own ? (female ? { hair: 0x2a1a12, top: tint } : { hair: 0xd9c08a, skin: 0xe8c3a6, top: tint }) : undefined,
       height: female ? 1.68 : 1.78,
     })
+    if (own) {
+      // Boutique colours (blue, mint, sand, coral, ice) recolour the rigged model's top, not just the hidden procedural body.
+      const setStyle = avatar.setStyle
+      const base = female ? { hair: 0x2a1a12 } : { hair: 0xd9c08a, skin: 0xe8c3a6 }
+      avatar.setStyle = (t, lux) => {
+        setStyle(t, lux)
+        const look = { ...base, top: t }
+        avatar.object.userData.look = look
+        const apply = avatar.object.userData.applyLook as ((l: typeof look) => void) | undefined
+        apply?.(look)
+      }
+    }
     const setMask = avatar.setMask
     avatar.setMask = (mask) => {
+      if (!NFT_COLLECTIONS_ENABLED) mask = 'none'
       setMask(mask)
       const root = avatar.object
       root.userData.masked = mask !== 'none'

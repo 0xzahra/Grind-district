@@ -1,4 +1,5 @@
 import { isLicensed, skinSlots } from './skins.ts'
+import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
@@ -542,6 +543,7 @@ export function mountUi(
         open('boutique')
       }))
     }
+    if (NFT_COLLECTIONS_ENABLED) {
     wrap.append(para('Masks', 'kicker'))
     wrap.append(para('The collection names from the city list, worn as masks. Each mesh is a Grind District cut. It is not the licensed artwork.', 'muted'))
     const masks = document.createElement('div')
@@ -564,6 +566,7 @@ export function mountUi(
     const slotRows = Object.entries(skinSlots()).map(([id, slot]) =>
       `${slot!.collection}: ${isLicensed(id as MaskId) ? 'licensed face live' : 'awaiting permission (original placeholder)'}`)
     wrap.append(para(slotRows.length ? slotRows.join(' · ') : 'Collection slots load with the city.', 'muted'))
+    }
     return frame('Boutique', wrap)
   }
 

@@ -92,7 +92,7 @@ check(cleanDisplayName('  Reef   Lane ') === 'Reef Lane', 'a display name keeps 
 check(cleanUsername('Reef_01') === 'reef_01' && cleanUsername('ab') === '' && cleanUsername('!!!') === '', 'a username is 3 to 16 letters, numbers, or underscores')
 
 const junk = hydrate({ v: 1, xp: -40, ledger: -5, body: 'punk', username: '  ', name: '   ' })
-check(junk.xp === 0 && junk.ledger === 0 && junk.body === 'shrimp' && junk.username === '' && junk.name === '' && junk.signedUp === false, 'hydrate refuses a broken save')
+check(junk.xp === 0 && junk.ledger === 0 && junk.body === 'player' && junk.username === '' && junk.name === '' && junk.signedUp === false, 'hydrate refuses a broken save')
 const oldName = hydrate({ v: 1, username: 'Player 8453', name: 'Player 8453' })
 check(oldName.signedUp === false && oldName.username === '' && oldName.name === '', 'an old save without signup is not signed in')
 const signed = hydrate({ v: 1, signedUp: true, name: 'Reef', username: 'Reef_01' })
@@ -100,7 +100,7 @@ check(signed.signedUp && signed.name === 'Reef' && signed.username === 'reef_01'
 check(hydrate({ v: 1, signedUp: true, name: '', username: 'reef' }).signedUp === false, 'signup needs both a name and a username')
 check(hydrate({ v: 2 }).username === '' && hydrate({ v: 2 }).signedUp === false, 'unknown save versions start unsigned')
 check(hydrate({ v: 2 }).body === 'player', 'a fresh city starts in the low-poly suit')
-check(cleanMask('azuki') === 'azuki' && cleanMask('bayc') === 'none', 'masks accept the city list')
+check(cleanMask('azuki') === 'none' && cleanMask('bayc') === 'none', 'NFT masks disabled: saved masks migrate to none')
 check(cleanDrone('scout') === 'scout' && cleanDrone('solana') === 'none', 'drones accept scout, courier, and halo')
 check(cleanOwnedDrones(['scout', 'scout', 'nope']).join() === 'scout', 'owned drones stay unique')
 const boughtDrone = quoteDrone(40, [], 'courier')
@@ -109,7 +109,7 @@ check(!quoteDrone(10, [], 'scout').ok, 'a short ledger leaves the drone on the s
 const ownedDrone = quoteDrone(10, ['scout'], 'scout')
 check(ownedDrone.ok && ownedDrone.already, 'an owned drone equips without another charge')
 const geared = hydrate({ v: 1, mask: 'punk', drone: 'halo', ownedDrones: ['halo'], body: 'zuri' })
-check(geared.mask === 'punk' && geared.drone === 'halo' && geared.body === 'zuri', 'a save keeps the woman, her mask, and a drone she owns')
+check(geared.mask === 'none' && geared.drone === 'halo' && geared.body === 'zuri', 'a save keeps the woman, her mask, and a drone she owns')
 check(hydrate({ v: 1, drone: 'halo', ownedDrones: [] }).drone === 'none', 'a drone that was never bought does not fly')
 
 const pos = { x: 0.2, z: 0 }

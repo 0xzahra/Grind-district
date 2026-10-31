@@ -1,3 +1,4 @@
+import { EXTRA_BODIES_ENABLED, NFT_COLLECTIONS_ENABLED } from './nft.ts'
 export const ZAHRA = 'https://0xzahra.github.io'
 export const SAVE_KEY = 'grind-district-save-v1'
 export const COURSE_XP = 70
@@ -92,7 +93,7 @@ export const TINTS = [
   { id: 'ice', hex: 0x9fd4ff, label: 'Ice' },
 ] as const
 
-export const BODIES: { id: BodyId; label: string; blurb: string }[] = [
+export const ALL_BODIES: { id: BodyId; label: string; blurb: string }[] = [
   { id: 'player', label: 'Man', blurb: 'Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
   { id: 'zuri', label: 'Woman', blurb: 'Longer hair, a softer face, lashes, and a fitted coat. Original.' },
   { id: 'shrimp', label: 'Shrimp', blurb: 'The mascot. Free. Rank still starts at shrimp either way.' },
@@ -100,6 +101,7 @@ export const BODIES: { id: BodyId; label: string; blurb: string }[] = [
   { id: 'marina', label: 'Marina', blurb: 'Original buoy. Not a licensed collection.' },
   { id: 'signal', label: 'Signal', blurb: 'Original coat. Not a licensed collection.' },
 ]
+export const BODIES = EXTRA_BODIES_ENABLED ? ALL_BODIES : ALL_BODIES.filter((b) => b.id === 'player' || b.id === 'zuri')
 
 export const MASKS: { id: Exclude<MaskId, 'none'>; label: string; blurb: string }[] = [
   { id: 'punk', label: 'CryptoPunks', blurb: 'Block visor and a stripe. A Grind District cut under that name. Not the licensed pixel face.' },
@@ -436,6 +438,7 @@ export function cleanHouseVisits(value: unknown): string[] {
 }
 
 export function cleanBody(value: unknown): BodyId {
+  if (!EXTRA_BODIES_ENABLED) return value === 'zuri' ? 'zuri' : 'player' // migrate shrimp/ledger/marina/signal to Man
   if (value === 'player' || value === 'zuri' || value === 'shrimp' || value === 'ledger' || value === 'marina' || value === 'signal') return value
   return 'shrimp'
 }
@@ -447,6 +450,7 @@ export function wearsPlate(body: BodyId): boolean {
 const MASK_IDS = new Set<string>(MASKS.map((mask) => mask.id))
 
 export function cleanMask(value: unknown): MaskId {
+  if (!NFT_COLLECTIONS_ENABLED) return 'none' // migrates saved NFT masks away
   if (value === 'none') return 'none'
   if (typeof value === 'string' && MASK_IDS.has(value)) return value as MaskId
   return 'none'
