@@ -70,7 +70,10 @@ export async function openInbox(): Promise<void> {
     li.append(btn); list.append(li)
   }
   if (!r.data.threads.length) list.append(el('li', 'No messages yet. Tap a player in the city, then Message.', 'empty'))
-  body.replaceChildren(el('p', `Signed in as @${r.data.me}`, 'cc-muted'), nearbyRow(), list)
+  const fr = el('button', '', 'cc-row dm-nearby'); fr.type = 'button'
+  fr.append(el('strong', 'Friends & party'), el('p', 'Add friends, party up to 4, join me.'))
+  fr.onclick = () => void openFriends()
+  body.replaceChildren(el('p', `Signed in as @${r.data.me}`, 'cc-muted'), nearbyRow(), fr, list)
   if (r.data.blocked.length) {
     const h = el('h3', 'Blocked'); body.append(h)
     for (const u of r.data.blocked) {
@@ -137,7 +140,9 @@ export async function openThread(withUser: string): Promise<void> {
     if (x.ok) { block.textContent = on ? 'Unblock' : 'Block'; form.hidden = on }
   }
   form.hidden = r.data.blocked
-  safety.append(block)
+  const addF = el('button', 'Add friend', 'cc-link'); addF.type = 'button'
+  addF.onclick = async () => { const x = await api<{ status?: string }>('friend', { post: { u, action: 'add' } }); addF.textContent = x.ok ? (x.data.status === 'accepted' ? 'Friends ✓' : 'Request sent') : (x.data.error ?? 'Failed'); addF.disabled = true }
+  safety.append(addF, block)
   body.replaceChildren(back, log, form, status, safety)
   log.scrollTop = log.scrollHeight
   void poll()
@@ -175,3 +180,56 @@ export function mountMessages(c: Ctx): void {
   window.setInterval(() => void poll(), 20000)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void poll() })
 }
+
+// ---------- Friends & parties ----------
+type Party = { id: string; leader: string; members: string[]; invites: string[]; spot: { by: string; x: number; z: number; at: number } | null }
+type Social = { me: string; friends: string[]; incoming: string[]; outgoing: string[]; party: Party | null; invites: Array<{ id: string; leader: string; members: string[] }> }
+let social: Social | null = null
+export const partySize = () => social?.party?.members.length ?? 0
+const SOC_SEEN = 'gd.social.seen.v1'
+export async function openFriends(): Promise<void> {
+  if (!ctx) return
+  current = ''
+  ctx.openSheet('Friends', () => {})
+  const body = ctx.body()
+  body.replaceChildren(el('p', 'Loading…', 'cc-muted'))
+  const r = await api<Social>('social')
+  if (r.status === 401) return signedOut(body)
+  if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load friends.', 'cc-muted')); return }
+  social = r.data
+  const s = r.data
+  const act = (label: string, fn: () => Promise<unknown>, cls = 'cc-link') => { const b = el('button', label, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; await fn(); void openFriends() }; return b }
+  const row = (u: string, ...btns: HTMLElement[]) => { const d = el('div', '', 'dm-blocked'); d.append(el('span', `@${u}`), ...btns); return d }
+  const form = el('form', '', 'dm-form'); const inp = el('input'); inp.placeholder = 'Add friend by username'; inp.maxLength = 16; inp.onkeydown = (e) => e.stopPropagation()
+  const add = el('button', 'Add', 'dm-primary'); add.type = 'submit'; const st = el('p', '', 'cc-muted')
+  form.onsubmit = async (e) => { e.preventDefault(); const x = await api<{ status?: string }>('friend', { post: { u: inp.value.trim().toLowerCase(), action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? 'You are now friends.' : 'Request sent.') : (x.data.error ?? 'Failed'); if (x.ok) window.setTimeout(() => void openFriends(), 700) }
+  form.append(inp, add)
+  body.replaceChildren(form, st)
+  body.append(el('h3', s.party ? `Party · ${s.party.members.length}/4` : 'Party'))
+  if (s.party) {
+    for (const m of s.party.members) body.append(row(m + (m === s.party.leader ? ' (lead)' : '')))
+    body.append(el('p', 'Party members earn bonus XP when they attend conference events together.', 'cc-muted'))
+    if (s.party.spot && s.party.spot.by !== s.me && Date.now() - s.party.spot.at < 15 * 60_000) body.append(act(`Join @${s.party.spot.by}`, async () => { window.dispatchEvent(new CustomEvent('gd-teleport', { detail: s.party!.spot })) }, 'dm-primary'))
+    body.append(act('Join me (share my spot)', async () => { const pos = (window as unknown as { gdPos?: () => { x: number; z: number } }).gdPos?.(); if (pos) await api('party_spot', { post: pos }) }), act('Leave party', () => api('party_leave', { post: {} })))
+  } else body.append(el('p', 'Invite a friend to start a party (max 4).', 'cc-muted'))
+  if (s.invites.length) { body.append(el('h3', 'Party invites')); for (const i of s.invites) body.append(row(`${i.leader} · ${i.members.length}/4`, act('Join', () => api('party_join', { post: { id: i.id } }), 'dm-primary'))) }
+  if (s.incoming.length) { body.append(el('h3', 'Friend requests')); for (const u of s.incoming) body.append(row(u, act('Accept', () => api('friend', { post: { u, action: 'add' } }), 'dm-primary'), act('Decline', () => api('friend', { post: { u, action: 'remove' } })))) }
+  body.append(el('h3', `Friends · ${s.friends.length}`))
+  for (const u of s.friends) body.append(row(u, act('Message', async () => { void openThread(u) }), ...(s.party?.members.includes(u) ? [] : [act('Invite', () => api('party_invite', { post: { u } }))]), act('Remove', () => api('friend', { post: { u, action: 'remove' } }))))
+  if (!s.friends.length) body.append(el('p', 'No friends yet.', 'cc-muted'))
+  for (const u of s.outgoing) body.append(row(u + ' · pending'))
+}
+async function pollSocial(): Promise<void> {
+  if (document.hidden || !localStorage.getItem(CLAIMED_KEY)) return
+  const r = await api<Social>('social'); if (!r.ok) return
+  social = r.data
+  let seen: string[] = []; try { seen = JSON.parse(localStorage.getItem(SOC_SEEN) ?? '[]') } catch { seen = [] }
+  const fresh = (k: string) => { if (seen.includes(k)) return false; seen.push(k); return true }
+  for (const u of r.data.incoming) if (fresh(`f:${u}`)) notify('Friend request', `@${u} wants to be friends.`, undefined, 'invite:friends')
+  for (const i of r.data.invites) if (fresh(`p:${i.id}`)) notify('Party invite', `@${i.leader} invited you to a party.`, undefined, 'invite:party')
+  const sp = r.data.party?.spot
+  if (sp && sp.by !== r.data.me && fresh(`s:${sp.at}`)) notify('Join me', `@${sp.by} shared a spot with the party.`, undefined, 'invite:party')
+  localStorage.setItem(SOC_SEEN, JSON.stringify(seen.slice(-200)))
+}
+window.setTimeout(() => void pollSocial(), 6000)
+window.setInterval(() => void pollSocial(), 30000)

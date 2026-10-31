@@ -1,6 +1,7 @@
 // Career: learning / practice / jobs progress, Earn Paths, weekly free season, jobs, pinned certs, City Feed.
 // localStorage per save slot (same pattern as the save); pins sync to Supabase via the existing /api/profile.
-import { getSave, onActivity, addReputation, setTint, slotKey } from './state.ts'
+import { partySize } from './messages.ts'
+import { getSave, onActivity, addReputation, bonusXp, setTint, slotKey } from './state.ts'
 import { SKILL_META, SKILL_ORDER, type SkillId } from './logic.ts'
 import { TRACKS, JOBS, JOB_LEVELS, JOB_XP_PER_LEVEL, WEEKLY_POOL, SEASON, RANKS_LADDER, RANK_STEPS, DISCLAIMER, type TaskKind } from './careerData.ts'
 import { schedule } from './events.ts'
@@ -61,7 +62,7 @@ function onAct(kind: string, label: string): void {
   const got = kindOf(kind, label); if (!got) return
   rollWeek()
   if (got.k === 'trade') c.trades += 1
-  if (got.k === 'conference') c.events += 1
+  if (got.k === 'conference') { c.events += 1; if (partySize() >= 2) bonusXp(10 * (partySize() - 1), 'Party bonus', `Attended with ${partySize() - 1} party member(s).`) }
   // Weekly
   const wk = weekly()
   for (const w of wk) if (matches(w.kind, got)) {

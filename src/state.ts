@@ -148,6 +148,13 @@ export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): {
 type ActivityHook = (kind: Activity['kind'], label: string, detail: string) => void
 const activityHooks = new Set<ActivityHook>()
 export function onActivity(fn: ActivityHook): void { activityHooks.add(fn) }
+/** Small XP for party attendance and city moments. Logged; can rank you up. */
+export function bonusXp(n: number, label: string, detail: string): void {
+  const up = gainXp(Math.max(0, Math.round(n)))
+  log('social', label, detail)
+  persist()
+  emit(up)
+}
 /** Career duties: reputation for showing up. Logged like any other activity. */
 export function addReputation(n: number, label: string, detail: string): void {
   save.reputation += Math.max(0, Math.round(n))

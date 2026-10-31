@@ -1,4 +1,5 @@
 import { schedule } from './events.ts'
+import { openFriends } from './messages.ts'
 import * as THREE from 'three'
 import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -315,6 +316,12 @@ const apiAgents = createRemoteAgents(scene)
   applyPrefs()
 
   greetToast = (m) => { ui.toast(m) }
+  ;(window as unknown as { gdPos?: () => { x: number; z: number } }).gdPos = () => ({ x: pos.x, z: pos.z })
+  window.addEventListener('gd-teleport', (e) => {
+    const d = (e as CustomEvent<{ x: number; z: number }>).detail
+    if (!d || interiors.inside) { ui.toast('Step outside to join your party.'); return }
+    pos.x = d.x + 1.2; pos.z = d.z + 1.2; avatar.object.position.set(pos.x, 0, pos.z); setCC(false); ui.toast('Joined your party.')
+  })
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
@@ -472,6 +479,7 @@ const apiAgents = createRemoteAgents(scene)
     if (go === 'messages') { setCC(true); void openInbox(); return true }
     if (go.startsWith('dm:')) { setCC(true); void openThread(go.slice(3)); return true }
     if (go === 'balance') { setCC(true); openBalance(); return true }
+    if (go.startsWith('invite:')) { setCC(true); void openFriends(); return true }
     if (go === 'feed' || go === 'career') { setCC(true); careerOpeners[go](); return true }
     if (go.startsWith('place:')) { travelHook(go.slice(6), true); return true }
     if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
