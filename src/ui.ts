@@ -55,6 +55,7 @@ import {
   setGraphics,
   setTime,
   setTint,
+  setName,
   setUsername,
   sitPrayer,
   submitCourse,
@@ -207,13 +208,14 @@ export function mountUi(
     if (profileTab === 'resume') body.append(renderDoc('resume'))
     if (profileTab === 'portfolio') body.append(renderDoc('portfolio'))
     if (profileTab === 'books') body.append(renderBooks())
-    return frame(`${save.username}`, stack(bar, body))
+    return frame(save.name, stack(bar, body))
   }
 
   const renderToday = (save: ReturnType<typeof getSave>): HTMLElement => {
     const rank = rankFor(save.xp)
     const next = nextRank(save.xp)
     const wrap = stack()
+    wrap.append(para(`@${save.username}`, 'muted'))
     wrap.append(para(next ? `${rank.label} · ${save.xp} XP · ${next.label} at ${next.xp}` : `${rank.label} · ${save.xp} XP. The ladder stays open.`))
     const track = document.createElement('div')
     track.className = 'bar'
@@ -494,7 +496,7 @@ export function mountUi(
 
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Original bodies, free. Player 8453 is the man. Zuri is the woman. Collection masks are on this wall.', 'muted'))
+    const wrap = stack(para('Original bodies, free. The man and the woman are on this wall, with the mascots. Collection masks hang beside them.', 'muted'))
     const bodies = document.createElement('div')
     bodies.className = 'tabs'
     for (const body of BODIES) {
@@ -585,18 +587,42 @@ export function mountUi(
 
   const renderSettings = (): HTMLElement => {
     const save = getSave()
-    const name = document.createElement('input')
-    name.type = 'text'
-    name.maxLength = 24
-    name.value = save.username
-    name.addEventListener('change', () => {
-      setUsername(name.value)
-      name.value = getSave().username
-      refresh()
+    const nameError = para('', 'result')
+    const display = document.createElement('input')
+    display.type = 'text'
+    display.maxLength = 24
+    display.value = save.name
+    display.autocomplete = 'name'
+    display.addEventListener('change', () => {
+      const outcome = setName(display.value)
+      if (!outcome.ok) {
+        nameError.textContent = outcome.error
+        return
+      }
+      nameError.textContent = ''
+      hooks.onStyle()
+    })
+    const handle = document.createElement('input')
+    handle.type = 'text'
+    handle.maxLength = 16
+    handle.value = save.username
+    handle.autocomplete = 'username'
+    handle.spellcheck = false
+    handle.addEventListener('change', () => {
+      const outcome = setUsername(handle.value)
+      if (!outcome.ok) {
+        nameError.textContent = outcome.error
+        return
+      }
+      nameError.textContent = ''
+      hooks.onStyle()
     })
     const nameLabel = document.createElement('label')
     nameLabel.className = 'field'
-    nameLabel.append(para('Username', 'kicker'), name)
+    nameLabel.append(para('Name', 'kicker'), display)
+    const userLabel = document.createElement('label')
+    userLabel.className = 'field'
+    userLabel.append(para('Username', 'kicker'), handle)
     const times = document.createElement('div')
     times.className = 'tabs'
     for (const time of ['night', 'dusk', 'day'] as const) {
@@ -630,7 +656,7 @@ export function mountUi(
       hooks.onGraphics()
       hooks.onRank(rankFor(getSave().xp).label)
       close()
-      toast('Back to zero. GN time and volume stayed.')
+      toast('Back to zero. Your name stayed. GN time and volume stayed.')
     })
     const support = document.createElement('a')
     support.href = ZAHRA
@@ -639,6 +665,8 @@ export function mountUi(
     support.textContent = 'Support · Made by Zahra'
     return frame('Settings', stack(
       nameLabel,
+      userLabel,
+      nameError,
       para('GN time. The city stays open in all three.', 'kicker'),
       times,
       para('Graphics', 'kicker'),
@@ -667,7 +695,7 @@ export function mountUi(
         const claimed = getSave().houseClaimed
         return renderSimple('Your house', [
           para('Front room, a desk, and a closet. Messaging and voice are later.'),
-          para(claimed ? 'The key is yours. Adaeze, Malik, Nia, and a vacant room are on this row.' : 'The room is empty until you claim it.'),
+          para(claimed ? 'The key is yours. The notes house, the set house, the grove house, and a vacant room are on this row.' : 'The room is empty until you claim it.'),
           button(claimed ? 'The room is yours' : 'Claim the room', 'primary', () => {
             const outcome = claimHouse()
             finish(outcome.message)
@@ -686,21 +714,21 @@ export function mountUi(
         ])
       }
       case 'adaeze':
-        return renderSimple("Adaeze's house", [
-          para('Notes from the hall, in her handwriting. Spot means you hold the asset. The spread is a cost you pay before the idea can be right.'),
-          para('She will not tell you the next mark.'),
-          button('Sit with the notes', 'primary', () => visit('You sat with Adaeze.')),
+        return renderSimple('Notes house', [
+          para('Notes from the hall, on paper. Spot means you hold the asset. The spread is a cost you pay before the idea can be right.'),
+          para('The notes will not tell you the next mark.'),
+          button('Sit with the notes', 'primary', () => visit('You sat with the notes.')),
         ])
       case 'malik':
-        return renderSimple("Malik's house", [
-          para('Mats by the door. He logs one set and leaves. The chart is not invited in.'),
+        return renderSimple('Set house', [
+          para('Mats by the door. One set is logged and left. The chart is not invited in.'),
           para('A second set the same day does not stack the streak.'),
-          button('Stay for the set', 'primary', () => visit('You stopped at Malik’s.')),
+          button('Stay for the set', 'primary', () => visit('You stayed for the set.')),
         ])
       case 'nia':
-        return renderSimple("Nia's house", [
-          para('Seedlings in jars. She can say what a pledge is: a note that you showed up. A tonne is a serial on a registry, and this city does not retire one.'),
-          button('Hear her out', 'primary', () => visit('You heard Nia.')),
+        return renderSimple('Grove house', [
+          para('Seedlings in jars. A pledge is a note that you showed up. A tonne is a serial on a registry, and this city does not retire one.'),
+          button('Hear it out', 'primary', () => visit('You heard the grove house.')),
         ])
       case 'vacant':
         return renderSimple('Vacant house', [
@@ -825,7 +853,7 @@ export function mountUi(
       case 'about':
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
-          para('This build is the city: districts, Player 8453, Zuri, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do.'),
+          para('This build is the city: districts, a man and a woman you can wear, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do. You pick the name and the username.'),
           para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
           para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
           para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
