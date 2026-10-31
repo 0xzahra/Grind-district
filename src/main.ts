@@ -330,6 +330,12 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     if (interiors.roomFor(spot.id)) enterRoom(spot)
     else if (spot.action) ui.open(spot.action as Parameters<typeof ui.open>[0])
   }
+  // Test hook: ?room=<hotspot id|action> walks you into that room after boot. Only moves the local player.
+  const roomParam = new URLSearchParams(location.search).get('room')
+  if (roomParam) window.setTimeout(() => {
+    const spot = world.hotspots.find((h) => (h.id === roomParam || h.action === roomParam) && interiors.roomFor(h.id))
+    if (spot) { travelTo(spot); enterRoom(spot) }
+  }, 1500)
   map.addEventListener('click', (event) => {
     const rect = map.getBoundingClientRect()
     const wx = (((event.clientX - rect.left) / rect.width) - 0.5) * 2 * MAP_LIMIT
