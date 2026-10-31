@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#070a09" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="Grind District. Walk one shared city as a shrimp, learn the desks, and file a CV from the work."
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Grind District</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="view" aria-label="Grind District. Walk with the keyboard or the on-screen stick."></canvas>
+      <div id="hud">
+        <h1 class="sr-only">Grind District</h1>
+        <header>
+          <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
+          <p class="tag">No tribe. No continent. Just come grind.</p>
+          <p class="pills">
+            <button id="pill-rank" type="button" class="pill">Shrimp</button>
+            <span id="pill-place" class="pill">The Plaza</span>
+            <button id="pill-ledger" type="button" class="pill">$0.00</button>
+            <button id="pill-season" type="button" class="pill">Bull</button>
+            <span id="pill-focus" class="pill" hidden>Focus</span>
+          </p>
+          <nav id="nav">
+            <button id="nav-profile" type="button">Profile</button>
+            <button id="nav-learn" type="button">Learn</button>
+            <button id="nav-city" type="button">City</button>
+            <button id="nav-settings" type="button">Settings</button>
+            <button id="shot" type="button">Shot</button>
+            <a id="credit" href="https://0xzahra.github.io" target="_blank" rel="noopener noreferrer">Made by Zahra</a>
+          </nav>
+          <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
+        </header>
+        <div class="tools">
+          <p class="song">Market Velocity · 3:00</p>
+          <div class="tool-row">
+            <button id="music" type="button" aria-pressed="false">Play theme</button>
+          </div>
+          <label class="vol">
+            Volume
+            <input id="volume" type="range" min="0" max="100" value="70" disabled />
+          </label>
+          <p id="music-note"></p>
+        </div>
+        <div id="dock">
+          <p id="toast" hidden></p>
+          <aside id="caption" hidden>
+            <h2 id="cap-title"></h2>
+            <p id="cap-body"></p>
+          </aside>
+          <button id="act" type="button" class="primary" hidden>Enter</button>
+          <p id="hint"></p>
+        </div>
+      </div>
+      <div id="stick" aria-hidden="true">
+        <div id="nub"></div>
+      </div>
+      <div id="sheet" hidden></div>
+      <div id="menu">
+        <div id="menu-home">
+          <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
+          <p class="tag">No tribe. No continent. Just come grind.</p>
+          <nav class="menu-actions" aria-label="Game menu">
+            <button id="play" type="button" class="primary" autofocus>Enter the district</button>
+            <button id="menu-how" type="button">How to play</button>
+            <button id="menu-city" type="button">The city</button>
+            <button id="menu-courses" type="button">Courses</button>
+            <button id="menu-credits" type="button">Credits</button>
+          </nav>
+          <p id="menu-note">You start as a shrimp. Pick a name and a username, then walk in. The practice ledger is empty. Rank follows the work.</p>
+        </div>
+        <div id="menu-signup" hidden>
+          <h2>Pick a name</h2>
+          <p>The city does not assign one. The name goes on your plate. The username is the handle on your profile.</p>
+          <form id="signup-form">
+            <label class="field">
+              Name
+              <input id="signup-name" name="name" type="text" maxlength="24" autocomplete="name" required />
+            </label>
+            <label class="field">
+              Username
+              <input id="signup-user" name="username" type="text" maxlength="16" autocapitalize="off" autocomplete="username" spellcheck="false" required />
+            </label>
+            <fieldset class="bodies">
+              <legend>Body</legend>
+              <label>
+                <input type="radio" name="body" value="player" checked />
+                Man
+              </label>
+              <label>
+                <input type="radio" name="body" value="zuri" />
+                Woman
+              </label>
+            </fieldset>
+            <p id="signup-error" class="menu-error" hidden></p>
+            <button type="submit" class="primary">Enter the district</button>
+          </form>
+          <button id="signup-back" type="button">Back</button>
+        </div>
+        <div id="menu-page" hidden>
+          <h2 id="menu-page-title"></h2>
+          <div id="menu-page-body"></div>
+          <button id="menu-back" type="button">Back</button>
+        </div>
+      </div>
+      <div id="boot" class="hidden" role="status" aria-hidden="true">
+        <img src="/brand/logo-black.jpg" width="1168" height="784" alt="" />
+        <p id="boot-text">Opening the district</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
