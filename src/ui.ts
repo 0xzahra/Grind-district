@@ -1,6 +1,6 @@
 import { isLicensed, skinSlots } from './skins.ts'
 import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
-import type { MaskId } from './logic.ts'
+import { ZAHRA, type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
 import { track } from './track.ts'
@@ -716,6 +716,12 @@ export function mountUi(
           open('settings')
         }))
     }
+    const madeBy = document.createElement('a')
+    madeBy.href = ZAHRA
+    madeBy.target = '_blank'
+    madeBy.rel = 'noopener noreferrer'
+    madeBy.className = 'help-link made-by'
+    madeBy.textContent = 'Made by Zahra'
     const support = document.createElement('a')
     support.href = 'https://x.com/0xarewah'
     support.target = '_blank'
@@ -751,6 +757,7 @@ export function mountUi(
       para('Support', 'kicker'),
       support,
       button('About this city', 'ghost', () => open('about')),
+      madeBy,
       reset,
     ))
   }
