@@ -120,7 +120,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     skyline.tick(t, 0.15)
     ambient.tick(t, focus, 0.1)
     relabel += dt
-    if (relabel > 1.5 && t < 20) { relabel = 0; hideLabels() }
+    if (relabel > 2) { relabel = 0; hideLabels() }
     composer.render(dt)
   }
   raf = requestAnimationFrame(loop)

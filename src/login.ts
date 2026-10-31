@@ -79,6 +79,11 @@ export function openLogin(): void {
   const afterLogin = async (privy: Awaited<ReturnType<typeof client>>) => {
     const token = await privy.getAccessToken()
     if (!token) { msg.textContent = 'Sign in failed'; return }
+    try {
+      const sub = (JSON.parse(atob(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string }).sub ?? ''
+      const { grantSignupBonus, SIGNUP_BONUS } = await import('./state.ts')
+      if (grantSignupBonus(sub)) body.prepend(el('p', `Welcome bonus: $${SIGNUP_BONUS.toLocaleString()} in-game added to your ledger.`))
+    } catch { /* bonus is best-effort */ }
     const known = localStorage.getItem(CLAIMED_KEY)
     if (known) body.replaceChildren(el('p', `Signed in as @${known}.`))
     else void pickUsername(token)

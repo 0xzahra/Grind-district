@@ -1141,12 +1141,10 @@ body.touch #hint{display:none}
 body.touch #msg-btn { left: auto; right: max(14px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 5.6rem); }
 body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
 
-/* Title screen: the live city fills the screen; one square glass menu sits on top. Logo left, profile right. */
-#menu { display: block !important; padding: 0 !important; background: #0b0a08 !important; overflow: hidden; }
-#menu-preview { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; display: block; }
-#menu-panel { position: absolute !important; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0 !important;
-  width: min(440px, calc(100vw - 32px)); aspect-ratio: 1 / 1; max-height: calc(100dvh - 120px); padding: 28px !important;
-  border-radius: 28px !important; background: rgba(22, 22, 24, 0.42) !important; border: 1px solid rgba(255, 255, 255, 0.14) !important;
+/* Title screen: live district preview on the left, one square glass menu on the right. Logo left, profile right. */
+#menu { overflow: hidden; background: #0b0a08 !important; }
+#menu-panel { width: min(440px, calc(100% - 48px)); aspect-ratio: 1 / 1; justify-self: center; padding: 28px !important;
+  border-radius: 28px !important; background: rgba(22, 22, 24, 0.5) !important; border: 1px solid rgba(255, 255, 255, 0.14) !important;
   -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important; overflow: auto; align-content: center; }
 #menu-panel .lockup { display: none; }

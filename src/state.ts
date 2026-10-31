@@ -627,3 +627,20 @@ async function syncProgress(json: string): Promise<void> {
     // Offline is fine: local save is the source of truth.
   }
 }
+
+export const SIGNUP_BONUS = 1000
+/** One 1,000 in-game sign-up bonus per verified (Privy) login id. In-game money only. */
+export function grantSignupBonus(verifiedId: string): boolean {
+  if (!verifiedId) return false
+  const key = 'gd.signupBonus.v1'
+  let claimed: string[] = []
+  try { claimed = JSON.parse(localStorage.getItem(key) ?? '[]') as string[] } catch { claimed = [] }
+  if (claimed.includes(verifiedId)) return false
+  claimed.push(verifiedId)
+  localStorage.setItem(key, JSON.stringify(claimed))
+  save.ledger = Math.round((save.ledger + SIGNUP_BONUS) * 100) / 100
+  log('social', 'Sign-up bonus', `$${SIGNUP_BONUS.toLocaleString()} in-game for a verified login.`)
+  persist()
+  emit()
+  return true
+}
