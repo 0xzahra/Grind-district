@@ -81,7 +81,7 @@ function citySpots(): Spot[] {
     { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'A practice book in UNIT. A sized plan can count even when the close is red.', action: 'trade', enter: 'Open the book' },
     { id: 'bounty', ...row, r: 2.6, title: 'Influencer row', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', action: 'bounty', enter: 'Post a bounty' },
     { id: 'trench', ...trench, r: 2.6, title: 'Trenches corner', body: 'MEME moves like attention. It can leave. Rank will not follow it down.', action: 'trench', enter: 'Open the trench book' },
-    { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'Player 8453, Zuri, and the mascots. Masks from the collection list hang on the side wall.', action: 'boutique', enter: 'Try a body' },
+    { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'The man, the woman, and the mascots. Masks from the collection list hang on the side wall.', action: 'boutique', enter: 'Try a body' },
     { id: 'gym', ...gym, r: 2.4, title: 'Gym', body: 'A short timing set. One logged set a day.', action: 'gym', enter: 'Train' },
     { id: 'church', ...church, r: 2.4, title: 'Church', body: 'A quiet room. Rest counts.', action: 'church', enter: 'Step in' },
     ...homes.map(({ home, at: doorAt }) => ({
