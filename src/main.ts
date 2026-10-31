@@ -961,8 +961,11 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   let mapAcc = 1
-  const bake = () => bakeSatellite(renderer, scene, getSave().graphics === 'low' ? 256 : 512)
-  setTimeout(bake, 4000)
+  const bake = () => !interiors.inside && bakeSatellite(renderer, scene, getSave().graphics === 'low' ? 256 : 512)
+  let baked = false
+  const tryBake = () => { if (!interiors.inside) { bake(); baked = true } else setTimeout(tryBake, 5000) }
+  setTimeout(tryBake, 4000)
+  void baked
   setInterval(bake, 10 * 60 * 1000) // refreshed rarely
   const drawMap = () => {
     if (!mapCtx) return

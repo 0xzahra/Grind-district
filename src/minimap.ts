@@ -27,9 +27,19 @@ export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   const rt = new THREE.WebGLRenderTarget(size, size)
   rt.texture.colorSpace = THREE.SRGBColorSpace
   const fog = scene.fog
+  const bg = scene.background
+  const hidden: THREE.Object3D[] = []
+  scene.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.Material | undefined
+    const skyish = (o as THREE.Mesh).isMesh && m && !Array.isArray(m) && m.side === THREE.BackSide
+    const fx = (o as THREE.Points).isPoints || (o as THREE.LineSegments).isLineSegments || (o as THREE.Sprite).isSprite
+    const weather = (o as THREE.InstancedMesh).isInstancedMesh && m && !Array.isArray(m) && m.transparent && !m.depthWrite
+    if (o.visible && (skyish || fx || weather || o.userData.noMap)) { hidden.push(o); o.visible = false }
+  })
   const prev = renderer.getRenderTarget()
   try {
     scene.fog = null
+    scene.background = null
     renderer.setRenderTarget(rt)
     renderer.render(scene, cam)
     const px = new Uint8Array(size * size * 4)
@@ -44,6 +54,8 @@ export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
   } catch { /* keep the vector map */ } finally {
     renderer.setRenderTarget(prev)
     scene.fog = fog
+    scene.background = bg
+    for (const o of hidden) o.visible = true
     rt.dispose()
   }
 }

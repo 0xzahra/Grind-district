@@ -22,6 +22,8 @@ export function unlocked(): string[] {
   localStorage.setItem(KEY + '.got', JSON.stringify([...seen]))
   return [...seen]
 }
+export function luxRecord(): Lux | undefined { const l = load(); return l.last ? l : undefined }
+export function adoptLux(r: Lux): void { const l = load(); if (r.last && r.last > l.last) localStorage.setItem(KEY, JSON.stringify({ last: r.last, streak: r.streak, best: Math.max(r.best, l.best) })) }
 export function loginState(): Lux & { claimable: boolean } { const l = load(); return { ...l, claimable: l.last !== day() } }
 export function claimDaily(): string {
   const l = load(); const today = day()
@@ -30,6 +32,7 @@ export function claimDaily(): string {
   l.streak = l.last === day(y) ? l.streak + 1 : 1
   l.best = Math.max(l.best, l.streak); l.last = today
   localStorage.setItem(KEY, JSON.stringify(l))
+  void import('./share.ts').then((m) => m.publishProfile())
   const usd = Math.min(15, 4 + l.streak)
   earnCash(usd, `Daily check-in · day ${l.streak}`, 'Fixed daily reward that grows with your streak (max $15).')
   return `Day ${l.streak} · +$${usd}`

@@ -50,9 +50,11 @@ export async function publishProfile(): Promise<boolean> {
     if (!token) return false
     const s = getSave()
     const mo = await import('./morph.ts')
-    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s), pinned: (await import('./career.ts')).pinnedTitles(), look: mo.hasLocalMorph() ? mo.getMorph() : undefined }) })
+    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s), pinned: (await import('./career.ts')).pinnedTitles(), look: mo.hasLocalMorph() ? mo.getMorph() : undefined, lux: (await import('./luxury.ts')).luxRecord() }) })
     // Fresh device: adopt the look saved on the account.
-    if (r.ok && !mo.hasLocalMorph()) { const j = await r.json().catch(() => null) as { look?: { h: number; b: number; hair: number | null } | null } | null; if (j?.look) { mo.setMorph(j.look); window.dispatchEvent(new Event('gd:look')) } }
+    const j = r.ok ? await r.json().catch(() => null) as { look?: { h: number; b: number; hair: number | null; skin?: number | null; lux?: { last: string; streak: number; best: number } } | null } | null : null
+    if (j?.look?.lux) (await import('./luxury.ts')).adoptLux(j.look.lux)
+    if (j?.look && !mo.hasLocalMorph() && typeof j.look.h === 'number') { mo.setMorph({ h: j.look.h, b: j.look.b, hair: j.look.hair, skin: j.look.skin ?? null }); window.dispatchEvent(new Event('gd:look')) }
     return r.ok
   } catch { return false }
 }
