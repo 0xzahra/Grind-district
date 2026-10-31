@@ -433,7 +433,7 @@ export function createWorld(options: {
   }
 
   const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Learning hall', subtitle: 'courses file themselves', windows: true, seed: 3 })
-  spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Eight short courses. Pass one and it writes your CV, resume, and portfolio.', 'learn', 'Open the hall')
+  spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', 'learn', 'Open the hall')
   const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'ninety seconds', windows: true, seed: 5 })
   spot('conference', conference.x, conference.z, 2.3, 'Conference hall', 'One talk. Proof of work, not a slogan. The chairs are real enough.', 'conference', 'Take a seat')
   const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', windows: true, seed: 8 })
