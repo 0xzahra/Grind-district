@@ -20,7 +20,7 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
     const parent = obj.parent
     const pos = obj.position.clone()
     const quat = obj.quaternion.clone()
-    const target = new THREE.WebGLRenderTarget(W, H, { samples: 4 })
+    const target = new THREE.WebGLRenderTarget(W, H, { samples: 0 })
     const prevTarget = renderer.getRenderTarget()
     const prevExposure = renderer.toneMappingExposure
     const prevClear = renderer.getClearColor(new THREE.Color())
@@ -29,7 +29,7 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
     try {
       studio.add(obj)
       obj.position.set(0, 0, 0)
-      obj.quaternion.identity()
+      obj.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI) // rig faces -Z: turn to camera
       obj.updateMatrixWorld(true)
       box.setFromObject(obj)
       box.getSize(size)
