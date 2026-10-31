@@ -26,6 +26,7 @@ import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
+import { createPhysicalSky } from './sky.ts'
 import './style.css'
 
 const WALK = 2.7
@@ -188,6 +189,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
   const crowd = createCrowd(scene)
+  const physSky = createPhysicalSky(scene)
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
@@ -588,6 +590,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     if (lightAcc > 0.25) {
       lightAcc = 0
       world.setDaylight(dayPhase)
+      physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
       renderer.toneMappingExposure = 0.96 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.1
       nightLevel = THREE.MathUtils.clamp(-sunUp * 2 + 0.3, 0, 1)
