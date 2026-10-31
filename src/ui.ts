@@ -1,3 +1,5 @@
+import { isLicensed, skinSlots } from './skins.ts'
+import type { MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
 import { track } from './track.ts'
@@ -554,6 +556,10 @@ export function mountUi(
     }
     const worn = MASKS.find((mask) => mask.id === save.mask)
     wrap.append(masks, para(worn?.blurb ?? 'No mask. The face is yours.', 'muted'))
+    wrap.append(para('Collection skins', 'kicker'))
+    const slotRows = Object.entries(skinSlots()).map(([id, slot]) =>
+      `${slot!.collection}: ${isLicensed(id as MaskId) ? 'licensed face live' : 'awaiting permission (original placeholder)'}`)
+    wrap.append(para(slotRows.length ? slotRows.join(' · ') : 'Collection slots load with the city.', 'muted'))
     return frame('Boutique', wrap)
   }
 

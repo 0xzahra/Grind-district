@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { MaskId } from './logic.ts'
+import { licensedFace } from './skins.ts'
 
 function mat(color: number, roughness = 0.45, metalness = 0.05): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true })
@@ -25,7 +26,7 @@ function box(
 function disposeMask(object: THREE.Object3D): void {
   object.traverse((node) => {
     if (!(node instanceof THREE.Mesh)) return
-    node.geometry.dispose()
+    if (!node.userData.sharedGeometry) node.geometry.dispose()
     const material = node.material
     if (Array.isArray(material)) {
       for (const item of material) item.dispose()
@@ -45,6 +46,12 @@ export function mountMask(anchor: THREE.Object3D, mask: MaskId): void {
   if (mask === 'none') return
   const group = new THREE.Group()
   group.name = 'wear-mask'
+  const licensed = licensedFace(mask)
+  if (licensed) {
+    group.add(licensed)
+    anchor.add(group)
+    return
+  }
   switch (mask) {
     case 'punk': {
       const skin = mat(0xd7b48a, 0.7)

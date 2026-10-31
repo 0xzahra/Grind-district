@@ -1,0 +1,11 @@
+{
+  "_readme": "Collection skin slots. Every slot ships disabled. To enable one: get written permission from the rights holder, drop the face texture (PNG/WebP, square, transparent background, <=512px) into /public/skins/<slot>/face.webp, set granted:true and fill permissionRef (who granted it, when, link to the written licence). No copyrighted art is committed until then.",
+  "slots": {
+    "ape":       { "collection": "Bored Ape Yacht Club", "granted": false, "permissionRef": "", "face": "/skins/ape/face.webp" },
+    "pudgy":     { "collection": "Pudgy Penguins",       "granted": false, "permissionRef": "", "face": "/skins/pudgy/face.webp" },
+    "punk":      { "collection": "CryptoPunks",          "granted": false, "permissionRef": "", "face": "/skins/punk/face.webp" },
+    "azuki":     { "collection": "Azuki",                "granted": false, "permissionRef": "", "face": "/skins/azuki/face.webp" },
+    "nodemonke": { "collection": "Nodemonkes",           "granted": false, "permissionRef": "", "face": "/skins/nodemonke/face.webp" },
+    "degods":    { "collection": "DeGods",               "granted": false, "permissionRef": "", "face": "/skins/degods/face.webp" }
+  }
+}

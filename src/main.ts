@@ -3,6 +3,7 @@ import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
+import { loadSkinPermissions } from './skins.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -203,6 +204,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
+  void loadSkinPermissions().then(() => { if (getSave().mask !== 'none') avatar.setMask(getSave().mask) })
   const pos = { x: getSave().posX, z: getSave().posZ }
   if (blocked(world.obstacles, pos.x, pos.z, PLAYER_R)) {
     pos.x = 0
