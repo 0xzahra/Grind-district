@@ -63,6 +63,13 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const spire = new THREE.Mesh(new THREE.ConeGeometry(2.1, 6, 8), roof)
   spire.position.set(24, 16, 20)
   scene.add(tower, spire)
+  // Masjid: hall, dome, minaret.
+  addBlock(-24, 28.5, 10, 9, 5, 0xf1ece2)
+  const pdome = new THREE.Mesh(new THREE.SphereGeometry(3, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), m(0xe9e3d6, 0.5))
+  pdome.position.set(-24, 5.4, 28.5)
+  const pmin = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.9, 14, 10), m(0xf1ece2))
+  pmin.position.set(-19.4, 7, 23.6)
+  scene.add(pdome, pmin)
   // Plaza basin and trees.
   const basin = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 0.5, 32), new THREE.MeshStandardMaterial({ color: 0x2a5566, roughness: 0.1, metalness: 0.4 }))
   scene.add(basin)

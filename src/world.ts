@@ -310,7 +310,7 @@ export function createWorld(options: {
       g.arc(mid, mid, radius * scale, 0, Math.PI * 2)
       g.stroke()
     }
-    g.strokeStyle = 'rgba(26, 243, 143, 0.85)'
+    g.strokeStyle = 'rgba(201, 162, 94, 0.8)'
     g.lineWidth = 4
     g.beginPath()
     g.arc(mid, mid, 3.1 * scale, 0, Math.PI * 2)
@@ -318,6 +318,14 @@ export function createWorld(options: {
   })
 
   const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 0.92, metalness: 0.02 })
+  {
+    // Fine stone/asphalt grain over the painted layout so the ground is never a flat colour.
+    const n = concrete.normalMap!.clone()
+    n.repeat.set(SPAN / 5, SPAN / 5)
+    n.needsUpdate = true
+    groundMat.normalMap = n
+    groundMat.normalScale.set(0.35, 0.35)
+  }
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, SPAN), groundMat)
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
@@ -808,7 +816,7 @@ export function createWorld(options: {
         { x: 0, z: 0, hx: ROAD_HALF, hz: ROAD_END },
       ]
       // Sidewalks first, then the asphalt over them, then walkways.
-      g.fillStyle = '#7d8a83'
+      g.fillStyle = '#77706a'
       for (const road of roads) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
       g.fillStyle = '#1e2624'
       for (const road of roads) fillRect(road)
@@ -831,7 +839,7 @@ export function createWorld(options: {
       g.fillStyle = '#8d8676'
       for (const path of paths) fillRect(path)
       // The plaza paving sits on top so the roads meet it cleanly.
-      g.fillStyle = '#8b9b93'
+      g.fillStyle = '#857a6b'
       g.beginPath()
       g.arc(mid, mid, 15 * scale, 0, Math.PI * 2)
       g.fill()
@@ -842,7 +850,7 @@ export function createWorld(options: {
         g.arc(mid, mid, radius * scale, 0, Math.PI * 2)
         g.stroke()
       }
-      g.strokeStyle = 'rgba(26, 243, 143, 0.85)'
+      g.strokeStyle = 'rgba(201, 162, 94, 0.8)'
       g.lineWidth = 4
       g.beginPath()
       g.arc(mid, mid, 3.1 * scale, 0, Math.PI * 2)
@@ -1272,7 +1280,7 @@ export function createWorld(options: {
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.12 + night * 0.38
     // Wet-street night: the ground picks up neon and the env map after dark.
-    groundMat.roughness = 0.92 - night * 0.5
+    groundMat.roughness = 0.97 - night * 0.45
     groundMat.metalness = 0.02 + night * 0.28
     for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.3
     for (const light of glow) light.intensity = Number(light.userData.night) * Math.max(0, night - 0.1)
