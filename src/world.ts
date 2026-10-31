@@ -450,7 +450,7 @@ export function createWorld(options: {
   spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'MEME moves like attention. It can leave. Rank will not follow it down.', 'trench', 'Open the trench book')
 
   const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', windows: true, seed: 19 })
-  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Player 8453, Zuri, and the mascots. Masks from the collection list hang on the side wall.', 'boutique', 'Try a body')
+  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'The man, the woman, and the mascots. Masks from the collection list hang on the side wall.', 'boutique', 'Try a body')
   const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', windows: true, seed: 23 })
   spot('gym', gym.x, gym.z, 2.4, 'Gym', 'A short timing set. One logged set a day. Balance is not invited.', 'gym', 'Train')
   const church = addBuilding({ x: 24, z: 26, w: 9, d: 11, h: 5, door: 'nx', title: 'Church', subtitle: 'charts stay out', windows: false, steeple: true, seed: 29 })
