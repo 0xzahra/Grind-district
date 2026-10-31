@@ -1,7 +1,7 @@
 import { ImageResponse } from '@vercel/og'
 
 // GET /api/og?u=<username>: 1200x630 share card. Dark, gold accents, city skyline, logo.
-export const config = { runtime: 'edge' }
+
 type P = { username: string; name: string; rank: string; reputation: number; balance: number }
 async function getProfile(raw: string): Promise<P | null> {
   const u = raw.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)
@@ -27,10 +27,10 @@ function skyline(): El {
   return h('div', { position: 'absolute', left: 0, right: 0, bottom: 0, height: 360, alignItems: 'flex-end', opacity: 0.9 }, ...towers)
 }
 
-export default async function handler(req: Request): Promise<Response> {
+export async function GET(req: Request): Promise<Response> {
   const u = new URL(req.url, ORIGIN).searchParams.get('u') ?? ''
   const p = await getProfile(u).catch(() => null)
-  const name = p?.name || (u ? `@${u}` : 'Grind District')
+  const name = p?.name || (u ? 'Player profile' : 'Grind District')
   const handle = p ? `@${p.username}` : u ? `@${u.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)}` : 'A shared 3D city'
   const stat = (k: string, v: string) => h('div', { flexDirection: 'column', marginRight: 56 }, h('div', { fontSize: 22, color: '#9c927f', letterSpacing: 3 }, k.toUpperCase()), h('div', { fontSize: 44, color: '#f2ece0', marginTop: 6 }, v))
   const tree = h('div', { width: 1200, height: 630, position: 'relative', background: 'linear-gradient(180deg, #0b0a08 0%, #14120e 60%, #0b0a08 100%)', fontFamily: 'sans-serif' },

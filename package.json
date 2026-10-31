@@ -25,7 +25,7 @@
     "@fontsource/archivo-black": "^5.3.0",
     "@fontsource/outfit": "^5.3.0",
     "@privy-io/js-sdk-core": "^0.79.1",
-    "@vercel/og": "^1.0.3",
+    "@vercel/og": "^0.8.5",
     "ox": "^0.14.56",
     "qrcode-generator": "^1.5.2",
     "three": "^0.186.1"
