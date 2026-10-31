@@ -29,7 +29,7 @@ const LOD = 70
 const SIGNAL_PERIOD = 14
 
 type Walker = { arm: number; side: number; t: number; dir: number; speed: number; phase: number }
-type Car = { arm: number; outbound: boolean; t: number; speed: number; wait: number; turn: number }
+type Car = { arm: number; outbound: boolean; t: number; speed: number; wait: number; turn: number; swing: number; a0: number; a1: number }
 
 export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphics): {
   tick: (dt: number, time: number, focus: { x: number; z: number }, people?: Obstacle[]) => Obstacle[]
@@ -160,7 +160,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 7)) break
       t = (t + 0.13) % 1
     }
-    cars.push({ arm, outbound, t, speed: 6 + (i % 3), wait: 0, turn: 0 })
+    cars.push({ arm, outbound, t, speed: 6 + (i % 3), wait: 0, turn: 0, swing: 0, a0: 0, a1: 0 })
     bodiesCar.setColorAt(i, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
   }
   for (const mesh of [bodiesCar, cabins, wheels]) {
@@ -311,7 +311,11 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
         }
         const step = (target * dt) / span
-        if (car.turn > 0) {
+        if (car.swing > 0) {
+          const len = Math.abs(car.a1 - car.a0) * lanes.inner + 0.01
+          car.swing += (Math.max(target, 3) * dt) / len
+          if (car.swing >= 1) car.swing = 0
+        } else if (car.turn > 0) {
           // U-turn in the turning bay at the arm end (never inside a building, never a lane jump).
           car.turn += (Math.max(target, 2.5) * dt) / (Math.PI * lanes.roadHalf * 0.5)
           if (car.turn >= 1) {
@@ -335,6 +339,15 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
               const nextArm = (car.arm + 1 + (i % 2)) % 4
               const clear = cars.every((o) => o === car || o.arm !== nextArm || !o.outbound || o.t * span > 6.5)
               if (clear) {
+                // Drive round the plaza ring to the next arm instead of jumping across it.
+                const from = lanePoint(car.arm, 0, false)
+                const to = lanePoint(nextArm, 0, true)
+                car.a0 = Math.atan2(from.z, from.x)
+                let a1 = Math.atan2(to.z, to.x)
+                while (a1 - car.a0 > Math.PI) a1 -= Math.PI * 2
+                while (a1 - car.a0 < -Math.PI) a1 += Math.PI * 2
+                car.a1 = a1
+                car.swing = 0.0001
                 car.arm = nextArm
                 car.outbound = true
               }
@@ -343,14 +356,21 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         }
         const arm = ARMS[car.arm] as Arm
         // Drive on the right: outbound lane is to the right of the outward direction.
-        const pt = car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound)
+        let pt = car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound)
+        if (car.swing > 0) {
+          const a = car.a0 + (car.a1 - car.a0) * car.swing
+          const r = Math.hypot(pt.x, pt.z) - 2.5 * Math.sin(Math.PI * car.swing)
+          const sgn = Math.sign(car.a1 - car.a0) || 1
+          pt = { x: Math.cos(a) * r, z: Math.sin(a) * r, heading: Math.atan2(-Math.sin(a) * sgn, Math.cos(a) * sgn) }
+        }
         const x = pt.x
         const z = pt.z
         const dir = car.outbound ? 1 : -1
+        // Cars are never hidden by distance (only ~10 instances): no popping at the arm-end entrances.
         const far = Math.hypot(x - focus.x, z - focus.z) > LOD + 20
-        dummy.position.set(x, far ? -50 : 0, z)
+        dummy.position.set(x, 0, z)
         dummy.rotation.set(0, pt.heading, 0)
-        dummy.scale.setScalar(far ? 0.001 : 1)
+        dummy.scale.setScalar(1)
         dummy.updateMatrix()
         if (slots) {
           const slot = slots[i]!
