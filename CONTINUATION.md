@@ -12,7 +12,7 @@ npm run check
 
 ## Name and username
 
-A save starts with `name: ''`, `username: ''`, and `signedUp: false`. The title screen asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, and the body.
+A save starts with `name: ''`, `username: ''`, `privyId: ''`, and `signedUp: false`. The title screen can log in with Privy email, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, and the body. Login does not ask for a wallet.
 
 The plate (`tagPlayer`) draws the display name in block letters and `@username` under it. The profile, CV, resume, and portfolio use the same pair. Share links put the display name in `n` and the username in `u`. An old link with no `u` still opens.
 
@@ -87,7 +87,7 @@ The gadgets stall is south of the plaza (`x: -16, z: 14`). The boutique sheet we
 
 These are the open pieces. WebGL context, a wallet, a multisig, and deploying GrindRecord are already called out above. Do not redo those.
 
-- Proximity voice. Text chat is in (`src/net.ts`, Supabase Realtime broadcast + presence, 12 m radius, needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at build time; without them the city is solo and only your own bubble shows). Voice can reuse that channel for WebRTC signaling but needs a TURN server first.
+- Proximity voice and player-to-player messaging. House copy still says they are later.
 - Other people are scripted citizens in `src/citizens.ts`. There is no networked player.
 - Drone jobs: a delivery, a photo, a race. Today a drone only follows.
 - Licensed collection artwork. The masks are named and wearable. They are not the real images.
@@ -124,7 +124,3 @@ Market Velocity is `public/audio/market_velocity.mp3` (about 3:00, looping). Pla
 Work on `main`. Do not open a pull request unless someone asks. Origin is the Cursor codebase for `zahra-26/Grind-district`. GitHub is [https://github.com/0xzahra/Grind-district](https://github.com/0xzahra/Grind-district). Open it signed in as `0xzahra`. Do not claim it is public if an anonymous request 404s.
 
 Made by [Zahra](https://0xzahra.github.io).
-
-## Paths, bodies, theme (31 October 2026)
-
-`src/world.ts` paints sidewalks on both main roads and routes a walkway from every door to the nearest road or earlier walkway, around building footprints and the basin. Trees keep off roads and walkways. `src/rig.ts` has `humanLeg`, `humanArm`, and `humanGait`: tapered limbs on hip/knee/ankle and shoulder/elbow pivots with a walk cycle. The man and the woman use them; the old static leg and shoe boxes are gone. The music toggle plays `public/assets/audio/theme.mp3` (falls back to Market Velocity), off by default, and never resumes by itself with reduced motion.
