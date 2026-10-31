@@ -1269,11 +1269,12 @@ export function createWorld(options: {
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.4 + day * 0.85 : 0.3) * (seasonBear ? 0.85 : 1)
-    hemi.intensity = 0.25 + day * 0.4
+    sun.intensity = (elev >= 0 ? 0.4 + day * 0.85 : 0.55) * (seasonBear ? 0.85 : 1)
+    hemi.intensity = 0.25 + day * 0.4 + night * 0.35
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)
-    fill.intensity = 0.12
+    fill.intensity = 0.12 + night * 0.12
+    sun.shadow.radius = 2 + night * 4
     lampMat.emissiveIntensity = 0.08 + night * 0.87
     trimPulse = 0.25 + night * 0.45
     trim.emissiveIntensity = trimPulse
@@ -1282,7 +1283,7 @@ export function createWorld(options: {
     groundMat.roughness = 0.97 - night * 0.45
     groundMat.metalness = 0.02 + night * 0.28
     for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.3
-    for (const light of glow) light.intensity = Number(light.userData.night) * Math.max(0, night - 0.1)
+    for (const light of glow) light.intensity = Number(light.userData.night) * 1.4 * Math.max(0, night - 0.1)
     moon.visible = night > 0.25
     moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)
     stars.visible = night > 0.6

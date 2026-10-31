@@ -377,6 +377,10 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const chatLog = must<HTMLOListElement>('#chat-log')
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
+  const clock = must<HTMLParagraphElement>('#hud-clock')
+  const tickClock = () => { clock.textContent = new Date().toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+  tickClock()
+  window.setInterval(tickClock, 30000)
   const msgBtn = must<HTMLButtonElement>('#msg-btn')
   chat.hidden = true
   msgBtn.addEventListener('click', () => {

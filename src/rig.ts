@@ -161,7 +161,7 @@ export function humanGait(
   options: { swing: number; bounce: number; idle: number },
 ): (dt: number, moving: boolean, speed: number) => void {
   let phase = 0
-  let time = 0
+  let time = Math.random() * 10 // desync the crowd's idle
   let blend = 0
   return (dt, moving, speed) => {
     time += dt
@@ -184,8 +184,14 @@ export function humanGait(
       const sign = index === 0 ? -1 : 1
       arm.shoulder.rotation.x = s * sign * amount * 0.75
       arm.elbow.rotation.x = -(0.18 + (0.3 + run * 0.6) * blend * (0.5 + 0.5 * s * sign))
+      // Idle: arms hang and drift slightly with the breath.
+      arm.shoulder.rotation.x += (1 - blend) * Math.sin(time * 1.5 + index) * 0.03
+      arm.shoulder.rotation.z = ((arm.shoulder.userData.z0 as number | undefined) ?? (arm.shoulder.userData.z0 = arm.shoulder.rotation.z)) + sign * (1 - blend) * 0.02 * Math.sin(time * 0.7)
     })
     bob.rotation.y = s * 0.07 * blend
+    // Walk: hips sway over the planted foot. Idle: slow weight shift.
+    bob.position.x = s * 0.025 * blend
+    bob.rotation.z = -s * 0.03 * blend + (1 - blend) * Math.sin(time * 0.45) * 0.018
     bob.rotation.x = 0.05 * run * blend
     const breathe = Math.sin(time * 1.5) * options.idle
     bob.position.y = blend * (Math.abs(c) * options.bounce - options.bounce * 0.5) + (1 - blend) * breathe

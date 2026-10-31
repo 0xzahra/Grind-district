@@ -25,7 +25,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     canvas.hidden = true
     return () => {}
   }
-  renderer.setPixelRatio(coarse ? 1 : Math.min(1.5, devicePixelRatio))
+  renderer.setPixelRatio(coarse ? Math.min(0.8, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.95
   renderer.outputColorSpace = THREE.SRGBColorSpace
