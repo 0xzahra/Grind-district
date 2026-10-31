@@ -317,11 +317,42 @@ body.flat header {
 }
 
 #menu-home,
-#menu-page {
+#menu-page,
+#menu-signup {
   display: grid;
   justify-items: center;
   gap: 0.85rem;
   width: min(40rem, 100%);
+}
+
+#menu-signup {
+  width: min(22rem, 100%);
+  text-align: left;
+}
+
+#menu-signup h2,
+#menu-signup p {
+  margin: 0;
+}
+
+#menu-signup h2 {
+  text-align: center;
+}
+
+#signup-form {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+#signup-form .primary,
+#signup-back {
+  min-height: 48px;
+}
+
+.menu-error {
+  color: #ffb4a8;
+  margin: 0;
 }
 
 .menu-actions {
