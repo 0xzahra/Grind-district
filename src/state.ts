@@ -12,6 +12,7 @@ import {
   TAX_USD,
   applyDay,
   cleanDisplayName,
+  cleanPrivyId,
   cleanUsername,
   buyHolding,
   cents,
@@ -134,6 +135,18 @@ export function signUp(name: string, username: string, body: 'player' | 'zuri'):
   save.username = handle
   save.body = body
   save.signedUp = true
+  persist()
+  emit()
+  return { ok: true }
+}
+
+export function attachPrivy(id: string): { ok: true } | { ok: false; error: string } {
+  const next = cleanPrivyId(id)
+  if (!next) return { ok: false, error: 'Privy did not return an account.' }
+  if (save.privyId && save.privyId !== next) {
+    return { ok: false, error: 'This browser already belongs to a different Privy login.' }
+  }
+  save.privyId = next
   persist()
   emit()
   return { ok: true }
@@ -546,6 +559,7 @@ export function resetProgress(): void {
   const username = save.username
   const signedUp = save.signedUp
   const body = save.body
+  const privyId = save.privyId
   save = createSave(new Date(), { graphics })
   save.volume = volume
   save.timeOfDay = timeOfDay
@@ -556,6 +570,7 @@ export function resetProgress(): void {
   save.username = username
   save.signedUp = signedUp
   save.body = body
+  save.privyId = privyId
   save.seenIntro = true
   persist()
   emit()
