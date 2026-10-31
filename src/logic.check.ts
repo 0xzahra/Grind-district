@@ -98,6 +98,8 @@ check(oldName.signedUp === false && oldName.username === '' && oldName.name === 
 const signed = hydrate({ v: 1, signedUp: true, name: 'Reef', username: 'Reef_01' })
 check(signed.signedUp && signed.name === 'Reef' && signed.username === 'reef_01', 'signup keeps the name and the handle')
 check(hydrate({ v: 1, signedUp: true, name: '', username: 'reef' }).signedUp === false, 'signup needs both a name and a username')
+check(hydrate({ v: 1, privyId: 'did:privy:cldistrict01' }).privyId === 'did:privy:cldistrict01', 'a save keeps a privy id')
+check(hydrate({ v: 1, privyId: 'privy_app_secret_nope' }).privyId === '', 'a save ignores anything that is not a privy id')
 check(hydrate({ v: 2 }).username === '' && hydrate({ v: 2 }).signedUp === false, 'unknown save versions start unsigned')
 check(hydrate({ v: 2 }).body === 'player', 'a fresh city starts in the low-poly suit')
 check(cleanMask('azuki') === 'azuki' && cleanMask('bayc') === 'none', 'masks accept the city list')
