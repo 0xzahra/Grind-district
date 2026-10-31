@@ -13,6 +13,7 @@ import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
+import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import './style.css'
 
@@ -218,6 +219,7 @@ async function main(onReveal: () => void) {
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
+  must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
@@ -382,7 +384,7 @@ async function main(onReveal: () => void) {
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 4.6, 16)
 
-    if (!paused && frame.interact && spot?.action) ui.open(spot.action)
+    if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
 
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
@@ -565,16 +567,7 @@ async function begin() {
   }
 }
 
-play.addEventListener('click', () => {
-  void begin()
-})
-
-window.addEventListener('keydown', (event) => {
-  if (menu.hidden || event.repeat) return
-  if (event.key !== 'Enter' && event.key !== ' ') return
-  const target = event.target
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-  event.preventDefault()
+mountMenu(() => {
   void begin()
 })
 
