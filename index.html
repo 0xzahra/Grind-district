@@ -75,7 +75,24 @@
             <button id="menu-courses" type="button">Courses</button>
             <button id="menu-credits" type="button">Credits</button>
           </nav>
-          <p id="menu-note">You start as a shrimp. The practice ledger is empty. Rank follows the work. The houses are on the east row.</p>
+          <p id="menu-note">You start as a shrimp. Pick a name and a username, then walk in. The practice ledger is empty. Rank follows the work.</p>
+        </div>
+        <div id="menu-signup" hidden>
+          <h2>Pick a name</h2>
+          <p>The city does not assign one. The name goes on your plate. The username is the handle on your profile.</p>
+          <form id="signup-form">
+            <label class="field">
+              Name
+              <input id="signup-name" name="name" type="text" maxlength="24" autocomplete="name" required />
+            </label>
+            <label class="field">
+              Username
+              <input id="signup-user" name="username" type="text" maxlength="16" autocapitalize="off" autocomplete="username" spellcheck="false" required />
+            </label>
+            <p id="signup-error" class="menu-error" hidden></p>
+            <button type="submit" class="primary">Enter the district</button>
+          </form>
+          <button id="signup-back" type="button">Back</button>
         </div>
         <div id="menu-page" hidden>
           <h2 id="menu-page-title"></h2>
