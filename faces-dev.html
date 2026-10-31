@@ -1,0 +1,28 @@
+<!doctype html><html><body style="margin:0;background:#2a3038"><canvas id="c" width="1200" height="800"></canvas>
+<script type="module">
+import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { createAvatar } from '/src/avatars.ts'
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true })
+r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace; r.setScissorTest(true)
+const pm = new THREE.PMREMGenerator(r)
+const LOOKS = [[0x8d5a3b,0x1b1411],[0xe0b394,0x3a2618],[0x5c3a26,0x0f0b0a],[0xc68a64,0x2a1a12],[0xf0c9ad,0xd9c08a],[0x7a4a2e,0x16100d]]
+const cells = []
+const back = new URLSearchParams(location.search).has('back')
+for (let i = 0; i < 6; i++) {
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2b4fd6)
+  scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.6
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.2); sun.position.set(2, 4, 3); scene.add(sun)
+  scene.add(new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0.6))
+  const a = createAvatar(i < 3 ? 'player' : 'zuri', 0x334455, false)
+  const look = LOOKS[i]
+  a.object.traverse(n => { const m = n.material; if (!m || !m.color) return; if (m.name === 'skin') m.color.setHex(look[0]); if (m.name === 'hair') m.color.setHex(look[1]) })
+  a.object.rotation.y = back ? Math.PI * 0.85 : (i % 3 - 1) * 0.25
+  scene.add(a.object)
+  const cam = new THREE.PerspectiveCamera(22, 400 / 400, 0.05, 20); cam.position.set(0, 1.68, -1.25); cam.lookAt(0, 1.64, 0)
+  cells.push({ scene, cam, a })
+}
+for (let k = 0; k < 5; k++) for (const c of cells) c.a.step(0.016, false, 1)
+cells.forEach((c, i) => { const x = (i % 3) * 400, y = i < 3 ? 400 : 0; r.setViewport(x, y, 400, 400); r.setScissor(x, y, 400, 400); r.render(c.scene, c.cam) })
+document.title = 'ready'
+</script></body></html>

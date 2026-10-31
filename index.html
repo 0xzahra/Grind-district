@@ -54,10 +54,9 @@
               <button id="go-home" type="button" aria-label="Go home" title="Go home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4v-9Z"/></svg><span>Home</span></button>
               <button id="cam-turn" type="button" aria-label="Turn camera" title="Turn camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg><span>Turn</span></button>
             </div>
-            <section class="nav-keys" aria-label="Keyboard shortcuts">
-              <p class="nav-keys-title">Keyboard shortcuts</p>
-              <dl><dt>W A S D</dt><dd>Walk</dd><dt>Shift</dt><dd>Run</dd><dt>Drag</dt><dd>Look around</dd><dt>E</dt><dd>Enter</dd></dl>
-            </section>
+            <details class="nav-keys"><summary class="nav-keys-title">Keyboard shortcuts</summary>
+              <dl><dt>W A S D / arrows</dt><dd>Walk</dd><dt>Shift</dt><dd>Run</dd><dt>Drag</dt><dd>Look around</dd><dt>Scroll</dt><dd>Zoom in / out</dd><dt>E</dt><dd>Enter / interact</dd><dt>M</dt><dd>Map</dd><dt>H or Home</dt><dd>Go home</dd><dt>Enter</dt><dd>Chat</dd><dt>Esc</dt><dd>Close panel</dd></dl>
+            </details>
           </nav>
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>

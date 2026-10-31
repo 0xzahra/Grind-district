@@ -61,6 +61,15 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   world.setDaylight(PHASE)
   sky.setPhase(PHASE)
   world.sun.castShadow = true
+  // Phones: same light as desktop. Firm shadow bias (no acne darkening), and a little more fill so
+  // backlit figures never read as silhouettes on small, dim screens.
+  world.sun.shadow.bias = -0.0004
+  world.sun.shadow.normalBias = 0.04
+  if (coarse) {
+    renderer.toneMappingExposure = 1.08
+    scene.environmentIntensity = 0.75
+    scene.add(new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0.45))
+  }
   world.sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048)
   const cam = world.sun.shadow.camera
   cam.left = cam.bottom = -40
@@ -69,7 +78,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   cam.updateProjectionMatrix()
   if (scene.fog instanceof THREE.FogExp2) scene.fog.density = 0.0032
 
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: coarse ? 0 : 4 }))
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: coarse ? THREE.UnsignedByteType : THREE.HalfFloatType, samples: coarse ? 0 : 4 }))
   composer.addPass(new RenderPass(scene, camera))
   let bokeh: BokehPass | null = null
   if (!coarse) {
@@ -81,7 +90,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     bokeh = new BokehPass(scene, camera, { focus: 45, aperture: 0.00012, maxblur: 0.006 })
     composer.addPass(bokeh)
   }
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.6, 0.88))
+  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.6, 0.88))
   composer.addPass(new OutputPass())
 
   const resize = () => {

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { buildFace } from './face.ts'
 import { mountMask } from './masks.ts'
 import type { MaskId } from './logic.ts'
 import type { ShrimpAvatar } from './shrimp.ts'
@@ -35,7 +36,9 @@ function part(
  */
 export function createZuri(): ShrimpAvatar {
   const skin = mat(SKIN, 0.46)
-  const hairMat = mat(HAIR, 0.32, 0.18)
+  skin.name = 'skin'
+  const hairMat = mat(HAIR, 0.7, 0.05)
+  hairMat.name = 'hair'
   hairMat.emissive = new THREE.Color(0x4a241c)
   hairMat.emissiveIntensity = 0
   const coat = mat(COAT, 0.48, 0.12)
@@ -91,11 +94,10 @@ export function createZuri(): ShrimpAvatar {
       x *= 1.06
       z += 0.02
     }
-    if (z > 0.06 && Math.abs(x) < 0.04 && y > -0.01 && y < 0.04) z += 0.02
     headPos.setXYZ(i, x, y, z)
   }
   headGeo.computeVertexNormals()
-  part(headGeo, skin, bob, 0, 1.66, 0.02)
+  const head = part(headGeo, skin, bob, 0, 1.66, 0.02)
 
   const locks = [
     [0, 1.92, -0.02, 0.26, 0.08, 0.24, -0.5, 0, 0],
@@ -107,28 +109,10 @@ export function createZuri(): ShrimpAvatar {
     [-0.05, 1.84, 0.1, 0.08, 0.04, 0.06, 0.4, 0, 0.1],
     [0.05, 1.84, 0.1, 0.08, 0.04, 0.06, 0.35, 0, -0.08],
   ] as const
-  for (const [x, y, z, sx, sy, sz, rx, ry, rz] of locks) {
-    const lock = part(new THREE.BoxGeometry(sx, sy, sz), hairMat, bob, x, y, z)
-    lock.rotation.set(rx, ry, rz)
-  }
+  void locks // replaced by the full-coverage cap and long fall in face.ts
 
-  const nose = part(new THREE.ConeGeometry(0.02, 0.05, 4), skin, bob, 0, 1.62, 0.15)
-  nose.rotation.x = Math.PI / 2
-  part(new THREE.BoxGeometry(0.055, 0.016, 0.016), lip, bob, 0, 1.52, 0.15)
-  part(new THREE.BoxGeometry(0.04, 0.01, 0.012), lip, bob, 0, 1.508, 0.158)
-  const browL = part(new THREE.BoxGeometry(0.06, 0.01, 0.01), hairMat, bob, -0.045, 1.74, 0.145)
-  const browR = part(new THREE.BoxGeometry(0.06, 0.01, 0.01), hairMat, bob, 0.045, 1.74, 0.145)
-  browL.rotation.z = -0.25
-  browR.rotation.z = 0.25
-
-  const addEye = (side: number) => {
-    part(new THREE.SphereGeometry(0.03, 8, 6), iris, bob, side * 0.05, 1.66, 0.15)
-    part(new THREE.SphereGeometry(0.013, 6, 5), pupil, bob, side * 0.05, 1.66, 0.176)
-    const fringe = part(new THREE.BoxGeometry(0.055, 0.012, 0.012), lash, bob, side * 0.05, 1.688, 0.16)
-    fringe.rotation.z = side * -0.2
-  }
-  addEye(-1)
-  addEye(1)
+  buildFace(bob, { head, female: true, skin, hair: hairMat, lip: 0xc0606a, iris: 0x5a3b26, eyeY: 0, hairLength: 'long' })
+  void iris; void pupil; void lip; void lash
   part(new THREE.SphereGeometry(0.012, 6, 5), gold, bob, -0.13, 1.6, 0.04)
   part(new THREE.SphereGeometry(0.012, 6, 5), gold, bob, 0.13, 1.6, 0.04)
 

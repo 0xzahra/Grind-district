@@ -1,5 +1,6 @@
 import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
+import { buildFace } from './face.ts'
 import type { MaskId } from './logic.ts'
 import { mountMask } from './masks.ts'
 import type { ShrimpAvatar } from './shrimp.ts'
@@ -87,7 +88,9 @@ export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void
  */
 export function createPlayer(): ShrimpAvatar {
   const skin = mat(SKIN, 0.58)
-  const hairMat = mat(HAIR, 0.4)
+  skin.name = 'skin'
+  const hairMat = mat(HAIR, 0.75)
+  hairMat.name = 'hair'
   hairMat.emissive = new THREE.Color(0x4a3a12)
   hairMat.emissiveIntensity = 0
   const suit = mat(SUIT, 0.64)
@@ -157,9 +160,6 @@ export function createPlayer(): ShrimpAvatar {
       y -= 0.02
       z += 0.012
     }
-    if (z > 0.07 && Math.abs(x) < 0.05 && y > -0.02 && y < 0.055) {
-      z += 0.034 + (Math.abs(x) < 0.018 ? 0.02 : 0)
-    }
     if (z > 0.05 && y > 0.035 && y < 0.095) z += 0.018
     if (Math.abs(x) > 0.05 && Math.abs(x) < 0.13 && y > -0.04 && y < 0.05 && z > 0.02) {
       x *= 1.08
@@ -168,44 +168,24 @@ export function createPlayer(): ShrimpAvatar {
     headPos.setXYZ(i, x, y, z)
   }
   headGeo.computeVertexNormals()
-  part(headGeo, skin, bob, 0, 1.64, 0.02)
+  const head = part(headGeo, skin, bob, 0, 1.64, 0.02)
 
   const shards = [
-    [0, 1.9, -0.02, 0.22, 0.055, 0.22, -0.6, 0, 0],
-    [-0.09, 1.93, 0.02, 0.1, 0.05, 0.18, -0.85, 0.3, 0.5],
-    [0.09, 1.94, 0.01, 0.1, 0.048, 0.18, -0.9, -0.25, -0.42],
-    [-0.15, 1.8, 0.03, 0.07, 0.04, 0.16, -0.3, 0.4, 0.85],
-    [0.15, 1.81, 0.03, 0.07, 0.038, 0.16, -0.25, -0.35, -0.78],
-    [0, 1.99, -0.06, 0.09, 0.08, 0.14, -1.05, 0, 0],
+    [0, 1.86, 0.02, 0.2, 0.05, 0.2, -0.45, 0, 0],
     [-0.04, 1.86, 0.09, 0.1, 0.035, 0.07, 0.45, 0.15, 0.2],
     [0.05, 1.85, 0.1, 0.09, 0.032, 0.07, 0.4, -0.12, -0.16],
   ] as const
-  for (const [x, y, z, sx, sy, sz, rx, ry, rz] of shards) {
-    const shard = part(new THREE.BoxGeometry(sx, sy, sz), hairMat, bob, x, y, z)
-    shard.rotation.set(rx, ry, rz)
-  }
+  void shards // replaced by the full-coverage faceted cap in face.ts
 
-  const nose = part(new THREE.ConeGeometry(0.026, 0.07, 4), skin, bob, 0, 1.6, 0.145)
-  nose.rotation.x = Math.PI / 2
-  part(new THREE.BoxGeometry(0.05, 0.012, 0.012), lip, bob, 0, 1.5, 0.155)
-  const browL = part(new THREE.BoxGeometry(0.07, 0.012, 0.012), hairMat, bob, -0.05, 1.72, 0.15)
-  const browR = part(new THREE.BoxGeometry(0.07, 0.012, 0.012), hairMat, bob, 0.05, 1.72, 0.15)
-  browL.rotation.z = 0.12
-  browR.rotation.z = -0.12
-
-  const addEye = (side: number) => {
-    part(new THREE.SphereGeometry(0.026, 8, 6), iris, bob, side * 0.058, 1.655, 0.155)
-    part(new THREE.SphereGeometry(0.012, 6, 5), pupil, bob, side * 0.058, 1.655, 0.178)
-  }
-  addEye(-1)
-  addEye(1)
+  buildFace(bob, { head, female: false, skin, hair: hairMat, lip: 0xb98274, iris: 0x4f6a52, eyeY: 0.015 })
+  void iris; void pupil; void lip
 
   // Wire-frame glasses (reference): thin metal bars around a clear lens, not solid goggles.
   const lensGlass = new THREE.MeshPhysicalMaterial({ color: 0xdfe8ee, roughness: 0.05, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.18, depthWrite: false })
   void lens
   const addRim = (side: number) => {
     const x = side * 0.058
-    for (const [w, h, dx, dy] of [[0.11, 0.006, 0, 0.021], [0.11, 0.006, 0, -0.021], [0.006, 0.042, -0.055, 0], [0.006, 0.042, 0.055, 0]] as const) {
+    for (const [w, h, dx, dy] of [[0.1, 0.004, 0, 0.019], [0.1, 0.004, 0, -0.019], [0.004, 0.038, -0.05, 0], [0.004, 0.038, 0.05, 0]] as const) {
       const bar = part(new THREE.BoxGeometry(w, h, 0.006), metal, bob, x + dx, 1.655 + dy, 0.178)
       bar.castShadow = false
     }

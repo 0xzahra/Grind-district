@@ -88,11 +88,25 @@ function robot(): { object: THREE.Group; x: number; z: number } {
   return { object: root, x: 10, z: 6 }
 }
 
+// Realistic skin tones and hair colours (skin, hair).
+const LOOKS: Array<[number, number]> = [
+  [0x8d5a3b, 0x1b1411], [0xe0b394, 0x3a2618], [0x5c3a26, 0x0f0b0a], [0xc68a64, 0x2a1a12],
+  [0xf0c9ad, 0xd9c08a], [0x7a4a2e, 0x16100d], [0xb47a55, 0x4a2c1a], [0x9a6544, 0x0e0a08],
+]
+
 export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacle[] } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury)
-    avatar.setMask(spec.mask)
+    // Street citizens show natural faces (licensed NFT faces only ever go on players who own them).
+    void spec.mask
+    const look = LOOKS[people.length % LOOKS.length]!
+    avatar.object.traverse((node) => {
+      const m = (node as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
+      if (!m || !('color' in m)) return
+      if (m.name === 'skin') m.color.setHex(look[0])
+      if (m.name === 'hair') m.color.setHex(look[1])
+    })
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)

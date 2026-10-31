@@ -881,15 +881,14 @@ export function mountUi(
         return renderHouse()
       case 'city':
         return renderSimple('The city', [
-          para('Every door on the street. Tap one to travel there, or tap the map.'),
+          para('Every door on the street. Tap one to go straight there and walk in.'),
           ...GUIDE.map((stop) => {
             const row = document.createElement('div')
             row.className = 'map-entry'
-            const name = button(`${stop.title} · ${stop.where}`, 'ghost', () => hooks.travel?.(stop.title))
+            // One tap: travel there and walk straight in.
+            const name = button(`${stop.title} · ${stop.where}`, 'ghost', () => hooks.travel?.(stop.title, true))
             name.title = stop.text
-            const go = button('Enter', 'primary', () => hooks.travel?.(stop.title, true))
-            go.classList.add('map-enter')
-            row.append(name, go)
+            row.append(name)
             return row
           }),
         ])

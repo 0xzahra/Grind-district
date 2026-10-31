@@ -1261,3 +1261,8 @@ body.rail-shut #nav-city.top-map { opacity: 1 !important; pointer-events: auto !
 #nav { max-height: calc(100vh - 150px); overflow-y: auto; }
 .agent-prompt { white-space: pre-wrap; max-height: 180px; overflow: auto; font: 11px/1.45 ui-monospace, monospace; background: rgba(0,0,0,.35); padding: 10px; border-radius: 10px; text-align: left; }
 body:has(#menu:not([hidden])) :is(.menu-profile, #menu-profile-name, #hud .pills, #nav-profile, #pill-rank, #pill-ledger) { display: none !important; }
+.nav-keys summary { cursor: pointer; list-style: none; } .nav-keys summary::-webkit-details-marker { display: none; } .nav-keys summary::after { content: ' +'; opacity: .6; } .nav-keys[open] summary::after { content: ' −'; }
+/* Message icon sits beside the notification bell, top-right. */
+#msg-btn { top: max(14px, env(safe-area-inset-top)) !important; bottom: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 100px) !important; width: 42px !important; height: 42px !important; }
+#chat { top: calc(max(14px, env(safe-area-inset-top)) + 54px) !important; bottom: auto !important; }
+body.rail-shut #nav-city.top-map { opacity: 0 !important; pointer-events: none !important; }

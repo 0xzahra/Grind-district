@@ -202,6 +202,10 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const forced = new URLSearchParams(location.search).get('time')
   if (forced === 'day' || forced === 'dusk' || forced === 'night') setTime(forced)
   let dayPhase = phaseFor(getSave().timeOfDay)
+  // Phones: extra sky/ground fill so figures never go silhouette-black on dim mobile screens.
+  const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
+  phoneFill.visible = matchMedia('(pointer: coarse)').matches
+  scene.add(phoneFill)
   let lightAcc = 1
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
@@ -527,6 +531,10 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       event.preventDefault()
       goHome()
     }
+    const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement
+    if (typing || event.repeat || event.ctrlKey || event.metaKey) return
+    if ((event.key === 'h' || event.key === 'H') && !ui.isOpen()) goHome()
+    if (event.key === 'm' || event.key === 'M') must<HTMLButtonElement>('#nav-city').click()
   })
   let busyFor = 0
   let exitCooldown = 0
@@ -675,6 +683,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.03 * nightLevel
       renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.8, nightLevel)
       physSky.sky.visible = nightLevel < 0.85
+  phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
