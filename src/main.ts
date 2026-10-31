@@ -25,7 +25,7 @@ import { createSkyline } from './skyline.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { onActivity, subscribe, getSave, loadSave, rememberPlace, setGraphics, setVolume, tickMarket } from './state.ts'
+import { onActivity, subscribe, setTime, getSave, loadSave, rememberPlace, setGraphics, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -205,6 +205,8 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   // ~10 real minutes per in-game day. GN time in Settings picks where the clock starts.
   const DAY_SECONDS = 600
   const phaseFor = (time: string) => (time === 'day' ? 0.42 : time === 'dusk' ? 0.74 : 0.02)
+  const forced = new URLSearchParams(location.search).get('time')
+  if (forced === 'day' || forced === 'dusk' || forced === 'night') setTime(forced)
   let dayPhase = phaseFor(getSave().timeOfDay)
   let lightAcc = 1
   const calmSky = () => reduceMotion || getSave().reduceMotion
@@ -243,7 +245,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     world.setLook({ time, season: seasonAt() })
     dayPhase = phaseFor(time)
     world.setDaylight(dayPhase)
-    renderer.toneMappingExposure = 1.0
+    lightAcc = 1 // re-run the eased exposure/env update on the next frame
   }
   applyEnvironment(renderer, scene)
   const post = createPost(renderer, scene, camera)
@@ -676,11 +678,12 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       world.setDaylight(dayPhase)
       physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
-      renderer.toneMappingExposure = 0.96 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.1
-      nightLevel = THREE.MathUtils.clamp(-sunUp * 2 + 0.3, 0, 1)
+      nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
       post.setNight(nightLevel)
-      scene.environmentIntensity = 0.6 - nightLevel * 0.25
-      renderer.toneMappingExposure = 0.88 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.08
+      // Ease everything with the same curve: env map and exposure fall away after dusk.
+      scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.03 * nightLevel
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.8, nightLevel)
+      physSky.sky.visible = nightLevel < 0.85
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)

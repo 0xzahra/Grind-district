@@ -374,7 +374,44 @@ export function createWorld(options: {
   scene.background = background
   const sunOffset = new THREE.Vector3(14, 22, 10)
 
+  // Night lighting: only lamps light the city. A small pool of shadowless point lights follows the
+  // player to the nearest lamps; every lamp also gets an additive ground light decal (one draw call).
+  const lampSpots: { x: number; z: number; y: number }[] = []
+  const POOL = 6
+  const pool: THREE.PointLight[] = []
+  for (let i = 0; i < POOL; i++) {
+    const l = new THREE.PointLight(0xffc98a, 0, 13, 2)
+    l.castShadow = false
+    l.position.set(0, -50, 0)
+    scene.add(l)
+    pool.push(l)
+  }
+  let poolNight = 0
+  let poolAcc = 1
+  const decalTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128
+    const g = c.getContext('2d')!
+    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64)
+    r.addColorStop(0, 'rgba(255,214,160,1)'); r.addColorStop(0.35, 'rgba(255,190,120,0.45)'); r.addColorStop(1, 'rgba(255,170,100,0)')
+    g.fillStyle = r; g.fillRect(0, 0, 128, 128)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t
+  })()
+  const decalMat = new THREE.MeshBasicMaterial({ map: decalTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false })
+  let decals: THREE.InstancedMesh | null = null
+  const buildDecals = () => {
+    const all = [...lampSpots, ...glowSpots]
+    decals = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), decalMat, all.length)
+    const m = new THREE.Matrix4()
+    all.forEach((p, i) => decals!.setMatrixAt(i, m.compose(new THREE.Vector3(p.x, 0.04, p.z), new THREE.Quaternion(), new THREE.Vector3(7, 1, 7))))
+    decals.renderOrder = 1
+    decals.userData.ghost = true
+    decals.raycast = () => undefined
+    decals.frustumCulled = false
+    scene.add(decals)
+  }
+  const glowSpots: { x: number; z: number; y: number }[] = []
   const addGlow = (x: number, y: number, z: number, color: number, night: number) => {
+    glowSpots.push({ x, z, y })
     const light = new THREE.PointLight(color, night, 14, 2)
     light.position.set(x, y, z)
     light.userData.night = night
@@ -1109,6 +1146,7 @@ export function createWorld(options: {
   scene.add(trunks, crowns, crowns2)
 
   const addLamp = (x: number, z: number) => {
+    lampSpots.push({ x, z, y: 2.3 })
     const group = new THREE.Group()
     group.position.set(x, 0, z)
     const pole = solid(new THREE.CylinderGeometry(0.045, 0.06, 2.3, 6), stoneDark)
@@ -1264,27 +1302,29 @@ export function createWorld(options: {
     background.copy(tmpB)
     fog.color.copy(tmpB)
     fog.density = 0.009 - day * 0.0045
-    // The key light is the sun by day and the moon by night, always from above the horizon.
+    // Day: the sun drives everything. Night: a faint cool moon and almost no ambient; lamps do the rest.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.4 + day * 0.85 : 0.55) * (seasonBear ? 0.85 : 1)
-    hemi.intensity = 0.25 + day * 0.4 + night * 0.35
+    sun.intensity = (elev >= 0 ? 0.25 + day * 1.0 : 0.05) * (seasonBear ? 0.85 : 1)
+    sun.castShadow = day > 0.15
+    hemi.intensity = 0.04 + day * 0.56
     hemi.color.copy(moonLight).lerp(sunDay, day)
-    hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)
-    fill.intensity = 0.12 + night * 0.12
-    sun.shadow.radius = 2 + night * 4
-    lampMat.emissiveIntensity = 0.08 + night * 0.87
-    trimPulse = 0.25 + night * 0.45
+    hemi.groundColor.setHex(0x07090c).lerp(tmpA.setHex(0x3d4f3a), day)
+    fill.intensity = 0.02 + day * 0.1
+    lampMat.emissiveIntensity = 0.08 + night * 2.2
+    trimPulse = 0.15 + night * 0.2
     trim.emissiveIntensity = trimPulse
-    waterMat.emissiveIntensity = 0.12 + night * 0.38
-    // Wet-street night: the ground picks up neon and the env map after dark.
-    groundMat.roughness = 0.97 - night * 0.45
-    groundMat.metalness = 0.02 + night * 0.28
-    for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.3
-    for (const light of glow) light.intensity = Number(light.userData.night) * 1.4 * Math.max(0, night - 0.1)
+    waterMat.emissiveIntensity = 0.05 + night * 0.08
+    groundMat.roughness = 0.97 - night * 0.3
+    groundMat.metalness = 0.02 + night * 0.12
+    for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.45
+    for (const light of glow) light.intensity = Number(light.userData.night) * 0.8 * Math.max(0, night - 0.1)
+    poolNight = night
+    decalMat.opacity = 0.75 * Math.max(0, night - 0.15)
+    if (!decals && lampSpots.length) buildDecals()
     moon.visible = night > 0.25
     moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)
     stars.visible = night > 0.6
@@ -1311,6 +1351,17 @@ export function createWorld(options: {
       ladderMat.map = ladderMap
     },
     tick(time, focus) {
+      poolAcc += 1 / 60
+      if (poolAcc > 0.25) {
+        poolAcc = 0
+        const near = [...lampSpots, ...glowSpots].map((p) => ({ p, d: (p.x - focus.x) ** 2 + (p.z - focus.z) ** 2 })).sort((a, b) => a.d - b.d)
+        pool.forEach((l, i) => {
+          const n = near[i]
+          if (!n || poolNight < 0.15) { l.intensity = 0; return }
+          l.position.set(n.p.x, n.p.y, n.p.z)
+          l.intensity = 9 * poolNight
+        })
+      }
       sun.position.set(focus.x + sunOffset.x, sunOffset.y, focus.z + sunOffset.z)
       sky.position.set(focus.x, 0, focus.z)
       sun.target.position.set(focus.x, 0, focus.z)
