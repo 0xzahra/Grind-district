@@ -15,6 +15,7 @@ import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
+import { createSkyline } from './skyline.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
@@ -164,6 +165,7 @@ async function main(onReveal: () => void) {
   const crowd = createCrowd(scene)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
+  const skyline = createSkyline(scene, getSave().graphics)
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   // ~10 real minutes per in-game day. GN time in Settings picks where the clock starts.
   const DAY_SECONDS = 600
@@ -178,22 +180,6 @@ async function main(onReveal: () => void) {
     pos.x = 0
     pos.z = 8
   }
-  // Soft blob shadow keeps the player grounded on Low/Medium where real shadows are off.
-  const blob = (() => {
-    const c = document.createElement('canvas')
-    c.width = c.height = 64
-    const g = c.getContext('2d')!
-    const r = g.createRadialGradient(32, 32, 0, 32, 32, 32)
-    r.addColorStop(0, 'rgba(0,0,0,0.45)')
-    r.addColorStop(1, 'rgba(0,0,0,0)')
-    g.fillStyle = r
-    g.fillRect(0, 0, 64, 64)
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }))
-    m.rotation.x = -Math.PI / 2
-    m.renderOrder = 1
-    scene.add(m)
-    return m
-  })()
   avatar.object.position.set(pos.x, 0, pos.z)
   if (wearsPlate(getSave().body)) tagPlayer(avatar.object, getSave().name, getSave().username)
   avatar.setMask(getSave().mask)
@@ -288,7 +274,8 @@ async function main(onReveal: () => void) {
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
-  must('#shot').addEventListener('click', () => {
+  must('#pill-place').addEventListener('click', () => ui.open('city'))
+  document.querySelector('#shot')?.addEventListener('click', () => {
     renderer.render(scene, camera)
     try {
       const link = document.createElement('a')
@@ -319,11 +306,25 @@ async function main(onReveal: () => void) {
     scene,
     me: identity(),
     getSelf: () => avatar.object,
-    onLine: ({ from, text, self }) => {
+    onLine: ({ from, text, self, audio }) => {
       const item = document.createElement('li')
       const who = document.createElement('b')
       who.textContent = self ? 'You' : from
       item.append(who, ` ${text}`)
+      if (audio) {
+        // Tap-to-play bubble; nothing autoplays.
+        const play = document.createElement('button')
+        play.type = 'button'
+        play.className = 'voice-play'
+        play.textContent = '▶ Play'
+        play.setAttribute('aria-label', `Play voice note from ${self ? 'you' : from}`)
+        const el = new Audio()
+        el.preload = 'none'
+        el.src = audio
+        play.onclick = () => { if (el.paused) { void el.play(); play.textContent = '❚❚ Pause' } else { el.pause(); play.textContent = '▶ Play' } }
+        el.onended = () => { play.textContent = '▶ Play' }
+        item.append(' ', play)
+      }
       chatLog.append(item)
       while (chatLog.children.length > 5) chatLog.firstElementChild?.remove()
       window.setTimeout(() => item.remove(), 20000)
@@ -334,6 +335,7 @@ async function main(onReveal: () => void) {
         : 'Solo city. Only you see your bubble.'
     },
   })
+  if (import.meta.env.VITE_VOICE_NOTES === '1') void import('./voice.ts').then((m) => m.mountVoice(chat, net, (t) => ui.toast(t)))
   chat.addEventListener('submit', (event) => {
     event.preventDefault()
     net.setMe(identity())
@@ -366,6 +368,8 @@ async function main(onReveal: () => void) {
   let camPitch = 0.42
   let camDist = 5.6
   let sprinting = false
+  let introT = 0
+  const introPos = new THREE.Vector3()
   const shoulder = new THREE.Vector3()
   let lookIdle = 0
   const camVel = new THREE.Vector3()
@@ -475,8 +479,7 @@ async function main(onReveal: () => void) {
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
-    blob.position.set(pos.x, 0.03, pos.z)
-    blob.visible = getSave().graphics !== 'high'
+    skyline.tick(elapsed, nightLevel)
     ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()
@@ -535,9 +538,14 @@ async function main(onReveal: () => void) {
     const running = frame.run || frame.stick > 0.88
     sprinting = running && mag > 0.2
     const speed = (running ? RUN : WALK) * mag
-    const rate = 1 - Math.exp(-9 * dt)
+    // Accelerate briskly, brake harder, and settle to an exact stop so the body never drifts.
+    const rate = 1 - Math.exp(-(speed > 0.01 ? 10 : 16) * dt)
     vel.x += (dirX * speed - vel.x) * rate
     vel.z += (dirZ * speed - vel.z) * rate
+    if (speed < 0.01 && Math.hypot(vel.x, vel.z) < 0.08) {
+      vel.x = 0
+      vel.z = 0
+    }
     if (paused) {
       vel.x = 0
       vel.z = 0
@@ -548,8 +556,12 @@ async function main(onReveal: () => void) {
     blockers.push(...world.obstacles, ...crowdObstacles)
     resolveCollision(pos, vel, blockers, PLAYER_R)
     avatar.object.position.set(pos.x, 0, pos.z)
-    const moving = Math.hypot(vel.x, vel.z) > 0.22
-    avatar.face(dirX, dirZ, dt, wishLen > 0.05)
+    const groundSpeed = Math.hypot(vel.x, vel.z)
+    const moving = groundSpeed > 0.22
+    // Face where the body actually goes (after collision), falling back to the input while starting.
+    const faceX = groundSpeed > 0.3 ? vel.x / groundSpeed : dirX
+    const faceZ = groundSpeed > 0.3 ? vel.z / groundSpeed : dirZ
+    avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     if (follower) {
       const goalX = pos.x + 0.85
@@ -612,6 +624,14 @@ async function main(onReveal: () => void) {
     const safe = pullCamera(lookTarget, smoothCam)
     if (safe.y < 0.4) safe.y = 0.4
     camera.position.copy(safe)
+    // Cinematic intro: a high crane sweep over the skyline that settles behind the player.
+    if (introT < 1 && !calmSky()) {
+      introT = Math.min(1, introT + dt / 3.2)
+      const k = introT * introT * (3 - 2 * introT)
+      const a = camYaw + (1 - k) * 1.6
+      introPos.set(pos.x + Math.sin(a) * 34, 26, pos.z + Math.cos(a) * 34)
+      camera.position.lerpVectors(introPos, safe, k)
+    }
     camera.lookAt(lookTarget)
     const baseFov = window.innerWidth < 800 ? 60 : 55
     const fov = baseFov + (sprinting ? 6 : 0)

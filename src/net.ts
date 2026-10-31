@@ -29,6 +29,9 @@ export type Net = {
   online: () => boolean
   peers: () => Array<{ x: number; z: number }>
   say: (text: string) => void
+  /** Upload a short voice note to Storage and broadcast its URL to nearby players. */
+  sayVoice: (blob: Blob, seconds: number) => Promise<void>
+  canVoice: () => boolean
   tick: (dt: number, me: { x: number; z: number; yaw: number; moving: boolean }) => void
   setMe: (me: Me) => void
 }
@@ -105,7 +108,7 @@ export function createNet(options: {
   scene: THREE.Scene
   me: Me
   getSelf: () => THREE.Object3D
-  onLine: (line: { from: string; text: string; self: boolean }) => void
+  onLine: (line: { from: string; text: string; self: boolean; audio?: string }) => void
   onStatus: (online: boolean) => void
 }): Net {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
@@ -116,6 +119,9 @@ export function createNet(options: {
   let pos = { x: 0, z: 0, yaw: 0, moving: false }
   let channel: import('@supabase/supabase-js').RealtimeChannel | null = null
   let connected = false
+  let storage: import('@supabase/supabase-js').SupabaseClient | null = null
+  const VOICE = import.meta.env.VITE_VOICE_NOTES === '1'
+  const BUCKET = 'voice-notes'
   let sendAcc = 0
 
   const near = (x: number, z: number) => Math.hypot(x - pos.x, z - pos.z) <= HEAR_RADIUS
@@ -152,6 +158,7 @@ export function createNet(options: {
     void import('@supabase/supabase-js')
       .then(({ createClient }) => {
         const client = createClient(url, key, { realtime: { params: { eventsPerSecond: 10 } } })
+        storage = client
         const room = client.channel('grind-district:city', { config: { broadcast: { self: false }, presence: { key: id } } })
         room
           .on('broadcast', { event: 'pos' }, ({ payload }) => upsert(payload as Wire))
@@ -163,6 +170,13 @@ export function createNet(options: {
             const peer = peers.get(message.id)
             if (peer) showBubble(peer.avatar.object, text)
             options.onLine({ from: clean(String(message.name ?? '')) || 'Someone', text, self: false })
+          })
+          .on('broadcast', { event: 'voice' }, ({ payload }) => {
+            const m = payload as { id: string; url: string; x: number; z: number; name: string; s: number }
+            if (!VOICE || !near(m.x, m.z)) return
+            // Only accept notes hosted in our own bucket.
+            if (typeof m.url !== 'string' || !m.url.startsWith(`${url}/storage/v1/object/public/${BUCKET}/`)) return
+            options.onLine({ from: clean(String(m.name ?? '')) || 'Someone', text: `voice note ${Math.round(Number(m.s) || 0)}s`, self: false, audio: m.url })
           })
           .on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
           .subscribe((status) => {
@@ -189,6 +203,17 @@ export function createNet(options: {
       showBubble(options.getSelf(), text)
       options.onLine({ from: me.name || 'You', text, self: true })
       if (connected && channel) void channel.send({ type: 'broadcast', event: 'chat', payload: { id, text, x: pos.x, z: pos.z, name: me.name } })
+    },
+    canVoice: () => VOICE && connected && !!storage,
+    async sayVoice(blob, seconds) {
+      if (!VOICE || !storage || !channel) throw new Error('Voice notes are off')
+      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
+      const path = `${new Date().toISOString().slice(0, 10)}/${id}-${Date.now()}.${ext}`
+      const up = await storage.storage.from(BUCKET).upload(path, blob, { contentType: blob.type, upsert: false })
+      if (up.error) throw up.error
+      const publicUrl = storage.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+      options.onLine({ from: me.name || 'You', text: `voice note ${Math.round(seconds)}s`, self: true, audio: publicUrl })
+      void channel.send({ type: 'broadcast', event: 'voice', payload: { id, url: publicUrl, x: pos.x, z: pos.z, name: me.name, s: seconds } })
     },
     tick(dt, self) {
       pos = self

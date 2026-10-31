@@ -24,17 +24,16 @@
           <p class="tag">No tribe, no continent<br />Just come grind</p>
           <p class="pills">
             <button id="pill-rank" type="button" class="pill">Shrimp</button>
-            <span id="pill-place" class="pill">The Plaza</span>
+            <button id="pill-place" type="button" class="pill" title="Open the City directory">The Plaza</button>
             <button id="pill-ledger" type="button" class="pill">$0.00</button>
             <button id="pill-season" type="button" class="pill">Bull</button>
             <span id="pill-focus" class="pill" hidden>Focus</span>
           </p>
           <nav id="nav">
-            <button id="nav-profile" type="button">Profile</button>
-            <button id="nav-learn" type="button">Learn</button>
-            <button id="nav-city" type="button">City</button>
-            <button id="nav-settings" type="button">Settings</button>
-            <button id="shot" type="button">Shot</button>
+            <button id="nav-profile" type="button" class="icon-btn" aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg><span>Profile</span></button>
+            <button id="nav-learn" type="button" class="icon-btn" aria-label="Learn" title="Learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l9-3 9 3-9 3-9-3Zm3 2v6c0 1.5 3 3 6 3s6-1.5 6-3V8"/></svg><span>Learn</span></button>
+            <button id="nav-city" type="button" class="icon-btn" aria-label="City" title="City"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l5-3v14M9 20V4l7 3v13M16 20v-9l4 2v7M3 20h18"/></svg><span>City</span></button>
+            <button id="nav-settings" type="button" class="icon-btn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
           </nav>
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>
@@ -121,6 +120,7 @@
       </div>
       <div id="boot" class="hidden" role="status" aria-hidden="true">
         <img src="/brand/logo-black.jpg" width="1168" height="784" alt="" />
+        <div class="boot-bar" aria-hidden="true"><i></i></div>
         <p id="boot-text">Opening the district</p>
       </div>
     </div>

@@ -1,6 +1,12 @@
 import * as THREE from 'three'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+
+// Kenney Car Kit (CC0). Each model merges to one geometry -> one InstancedMesh per model.
+const CAR_MODELS = ['sedan', 'suv', 'taxi', 'sedan-sports', 'hatchback-sports', 'van', 'police']
+const CAR_SCALE = 1.5
 
 /**
  * Ambient city: instanced pedestrians on the sidewalks and modern cars in lanes.
@@ -90,6 +96,63 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     mesh.raycast = () => undefined
     scene.add(mesh)
   }
+
+  // Head and tail lights: two tiny instanced emissive strips that bloom at night.
+  const lightGeo = new THREE.BoxGeometry(1.3, 0.1, 0.05)
+  const headMat = new THREE.MeshBasicMaterial({ color: 0xfff6e0, toneMapped: false })
+  const tailMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false })
+  const heads2 = new THREE.InstancedMesh(lightGeo, headMat, counts.cars)
+  const tails = new THREE.InstancedMesh(lightGeo, tailMat, counts.cars)
+  for (const mesh of [heads2, tails]) {
+    mesh.frustumCulled = false
+    mesh.userData.ghost = true
+    mesh.raycast = () => undefined
+    scene.add(mesh)
+  }
+  const lightOffset = new THREE.Matrix4()
+  const headLocal = new THREE.Matrix4().makeTranslation(0, 0.66, 1.92)
+  const tailLocal = new THREE.Matrix4().makeTranslation(0, 0.72, -1.92)
+
+  // Swap the box cars for Kenney models once they load; boxes stay as the instant fallback.
+  type Slot = { mesh: THREE.InstancedMesh; index: number }
+  let slots: Slot[] | null = null
+  const loader = new GLTFLoader()
+  const kinds = CAR_MODELS.slice(0, Math.max(3, Math.min(CAR_MODELS.length, counts.cars)))
+  Promise.all(kinds.map((name) => loader.loadAsync(`/models/cars/${name}.glb`))).then((gltfs) => {
+    const perKind = kinds.map(() => 0)
+    cars.forEach((_, i) => { perKind[i % kinds.length] = (perKind[i % kinds.length] ?? 0) + 1 })
+    const meshes = gltfs.map((gltf, k) => {
+      const parts: THREE.BufferGeometry[] = []
+      let material: THREE.Material | null = null
+      gltf.scene.updateMatrixWorld(true)
+      gltf.scene.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          const g = (o.geometry as THREE.BufferGeometry).clone().applyMatrix4(o.matrixWorld)
+          for (const key of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(key)) g.deleteAttribute(key)
+          parts.push(g.index ? g.toNonIndexed() : g)
+          material ??= o.material as THREE.Material
+        }
+      })
+      const merged = mergeGeometries(parts)!
+      merged.scale(CAR_SCALE, CAR_SCALE, CAR_SCALE)
+      const mat = material as unknown as THREE.MeshStandardMaterial
+      mat.roughness = 0.35
+      mat.metalness = 0.4
+      const mesh = new THREE.InstancedMesh(merged, mat, Math.max(1, perKind[k] ?? 1))
+      mesh.castShadow = graphics === 'high'
+      mesh.frustumCulled = false
+      mesh.userData.ghost = true
+      mesh.raycast = () => undefined
+      scene.add(mesh)
+      return mesh
+    })
+    const used = kinds.map(() => 0)
+    slots = cars.map((_, i) => {
+      const k = i % kinds.length
+      return { mesh: meshes[k]!, index: used[k]!++ }
+    })
+    for (const m of [bodiesCar, cabins, wheels]) m.visible = false
+  }).catch(() => { /* keep the box cars */ })
 
   // Signals at the four plaza stop lines.
   const signalMat = new THREE.MeshBasicMaterial({ color: 0x17f790, toneMapped: false })
@@ -197,9 +260,17 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         dummy.rotation.set(0, Math.atan2(arm.ax * dir, arm.az * dir), 0)
         dummy.scale.setScalar(far ? 0.001 : 1)
         dummy.updateMatrix()
-        bodiesCar.setMatrixAt(i, dummy.matrix)
-        cabins.setMatrixAt(i, dummy.matrix)
-        wheels.setMatrixAt(i, dummy.matrix)
+        if (slots) {
+          const slot = slots[i]!
+          slot.mesh.setMatrixAt(slot.index, dummy.matrix)
+          slot.mesh.instanceMatrix.needsUpdate = true
+        } else {
+          bodiesCar.setMatrixAt(i, dummy.matrix)
+          cabins.setMatrixAt(i, dummy.matrix)
+          wheels.setMatrixAt(i, dummy.matrix)
+        }
+        heads2.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, headLocal))
+        tails.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, tailLocal))
         if (!far) {
           obstacles.push({ kind: 'circle', x: x + arm.ax * dir * 1.1, z: z + arm.az * dir * 1.1, r: 1.05 })
           obstacles.push({ kind: 'circle', x: x - arm.ax * dir * 1.1, z: z - arm.az * dir * 1.1, r: 1.05 })
@@ -208,6 +279,8 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       bodiesCar.instanceMatrix.needsUpdate = true
       cabins.instanceMatrix.needsUpdate = true
       wheels.instanceMatrix.needsUpdate = true
+      heads2.instanceMatrix.needsUpdate = true
+      tails.instanceMatrix.needsUpdate = true
       return obstacles
     },
   }

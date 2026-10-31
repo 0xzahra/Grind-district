@@ -69,6 +69,20 @@ function robot(): { object: THREE.Group; x: number; z: number } {
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), mint)
   tip.position.y = 1.64
   root.add(body, head, eye, antenna, tip, label('Unit 4', 'Agent'))
+  // Upgrade to the three.js RobotExpressive model (CC0, Tomás Laulhé) with walk animation once loaded.
+  void import('three/examples/jsm/loaders/GLTFLoader.js').then(({ GLTFLoader }) =>
+    new GLTFLoader().loadAsync('/models/chars/RobotExpressive.glb')).then((gltf) => {
+    const model = gltf.scene
+    const box = new THREE.Box3().setFromObject(model)
+    model.scale.setScalar(1.55 / Math.max(0.01, box.max.y - box.min.y))
+    model.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = true })
+    for (const old of [body, head, eye, antenna, tip]) old.visible = false
+    root.add(model)
+    const mixer = new THREE.AnimationMixer(model)
+    const walk = gltf.animations.find((a) => a.name === 'Walking')
+    if (walk) mixer.clipAction(walk).play()
+    root.userData.mixer = mixer
+  }).catch(() => { /* keep the box robot */ })
   return { object: root, x: 10, z: 6 }
 }
 
@@ -82,7 +96,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)
     let drone: THREE.Group | null = null
-    if (spec.drone !== 'none') {
+    if (false as boolean && spec.drone !== 'none') { // follow drones retired
       drone = createDrone(spec.drone)
       drone.position.set(0.55, 2.15, 0.2)
       avatar.object.add(drone)
@@ -139,6 +153,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
         }
       }
       robotLeg += dt
+      ;(unit.object.userData.mixer as THREE.AnimationMixer | undefined)?.update(dt)
       unit.object.position.set(robotX, Math.sin(robotLeg * 2) * 0.03, robotZ)
       obstacles.push({ kind: 'circle', x: robotX, z: robotZ, r: 0.5 })
       return obstacles

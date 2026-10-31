@@ -209,7 +209,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
-  must('#shot').addEventListener('click', () => {
+  document.querySelector('#shot')?.addEventListener('click', () => {
     try {
       const link = document.createElement('a')
       link.href = canvas.toDataURL('image/png')
