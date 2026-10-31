@@ -1,3 +1,4 @@
+import { AGENT_PROMPT } from './agentPrompt.ts'
 import { COURSES } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
@@ -88,6 +89,14 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
       skip.type = 'button'; skip.textContent = current ? 'Detach' : 'Not now'
       skip.addEventListener('click', () => { setAgent(null); status.textContent = 'No agent attached. Settings can add one later.' })
       body.append(name, role, attach, skip, status)
+      body.append(copy('Have your own AI agent? Give it this prompt (also at /agents):'))
+      const pre = document.createElement('pre')
+      pre.className = 'agent-prompt'
+      pre.textContent = AGENT_PROMPT
+      const cp = document.createElement('button')
+      cp.type = 'button'; cp.textContent = 'Copy prompt'
+      cp.addEventListener('click', () => { void navigator.clipboard?.writeText(AGENT_PROMPT).then(() => { cp.textContent = 'Copied' }) })
+      body.append(pre, cp)
       return { title: 'Agents', body }
     }
     default: {
@@ -112,8 +121,9 @@ export function mountMenu(enter: () => void): void {
   const account = must<HTMLElement>('#menu-account')
   const profileName = must<HTMLElement>('#menu-profile-name')
   const saved = getSave()
-  note.textContent = saved.signedUp ? `Welcome back, @${saved.username}.` : ''
-  profileName.textContent = saved.signedUp ? `@${saved.username}` : ''
+  // Title screen stays clean: no handle, profile or stats until you are in the city.
+  note.textContent = saved.signedUp ? 'Welcome back.' : ''
+  profileName.textContent = ''
 
   const show = (next: Page) => {
     const built = pageBody(next)

@@ -93,7 +93,6 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury)
     avatar.setMask(spec.mask)
-    avatar.object.add(label(spec.rank))
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)

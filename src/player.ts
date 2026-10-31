@@ -41,7 +41,8 @@ function part(
 export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void {
   const previous = root.getObjectByName('player-tag')
   if (previous) previous.removeFromParent()
-  if (!name) return
+  // Zahra: no name or rank plates over people on the street. Names live in profiles and chat.
+  if (name !== '\u0000') return
   const canvas = document.createElement('canvas')
   canvas.width = 640
   canvas.height = 220

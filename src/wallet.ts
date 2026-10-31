@@ -7,7 +7,7 @@ import qrcode from 'qrcode-generator'
 
 type Eip1193 = { request(a: { method: string; params?: unknown[] }): Promise<unknown>; on?(e: string, f: (...a: unknown[]) => void): void }
 const RPC = 'https://mainnet.base.org'
-const USDC = '0x833589fCD6eDb6E08f4c7f8d3feE58D57d2CF8b9'
+const USDC = '0x833589fCD6eDb6E08f4C7C32D4f71b54bdA02913'
 const CHAIN = '0x2105'
 let account = ''
 

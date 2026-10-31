@@ -7,6 +7,46 @@
     {
       "source": "/cert/:id",
       "destination": "/api/page?kind=cert&id=:id"
+    },
+    {
+      "source": "/api/agent-register",
+      "destination": "/api/agent?op=register"
+    },
+    {
+      "source": "/api/agent-me",
+      "destination": "/api/agent?op=me"
+    },
+    {
+      "source": "/api/agent-join",
+      "destination": "/api/agent?op=join"
+    },
+    {
+      "source": "/api/agent-move",
+      "destination": "/api/agent?op=move"
+    },
+    {
+      "source": "/api/agent-chat",
+      "destination": "/api/agent?op=chat"
+    },
+    {
+      "source": "/api/agent-earn",
+      "destination": "/api/agent?op=earn"
+    },
+    {
+      "source": "/api/agent-attend",
+      "destination": "/api/agent?op=attend"
+    },
+    {
+      "source": "/api/agent-events",
+      "destination": "/api/agent?op=events"
+    },
+    {
+      "source": "/api/agent-list",
+      "destination": "/api/agent?op=list"
+    },
+    {
+      "source": "/agents",
+      "destination": "/agents.html"
     }
   ],
   "crons": [

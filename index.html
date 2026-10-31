@@ -47,13 +47,18 @@
             <button id="nav-boutique" type="button" class="icon-btn" aria-label="Boutique" title="Boutique"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7Zm3 0a3 3 0 0 1 6 0"/></svg><span>Boutique</span></button>
             <button id="nav-city" type="button" class="icon-btn top-map" aria-label="Map" title="Map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14"/></svg><span>Map</span></button>
             <button id="nav-settings" type="button" class="icon-btn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
+
+            <div id="cam-tools" role="group" aria-label="Camera and home">
+              <button id="cam-in" type="button" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Zoom in</span></button>
+              <button id="cam-out" type="button" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg><span>Zoom out</span></button>
+              <button id="go-home" type="button" aria-label="Go home" title="Go home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4v-9Z"/></svg><span>Home</span></button>
+              <button id="cam-turn" type="button" aria-label="Turn camera" title="Turn camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg><span>Turn</span></button>
+            </div>
+            <section class="nav-keys" aria-label="Keyboard shortcuts">
+              <p class="nav-keys-title">Keyboard shortcuts</p>
+              <dl><dt>W A S D</dt><dd>Walk</dd><dt>Shift</dt><dd>Run</dd><dt>Drag</dt><dd>Look around</dd><dt>E</dt><dd>Enter</dd></dl>
+            </section>
           </nav>
-          <div id="cam-tools" role="group" aria-label="Camera">
-            <button id="cam-in" type="button" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-            <button id="cam-out" type="button" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-            <button id="go-home" type="button" aria-label="Go home" title="Go home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4v-9Z"/></svg></button>
-            <button id="cam-turn" type="button" aria-label="Turn camera" title="Turn camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg></button>
-          </div>
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>
         <div class="tools">
@@ -84,7 +89,7 @@
       <div id="sheet" hidden></div>
       <div id="menu">
         <canvas id="menu-preview" aria-hidden="true"></canvas>
-        <button id="menu-profile" type="button" class="menu-profile" aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg><span id="menu-profile-name"></span></button>
+        <button id="menu-profile" type="button" class="menu-profile" hidden aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg><span id="menu-profile-name"></span></button>
         <div id="menu-panel">
         <div id="menu-home">
           <h2 class="sr-only">Grind District</h2>
