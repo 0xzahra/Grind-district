@@ -67,7 +67,7 @@ function rigged(build: (bob: THREE.Group) => {
     setStyle(tint, luxury) {
       parts.tint.color.setHex(tint)
       parts.tint.emissive.setHex(tint)
-      parts.tint.emissiveIntensity = 0.28
+      parts.tint.emissiveIntensity = 0
       parts.chain.visible = luxury
     },
     setMask(mask: MaskId) {

@@ -88,7 +88,37 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     heads.setColorAt(i, color.setHex(skins[i % skins.length] ?? 0xf0c4a8))
     hair.setColorAt(i, color.setHex(hairs[(i * 7) % hairs.length] ?? 0x111111))
   }
-  const peopleMeshes = [bodies, armsL, armsR, legsL, legsR, heads, hair]
+  // Style variety: distinct hair shapes and outfit pieces, each one instanced; unused slots get a zero matrix.
+  const hairShapes = [
+    hairGeo, // short crop
+    mergeGeometries([hairGeo.clone(), new THREE.SphereGeometry(0.07, 8, 6).translate(0, 1.86, -0.07)])!, // bun
+    new THREE.IcosahedronGeometry(0.17, 1).scale(1, 0.95, 1).translate(0, 1.76, -0.02), // afro
+    mergeGeometries([hairGeo.clone(), new THREE.BoxGeometry(0.22, 0.34, 0.08).translate(0, 1.56, -0.09)])!, // long
+    mergeGeometries([hairGeo.clone(), ...[-0.07, 0, 0.07].map((x) => new THREE.CylinderGeometry(0.025, 0.02, 0.36, 5).translate(x, 1.55, -0.1))])!, // locs
+    mergeGeometries([new THREE.SphereGeometry(0.125, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 1.73, 0), new THREE.CylinderGeometry(0.13, 0.13, 0.02, 10).scale(1, 1, 1.4).translate(0, 1.74, 0.07)])!, // cap
+  ]
+  const hairMat = hair.material as THREE.MeshStandardMaterial
+  hair.visible = false
+  const hairMeshes = hairShapes.map((g) => new THREE.InstancedMesh(g, hairMat, counts.people))
+  const hoodGeo = new THREE.SphereGeometry(0.15, 8, 6, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.4).scale(1, 1, 0.8).translate(0, 1.5, -0.08)
+  const skirtGeo = new THREE.CylinderGeometry(0.17, 0.3, 0.55, 10).scale(1, 1, 0.75).translate(0, 0.62, 0)
+  const coatGeo = new THREE.CylinderGeometry(0.21, 0.23, 0.5, 10).scale(1, 1, 0.66).translate(0, 0.78, 0)
+  const hoods = new THREE.InstancedMesh(hoodGeo, cloth, counts.people)
+  const skirts = new THREE.InstancedMesh(skirtGeo, cloth, counts.people)
+  const coats = new THREE.InstancedMesh(coatGeo, cloth, counts.people)
+  const hairKind = walkers.map((_, i) => (i * 5 + 1) % hairShapes.length)
+  const outfit = walkers.map((_, i) => ['jacket', 'hoodie', 'dress', 'suit', 'tee'][(i * 3) % 5] as string)
+  walkers.forEach((_, i) => {
+    const c = new THREE.Color()
+    bodies.getColorAt(i, c)
+    for (const m of [hoods, skirts, coats]) m.setColorAt(i, c)
+    if (outfit[i] === 'suit') { for (const m of [bodies, armsL, armsR, legsL, legsR, coats]) m.setColorAt(i, c.setHex([0x2a2d33, 0x3b3530, 0x1f2a3a][i % 3]!)) }
+    if (outfit[i] === 'tee') armsL.setColorAt(i, heads.getColorAt(i, c)), armsR.setColorAt(i, c)
+    hair.getColorAt(i, c)
+    for (const m of hairMeshes) m.setColorAt(i, c)
+  })
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0)
+  const peopleMeshes = [bodies, armsL, armsR, legsL, legsR, heads, hair, ...hairMeshes, hoods, skirts, coats]
   for (const mesh of peopleMeshes) {
     mesh.castShadow = graphics === 'high'
     mesh.frustumCulled = false
@@ -237,7 +267,10 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         dummy.updateMatrix()
         bodies.setMatrixAt(i, dummy.matrix)
         heads.setMatrixAt(i, dummy.matrix)
-        hair.setMatrixAt(i, dummy.matrix)
+        hairMeshes.forEach((m, k) => m.setMatrixAt(i, k === hairKind[i] ? dummy.matrix : zero))
+        hoods.setMatrixAt(i, outfit[i] === 'hoodie' ? dummy.matrix : zero)
+        skirts.setMatrixAt(i, outfit[i] === 'dress' ? dummy.matrix : zero)
+        coats.setMatrixAt(i, outfit[i] === 'jacket' || outfit[i] === 'suit' ? dummy.matrix : zero)
         limbAt(legsL, i, -0.09, 0.86, swing)
         limbAt(legsR, i, 0.09, 0.86, -swing)
         limbAt(armsL, i, -0.25, 1.46, -swing * 0.8)

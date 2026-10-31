@@ -21,6 +21,8 @@ function isTyping(target: EventTarget | null): boolean {
 export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: HTMLElement): {
   read: () => FrameInput
   requestInteract: () => void
+  nudgeZoom: (amount: number) => void
+  nudgeLook: (dx: number) => void
 } {
   const down = new Set<string>()
   let joyX = 0
@@ -89,8 +91,40 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   stick.addEventListener('pointerup', endStick)
   stick.addEventListener('pointercancel', endStick)
 
+  // Two-finger pinch on the city canvas zooms (the joystick lives on its own element).
+  const touches = new Map<number, { x: number; y: number }>()
+  let pinchDist = 0
+  const spread = () => {
+    const [a, b] = [...touches.values()]
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
+  }
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch') {
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (touches.size === 2) {
+        pinchDist = spread()
+        lookId = null
+        dragged = true
+        return
+      }
+    }
+  })
+  canvas.addEventListener('pointermove', (event) => {
+    if (!touches.has(event.pointerId)) return
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (touches.size === 2) {
+      const d = spread()
+      zoom += (pinchDist - d) * 4
+      pinchDist = d
+    }
+  })
+  const lift = (event: PointerEvent) => { touches.delete(event.pointerId) }
+  canvas.addEventListener('pointerup', lift)
+  canvas.addEventListener('pointercancel', lift)
+
   canvas.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 && event.button !== 2) return
+    if (touches.size >= 2) return
     lookId = event.pointerId
     try {
       canvas.setPointerCapture(event.pointerId)
@@ -160,6 +194,12 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   })
 
   return {
+    nudgeZoom(amount: number) {
+      zoom += amount
+    },
+    nudgeLook(dx: number) {
+      lookX += dx
+    },
     requestInteract() {
       interactQueued = true
     },

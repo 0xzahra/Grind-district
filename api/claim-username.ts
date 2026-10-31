@@ -23,8 +23,8 @@ export default async function handler(req: Req, res: Res) {
   if (!c.ok) return res.status(400).json({ error: c.reason })
   const db = createClient(url, key, { auth: { persistSession: false } })
   const existing = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
-  if (existing.data) return res.status(200).json({ username: existing.data.username })
+  if (existing.data) return res.status(200).json({ username: existing.data.username, userId })
   const { error } = await db.from('players').insert({ privy_user_id: userId, username: c.name })
   if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'Taken' : 'Could not save' })
-  res.status(200).json({ username: c.name })
+  res.status(200).json({ username: c.name, userId })
 }

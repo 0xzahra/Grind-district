@@ -191,3 +191,16 @@ export function humanGait(
     bob.position.y = blend * (Math.abs(c) * options.bounce - options.bounce * 0.5) + (1 - blend) * breathe
   }
 }
+
+/** Keep a name plate a near-constant size on screen: small up close, readable far away. */
+export function steadyPlate(sprite: THREE.Sprite, width: number, height: number): void {
+  const world = new THREE.Vector3()
+  const aspect = width / height
+  sprite.onBeforeRender = (_r, _s, camera) => {
+    sprite.getWorldPosition(world)
+    const dist = world.distanceTo(camera.position)
+    const h = THREE.MathUtils.clamp(dist * 0.032, 0.16, height)
+    sprite.scale.set(h * aspect, h, 1)
+    sprite.updateMatrixWorld()
+  }
+}

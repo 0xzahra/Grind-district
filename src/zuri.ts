@@ -10,7 +10,7 @@ const COAT = 0x2a1422
 const FRAME = 0xf0c14a
 
 function mat(color: number, roughness: number, metalness = 0): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true })
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true, envMapIntensity: 0.3 })
 }
 
 function part(
@@ -37,11 +37,11 @@ export function createZuri(): ShrimpAvatar {
   const skin = mat(SKIN, 0.46)
   const hairMat = mat(HAIR, 0.32, 0.18)
   hairMat.emissive = new THREE.Color(0x4a241c)
-  hairMat.emissiveIntensity = 0.28
+  hairMat.emissiveIntensity = 0
   const coat = mat(COAT, 0.48, 0.12)
   const scarf = mat(0xff6f91, 0.4, 0.08)
   scarf.emissive = new THREE.Color(0xff6f91)
-  scarf.emissiveIntensity = 0.18
+  scarf.emissiveIntensity = 0
   const dark = mat(0x140e12, 0.45)
   const lip = mat(0xd4536a, 0.38)
   const iris = mat(0x2a3c2e, 0.95)
@@ -50,7 +50,7 @@ export function createZuri(): ShrimpAvatar {
   const lash = mat(0x140e10, 0.4)
   const gold = mat(FRAME, 0.22, 0.86)
   gold.emissive = new THREE.Color(0x6a4a10)
-  gold.emissiveIntensity = 0.3
+  gold.emissiveIntensity = 0.05
 
   const root = new THREE.Group()
   root.name = 'zuri'
@@ -59,10 +59,9 @@ export function createZuri(): ShrimpAvatar {
   root.add(avatar)
   const key = new THREE.PointLight(0xfff1ea, 1.2, 3.8, 2)
   key.position.set(0, 2.2, -1.05)
-  avatar.add(key)
+  // Character rig lights removed: faces read matte under the city lighting.
   const faceLight = new THREE.PointLight(0xffe8f0, 1.0, 2.6, 2)
   faceLight.position.set(0, 1.66, 0.95)
-  avatar.add(faceLight)
   const bob = new THREE.Group()
   avatar.add(bob)
 
@@ -200,7 +199,7 @@ export function createZuri(): ShrimpAvatar {
     setStyle(tint: number, luxury: boolean) {
       scarf.color.setHex(tint)
       scarf.emissive.setHex(tint)
-      scarf.emissiveIntensity = 0.18
+      scarf.emissiveIntensity = 0
       chain.visible = luxury
     },
     setMask(mask: MaskId) {

@@ -13,6 +13,18 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Grind District</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Grind District" />
+    <meta property="og:title" content="Grind District" />
+    <meta property="og:description" content="A shared 3D city in your browser. No tribe, no continent, just come and grind." />
+    <meta property="og:url" content="https://grind-district.vercel.app/" />
+    <meta property="og:image" content="https://grind-district.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Grind District" />
+    <meta name="twitter:description" content="A shared 3D city in your browser. No tribe, no continent, just come and grind." />
+    <meta name="twitter:image" content="https://grind-district.vercel.app/og-image.png" />
   </head>
   <body>
     <div id="app">
@@ -38,6 +50,11 @@
               <input id="volume" type="range" min="0" max="100" value="70" disabled aria-label="Volume" />
             </span>
           </nav>
+          <div id="cam-tools" role="group" aria-label="Camera">
+            <button id="cam-in" type="button" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button id="cam-out" type="button" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+            <button id="cam-turn" type="button" aria-label="Turn camera" title="Turn camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg></button>
+          </div>
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
         </header>
         <div class="tools">
@@ -69,7 +86,7 @@
       <div id="menu">
         <div id="menu-home">
           <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
-          <p class="tag">No tribe, no continent<br />Just come grind</p>
+          <p class="tag">No tribe, no continent, just come and grind.</p>
           <nav class="menu-actions" aria-label="Game menu">
             <button id="play" type="button" class="primary" autofocus>Enter the district</button>
             <button id="menu-signin" type="button">Sign in</button>

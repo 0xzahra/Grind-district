@@ -53,9 +53,38 @@ function today(): string {
   return day
 }
 
+// Per-user, versioned save slot: Privy user id when signed in, else a stable guest id.
+const SLOT_VERSION = 'v1'
+function userId(): string {
+  try {
+    const privy = localStorage.getItem('gd.privy.userId')
+    if (privy) return `privy-${privy}`
+    let guest = localStorage.getItem('gd.guestId')
+    if (!guest) {
+      guest = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      localStorage.setItem('gd.guestId', guest)
+    }
+    return `guest-${guest}`
+  } catch {
+    return 'guest-session'
+  }
+}
+export function slotKey(): string {
+  return `gd.save.${SLOT_VERSION}.${userId()}`
+}
+let autosave = 0
+function startAutosave(): void {
+  if (autosave) return
+  autosave = window.setInterval(persist, 10_000)
+  window.addEventListener('pagehide', persist)
+}
+
 function persist(): void {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(save))
+    const json = JSON.stringify(save)
+    localStorage.setItem(slotKey(), json)
+    localStorage.setItem(SAVE_KEY, json)
+    void syncProgress(json)
   } catch {
     // Private mode can refuse the write. The session still plays.
   }
@@ -88,11 +117,23 @@ export function getSave(): Save {
 
 export function loadSave(prefer: Graphics): Save {
   try {
-    const raw = localStorage.getItem(SAVE_KEY)
-    save = raw ? hydrate(JSON.parse(raw) as unknown) : createSave(new Date(), { graphics: prefer })
+    // Prefer this user's slot, fall back to the legacy key; a corrupt slot falls through to the next.
+    let loaded: Save | null = null
+    for (const key of [slotKey(), SAVE_KEY]) {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      try {
+        loaded = hydrate(JSON.parse(raw) as unknown)
+        break
+      } catch (error) {
+        console.warn(`[grind] Ignoring a corrupt save in ${key}.`, error)
+      }
+    }
+    save = loaded ?? createSave(new Date(), { graphics: prefer })
   } catch {
     save = createSave(new Date(), { graphics: prefer })
   }
+  startAutosave()
   applyDay(save, lagosDay(new Date()))
   if (!save.signedUp && save.body === 'shrimp') {
     save.body = 'player'
@@ -565,4 +606,21 @@ export function describeTrade(symbol: 'unit' | 'meme'): { price: number; pnl: nu
   const holding = symbol === 'unit' ? save.unit : save.meme
   const price = symbol === 'unit' ? save.unitPrice : save.memePrice
   return { price, pnl: positionPnl(holding, price), qty: holding.qty, avg: holding.avg }
+}
+
+/**
+ * Server sync stub (flag VITE_PROGRESS_SYNC=1). Posts the save to /api/progress, throttled to one
+ * write per 30 s. The table is in supabase/migrations/20261031_player_progress.sql; the endpoint is not built yet.
+ */
+let lastSync = 0
+async function syncProgress(json: string): Promise<void> {
+  if (import.meta.env.VITE_PROGRESS_SYNC !== '1') return
+  const now = Date.now()
+  if (now - lastSync < 30_000) return
+  lastSync = now
+  try {
+    await fetch('/api/progress', { method: 'POST', headers: { 'content-type': 'application/json' }, body: json, keepalive: true })
+  } catch {
+    // Offline is fine: local save is the source of truth.
+  }
 }

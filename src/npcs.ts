@@ -1,3 +1,4 @@
+import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { CITIZENS, stepCitizens, type CitizenSim } from './citizens.ts'
@@ -17,7 +18,7 @@ function label(primary: string, secondary = ''): THREE.Sprite {
   canvas.height = 96
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Could not paint a nameplate.')
-  context.fillStyle = 'rgba(6, 16, 12, 0.82)'
+  context.fillStyle = 'rgba(14, 12, 10, 0.78)'
   context.beginPath()
   context.roundRect(8, 8, 240, 80, 18)
   context.fill()
@@ -27,11 +28,11 @@ function label(primary: string, secondary = ''): THREE.Sprite {
     context.fillStyle = '#e9fff4'
     context.font = '700 28px Outfit, sans-serif'
     context.fillText(primary, 128, 36)
-    context.fillStyle = '#17f790'
+    context.fillStyle = '#d9b26a'
     context.font = '600 20px Outfit, sans-serif'
     context.fillText(secondary, 128, 64)
   } else {
-    context.fillStyle = '#17f790'
+    context.fillStyle = '#f2ece0'
     context.font = '700 28px Outfit, sans-serif'
     context.fillText(primary, 128, 48)
   }
@@ -41,6 +42,7 @@ function label(primary: string, secondary = ''): THREE.Sprite {
     new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }),
   )
   sprite.scale.set(1.7, 0.64, 1)
+  steadyPlate(sprite, 1.7, 0.64)
   sprite.position.y = 2.25
   sprite.userData.ghost = true
   sprite.raycast = () => undefined

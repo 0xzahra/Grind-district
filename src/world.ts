@@ -72,6 +72,22 @@ function mulberry32(seed: number): () => number {
   }
 }
 
+/** Box-projected UVs in object space (metres * scale) so textures tile instead of stretching. */
+function boxProjectUV(geometry: THREE.BufferGeometry, scale: number): void {
+  const pos = geometry.getAttribute('position')
+  const nor = geometry.getAttribute('normal')
+  if (!pos || !nor) return
+  const uv = new Float32Array(pos.count * 2)
+  for (let i = 0; i < pos.count; i++) {
+    const nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i)), nz = Math.abs(nor.getZ(i))
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i)
+    const [u, v] = nx >= ny && nx >= nz ? [z, y] : ny >= nz ? [x, z] : [x, y]
+    uv[i * 2] = u * scale
+    uv[i * 2 + 1] = v * scale
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+}
+
 export function createWorld(options: {
   scene: THREE.Scene
   anisotropy: number
@@ -94,14 +110,34 @@ export function createWorld(options: {
   const stone = new THREE.MeshStandardMaterial({ color: 0x3c4b45, roughness: 0.88, metalness: 0.04 })
   const stoneDark = new THREE.MeshStandardMaterial({ color: 0x24302b, roughness: 0.9, metalness: 0.05 })
   const trim = new THREE.MeshStandardMaterial({
-    color: 0x17f790,
-    emissive: 0x17f790,
+    color: 0xc9a25e,
+    emissive: 0xffcf8a,
     emissiveIntensity: 1.1,
     roughness: 0.38,
   })
+  // CC0 PBR sets (ambientCG). Phones get 512 px, desktops 1k.
+  const texSize = window.matchMedia('(pointer: coarse)').matches ? '512' : '1k'
+  const texLoader = new THREE.TextureLoader()
+  const pbr = (name: string, color = true) => {
+    const load = (ch: string, srgb: boolean) => {
+      const t = texLoader.load(`/textures/${name}_${ch}_${texSize}.jpg`)
+      t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.anisotropy = anisotropy
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace
+      return t
+    }
+    return { map: color ? load('color', true) : null, normalMap: load('normal', false), roughnessMap: load('rough', false) }
+  }
+  const concrete = pbr('concrete')
+  Object.assign(stone, concrete, { color: new THREE.Color(0xd8cfc0), roughness: 1, metalness: 0 })
+  stone.normalScale.set(0.8, 0.8)
+  Object.assign(stoneDark, pbr('concrete'), { color: new THREE.Color(0x6e675e), roughness: 1, metalness: 0 })
+  const brass = pbr('brass')
+  Object.assign(trim, brass, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
+  for (const m of [stone, stoneDark, trim]) m.needsUpdate = true
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4a38, roughness: 0.82 })
   const bark = new THREE.MeshStandardMaterial({ color: 0x4a3428, roughness: 0.9 })
-  const leaf = new THREE.MeshStandardMaterial({ color: 0x1f6a45, roughness: 0.72, flatShading: true })
+  const leaf = new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.8, flatShading: true })
   const lampMat = new THREE.MeshStandardMaterial({
     color: 0xffe2b8,
     emissive: 0xffc27a,
@@ -109,14 +145,15 @@ export function createWorld(options: {
     roughness: 0.4,
   })
   const waterMat = new THREE.MeshStandardMaterial({
-    color: 0x1a6a5c,
-    roughness: 0.18,
-    metalness: 0.55,
-    emissive: 0x06281f,
-    emissiveIntensity: 0.45,
+    color: 0x2a5566,
+    roughness: 0.06,
+    metalness: 0.35,
+    emissive: 0x061820,
+    emissiveIntensity: 0.3,
   })
 
   const solid = (geometry: THREE.BufferGeometry, material: THREE.Material, cast = true) => {
+    if (material === stone || material === stoneDark || material === trim) boxProjectUV(geometry, material === trim ? 1.2 : 0.35)
     const item = new THREE.Mesh(geometry, material)
     item.castShadow = cast
     item.receiveShadow = true
@@ -143,7 +180,7 @@ export function createWorld(options: {
     paint(1024, 448, (g) => {
       g.fillStyle = '#0c1411'
       g.fillRect(0, 0, 1024, 448)
-      g.strokeStyle = '#17f790'
+      g.strokeStyle = '#c9a25e'
       g.lineWidth = 16
       g.strokeRect(18, 18, 988, 412)
       g.textAlign = 'center'
@@ -155,23 +192,23 @@ export function createWorld(options: {
         size -= 4
         g.font = `${size}px "Archivo Black", sans-serif`
       }
-      g.fillStyle = '#17f790'
+      g.fillStyle = '#e8c98f'
       g.fillText(label, 512, 170)
-      g.fillStyle = '#d5efe2'
+      g.fillStyle = '#f2ece0'
       g.font = '500 40px Outfit, sans-serif'
       g.fillText(subtitle, 512, 300)
     })
 
   const paintLadder = (current: string) =>
     paint(512, 1024, (g) => {
-      g.fillStyle = '#0d1512'
+      g.fillStyle = '#14110e'
       g.fillRect(0, 0, 512, 1024)
-      g.strokeStyle = '#17f790'
+      g.strokeStyle = '#c9a25e'
       g.lineWidth = 12
       g.strokeRect(16, 16, 480, 992)
       g.textAlign = 'center'
       g.textBaseline = 'middle'
-      g.fillStyle = '#9dccb6'
+      g.fillStyle = '#d9c6a2'
       g.font = '36px Outfit, sans-serif'
       g.fillText('THE LADDER', 256, 78)
       const ranks = ['WHALE', 'SHARK', 'DOLPHIN', 'FISH', 'CRAB', 'SHRIMP']
@@ -179,12 +216,12 @@ export function createWorld(options: {
       ranks.forEach((rank, index) => {
         const y = 210 + index * 120
         if (rank === you) {
-          g.fillStyle = '#17f790'
+          g.fillStyle = '#c9a25e'
           g.fillRect(48, y - 42, 416, 84)
           g.fillStyle = '#062117'
           g.font = '52px "Archivo Black", sans-serif'
         } else {
-          g.fillStyle = '#8aa89a'
+          g.fillStyle = '#a89c88'
           g.font = '42px "Archivo Black", sans-serif'
         }
         g.fillText(rank, 256, y)
@@ -194,16 +231,28 @@ export function createWorld(options: {
   let ladderMap = paintLadder(options.rankLabel)
   const ladderMat = new THREE.MeshBasicMaterial({ map: ladderMap, toneMapped: false })
 
-  const facadeTex = (seed: number) => {
+  const facadeTex = (seed: number, wall = false) => {
     const rand = mulberry32(seed)
     return paint(128, 256, (g) => {
-      g.fillStyle = '#1a2622'
+      // Albedo: warm limestone with window frames and sills. Emissive copy: black wall, lit panes only.
+      g.fillStyle = wall ? ['#9a8f7f', '#8c8478', '#a39684', '#7d776e'][seed % 4]! : '#000000'
       g.fillRect(0, 0, 128, 256)
+      if (wall) {
+        g.fillStyle = 'rgba(0,0,0,0.12)'
+        for (let row = 10; row < 256; row += 28) g.fillRect(0, row, 128, 2)
+        g.fillStyle = '#4a4238'
+        for (let row = 18; row < 240; row += 28) for (let col = 14; col < 118; col += 22) {
+          g.fillRect(col - 2, row - 2, 14, 20)
+          g.fillStyle = '#c9b89a'
+          g.fillRect(col - 3, row + 18, 16, 2)
+          g.fillStyle = '#4a4238'
+        }
+      }
       for (let row = 18; row < 240; row += 28) {
         for (let col = 14; col < 118; col += 22) {
           if (rand() > 0.72) continue
           const lit = rand()
-          g.fillStyle = lit > 0.86 ? '#17f790' : lit > 0.45 ? '#f0d7b0' : '#121a17'
+          g.fillStyle = wall ? (lit > 0.45 ? '#3a4850' : '#1e262b') : lit > 0.86 ? '#ffe7c2' : lit > 0.45 ? '#f0d7b0' : '#000000'
           g.fillRect(col, row, 10, 16)
         }
       }
@@ -402,7 +451,8 @@ export function createWorld(options: {
     const group = new THREE.Group()
     const material = spec.windows
       ? new THREE.MeshStandardMaterial({
-          map: facadeTex(spec.seed ?? 1),
+          map: facadeTex(spec.seed ?? 1, true),
+          normalMap: concrete.normalMap,
           roughness: 0.84,
           metalness: 0.04,
           emissive: 0xfff1dd,
@@ -680,11 +730,11 @@ export function createWorld(options: {
   emblem.add(plane, halo)
   scene.add(basin, rim, water, pedestal, emblem)
   obstacles.push({ kind: 'circle', x: 0, z: 0, r: 2.9 })
-  addGlow(0, 1.6, 0, 0x17f790, 12)
+  addGlow(0, 1.6, 0, 0xffd9a0, 12)
   for (let i = 0; i < 3; i += 1) {
     const ripple = new THREE.Mesh(
       new THREE.TorusGeometry(1, 0.02, 6, 40),
-      new THREE.MeshBasicMaterial({ color: 0x17f790, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }),
     )
     ripple.rotation.x = Math.PI / 2
     ripple.position.y = 0.52
@@ -752,7 +802,7 @@ export function createWorld(options: {
     })
   }
   const rand = mulberry32(19)
-  for (let i = 0; i < 80 && treeSpots.length < 34; i += 1) {
+  for (let i = 0; i < 220 && treeSpots.length < 64; i += 1) {
     const x = (rand() - 0.5) * 100
     const z = (rand() - 0.5) * 100
     if (!clearOf(x, z)) continue
@@ -771,7 +821,11 @@ export function createWorld(options: {
   trunks.castShadow = true
   trunks.receiveShadow = true
   crowns.castShadow = true
-  treeSpots.forEach(([x, z, scale], index) => {
+  const crowns2 = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.55, 0), leaf, treeSpots.length)
+  crowns2.castShadow = true
+  treeSpots.forEach(([x, z, base], index) => {
+    // Full-size street and park trees (~4 m), visible at every quality level.
+    const scale = base * 1.9
     dummy.position.set(x, 0.52 * scale, z)
     dummy.scale.setScalar(scale)
     dummy.rotation.set(0, 0, 0)
@@ -781,9 +835,15 @@ export function createWorld(options: {
     dummy.scale.set(scale, scale * 0.82, scale)
     dummy.updateMatrix()
     crowns.setMatrixAt(index, dummy.matrix)
-    obstacles.push({ kind: 'circle', x, z, r: 0.38 * scale })
+    dummy.position.set(x + 0.15 * scale, 1.95 * scale, z - 0.1 * scale)
+    dummy.rotation.set(0, index, 0)
+    dummy.scale.setScalar(scale * 0.8)
+    dummy.updateMatrix()
+    crowns2.setMatrixAt(index, dummy.matrix)
+    obstacles.push({ kind: 'circle', x, z, r: 0.2 * scale })
   })
-  scene.add(trunks, crowns)
+  for (const m of [trunks, crowns, crowns2]) m.computeBoundingSphere()
+  scene.add(trunks, crowns, crowns2)
 
   const addLamp = (x: number, z: number) => {
     const group = new THREE.Group()
@@ -813,11 +873,14 @@ export function createWorld(options: {
 
   const basinWater = new THREE.Mesh(new THREE.CircleGeometry(6.2, 32), waterMat)
   basinWater.rotation.x = -Math.PI / 2
-  basinWater.position.set(-40, 0.05, 40)
-  scene.add(basinWater)
+  basinWater.position.set(-40, 0.14, 40)
+  const basinRim = solid(new THREE.TorusGeometry(6.35, 0.28, 6, 40), stone)
+  basinRim.rotation.x = -Math.PI / 2
+  basinRim.position.set(-40, 0.14, 40)
+  scene.add(basinWater, basinRim)
   obstacles.push({ kind: 'circle', x: -40, z: 40, r: 6 })
   spot('water', -34, 34, 2.4, 'The basin', 'Park water. Climate work has a desk just north of here. Swimming is not the pledge.')
-  addGlow(-40, 1.2, 40, 0x7dffe0, 6)
+  addGlow(-40, 1.2, 40, 0xbfe6ff, 6)
   addGlow(hall.x, 2.2, hall.z, 0xffe2b8, 8)
   addGlow(floor.x, 2.2, floor.z, 0x9fd4ff, 8)
   addGlow(row.x, 2.2, row.z, 0xffb089, 8)
@@ -896,7 +959,7 @@ export function createWorld(options: {
     seasonBear = bear
     background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
     fog.color.copy(background)
-    fog.density = night ? 0.013 : dusk ? 0.011 : 0.008
+    fog.density = night ? 0.009 : dusk ? 0.007 : 0.0045
     sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xffb27a : 0xfff1d6)
     sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
     hemi.intensity = night ? 0.4 : dusk ? 0.66 : 1.08
@@ -937,14 +1000,14 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.013 - day * 0.005
+    fog.density = 0.009 - day * 0.0045
     // The key light is the sun by day and the moon by night, always from above the horizon.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.5 + day * 1.1 : 0.35) * (seasonBear ? 0.85 : 1)
+    sun.intensity = (elev >= 0 ? 0.4 + day * 0.85 : 0.3) * (seasonBear ? 0.85 : 1)
     hemi.intensity = 0.25 + day * 0.4
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)

@@ -66,7 +66,8 @@ export function openLogin(): void {
     }
     save.onclick = async () => {
       const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ username: input.value }) })
-      const j = (await r.json().catch(() => ({}))) as { username?: string; error?: string }
+      const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string }
+      if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
       if (j.username) {
         localStorage.setItem(CLAIMED_KEY, j.username)
         body.replaceChildren(el('p', `Signed in as @${j.username}.`))

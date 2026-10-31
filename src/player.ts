@@ -1,3 +1,4 @@
+import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
 import type { MaskId } from './logic.ts'
 import { mountMask } from './masks.ts'
@@ -16,6 +17,7 @@ function mat(color: number, roughness: number, metalness = 0): THREE.MeshStandar
     roughness,
     metalness,
     flatShading: true,
+    envMapIntensity: 0.3,
   })
 }
 
@@ -71,6 +73,7 @@ export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }))
   sprite.name = 'player-tag'
   sprite.scale.set(1.7, 0.58, 1)
+  steadyPlate(sprite, 1.7, 0.58)
   sprite.position.y = 2.28
   sprite.userData.ghost = true
   sprite.raycast = () => undefined
@@ -85,14 +88,14 @@ export function createPlayer(): ShrimpAvatar {
   const skin = mat(SKIN, 0.58)
   const hairMat = mat(HAIR, 0.4)
   hairMat.emissive = new THREE.Color(0x4a3a12)
-  hairMat.emissiveIntensity = 0.2
+  hairMat.emissiveIntensity = 0
   const suit = mat(SUIT, 0.64)
   const shirt = mat(SHIRT, 0.48)
   shirt.emissive = new THREE.Color(SHIRT)
-  shirt.emissiveIntensity = 0.16
+  shirt.emissiveIntensity = 0
   const metal = mat(FRAME, 0.16, 0.9)
   metal.emissive = new THREE.Color(0x9aa6b3)
-  metal.emissiveIntensity = 0.18
+  metal.emissiveIntensity = 0
   const dark = mat(0x14181c, 0.45)
   const lens = new THREE.MeshStandardMaterial({
     color: 0xb7c6d4,
@@ -114,10 +117,9 @@ export function createPlayer(): ShrimpAvatar {
   root.add(avatar)
   const key = new THREE.PointLight(0xfff6ea, 1.1, 3.6, 2)
   key.position.set(0, 2.15, -1.1)
-  avatar.add(key)
+  // Character rig lights removed: faces read matte under the city lighting.
   const faceLight = new THREE.PointLight(0xe7eeff, 0.9, 2.8, 2)
   faceLight.position.set(0, 1.62, 0.9)
-  avatar.add(faceLight)
   const bob = new THREE.Group()
   avatar.add(bob)
 
@@ -286,7 +288,7 @@ export function createPlayer(): ShrimpAvatar {
     setStyle(tint: number, luxury: boolean) {
       shirt.color.setHex(tint)
       shirt.emissive.setHex(tint)
-      shirt.emissiveIntensity = 0.16
+      shirt.emissiveIntensity = 0
       chain.visible = luxury
     },
     setMask(mask: MaskId) {

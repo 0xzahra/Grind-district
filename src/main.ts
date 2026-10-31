@@ -43,6 +43,26 @@ function isUnder(root: THREE.Object3D, obj: THREE.Object3D): boolean {
   return false
 }
 
+function withTimeout<T>(work: Promise<T>, ms: number, fallback: () => T, what: string): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      console.warn(`[grind] ${what} timed out after ${ms} ms; continuing without it.`)
+      resolve(fallback())
+    }, ms)
+    work.then((value) => { clearTimeout(timer); resolve(value) }, (error) => {
+      clearTimeout(timer)
+      console.error(`[grind] ${what} failed; continuing without it.`, error)
+      resolve(fallback())
+    })
+  })
+}
+
+function blankTexture(): THREE.Texture {
+  const t = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1)
+  t.needsUpdate = true
+  return t
+}
+
 async function loadTexture(url: string): Promise<THREE.Texture> {
   const resolved = url === '/brand/shrimp.png'
     ? await assetUrl(url, '/brand/shrimp.b64', 'image/png', 0x89)
@@ -88,7 +108,9 @@ function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
   return null
 }
 
-async function main(onReveal: () => void) {
+let abandoned = false
+
+async function main(onReveal: () => void, onFail: (error: unknown) => void = () => {}) {
   const canvas = must<HTMLCanvasElement>('#view')
   const boot = must<HTMLDivElement>('#boot')
   const bootText = must<HTMLParagraphElement>('#boot-text')
@@ -149,7 +171,7 @@ async function main(onReveal: () => void) {
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 260)
-  const mark = await loadTexture('/brand/shrimp.png')
+  const mark = await withTimeout(loadTexture('/brand/shrimp.png'), 5000, blankTexture, 'District mark')
   const image = mark.image as { width?: number; height?: number }
   const aspect = image.width && image.height ? image.height / image.width : 0.86
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -292,6 +314,14 @@ async function main(onReveal: () => void) {
   volume.addEventListener('input', () => setVolume(Number(volume.value)))
 
   const input = createInput(canvas, stick, nub)
+  must('#cam-in').addEventListener('click', () => input.nudgeZoom(-260))
+  must('#cam-out').addEventListener('click', () => input.nudgeZoom(260))
+  must('#cam-turn').addEventListener('click', () => input.nudgeLook(-150))
+  // Dock active state follows whichever panel is open.
+  const navButtons = [...document.querySelectorAll<HTMLButtonElement>('#nav .icon-btn')]
+  for (const b of navButtons) b.addEventListener('click', () => { for (const o of navButtons) o.classList.toggle('active', o === b) })
+  new MutationObserver(() => { if (!document.body.classList.contains('sheet-open')) for (const o of navButtons) o.classList.remove('active') })
+    .observe(document.body, { attributes: true, attributeFilter: ['class'] })
 
   const chat = must<HTMLFormElement>('#chat')
   const chatInput = must<HTMLInputElement>('#chat-input')
@@ -364,7 +394,10 @@ async function main(onReveal: () => void) {
   marker.userData.ghost = true
   scene.add(marker)
 
-  let camYaw = 0
+  // Start at a 3/4-front angle so the player's face is visible.
+  let camYaw = Math.PI + 0.45
+  let faceYaw = Math.PI
+  let stillFor = 0
   let camPitch = 0.42
   let camDist = 5.6
   let sprinting = false
@@ -476,7 +509,7 @@ async function main(onReveal: () => void) {
       nightLevel = THREE.MathUtils.clamp(-sunUp * 2 + 0.3, 0, 1)
       post.setNight(nightLevel)
       scene.environmentIntensity = 0.6 - nightLevel * 0.25
-      renderer.toneMappingExposure = 0.9 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.15
+      renderer.toneMappingExposure = 0.88 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.08
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
@@ -562,6 +595,8 @@ async function main(onReveal: () => void) {
     // Face where the body actually goes (after collision), falling back to the input while starting.
     const faceX = groundSpeed > 0.3 ? vel.x / groundSpeed : dirX
     const faceZ = groundSpeed > 0.3 ? vel.z / groundSpeed : dirZ
+    if (groundSpeed > 0.3) faceYaw = Math.atan2(faceX, faceZ)
+    stillFor = groundSpeed > 0.2 ? 0 : stillFor + dt
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     if (follower) {
@@ -604,6 +639,12 @@ async function main(onReveal: () => void) {
       const behind = Math.atan2(-vel.x, -vel.z)
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
       camYaw += delta * (1 - Math.exp(-1.2 * dt))
+    }
+    // Idle for 2 s with no manual look: swing gently round to the 3/4 front so the face shows.
+    if (stillFor > 2 && lookIdle > 2 && !paused) {
+      const front = faceYaw + 0.45
+      const delta = Math.atan2(Math.sin(front - camYaw), Math.cos(front - camYaw))
+      camYaw += delta * (1 - Math.exp(-0.9 * dt))
     }
     if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
     // Over-the-shoulder: frame the player slightly left of centre, GTA style.
@@ -656,12 +697,10 @@ async function main(onReveal: () => void) {
     }
   }
 
-  await Promise.race([
-    renderer.compileAsync(scene, camera),
-    new Promise((resolve) => setTimeout(resolve, 4000)),
-  ])
+  await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 4000, () => undefined, 'Shader warm-up')
   let last = performance.now()
   const frame = (now: number) => {
+    if (abandoned) return
     requestAnimationFrame(frame)
     if (failed) return
     const dt = Math.min(0.1, (now - last) / 1000)
@@ -690,6 +729,11 @@ async function main(onReveal: () => void) {
       }
     } catch (error) {
       failed = true
+      console.error('[grind] Render loop error.', error)
+      if (!revealed) {
+        onFail(error)
+        return
+      }
       boot.classList.remove('hidden')
       boot.removeAttribute('aria-hidden')
       bootText.textContent = error instanceof Error ? error.message : 'The city could not stay open.'
@@ -719,14 +763,35 @@ async function begin() {
   play.disabled = true
   play.textContent = 'Opening the district'
   menuNote.textContent = ''
+  // Watchdog: if the 3D city has not shown a frame within 15 s, open the overhead map instead.
+  let shown = false
+  const reveal = () => { shown = true; revealCity() }
+  const flatFallback = async (why: unknown) => {
+    if (shown) return
+    shown = true
+    abandoned = true
+    console.error('[grind] 3D city failed to open; switching to the overhead map.', why)
+    // A canvas that already holds a WebGL context cannot give a 2D one: swap in a fresh canvas.
+    const old = document.querySelector<HTMLCanvasElement>('#view')
+    if (old) old.replaceWith(old.cloneNode(false))
+    try {
+      await startFlat(revealCity)
+    } catch (error) {
+      console.error('[grind] Overhead map failed too.', error)
+      opening = false
+      play.disabled = false
+      play.textContent = 'Enter the district'
+      menu.hidden = false
+      menuNote.textContent = 'The city could not open on this device. Try again or another browser.'
+    }
+  }
+  const watchdog = window.setTimeout(() => { void flatFallback(new Error('timeout')) }, 15000)
   try {
-    await main(revealCity)
+    await main(reveal, (error) => { void flatFallback(error) })
   } catch (error) {
-    opening = false
-    play.disabled = false
-    play.textContent = 'Enter the district'
-    menu.hidden = false
-    menuNote.textContent = error instanceof Error ? error.message : 'The city could not open.'
+    await flatFallback(error)
+  } finally {
+    if (shown) clearTimeout(watchdog)
   }
 }
 
