@@ -4,6 +4,11 @@ import { base } from 'viem/chains'
 import { grindLedgerAbi } from './grindLedgerAbi.ts'
 import { GRIND_LEDGER, BASE_USDC, BASE_CHAIN_ID, ETH_USD_FEED, TREASURY_SAFE, feedAbi, breakdown, ethToUsdMicro } from './grindConfig.ts'
 import { applyTopup } from './state.ts'
+import { Attribution } from 'ox/erc8021'
+
+// Base Builder Code (ERC-8021) attribution — project 'Grind District'
+export const BUILDER_CODE = 'bc_ke1fy1yi'
+export const DATA_SUFFIX = Attribution.toDataSuffix({ codes: [BUILDER_CODE] })
 
 const pub = createPublicClient({ chain: base, transport: http('https://mainnet.base.org') })
 const usd = (micro: bigint) => `$${(Number(micro) / 1e6).toFixed(2)}`
@@ -118,14 +123,14 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
       const allowance = await pub.readContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'allowance', args: [account, GRIND_LEDGER] })
       if (allowance < a.raw) {
         status.textContent = 'Step 1 of 2: approve USDC in your wallet…'
-        const ap = await wallet.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'approve', args: [GRIND_LEDGER, a.raw] })
+        const ap = await wallet.writeContract({ address: BASE_USDC, abi: erc20Abi, functionName: 'approve', args: [GRIND_LEDGER, a.raw], dataSuffix: DATA_SUFFIX })
         await pub.waitForTransactionReceipt({ hash: ap })
       }
       status.textContent = 'Confirm the top-up in your wallet…'
-      hash = await wallet.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'topUpUSDC', args: [a.raw, ref] })
+      hash = await wallet.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'topUpUSDC', args: [a.raw, ref], dataSuffix: DATA_SUFFIX })
     } else {
       status.textContent = 'Confirm the top-up in your wallet…'
-      hash = await wallet.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'topUp', args: [ref], value: a.raw })
+      hash = await wallet.writeContract({ address: GRIND_LEDGER, abi: grindLedgerAbi, functionName: 'topUp', args: [ref], value: a.raw, dataSuffix: DATA_SUFFIX })
     }
     status.textContent = 'Paid. Waiting for Base to confirm…'
     await pub.waitForTransactionReceipt({ hash, confirmations: 2 })
