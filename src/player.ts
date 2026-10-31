@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { MaskId } from './logic.ts'
+import { mountMask } from './masks.ts'
 import type { ShrimpAvatar } from './shrimp.ts'
 
 const SKIN = 0xf0c4a8
@@ -197,6 +199,10 @@ export function createPlayer(): ShrimpAvatar {
   addRim(-1)
   addRim(1)
   part(new THREE.BoxGeometry(0.028, 0.01, 0.01), metal, bob, 0, 1.658, 0.172)
+  const maskAnchor = new THREE.Group()
+  maskAnchor.name = 'mask-anchor'
+  maskAnchor.position.set(0, 1.64, 0.2)
+  bob.add(maskAnchor)
   const templeL = part(new THREE.BoxGeometry(0.01, 0.01, 0.16), metal, bob, -0.12, 1.662, 0.09)
   const templeR = part(new THREE.BoxGeometry(0.01, 0.01, 0.16), metal, bob, 0.12, 1.662, 0.09)
   templeL.castShadow = false
@@ -306,6 +312,9 @@ export function createPlayer(): ShrimpAvatar {
       shirt.emissive.setHex(tint)
       shirt.emissiveIntensity = 0.16
       chain.visible = luxury
+    },
+    setMask(mask: MaskId) {
+      mountMask(maskAnchor, mask)
     },
   }
 }

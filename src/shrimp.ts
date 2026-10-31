@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { MaskId } from './logic.ts'
+import { mountMask } from './masks.ts'
 
 const MINT = 0x1af38f
 
@@ -7,6 +9,7 @@ export type ShrimpAvatar = {
   face: (dirX: number, dirZ: number, dt: number, moving: boolean) => void
   step: (dt: number, moving: boolean, speed: number) => void
   setStyle: (tint: number, luxury: boolean) => void
+  setMask: (mask: MaskId) => void
 }
 
 export function createShrimp(): ShrimpAvatar {
@@ -69,6 +72,10 @@ export function createShrimp(): ShrimpAvatar {
   head.scale.set(0.28, 0.24, 0.26)
   head.position.set(0, 1.58, 0.06)
   bob.add(head)
+  const maskAnchor = new THREE.Group()
+  maskAnchor.name = 'mask-anchor'
+  maskAnchor.position.set(0, 1.62, 0.28)
+  bob.add(maskAnchor)
 
   const rostrum = part(new THREE.ConeGeometry(0.08, 0.28, 8), shell)
   rostrum.rotation.x = Math.PI / 2
@@ -262,6 +269,9 @@ export function createShrimp(): ShrimpAvatar {
       shell.emissive.setHex(tint)
       shell.emissiveIntensity = 0.32
       chain.visible = luxury
+    },
+    setMask(mask: MaskId) {
+      mountMask(maskAnchor, mask)
     },
   }
 }
