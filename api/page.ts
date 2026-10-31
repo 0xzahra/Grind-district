@@ -16,7 +16,7 @@ import { getProfile } from './_profile.js'
 
 export default async function handler(req: Req, res: Res) {
   const kind = req.query.kind === 'cert' ? 'cert' : 'cv'
-  const origin = 'https://grinddistrict.app'
+  const origin = 'https://grinddistrict.vercel.app'
   let title = 'Grind District'
   let desc = 'A shared 3D city. No tribe, no continent, just come and grind.'
   let heading = title

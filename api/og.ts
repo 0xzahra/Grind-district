@@ -13,7 +13,7 @@ async function getProfile(raw: string): Promise<P | null> {
 }
 type El = { type: string; props: Record<string, unknown> }
 const h = (type: string, style: Record<string, unknown>, ...children: Array<El | string>): El => ({ type, props: { style: { display: 'flex', ...style }, children } })
-const ORIGIN = 'https://grinddistrict.app'
+const ORIGIN = 'https://grinddistrict.vercel.app'
 const GOLD = '#c9a25e'
 
 function skyline(): El {
