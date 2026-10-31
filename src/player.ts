@@ -199,12 +199,16 @@ export function createPlayer(): ShrimpAvatar {
   addEye(-1)
   addEye(1)
 
+  // Wire-frame glasses (reference): thin metal bars around a clear lens, not solid goggles.
+  const lensGlass = new THREE.MeshPhysicalMaterial({ color: 0xdfe8ee, roughness: 0.05, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.18, depthWrite: false })
+  void lens
   const addRim = (side: number) => {
-    const outline = part(new THREE.BoxGeometry(0.125, 0.055, 0.012), dark, bob, side * 0.058, 1.655, 0.168)
-    outline.castShadow = false
-    const rim = part(new THREE.BoxGeometry(0.112, 0.042, 0.014), metal, bob, side * 0.058, 1.655, 0.176)
-    rim.castShadow = false
-    const glass = part(new THREE.PlaneGeometry(0.09, 0.03), lens, bob, side * 0.058, 1.655, 0.184)
+    const x = side * 0.058
+    for (const [w, h, dx, dy] of [[0.11, 0.006, 0, 0.021], [0.11, 0.006, 0, -0.021], [0.006, 0.042, -0.055, 0], [0.006, 0.042, 0.055, 0]] as const) {
+      const bar = part(new THREE.BoxGeometry(w, h, 0.006), metal, bob, x + dx, 1.655 + dy, 0.178)
+      bar.castShadow = false
+    }
+    const glass = part(new THREE.PlaneGeometry(0.104, 0.036), lensGlass, bob, x, 1.655, 0.18)
     glass.castShadow = false
     glass.receiveShadow = false
   }

@@ -10,7 +10,7 @@ export type Use = { id: string; x: number; z: number; r: number; title: string; 
 type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 } }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 13, d: 10 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 } }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 } }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
   house: { spot: 'yours', cx: 36, cz: 32 },
@@ -103,42 +103,92 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     exitSign.rotation.y = Math.PI / 2
     use({ id: `${id}-exit`, x: -w / 2 + 0.9, z: 0, r: 0.9, title: 'Door', body: 'Back to the street.', enter: 'Go outside', run: () => {}, exit: true })
 
+    // Repeated furniture uses InstancedMesh: one draw call per part, however many seats.
+    const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, spots: Array<[number, number, number, number?]>, blockHalf?: [number, number]) => {
+      const im = new THREE.InstancedMesh(geo, mat, spots.length)
+      const m4 = new THREE.Matrix4()
+      const q = new THREE.Quaternion()
+      const one = new THREE.Vector3(1, 1, 1)
+      spots.forEach(([x, y, z, ry = 0], i) => {
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry)
+        im.setMatrixAt(i, m4.compose(new THREE.Vector3(x, y, z), q, one))
+        if (blockHalf) obstacles.push({ kind: 'box', x: o.x + x, z: o.z + z, hx: blockHalf[0], hz: blockHalf[1] })
+      })
+      im.castShadow = true
+      im.receiveShadow = true
+      group.add(im)
+      return im
+    }
+
     if (id === 'house') {
-      const fabric = std(0x41556b, 0.95)
-      // Living room: rug, sofa, coffee table, TV wall.
-      box(3.6, 0.02, 2.6, std(0xb48a5a, 1), -2.6, 2.4, 0, false)
-      box(2.8, 0.45, 0.9, fabric, -2.6, 4.2); box(2.8, 0.5, 0.2, fabric, -2.6, 4.6, 0.45, false)
-      box(1.2, 0.4, 0.6, std(0x3a2a20, 0.6), -2.6, 2.4)
-      box(1.8, 1.0, 0.06, std(0x0d0f12, 0.2, 0.5), -2.6, -4.9 + 0.1, 1.0, false)
-      box(2.2, 0.5, 0.4, std(0x3a2a20, 0.6), -2.6, -4.7)
-      use({ id: 'sofa', x: -2.6, z: 3.4, r: 1.1, title: 'Sofa', body: 'Sit a while. The window sets the light.', enter: 'Turn the lamp on (night)', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
-      // Bedroom corner: bed, pillow, blanket, side table.
-      box(2.0, 0.5, 2.6, std(0x6b4b36, 0.7), 4.6, 3.4)
-      box(1.9, 0.18, 2.0, std(0xe9e4da, 1), 4.6, 3.1, 0.5, false)
-      box(1.2, 0.15, 0.5, std(0xffffff, 1), 4.6, 4.4, 0.55, false)
-      box(0.5, 0.5, 0.5, std(0x3a2a20), 3.2, 4.4)
-      use({ id: 'bed', x: 4.6, z: 1.6, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep till morning', run: () => { setTime('day'); hooks.onLook(); hooks.toast('Morning. The district is up.') } })
-      // Desk, chair, laptop with a live CV screen.
-      box(1.8, 0.75, 0.8, std(0x5a3f2c, 0.6), 4.6, -4.1)
-      box(0.55, 0.5, 0.55, std(0x22262b, 0.6), 4.6, -3.2)
-      box(0.6, 0.03, 0.42, std(0x9aa0a6, 0.3, 0.8), 4.6, -4.15, 0.76, false)
+      // Large family house (Lagos Life cutaway reference): garage, living room, kitchen + stairs,
+      // dining, bedroom with a round bed, indoor pool. Brick perimeter, warm ceiling lights.
+      const brick = std(0x8a4a36, 0.9)
+      for (const z of [-d / 2 + 0.06, d / 2 - 0.06]) box(w, 0.35, 0.06, brick, 0, z, 0, false)
+      for (const x of [-w / 2 + 0.06, w / 2 - 0.06]) box(0.06, 0.35, d, brick, x, 0, 0, false)
+      const part = std(0xe9e0d0, 0.9)
+      // Partitions with doorways (blocking).
+      box(0.15, 3.2, 4.0, part, -5.5, -5.5)            // garage | living
+      box(0.15, 3.2, 4.0, part, 4.5, -5.5)             // living | kitchen
+      box(5.0, 3.2, 0.15, part, -7.5, 0.6)             // garage/dining split (west)
+      box(6.0, 3.2, 0.15, part, 0.5, 1.2)              // living | bedroom (doorway at x 4)
+      box(3.0, 3.2, 0.15, part, 8.5, -0.8)             // kitchen | pool
+      box(0.15, 3.2, 5.0, part, -2.6, 4.9)             // dining | bedroom
+      box(0.15, 3.2, 5.0, part, 4.6, 4.9)              // bedroom | pool
+      // Warm ceiling lights: emissive discs (no extra real lights; the shared lamp does the work).
+      const bulb = new THREE.MeshStandardMaterial({ color: 0xfff1d8, emissive: 0xffd9a0, emissiveIntensity: 1.6 })
+      inst(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16), bulb, [[-7.5, 3.15, -4.5], [-0.5, 3.15, -4], [7, 3.15, -4.5], [-6, 3.15, 4.5], [1, 3.15, 4.5], [7.3, 3.15, 4.5]])
+      // Garage (NW) with a parked car.
+      box(4.0, 0.02, 5.2, std(0x5d5f62, 0.9), -7.8, -4.4, 0, false)
+      box(1.8, 0.55, 3.8, std(0x7a1f24, 0.35, 0.5), -7.8, -4.6, 0.25)
+      box(1.5, 0.45, 1.9, std(0x1d2226, 0.1, 0.6), -7.8, -4.9, 0.8, false)
+      // Living room: rug, L sofa, coffee table, TV wall.
+      const fabric = std(0xd8cbb0, 0.95)
+      box(4.2, 0.02, 3.0, std(0x8c2f2a, 1), -0.5, -3.6, 0, false)
+      box(3.0, 0.45, 0.9, fabric, -0.5, -1.8); box(3.0, 0.5, 0.2, fabric, -0.5, -1.4, 0.45, false)
+      box(0.9, 0.45, 2.0, fabric, -2.4, -3.0)
+      box(1.2, 0.4, 0.6, std(0x3a2a20, 0.5), -0.5, -3.6)
+      box(2.4, 1.2, 0.06, std(0x0d0f12, 0.2, 0.5), -0.5, -d / 2 + 0.12, 1.0, false)
+      box(2.8, 0.5, 0.45, std(0x2a1f18, 0.5), -0.5, -d / 2 + 0.4)
+      use({ id: 'sofa', x: -0.5, z: -2.6, r: 1.2, title: 'Sofa', body: 'Sit a while. The window sets the light.', enter: 'Turn the lamp on (night)', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
+      // Kitchen (NE): counters, island, fridge, stove; stairs up.
+      box(4.6, 0.9, 0.7, std(0xe7e2d8, 0.45), 7.4, -d / 2 + 0.45)
+      box(0.7, 0.04, 0.6, std(0x1b1c1e, 0.3, 0.6), 6.4, -d / 2 + 0.45, 0.9, false)
+      box(0.9, 2.0, 0.75, std(0xd9dde0, 0.3, 0.5), w / 2 - 0.55, -4.5)
+      box(1.8, 0.9, 0.9, std(0x3a2a20, 0.45), 7.0, -4.2)
+      const steps: Array<[number, number, number, number?]> = []
+      for (let k = 0; k < 7; k++) steps.push([5.3, 0.12 + k * 0.24, -1.6 - k * 0.32])
+      inst(new THREE.BoxGeometry(1.0, 0.24, 0.32), std(0x6b4e37, 0.6), steps, undefined)
+      obstacles.push({ kind: 'box', x: o.x + 5.3, z: o.z - 2.6, hx: 0.55, hz: 1.2 })
+      use({ id: 'kitchen', x: 7.0, z: -3.0, r: 1.2, title: 'Kitchen', body: 'Water and a hot plate. Food is free here.', enter: 'Cook', run: () => hooks.toast('You cooked jollof. Free, and it does not move a chart.') })
+      // Dining (SW): round table and four chairs.
+      add(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 28), std(0x2a1f18, 0.4), -6.0, 0.76, 4.4)
+      add(new THREE.CylinderGeometry(0.1, 0.16, 0.74, 10), std(0x2a1f18, 0.4), -6.0, 0.37, 4.4)
+      obstacles.push({ kind: 'circle', x: o.x - 6.0, z: o.z + 4.4, r: 1.0 })
+      inst(new THREE.BoxGeometry(0.45, 0.48, 0.45), std(0x6b4e37, 0.6), [[-6.0, 0.24, 3.1], [-6.0, 0.24, 5.7], [-7.3, 0.24, 4.4], [-4.7, 0.24, 4.4]])
+      // Closet + key hook by the front door.
+      box(1.4, 2.2, 0.6, std(0x6b4b36, 0.7), -8.6, 2.0, 0, true, Math.PI / 2)
+      use({ id: 'closet', x: -8.0, z: 2.0, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
+      use({ id: 'key', x: -8.4, z: -1.0, r: 0.8, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
+      // Bedroom (S middle): round bed, side tables, desk with the live CV laptop.
+      add(new THREE.CylinderGeometry(1.25, 1.25, 0.5, 32), std(0xe9e4da, 0.9), 1.0, 0.25, 5.2)
+      add(new THREE.CylinderGeometry(1.3, 1.3, 0.12, 32, 1, false, 0, Math.PI), std(0x7a1f24, 0.8), 1.0, 0.55, 5.2)
+      obstacles.push({ kind: 'circle', x: o.x + 1.0, z: o.z + 5.2, r: 1.3 })
+      use({ id: 'bed', x: 1.0, z: 3.4, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep till morning', run: () => { setTime('day'); hooks.onLook(); hooks.toast('Morning. The district is up.') } })
+      box(1.6, 0.75, 0.7, std(0x5a3f2c, 0.6), -1.4, 2.0)
+      box(0.6, 0.03, 0.42, std(0x9aa0a6, 0.3, 0.8), -1.4, 2.0, 0.76, false)
       cvTex = canvasTex(512, 320, paintCv)
-      const screen = add(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshBasicMaterial({ map: cvTex }), 4.6, 0.97, -4.38)
-      screen.rotation.x = -0.18
-      use({ id: 'desk', x: 4.6, z: -2.7, r: 1.0, title: 'Desk · laptop', body: 'Your CV, live on the screen.', enter: 'Open my CV', run: () => hooks.openPanel('profile') })
-      // Kitchen: counters, stove, fridge, sink.
-      box(3.4, 0.9, 0.7, std(0xe7e2d8, 0.5), 0.2, -4.6)
-      box(0.7, 0.04, 0.6, std(0x1b1c1e, 0.3, 0.6), -0.6, -4.6, 0.9, false)
-      box(0.8, 1.9, 0.7, std(0xd9dde0, 0.35, 0.4), 2.3, -4.6)
-      box(0.5, 0.08, 0.4, std(0xb8bec4, 0.2, 0.9), 0.9, -4.6, 0.88, false)
-      use({ id: 'kitchen', x: 0.4, z: -3.6, r: 1.0, title: 'Kitchen', body: 'Water and a hot plate. Food is free here.', enter: 'Cook', run: () => hooks.toast('You cooked jollof. Free, and it does not move a chart.') })
-      // Closet + key hook.
-      box(1.4, 2.2, 0.6, std(0x6b4b36, 0.7), -5.4, -3.6)
-      use({ id: 'closet', x: -5.0, z: -2.6, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
-      use({ id: 'key', x: -5.2, z: 2.2, r: 0.9, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
-      box(0.3, 0.3, 0.05, trim, -6.4, 2.2, 1.5, false)
-      // Windows on the south wall.
-      for (const x of [-2.6, 2.0]) box(1.6, 1.2, 0.04, new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.35, roughness: 0.1 }), x, d / 2 - 0.02, 1.2, false)
+      const screen = add(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshBasicMaterial({ map: cvTex }), -1.4, 0.97, 1.83)
+      screen.rotation.y = Math.PI
+      screen.rotation.x = 0.18
+      use({ id: 'desk', x: -1.4, z: 3.0, r: 1.0, title: 'Desk · laptop', body: 'Your CV, live on the screen.', enter: 'Open my CV', run: () => hooks.openPanel('profile') })
+      // Indoor pool (SE) with a stone deck.
+      box(4.6, 0.04, 5.8, std(0xd8d0c2, 0.7), 7.4, 3.8, 0, false)
+      const water = new THREE.MeshStandardMaterial({ color: 0x3f8fb8, emissive: 0x1d5f80, emissiveIntensity: 0.35, roughness: 0.05, metalness: 0.1 })
+      add(new THREE.PlaneGeometry(2.6, 4.6), water, 7.6, 0.06, 4.0).rotation.x = -Math.PI / 2
+      obstacles.push({ kind: 'box', x: o.x + 7.6, z: o.z + 4.0, hx: 1.3, hz: 2.3 })
+      // Windows.
+      for (const x of [-0.5, 7.0]) box(1.8, 1.2, 0.04, new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.35, roughness: 0.1 }), x, -d / 2 + 0.02, 1.4, false)
     }
 
     if (id === 'gym') {
@@ -251,23 +301,6 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         hooks.toast(sitPrayer().message)
       } })
       box(1.2, 0.5, 0.4, std(0x5a3f2c, 0.7), -w / 2 + 1.0, -d / 2 + 0.6)
-    }
-
-    // Repeated furniture uses InstancedMesh: one draw call per part, however many seats.
-    const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, spots: Array<[number, number, number, number?]>, blockHalf?: [number, number]) => {
-      const im = new THREE.InstancedMesh(geo, mat, spots.length)
-      const m4 = new THREE.Matrix4()
-      const q = new THREE.Quaternion()
-      const one = new THREE.Vector3(1, 1, 1)
-      spots.forEach(([x, y, z, ry = 0], i) => {
-        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry)
-        im.setMatrixAt(i, m4.compose(new THREE.Vector3(x, y, z), q, one))
-        if (blockHalf) obstacles.push({ kind: 'box', x: o.x + x, z: o.z + z, hx: blockHalf[0], hz: blockHalf[1] })
-      })
-      im.castShadow = true
-      im.receiveShadow = true
-      group.add(im)
-      return im
     }
 
     if (id === 'trading') {
