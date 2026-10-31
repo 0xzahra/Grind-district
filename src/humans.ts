@@ -74,16 +74,16 @@ function load(name: HumanModel): Promise<Template> {
 export function preloadHumans(names: HumanModel[]): void { for (const n of names) void load(n).catch(() => undefined) }
 
 // Makeup: soft lip tint and blush as tiny matte shapes on the head bone (3 meshes, player only).
-export let MAKEUP_Y = 0.03, MAKEUP_Z = 0.125
+export let MAKEUP_Y = 0.008, MAKEUP_Z = 0.132
 export function tuneMakeup(y: number, z: number): void { MAKEUP_Y = y; MAKEUP_Z = z }
 function makeupGroup(): THREE.Group {
   const g = new THREE.Group()
   const lip = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 8), new THREE.MeshStandardMaterial({ color: 0xb05a5a, roughness: 0.45 }))
-  lip.scale.set(1.15, 0.42, 0.5)
+  lip.scale.set(1.0, 0.36, 0.45)
   g.add(lip)
   for (const s of [-1, 1]) {
-    const b = new THREE.Mesh(new THREE.CircleGeometry(0.016, 14), new THREE.MeshStandardMaterial({ color: 0xd98c84, roughness: 1, transparent: true, opacity: 0.45, depthWrite: false }))
-    b.position.set(s * 0.04, 0.03, -0.012); b.rotation.y = s * 0.5
+    const b = new THREE.Mesh(new THREE.CircleGeometry(0.012, 14), new THREE.MeshStandardMaterial({ color: 0xd98c84, roughness: 1, transparent: true, opacity: 0.3, depthWrite: false }))
+    b.position.set(s * 0.05, 0.042, -0.012); b.rotation.y = s * 0.45
     g.add(b)
   }
   return g

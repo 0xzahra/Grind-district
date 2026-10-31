@@ -185,7 +185,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (id === 'house' || id === 'campus' || id === 'conference') Object.assign(floorMat, pbrSet('wood_floor', Math.max(2, Math.round(w / 3))), { roughness: 1 })
     const floor = add(new THREE.PlaneGeometry(w, d), floorMat, 0, 0.01, 0)
     floor.rotation.x = -Math.PI / 2
-    const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : 0xf1ebe2, 0.92)
+    const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : id === 'boutique' ? 0xeedfd6 : 0xf1ebe2, 0.92)
     // Home: cutaway-height walls and no beams, so the phone's high follow camera sees over them.
     if (id !== 'trading' && id !== 'conference') { const pl = pbrSet('plastered_wall_04', 3); wallMat.normalMap = pl.normalMap; wallMat.roughnessMap = pl.roughnessMap; wallMat.normalScale.set(0.5, 0.5) }
     const H = id === 'house' ? 2.6 : 3.2
@@ -337,7 +337,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
 
     if (id === 'boutique') {
       const rail = std(0xc9a25e, 0.4, 0.85)
-      const colours = [0x2a3b5c, 0x8c2f39, 0xe8dcc8, 0x3d4a3f, 0x111111, 0xc77d3a, 0x6b5a8e]
+      // Fashion-house palette: ivory, blush, champagne, noir, nude, wine, dove grey.
+      const colours = [0xf3ece2, 0xe4b9b4, 0xd8c3a0, 0x151515, 0xc9a08a, 0x6e2533, 0xb8b4b0]
       for (const z of [-2.4, 0.4, 3.0]) {
         box(2.6, 0.05, 0.05, rail, 1.2, z, 1.6, false)
         box(0.05, 1.6, 0.05, rail, 0.0, z, 0, false); box(0.05, 1.6, 0.05, rail, 2.4, z, 0, false)
@@ -348,6 +349,21 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       box(0.06, 2.0, 1.2, mirror, w / 2 - 0.05, -1.5, 0.3, false)
       box(0.1, 2.3, 1.4, rail, w / 2 - 0.1, -1.5, 0.2, false)
       use({ id: 'mirror', x: w / 2 - 1.2, z: -1.5, r: 1.1, title: 'Mirror', body: 'Try on bodies, tints and masks.', enter: 'Try on', run: () => hooks.openPanel('boutique') })
+      // Runway: raised ivory stone catwalk with brass edge, soft light strips overhead (emissive, no extra lights).
+      const runway = std(0xf4efe8, 0.35)
+      box(4.8, 0.16, 1.2, runway, -3.2, -0.6, 0, false)
+      box(4.8, 0.02, 0.04, rail, -3.2, -0.6 + 0.62, 0.16, false); box(4.8, 0.02, 0.04, rail, -3.2, -1.22, 0.16, false)
+      const soft = new THREE.MeshStandardMaterial({ color: 0xfff6ec, emissive: 0xffeedd, emissiveIntensity: 0.7, roughness: 0.5 })
+      for (const x of [-4.8, -3.2, -1.6]) box(0.9, 0.04, 0.5, soft, x, -0.6, 3.05, false)
+      // Arched backdrop panel at the runway head.
+      box(0.08, 2.6, 1.8, std(0xe9d3cc, 0.9), -w / 2 + 0.06, -0.6, 0, false)
+      add(new THREE.CylinderGeometry(0.9, 0.9, 0.08, 20, 1, false, 0, Math.PI), std(0xe9d3cc, 0.9), -w / 2 + 0.06, 2.6, -0.6).rotation.set(Math.PI / 2, 0, Math.PI / 2)
+      use({ id: 'runway', x: -1.2, z: -0.6, r: 0.9, title: 'Runway', body: 'Walk the runway in your look.', enter: 'Walk', run: () => { hooks.busy(2.4, o.x - 5.0, o.z - 0.6, -Math.PI / 2); hooks.toast('Runway walk · lights soft, heads turn.') } })
+      // Beauty bar: vanity with a lit mirror, opens lips, blush and skin tone.
+      box(1.6, 0.8, 0.5, std(0xf4efe8, 0.4), -3.0, d / 2 - 0.4)
+      box(1.2, 0.9, 0.04, mirror, -3.0, d / 2 - 0.08, 1.05, false)
+      for (const dx of [-0.66, 0.66]) box(0.05, 0.9, 0.05, soft, -3.0 + dx, d / 2 - 0.1, 1.05, false)
+      use({ id: 'beauty', x: -3.0, z: d / 2 - 1.3, r: 0.9, title: 'Beauty bar', body: 'Makeup: lip tint and blush, plus skin tone.', enter: 'Sit down', run: () => hooks.openPanel('boutique') })
       // Fitting room with curtain.
       box(1.6, 2.4, 0.06, std(0x6e2c34, 1), w / 2 - 1.0, 3.2, 0, false)
       box(0.06, 2.4, 1.6, wallMat, w / 2 - 1.8, 3.9)

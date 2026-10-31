@@ -641,6 +641,7 @@ export function createWorld(options: {
     awning.position.set(face.x + shift[0], spec.h - 0.08, face.z + shift[1])
     awning.userData.ghost = true
     group.add(sign, awning)
+    group.name = `bldg:${spec.title}`
     group.position.set(spec.x, 0, spec.z)
     scene.add(group)
     obstacles.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2 + 0.15, hz: spec.d / 2 + 0.15 })

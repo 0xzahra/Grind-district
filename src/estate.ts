@@ -112,7 +112,7 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
     block(x, z, 5, 4)
   }
   villa(-52, -54, 1); villa(-38, -54, -1)
-  // Supercar garage pad: timber canopy and a low grand tourer (a stock sports model, restyled in champagne paint).
+  // Supercar garage pad: timber canopy and a low grand tourer (the stock CC0 sports model from public/models/cars).
   box(M.stoneWarm, 6, 0.1, 4, -45, 0, -45)
   for (const [dx, dz] of [[-2.8, -1.8], [2.8, -1.8], [-2.8, 1.8], [2.8, 1.8]]) cyl(M.dark, 0.08, 2.8, -45 + dx, 0, -45 + dz, 6)
   box(M.timber, 6.4, 0.2, 4.4, -45, 2.8, -45)
@@ -121,7 +121,6 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   o.hotspots.push({ id: 'villas', x: -45, z: -48.5, r: 2.5, title: 'Villa row', body: 'Architect villas: stone, glass and timber, with cantilevered upper floors and pools.' })
   new GLTFLoader().loadAsync('/models/cars/sedan-sports.glb').then((g) => {
     const car = g.scene
-    car.traverse((n) => { const m = (n as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m && 'color' in m && /body|paint|car/i.test(m.name)) { const c = m.clone(); c.color.setHex(0xcdb88e); c.metalness = 0.7; c.roughness = 0.25; (n as THREE.Mesh).material = c } })
     const b = new THREE.Box3().setFromObject(car); const len = Math.max(b.max.x - b.min.x, b.max.z - b.min.z)
     car.scale.setScalar(4.4 / len); car.position.set(-45, 0.1, -45); car.rotation.y = Math.PI / 2
     scene.add(car)
@@ -151,6 +150,25 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   const faceMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 })
   for (let k = 0; k < 4; k++) { const f = new THREE.Mesh(new THREE.CircleGeometry(1.3, 24), faceMat); const a = (k * Math.PI) / 2; f.position.set(Math.sin(a) * 1.82, 13.5, -57.4 + Math.cos(a) * 1.82); f.rotation.y = a; scene.add(f) }
   o.hotspots.push({ id: 'quad', x: 0, z: -38, r: 2.6, title: 'The quad', body: 'Stone portico, arcades and the clock tower. The old-university heart of the campus.' })
+
+  // --- Gadget showroom: the old box becomes a minimal glass-and-timber pavilion (sign and awning kept).
+  const gb = scene.getObjectByName('bldg:Gadgets')
+  if (gb) {
+    const kids = gb.children; for (let i = 0; i < kids.length - 2; i++) kids[i]!.visible = false
+    const gx = gb.position.x, gz = gb.position.z, W = 5.4, D = 4.2, H = 3.1
+    const clear = new THREE.MeshStandardMaterial({ color: 0xcfdde4, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.28, depthWrite: false })
+    box(M.stone, W + 0.6, 0.18, D + 0.6, gx, 0, gz)
+    box(M.plaster, W, H, 0.12, gx, 0.18, gz - D / 2 + 0.06) // pale back wall
+    box(M.timber, W + 1.2, 0.22, D + 1.2, gx, H + 0.18, gz) // floating timber roof
+    for (const [dx, dz] of [[-W / 2, D / 2], [W / 2, D / 2], [-W / 2, -D / 2], [W / 2, -D / 2]]) box(M.dark, 0.08, H, 0.08, gx + dx, 0.18, gz + dz)
+    for (const dx of [-1.1, 1.1]) { box(M.timber, 1.6, 0.06, 2.6, gx + dx, 0.9, gz + 0.1); box(M.timber, 1.4, 0.82, 0.1, gx + dx, 0.18, gz + 0.1); for (let k = 0; k < 3; k++) box(M.dark, 0.22, 0.02, 0.36, gx + dx, 0.96, gz - 0.7 + k * 0.8) }
+    const shell = new THREE.Mesh(mergeGeometries([
+      new THREE.BoxGeometry(W, H, 0.04).translate(0, H / 2 + 0.18, D / 2),
+      new THREE.BoxGeometry(0.04, H, D).translate(-W / 2, H / 2 + 0.18, 0),
+      new THREE.BoxGeometry(0.04, H, D).translate(W / 2, H / 2 + 0.18, 0),
+    ])!, clear)
+    shell.position.set(gx, 0, gz); shell.renderOrder = 2; scene.add(shell)
+  }
 
   for (const [mat, list] of bag) {
     const merged = mergeGeometries(list.map((g) => { g.deleteAttribute('uv'); return g }), false)
