@@ -83,8 +83,8 @@ export const TINTS = [
 ] as const
 
 export const BODIES: { id: BodyId; label: string; blurb: string }[] = [
-  { id: 'player', label: 'Player 8453', blurb: 'Man. Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
-  { id: 'zuri', label: 'Zuri', blurb: 'Woman. Longer hair, a softer face, lashes, and a fitted coat. Cut to read cleaner than Player 8453. Original.' },
+  { id: 'player', label: 'Man', blurb: 'Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
+  { id: 'zuri', label: 'Woman', blurb: 'Longer hair, a softer face, lashes, and a fitted coat. Original.' },
   { id: 'shrimp', label: 'Shrimp', blurb: 'The mascot. Free. Rank still starts at shrimp either way.' },
   { id: 'ledger', label: 'Ledger', blurb: 'Original helmet. Not a licensed collection.' },
   { id: 'marina', label: 'Marina', blurb: 'Original buoy. Not a licensed collection.' },
@@ -144,7 +144,9 @@ export type Daily = { day: string } & Record<RepFlag, boolean>
 
 export type Save = {
   v: 1
+  name: string
   username: string
+  signedUp: boolean
   body: BodyId
   tint: number
   luxury: boolean
@@ -191,6 +193,7 @@ export type TradeResult =
 
 export type SharedProfile = {
   n: string
+  u: string
   x: number
   p: number
   s: number
@@ -337,7 +340,9 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
   const memeHist = walkPrice(0.4, memeDrift, 0.12, 0.02, 12, 42, rand)
   return {
     v: 1,
-    username: 'Player 8453',
+    name: '',
+    username: '',
+    signedUp: false,
     body: 'player',
     tint: TINTS[0].hex,
     luxury: false,
@@ -388,10 +393,15 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
-export function cleanName(value: unknown): string {
-  if (typeof value !== 'string') return 'Shrimp'
-  const trimmed = value.replace(/\s+/g, ' ').trim().slice(0, 24)
-  return trimmed.length ? trimmed : 'Shrimp'
+export function cleanDisplayName(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.replace(/\s+/g, ' ').trim().slice(0, 24)
+}
+
+export function cleanUsername(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const handle = value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)
+  return /^[a-z0-9_]{3,16}$/.test(handle) ? handle : ''
 }
 
 const HOUSE_VISIT_IDS = new Set(['adaeze', 'malik', 'nia', 'vacant'])
@@ -489,7 +499,14 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   if (!raw || typeof raw !== 'object') return fresh
   const row = raw as Record<string, unknown>
   if (row.v !== 1) return fresh
-  fresh.username = cleanName(row.username)
+  fresh.name = cleanDisplayName(row.name)
+  fresh.username = cleanUsername(row.username)
+  fresh.signedUp = row.signedUp === true && fresh.name.length > 0 && fresh.username.length > 0
+  if (!fresh.signedUp) {
+    fresh.name = ''
+    fresh.username = ''
+    fresh.signedUp = false
+  }
   fresh.body = cleanBody(row.body)
   fresh.tint = cleanTint(row.tint)
   fresh.luxury = bool(row.luxury, false)
@@ -679,7 +696,8 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     'GRIND DISTRICT',
     'Practice profile. Not a credential. Not a wallet. Not financial advice.',
     '',
-    `Name: ${save.username}`,
+    `Name: ${save.name}`,
+    `Username: @${save.username}`,
     `Rank: ${rank.label} (${save.xp} XP${next ? `, next ${next.label} at ${next.xp}` : ', top of an open ladder'})`,
     `Reputation: ${save.reputation} (this does not move the ladder)`,
     `Streak: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with a rep`,
@@ -706,7 +724,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
   ].join('\n')
 
   const resume = [
-    `${save.username} is a ${rank.label.toLowerCase()} in Grind District, one shared city. This resume is written from practice actions. It is not a degree and it is not a claim about real capital.`,
+    `${save.name} (@${save.username}) is a ${rank.label.toLowerCase()} in Grind District, one shared city. This resume is written from practice actions. It is not a degree and it is not a claim about real capital.`,
     '',
     skills.length
       ? `Skills filed: ${skills.join('; ')}.`
@@ -720,7 +738,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
   ].join('\n')
 
   const portfolio = [
-    `${save.username} — portfolio`,
+    `${save.name} (@${save.username}) — portfolio`,
     'Generated from the city. Share the link. Do not send a seed phrase to anyone who asks to "verify" it.',
     '',
     ...(save.activities.length
@@ -767,7 +785,8 @@ function fromB64Url(text: string): string {
 
 export function encodeShare(save: Save): string {
   const payload = {
-    n: save.username,
+    n: save.name,
+    u: save.username,
     x: save.xp,
     p: save.reputation,
     s: save.streak,
@@ -783,10 +802,13 @@ export function decodeShare(param: string): SharedProfile | null {
     if (!parsed || typeof parsed !== 'object') return null
     const row = parsed as Record<string, unknown>
     if (typeof row.n !== 'string' || typeof row.x !== 'number') return null
+    const name = cleanDisplayName(row.n)
+    if (!name) return null
     const skills = Array.isArray(row.k) ? row.k.filter((id): id is SkillId => typeof id === 'string' && isSkill(id)) : []
     const proof = Array.isArray(row.a) ? row.a.filter((line): line is string => typeof line === 'string').slice(0, 6).map((line) => line.slice(0, 90)) : []
     return {
-      n: cleanName(row.n),
+      n: name,
+      u: cleanUsername(row.u),
       x: num(row.x, 0, 1_000_000, 0),
       p: num(row.p, 0, 1_000_000, 0),
       s: num(row.s, 0, 9999, 0),
@@ -802,7 +824,7 @@ export function sharedText(profile: SharedProfile): string {
   const rank = rankFor(profile.x)
   const skills = profile.k.map((id) => SKILL_META[id].title)
   return [
-    `${profile.n} · ${rank.label}`,
+    `${profile.n}${profile.u ? ` · @${profile.u}` : ''} · ${rank.label}`,
     'Grind District practice profile',
     `XP ${profile.x} · reputation ${profile.p} · streak ${profile.s}`,
     skills.length ? `Skills: ${skills.join(', ')}` : 'Skills: none filed',
