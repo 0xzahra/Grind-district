@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
-  --mint: #17f790;
-  --ink: #e9fff4;
-  --dim: #9dccb6;
+  --mint: #d9b26a;
+  --ink: #f5f2ea;
+  --dim: #b8b0a2;
   --night: #070a09;
   font-family: Outfit, system-ui, sans-serif;
   font-synthesis: none;
@@ -103,7 +103,7 @@ header {
 
 .pills span,
 button.pill {
-  border: 1px solid rgba(26, 243, 143, 0.45);
+  border: 1px solid rgba(217, 178, 106, 0.45);
   background: rgba(6, 16, 12, 0.72);
   border-radius: 999px;
   padding: 0.18rem 0.55rem;
@@ -160,7 +160,7 @@ button,
 button {
   color: var(--mint);
   background: rgba(7, 14, 12, 0.78);
-  border: 1px solid rgba(26, 243, 143, 0.55);
+  border: 1px solid rgba(217, 178, 106, 0.55);
 }
 
 button[aria-pressed='true'] {
@@ -224,7 +224,7 @@ input:focus-visible {
 #caption {
   width: 100%;
   background: rgba(7, 12, 10, 0.82);
-  border: 1px solid rgba(26, 243, 143, 0.5);
+  border: 1px solid rgba(217, 178, 106, 0.5);
   border-radius: 16px;
   padding: 0.75rem 0.9rem 0.85rem;
   backdrop-filter: blur(10px);
@@ -265,7 +265,7 @@ input:focus-visible {
   width: 116px;
   height: 116px;
   border-radius: 50%;
-  border: 2px solid rgba(26, 243, 143, 0.55);
+  border: 2px solid rgba(217, 178, 106, 0.55);
   background: rgba(8, 14, 12, 0.42);
   touch-action: none;
   z-index: 3;
@@ -309,7 +309,7 @@ body.flat header {
   gap: 0.85rem;
   padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
   background:
-    radial-gradient(circle at 50% 42%, rgba(26, 243, 143, 0.16), transparent 28rem),
+    radial-gradient(circle at 50% 42%, rgba(217, 178, 106, 0.16), transparent 28rem),
     #070a09;
   text-align: center;
   pointer-events: auto;
@@ -348,7 +348,7 @@ body.flat header {
 .bodies {
   margin: 0;
   padding: 0.7rem 0.75rem 0.8rem;
-  border: 1px solid rgba(26, 243, 143, 0.45);
+  border: 1px solid rgba(217, 178, 106, 0.45);
   border-radius: 12px;
   display: grid;
   gap: 0.45rem;
@@ -421,7 +421,7 @@ body.flat header {
 
 .menu-list li {
   padding: 0.7rem 0;
-  border-bottom: 1px solid rgba(26, 243, 143, 0.22);
+  border-bottom: 1px solid rgba(217, 178, 106, 0.22);
 }
 
 .menu-list strong {
@@ -515,7 +515,7 @@ body.flat header {
     padding: 0.55rem 0.7rem 0.7rem;
     border-radius: 16px;
     background: rgba(7, 12, 10, 0.86);
-    border: 1px solid rgba(26, 243, 143, 0.35);
+    border: 1px solid rgba(217, 178, 106, 0.35);
   }
 
   .tool-row {
@@ -581,7 +581,7 @@ body.touch #dock {
   width: 128px;
   height: 128px;
   border-radius: 16px;
-  border: 1px solid rgba(26, 243, 143, 0.45);
+  border: 1px solid rgba(217, 178, 106, 0.45);
   background: rgba(7, 12, 10, 0.82);
   z-index: 2;
   cursor: pointer;
@@ -616,7 +616,7 @@ body.hints-off #hint {
   padding: 0.65rem 0.85rem;
   border-radius: 14px;
   background: rgba(7, 14, 12, 0.94);
-  border: 1px solid rgba(26, 243, 143, 0.55);
+  border: 1px solid rgba(217, 178, 106, 0.55);
   color: var(--ink);
   text-align: center;
   pointer-events: none;
@@ -669,7 +669,7 @@ button.danger {
   max-height: min(88dvh, 820px);
   overflow: auto;
   background: rgba(8, 14, 12, 0.97);
-  border: 1px solid rgba(26, 243, 143, 0.55);
+  border: 1px solid rgba(217, 178, 106, 0.55);
   border-radius: 18px;
   padding: 0.85rem 1rem 1.1rem;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
@@ -822,7 +822,7 @@ textarea {
   font: 500 1rem/1.4 Outfit, system-ui, sans-serif;
   color: var(--ink);
   background: #0c1411;
-  border: 1px solid rgba(26, 243, 143, 0.45);
+  border: 1px solid rgba(217, 178, 106, 0.45);
   border-radius: 12px;
   padding: 0.6rem 0.75rem;
 }
@@ -844,7 +844,7 @@ textarea {
   height: 28px;
   border-radius: 999px;
   background: #101816;
-  border: 1px solid rgba(26, 243, 143, 0.4);
+  border: 1px solid rgba(217, 178, 106, 0.4);
   overflow: hidden;
 }
 
@@ -854,7 +854,7 @@ textarea {
   width: 18%;
   top: 0;
   bottom: 0;
-  background: rgba(26, 243, 143, 0.38);
+  background: rgba(217, 178, 106, 0.38);
 }
 
 .marker {
@@ -998,11 +998,11 @@ body.sheet-open #chat {
 /* Wallet dialog + support link */
 .wallet-dlg { position: fixed; inset: auto 50% 50% auto; transform: translate(50%, 50%); z-index: 60; width: min(92vw, 380px); max-height: 88vh; overflow: auto; padding: 18px; border-radius: 12px; background: rgba(0,0,0,0.82); border: 1px solid rgba(23,247,144,0.3); color: #f2fdf8; display: grid; gap: 10px; }
 .wallet-body { display: grid; gap: 8px; }
-.wallet-addr { font-family: ui-monospace, monospace; color: #17f790; }
+.wallet-addr { font-family: ui-monospace, monospace; color: #d9b26a; }
 .wallet-qr { background: #fff; padding: 6px; width: max-content; border-radius: 8px; }
 .wallet-send { display: grid; gap: 6px; }
 .wallet-send input, .wallet-send select { padding: 8px; border-radius: 8px; border: 1px solid rgba(23,247,144,0.3); background: #0a1412; color: #f2fdf8; }
-.help-link { color: #17f790; font-weight: 500; }
+.help-link { color: #d9b26a; font-weight: 500; }
 #stick { background: radial-gradient(circle, rgba(23,247,144,0.08), rgba(0,0,0,0.35)); transition: opacity 0.4s ease; opacity: 0.55; }
 #stick:active { opacity: 1; }
 #stick::after { content: 'Move'; position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font: 500 12px Outfit, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #f2fdf8; opacity: 0.8; }
@@ -1012,11 +1012,11 @@ body.sheet-open #chat {
 #nav .icon-btn { display: grid; justify-items: center; gap: 2px; min-width: 52px; padding: 8px 6px; }
 #nav .icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #nav .icon-btn span { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
-#nav .icon-btn:hover svg, #nav .icon-btn:focus-visible svg { color: #17f790; filter: drop-shadow(0 0 6px rgba(23,247,144,0.6)); }
+#nav .icon-btn:hover svg, #nav .icon-btn:focus-visible svg { color: #d9b26a; filter: drop-shadow(0 0 6px rgba(23,247,144,0.6)); }
 
 /* Premium HUD pass: black glass, thin brand hairlines, tabular numbers. */
 .pills span, button.pill { background: rgba(0,0,0,0.55); border: 1px solid rgba(23,247,144,0.3); border-radius: 12px; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-#pill-rank { color: #17f790; }
+#pill-rank { color: #d9b26a; }
 #nav { background: rgba(0,0,0,0.55); border: 1px solid rgba(23,247,144,0.22); border-radius: 14px; padding: 4px; }
 #map { border-radius: 50%; border: 1px solid rgba(23,247,144,0.4); box-shadow: 0 0 0 4px rgba(0,0,0,0.45), 0 0 18px rgba(23,247,144,0.18); }
 #toast { animation: toast-in 180ms ease-out; }
@@ -1029,7 +1029,7 @@ body.touch .pills span, body.touch button.pill, body.touch #nav { backdrop-filte
 #boot img { mix-blend-mode: screen; filter: drop-shadow(0 0 24px rgba(23,247,144,0.35)); animation: boot-breathe 2.4s ease-in-out infinite; }
 @keyframes boot-breathe { 50% { filter: drop-shadow(0 0 42px rgba(23,247,144,0.6)); } }
 .boot-bar { position: absolute; bottom: max(14vh, 4rem); width: min(60vw, 280px); height: 2px; background: rgba(242,253,248,0.12); overflow: hidden; border-radius: 2px; }
-.boot-bar i { display: block; width: 40%; height: 100%; background: #17f790; box-shadow: 0 0 12px #17f790; animation: boot-sweep 1.2s ease-in-out infinite; }
+.boot-bar i { display: block; width: 40%; height: 100%; background: #d9b26a; box-shadow: 0 0 12px #d9b26a; animation: boot-sweep 1.2s ease-in-out infinite; }
 @keyframes boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 #menu-home .lockup { filter: drop-shadow(0 0 28px rgba(23,247,144,0.35)); }
 @media (prefers-reduced-motion: reduce) { #boot img, .boot-bar i { animation: none; } }
@@ -1040,7 +1040,7 @@ body.touch .pills span, body.touch button.pill, body.touch #nav { backdrop-filte
 #hud header .tag { display: none; }
 .hud-cluster { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
 .hud-cluster .pill, .hud-cluster span { font-size: 11px !important; padding: 3px 9px !important; min-height: 0 !important; background: rgba(10,12,12,0.6) !important; border: 1px solid rgba(242,253,248,0.14) !important; color: #e8efe9; }
-.hud-cluster #pill-rank { color: #17f790; border-color: rgba(23,247,144,0.35) !important; }
+.hud-cluster #pill-rank { color: #d9b26a; border-color: rgba(23,247,144,0.35) !important; }
 .tools { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .music-group { display: inline-flex; align-items: center; gap: 4px; }
 #nav #music { min-width: 36px; padding: 6px; }

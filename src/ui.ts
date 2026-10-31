@@ -438,7 +438,7 @@ export function mountUi(
       const span = Math.max(0.0001, max - min)
       const last = hist[hist.length - 1] ?? min
       const first = hist[0] ?? min
-      ctx.strokeStyle = last >= first ? '#17f790' : '#ff6f61'
+      ctx.strokeStyle = last >= first ? '#7fae8e' : '#c4776c'
       ctx.lineWidth = 4
       ctx.beginPath()
       hist.forEach((value, index) => {

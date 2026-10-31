@@ -1187,7 +1187,7 @@ export function createWorld(options: {
     const g = screen.context
     g.fillStyle = '#0c1411'
     g.fillRect(0, 0, 256, 128)
-    g.fillStyle = '#17f790'
+    g.fillStyle = '#7fae8e'
     g.font = '600 18px Outfit, sans-serif'
     g.fillText(screen.key === 'unit' ? 'UNIT' : 'MEME', 12, 22)
     if (values.length < 2) {
@@ -1199,7 +1199,7 @@ export function createWorld(options: {
     const span = Math.max(0.0001, max - min)
     const last = values[values.length - 1] ?? min
     const first = values[0] ?? min
-    g.strokeStyle = last >= first ? '#17f790' : '#ff6f61'
+    g.strokeStyle = last >= first ? '#7fae8e' : '#c4776c'
     g.lineWidth = 3
     g.beginPath()
     values.forEach((value, index) => {
