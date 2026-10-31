@@ -3,11 +3,12 @@ import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
+import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, type Graphics } from './logic.ts'
+import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { bindMusic } from './music.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
@@ -163,8 +164,25 @@ async function main(onReveal: () => void) {
     pos.z = 8
   }
   avatar.object.position.set(pos.x, 0, pos.z)
-  if (getSave().body === 'player') tagPlayer(avatar.object, getSave().username)
+  if (wearsPlate(getSave().body)) tagPlayer(avatar.object, getSave().username)
+  avatar.setMask(getSave().mask)
   scene.add(avatar.object)
+  let follower: THREE.Group | null = null
+  let followerKind: DroneId | 'none' = 'none'
+  const syncDrone = () => {
+    const kind = getSave().drone
+    if (kind === followerKind) return
+    if (follower) {
+      releaseDrone(follower)
+      follower = null
+    }
+    followerKind = kind
+    if (kind === 'none') return
+    follower = createDrone(kind)
+    follower.position.set(pos.x + 0.8, 2.2, pos.z + 0.4)
+    scene.add(follower)
+  }
+  syncDrone()
 
   const applyLook = () => {
     const time = getSave().timeOfDay
@@ -192,8 +210,10 @@ async function main(onReveal: () => void) {
     scene.remove(avatar.object)
     avatar = createAvatar(save.body, save.tint, save.luxury)
     avatar.object.position.set(pos.x, 0, pos.z)
-    if (save.body === 'player') tagPlayer(avatar.object, save.username)
+    avatar.setMask(save.mask)
+    if (wearsPlate(save.body)) tagPlayer(avatar.object, save.username)
     scene.add(avatar.object)
+    syncDrone()
   }
 
   applyLook()
@@ -209,7 +229,9 @@ async function main(onReveal: () => void) {
     onStyle: () => {
       const save = getSave()
       avatar.setStyle(save.tint, save.luxury)
-      if (save.body === 'player') tagPlayer(avatar.object, save.username)
+      avatar.setMask(save.mask)
+      syncDrone()
+      if (wearsPlate(save.body)) tagPlayer(avatar.object, save.username)
     },
     onBody: applyBody,
     onLook: applyLook,
@@ -447,6 +469,15 @@ async function main(onReveal: () => void) {
     const moving = Math.hypot(vel.x, vel.z) > 0.22
     avatar.face(dirX, dirZ, dt, wishLen > 0.05)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
+    if (follower) {
+      const goalX = pos.x + 0.85
+      const goalZ = pos.z + 0.45
+      const glide = 1 - Math.exp(-3 * dt)
+      follower.position.x += (goalX - follower.position.x) * glide
+      follower.position.z += (goalZ - follower.position.z) * glide
+      follower.position.y = 2.15 + Math.sin(elapsed * 3) * 0.08
+      spinDrone(follower, dt, elapsed)
+    }
     traveled += Math.hypot(vel.x, vel.z) * dt
     if (traveled > 10) hint.classList.add('quiet')
 
