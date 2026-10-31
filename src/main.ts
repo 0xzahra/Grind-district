@@ -39,6 +39,9 @@ import './glass.css'
 import { createPortrait } from './portrait.ts'
 const RUN = 5.5
 
+let topupChunk: Promise<typeof import('./topup.ts')> | null = null
+const topupModule = () => (topupChunk ??= import('./topup.ts').catch((e: unknown) => { topupChunk = null; throw e }))
+
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
   if (!node) throw new Error(`Missing ${selector}`)
@@ -472,7 +475,16 @@ const apiAgents = createRemoteAgents(scene)
     )
     const topBtn = el('button', 'Top up', 'topup-go')
     topBtn.type = 'button'
-    topBtn.onclick = () => { topBtn.remove(); void import('./topup.ts').then((m) => m.renderTopup(topSlot, () => { paintStatus(); const big = sheetBody.querySelector('.cc-big'); if (big) big.textContent = `$${getSave().ledger.toFixed(2)}` })) }
+    const credited = () => { paintStatus(); const big = sheetBody.querySelector('.cc-big'); if (big) big.textContent = `$${getSave().ledger.toFixed(2)}` }
+    topBtn.onclick = () => {
+      topBtn.disabled = true; topBtn.textContent = 'Opening…'
+      // The chunk can 404 if the site was redeployed after this tab loaded: say so and offer a reload instead of failing silently.
+      topupModule().then((m) => { topBtn.remove(); m.renderTopup(topSlot, credited) }).catch(() => {
+        topBtn.remove()
+        const fix = el('button', 'Reload to top up', 'topup-go'); fix.type = 'button'; fix.onclick = () => location.reload()
+        topSlot.replaceChildren(el('p', 'The game was updated since you opened it. Reload to load the top-up.', 'cc-muted'), fix)
+      })
+    }
     const topSlot = el('div')
     sheetBody.append(topBtn, topSlot, el('h3', 'In-game activity'))
     const list = el('ol', '', 'cc-list')
@@ -499,6 +511,8 @@ const apiAgents = createRemoteAgents(scene)
   must('#cc-msg').addEventListener('click', () => { if (chat.hidden) must<HTMLButtonElement>('#msg-btn').click() })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
   must('#cc-status').addEventListener('click', openBalance)
+  // Fetch the top-up chunk now (while this build's assets are live) and re-sync credited top-ups for a known wallet.
+  void topupModule().then((m) => m.autoSyncTopups(paintStatus)).catch(() => {})
   onNotesChange(() => { if (!ccSheet.hidden && sheetTitle.textContent === 'Notifications') renderNotes() })
   // Sliders: while dragging, the menu fades away so the city stays visible; a readout shows the level and zone.
   const readout = must<HTMLElement>('#cc-readout')

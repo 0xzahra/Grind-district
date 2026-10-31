@@ -27,6 +27,20 @@ export async function syncTopups(player: string, onChange: () => void): Promise<
   } catch { /* offline */ }
 }
 
+const WALLET_KEY = 'gd.topup.wallet'
+
+/** On load: re-sync credited top-ups for the last wallet used here, or a wallet already connected (silent, no prompt). */
+export async function autoSyncTopups(onChange: () => void): Promise<void> {
+  const seen = new Set<string>()
+  const saved = localStorage.getItem(WALLET_KEY)
+  if (saved && /^0x[0-9a-fA-F]{40}$/.test(saved)) seen.add(saved.toLowerCase())
+  try {
+    const accounts = (await eth()?.request({ method: 'eth_accounts' })) as string[] | undefined
+    for (const a of accounts ?? []) seen.add(a.toLowerCase())
+  } catch { /* no wallet */ }
+  for (const a of seen) await syncTopups(a, onChange)
+}
+
 export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { demo?: boolean } = {}): void {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
   let asset: 'USDC' | 'ETH' = 'USDC'
@@ -90,6 +104,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     }
     status.textContent = `Wallet ${short(a)} on Base`
     go.textContent = 'Confirm top-up'
+    try { localStorage.setItem(WALLET_KEY, a) } catch { /* private mode */ }
     void syncTopups(a, onCredited)
   }
   const pay = async () => {
