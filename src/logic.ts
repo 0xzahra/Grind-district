@@ -33,7 +33,9 @@ export const SKILL_META: Record<SkillId, { title: string; cv: string }> = {
   carbon: { title: 'Carbon claims', cv: 'Carbon claims — reads the method before the logo' },
 }
 
-export type BodyId = 'player' | 'shrimp' | 'ledger' | 'marina' | 'signal'
+export type BodyId = 'player' | 'zuri' | 'shrimp' | 'ledger' | 'marina' | 'signal'
+export type MaskId = 'none' | 'punk' | 'ape' | 'pudgy' | 'azuki' | 'nodemonke' | 'degods'
+export type DroneId = 'scout' | 'courier' | 'halo'
 export type TimeOfDay = 'night' | 'dusk' | 'day'
 export type Graphics = 'low' | 'medium' | 'high'
 export type Season = 'bull' | 'bear'
@@ -46,6 +48,7 @@ export type PanelId =
   | 'trade'
   | 'trench'
   | 'boutique'
+  | 'gadgets'
   | 'gym'
   | 'church'
   | 'prayer'
@@ -80,11 +83,27 @@ export const TINTS = [
 ] as const
 
 export const BODIES: { id: BodyId; label: string; blurb: string }[] = [
-  { id: 'player', label: 'Player 8453', blurb: 'Original low-poly. Blonde hair, thin glasses, grey suit, blue shirt. Not a licensed collection.' },
+  { id: 'player', label: 'Player 8453', blurb: 'Man. Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
+  { id: 'zuri', label: 'Zuri', blurb: 'Woman. Longer hair, a softer face, lashes, and a fitted coat. Cut to read cleaner than Player 8453. Original.' },
   { id: 'shrimp', label: 'Shrimp', blurb: 'The mascot. Free. Rank still starts at shrimp either way.' },
   { id: 'ledger', label: 'Ledger', blurb: 'Original helmet. Not a licensed collection.' },
   { id: 'marina', label: 'Marina', blurb: 'Original buoy. Not a licensed collection.' },
   { id: 'signal', label: 'Signal', blurb: 'Original coat. Not a licensed collection.' },
+]
+
+export const MASKS: { id: Exclude<MaskId, 'none'>; label: string; blurb: string }[] = [
+  { id: 'punk', label: 'CryptoPunks', blurb: 'Block visor and a stripe. A Grind District cut under that name. Not the licensed pixel face.' },
+  { id: 'ape', label: 'Bored Apes', blurb: 'A faceted muzzle. Original geometry. Not the licensed ape.' },
+  { id: 'pudgy', label: 'Pudgy Penguins', blurb: 'Round cheeks and a short bill. Original. Not the licensed penguin.' },
+  { id: 'azuki', label: 'Azuki', blurb: 'A swept half-mask. Original. Not the licensed portrait.' },
+  { id: 'nodemonke', label: 'Nodemonkes', blurb: 'Cube brow and block ears. Original. Not the licensed monkey.' },
+  { id: 'degods', label: 'DeGods', blurb: 'Gold cheek plates and a gem. Original. Not the licensed god.' },
+]
+
+export const DRONES: { id: DroneId; label: string; price: number; blurb: string }[] = [
+  { id: 'scout', label: 'Scout', price: 18, blurb: 'A small quad. It keeps your shoulder.' },
+  { id: 'courier', label: 'Courier', price: 32, blurb: 'A box on a quad. It follows. It does not carry messages yet.' },
+  { id: 'halo', label: 'Halo', price: 48, blurb: 'A lit ring. The street can see you coming.' },
 ]
 
 export const PROJECTS = [
@@ -129,6 +148,9 @@ export type Save = {
   body: BodyId
   tint: number
   luxury: boolean
+  mask: MaskId
+  drone: DroneId | 'none'
+  ownedDrones: DroneId[]
   xp: number
   reputation: number
   ledger: number
@@ -319,6 +341,9 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     body: 'player',
     tint: TINTS[0].hex,
     luxury: false,
+    mask: 'none',
+    drone: 'none',
+    ownedDrones: [],
     xp: 0,
     reputation: 0,
     ledger: 0,
@@ -381,8 +406,50 @@ export function cleanHouseVisits(value: unknown): string[] {
 }
 
 export function cleanBody(value: unknown): BodyId {
-  if (value === 'player' || value === 'shrimp' || value === 'ledger' || value === 'marina' || value === 'signal') return value
+  if (value === 'player' || value === 'zuri' || value === 'shrimp' || value === 'ledger' || value === 'marina' || value === 'signal') return value
   return 'shrimp'
+}
+
+export function wearsPlate(body: BodyId): boolean {
+  return body === 'player' || body === 'zuri'
+}
+
+const MASK_IDS = new Set<string>(MASKS.map((mask) => mask.id))
+
+export function cleanMask(value: unknown): MaskId {
+  if (value === 'none') return 'none'
+  if (typeof value === 'string' && MASK_IDS.has(value)) return value as MaskId
+  return 'none'
+}
+
+const DRONE_IDS = new Set<string>(DRONES.map((drone) => drone.id))
+
+export function cleanDrone(value: unknown): DroneId | 'none' {
+  if (value === 'none') return 'none'
+  if (typeof value === 'string' && DRONE_IDS.has(value)) return value as DroneId
+  return 'none'
+}
+
+export function cleanOwnedDrones(value: unknown): DroneId[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<DroneId>()
+  for (const item of value) {
+    const id = cleanDrone(item)
+    if (id !== 'none') seen.add(id)
+  }
+  return [...seen]
+}
+
+export function quoteDrone(
+  ledger: number,
+  owned: readonly string[],
+  id: DroneId,
+): { ok: true; ledger: number; spent: number; already: boolean } | { ok: false; error: string } {
+  const item = DRONES.find((drone) => drone.id === id)
+  if (!item) return { ok: false, error: 'That drone is not on the wall.' }
+  if (owned.includes(id)) return { ok: true, ledger, spent: 0, already: true }
+  if (ledger < item.price) return { ok: false, error: `Short ${money(item.price - ledger)}. The drone stays on the shelf.` }
+  return { ok: true, ledger: cents(ledger - item.price), spent: item.price, already: false }
 }
 
 export function cleanTint(value: unknown): number {
@@ -426,6 +493,10 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.body = cleanBody(row.body)
   fresh.tint = cleanTint(row.tint)
   fresh.luxury = bool(row.luxury, false)
+  fresh.mask = cleanMask(row.mask)
+  fresh.ownedDrones = cleanOwnedDrones(row.ownedDrones)
+  const worn = cleanDrone(row.drone)
+  fresh.drone = worn !== 'none' && fresh.ownedDrones.includes(worn) ? worn : 'none'
   fresh.xp = num(row.xp, 0, 1_000_000, 0)
   fresh.reputation = num(row.reputation, 0, 1_000_000, 0)
   fresh.ledger = cents(num(row.ledger, 0, 1_000_000, 0))
@@ -638,11 +709,11 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     `${save.username} is a ${rank.label.toLowerCase()} in Grind District, one shared city. This resume is written from practice actions. It is not a degree and it is not a claim about real capital.`,
     '',
     skills.length
-      ? `Skills filed: ${skills.join('; ')}.`
+      ? `Skills filed: ${skills.join('; ')}. `
       : 'No skill is filed yet. The learning hall is north of the plaza, and the first course is Spot.',
     '',
     proof.length
-      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`
+      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}. `
       : 'No proof is filed yet. A passed course, a bounty, or a pledge will land here on its own.',
     '',
     `Consistency: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with at least one rep. Reputation is ${save.reputation}. Rank does not read the practice ledger.`,
