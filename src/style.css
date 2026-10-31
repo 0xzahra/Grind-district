@@ -1173,3 +1173,16 @@ body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
 .hud-wordmark, .menu-logo, .boot-wordmark, .login-wordmark { margin: 0; font: 700 18px/1 Inter, system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #f5f5f7; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
 .menu-logo { height: auto !important; filter: none !important; }
 .boot-wordmark { font-size: 28px; }
+/* HUD: collapsible glass rail on the right edge, chat beside it; left side stays clear for movement. */
+#nav { position: fixed !important; left: auto !important; right: max(12px, env(safe-area-inset-right)) !important; top: 50% !important; bottom: auto !important;
+  transform: translateY(-50%); display: flex !important; flex-direction: column !important; gap: 4px; padding: 8px 6px !important; border-radius: 22px !important;
+  background: rgba(22, 22, 24, 0.42) !important; -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%); z-index: 7; transition: opacity .2s, transform .2s; }
+body.rail-shut #nav { opacity: 0; pointer-events: none; transform: translate(120%, -50%); }
+#rail-toggle { position: fixed; z-index: 8; right: max(12px, env(safe-area-inset-right)); top: calc(50% - 220px); width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; padding: 0; color: #f5f5f7; background: rgba(22, 22, 24, 0.5); border: 1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); cursor: pointer; pointer-events: auto; }
+#rail-toggle svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+#msg-btn { left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 70px) !important; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 1rem) !important; }
+#chat { left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 70px) !important; }
+#map { width: 56px !important; height: 56px !important; border-radius: 50%; }
+body.map-large #map { width: 120px !important; height: 120px !important; }

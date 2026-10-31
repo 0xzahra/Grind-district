@@ -115,11 +115,7 @@ export function createPlayer(): ShrimpAvatar {
   const avatar = new THREE.Group()
   avatar.rotation.y = Math.PI
   root.add(avatar)
-  const key = new THREE.PointLight(0xfff6ea, 1.1, 3.6, 2)
-  key.position.set(0, 2.15, -1.1)
   // Character rig lights removed: faces read matte under the city lighting.
-  const faceLight = new THREE.PointLight(0xe7eeff, 0.9, 2.8, 2)
-  faceLight.position.set(0, 1.62, 0.9)
   const bob = new THREE.Group()
   avatar.add(bob)
 

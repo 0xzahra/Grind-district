@@ -76,9 +76,9 @@ export function createDrone(id: DroneId): THREE.Group {
       break
     }
     case 'halo': {
-      const ring = mesh(new THREE.TorusGeometry(0.16, 0.018, 8, 18), mat(0x9fd4ff, 0.25, 0.6, 0.8), root)
+      const ring = mesh(new THREE.TorusGeometry(0.16, 0.018, 8, 18), mat(0x9fd4ff, 0.25, 0.6, 0.25), root)
       ring.rotation.x = Math.PI / 2
-      mesh(new THREE.SphereGeometry(0.04, 8, 6), mat(0xf7fbff, 0.2, 0.3, 0.6), root)
+      mesh(new THREE.SphereGeometry(0.04, 8, 6), mat(0xf7fbff, 0.2, 0.3, 0.2), root)
       const shell = mat(0x1a242c, 0.4, 0.4)
       rotors.push(...quad(root, shell, mat(0x9fd4ff, 0.3, 0.2, 0.5)))
       break

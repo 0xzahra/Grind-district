@@ -57,11 +57,7 @@ export function createZuri(): ShrimpAvatar {
   const avatar = new THREE.Group()
   avatar.rotation.y = Math.PI
   root.add(avatar)
-  const key = new THREE.PointLight(0xfff1ea, 1.2, 3.8, 2)
-  key.position.set(0, 2.2, -1.05)
   // Character rig lights removed: faces read matte under the city lighting.
-  const faceLight = new THREE.PointLight(0xffe8f0, 1.0, 2.6, 2)
-  faceLight.position.set(0, 1.66, 0.95)
   const bob = new THREE.Group()
   avatar.add(bob)
 
