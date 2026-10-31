@@ -46,13 +46,13 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Trading floor | Practice spot book in UNIT. Buy and sell a fraction of the ledger or the position. Logging a sized plan on a sell can count even when the close is red. |
 | Trenches | Practice MEME book. Attention can leave. Rank does not follow it. |
 | Influencer row | Post a bounty. Practice pay and a portfolio line. |
-| Boutique | Five original bodies, free: Player 8453, Shrimp, Ledger, Marina, Signal. A gold chain is a want. Licensed collections are not on this street. |
+| Boutique | Player 8453 (man), Zuri (woman), Shrimp, Ledger, Marina, Signal. Masks wear the collection names in this city's own shapes. |
 | Gym | A timing set. One logged set a day. |
 | Church | Rest counts. One visit a day. |
 | Prayer space | Focus adds a quarter to the next course you pass. |
 | Cafés | Season headlines. Gossip, not a signal. |
-| Carbon desk | A practice pledge. It does not retire a real credit. |
 | The houses | Your house, plus Adaeze, Malik, Nia, and a vacant room on the east row. |
+| Gadgets | Scout, courier, and halo drones. Practice funds. A drone follows you. |
 | Conference hall | A short talk. Proof of work, not a slogan. |
 | Plaza | Fountain, rank totem, and Unit 4. The robot is labeled **Agent**. |
 
@@ -68,7 +68,9 @@ Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait unti
 
 ## The citizen
 
-The street body is an original low-poly person: blonde swept hair, thin glasses, a grey suit, and a blue shirt. The plate reads the name in the profile. A new city starts as **Player 8453**. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique. None of them is a licensed collection.
+Player 8453 is a man: blonde swept hair, thin glasses, a grey suit, and a blue shirt. Zuri is a woman: longer hair, a softer face, and a fitted coat, cut to read cleaner than he does. A new city starts as **Player 8453**. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique.
+
+The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
 
 ## GrindRecord
 
