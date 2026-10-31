@@ -319,7 +319,7 @@ const apiAgents = createRemoteAgents(scene)
     travel: (title, enter) => travelHook(title, enter),
   })
   function hooksTeleport(x: number, z: number) {
-    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
+    portrait: (() => { const shot = createPortrait(renderer, () => avatar.object); return () => shot() })(),
       pos.x = x
       pos.z = z
       vel.x = 0
