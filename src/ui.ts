@@ -1,3 +1,4 @@
+import { openWallet } from './wallet.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
 import { ZAHRA, type MaskId } from './logic.ts'
@@ -727,10 +728,8 @@ export function mountUi(
     const wallet = button('Wallet on Base', 'ghost', () => {
       // Close the settings sheet first so the wallet is never hidden behind it; always give feedback.
       close()
-      toast('Opening wallet…')
-      void import('./wallet.ts').then((m) => m.openWallet()).catch(() => toast('Wallet could not load. Check your connection and try again.'))
+      openWallet()
     })
-    void import('./wallet.ts') // warm the chunk while Settings is open
     return frame('Settings', stack(
       nameLabel,
       userLabel,

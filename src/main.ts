@@ -1,3 +1,4 @@
+import { openWallet } from './wallet.ts'
 import '@fontsource/archivo-black/400.css'
 import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
@@ -314,7 +315,7 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
-  must('#nav-wallet').addEventListener('click', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
+  must('#nav-wallet').addEventListener('click', () => openWallet()) // static import: opens on the same frame
   must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
