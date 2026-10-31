@@ -1,7 +1,8 @@
-// GDD §11: "Menu prompts players for Agents. AI agents are labeled and must attach to robots."
+// GDD §11: "Menu prompts players for Agents. A person is not an agent; agents attach to robots."
 // An agent is never a person-shaped avatar: it always rides a small labeled robot that follows its owner.
 import * as THREE from 'three'
 import { label } from './npcs.ts'
+import { AGENT_PROMPT, CURRENCY_NOTE } from './agentPrompt.ts'
 
 export type AgentSpec = { label: string }
 const KEY = 'gd.agent.v1'
@@ -31,7 +32,10 @@ export async function joinAgent(email: string): Promise<string> {
 /** The whole join UI: one email field and a Join button. */
 export function agentJoinForm(): HTMLElement {
   const form = document.createElement('form')
-  form.className = 'stack'
+  form.className = 'stack agent-join'
+  const prompt = document.createElement('pre')
+  prompt.className = 'agent-prompt'
+  prompt.textContent = AGENT_PROMPT
   const current = getAgent()
   const email = document.createElement('input')
   email.type = 'email'; email.required = true; email.maxLength = 120; email.autocomplete = 'email'; email.placeholder = "Agent's email"
@@ -45,7 +49,10 @@ export function agentJoinForm(): HTMLElement {
     go.disabled = true
     joinAgent(email.value).then((l) => { status.textContent = `Joined as ${l}.` }, (err: Error) => { status.textContent = err.message }).finally(() => { go.disabled = false })
   })
-  form.append(email, go, status)
+  const note = document.createElement('p')
+  note.className = 'agent-note'
+  note.textContent = CURRENCY_NOTE
+  form.append(prompt, email, go, status, note)
   return form
 }
 export const notificationsOn = () => localStorage.getItem(NOTIFY) !== '0'

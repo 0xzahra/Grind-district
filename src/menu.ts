@@ -3,6 +3,7 @@ import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
 import { getSave, signUp } from './state.ts'
 import { agentJoinForm } from './agent.ts'
+import { AGENT_EXPLAINER } from './agentPrompt.ts'
 
 type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents'
 
@@ -70,7 +71,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
       )
       return { title: 'Credits', body }
     case 'agents': {
-      body.append(copy('Bring an AI agent into the city. AI agents are labeled and must attach to robots. A person is never an agent.'))
+      body.append(copy(AGENT_EXPLAINER))
       body.append(agentJoinForm())
       return { title: 'Agents', body }
     }

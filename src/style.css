@@ -1396,3 +1396,9 @@ html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; alig
 .topup-go { padding: 14px; border-radius: 14px; border: 0; background: #f2c94c; color: #111; font: inherit; font-weight: 700; font-size: 16px; }
 .topup-go:disabled { opacity: .5; }
 .topup-status { min-height: 1.2em; font-size: 13px; margin: 0; }
+
+.agent-join .agent-prompt { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; text-align: left; font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: rgba(242,236,224,.86); background: rgba(10,12,14,.55); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 12px 14px; }
+.agent-join input[type='email'] { width: 100%; box-sizing: border-box; padding: 12px 14px; font: inherit; font-size: 15px; color: #f2ece0; background: rgba(10,12,14,.5); border: 1px solid rgba(255,255,255,.16); border-radius: 12px; }
+.agent-join input[type='email']::placeholder { color: rgba(242,236,224,.5); }
+.agent-join input[type='email']:focus { border-color: rgba(242,236,224,.45); }
+.agent-join .agent-note { margin: 0; font-size: 12.5px; color: rgba(242,236,224,.72); border-top: 1px solid rgba(255,255,255,.1); padding-top: 10px; }

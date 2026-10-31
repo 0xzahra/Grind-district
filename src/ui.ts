@@ -1,6 +1,6 @@
 import { isLicensed, skinSlots } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
-import { agentJoinForm, notificationsOn, setNotifications } from './agent.ts'
+import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
@@ -693,9 +693,6 @@ export function mountUi(
       setNotifications(!notificationsOn())
       open('settings')
     }))
-    const agentBox = document.createElement('div')
-    agentBox.className = 'stack'
-    agentBox.append(agentJoinForm())
     const support = document.createElement('a')
     support.href = 'https://x.com/0xarewah'
     support.target = '_blank'
@@ -720,9 +717,6 @@ export function mountUi(
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Notifications', 'kicker'),
       notifyRow,
-      para('Agents', 'kicker'),
-      para('AI agents are labeled and must attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
-      agentBox,
       para('Grind is in-game currency only. Nothing on-chain moves here.', 'muted'),
       para('Support', 'kicker'),
       support,
