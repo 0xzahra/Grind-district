@@ -83,7 +83,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   }
   return {
     tick(t: number, night: number) {
-      glass.emissiveIntensity = 0.08 + night * 1.1
+      glass.emissiveIntensity = 0.05 + night * 0.75
       beacons.visible = Math.sin(t * 2.4) > 0.2 && night > 0.2
     },
   }

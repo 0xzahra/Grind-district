@@ -14,7 +14,7 @@ export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   const pmrem = new THREE.PMREMGenerator(renderer)
   const room = new RoomEnvironment()
   scene.environment = pmrem.fromScene(room, 0.04).texture
-  scene.environmentIntensity = 0.5
+  scene.environmentIntensity = 0.38
   room.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
   pmrem.dispose()
   // Then swap in a real sky: Poly Haven "Kloofendal 48d Partly Cloudy (Pure Sky)" (CC0), 512x256.
@@ -89,7 +89,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         console.warn('[grind] AO unavailable', error)
       }
     }
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 0.85)
+    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.2, 0.45, 0.9)
     composer.addPass(bloom)
     composer.addPass(new OutputPass())
     grade = new ShaderPass(Grade)
@@ -113,8 +113,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     /** Night lifts bloom so neon strips read; day keeps it subtle. */
     setNight(night: number) {
       if (bloom) {
-        bloom.threshold = 0.9 - night * 0.12
-        bloom.strength = 0.1 + night * 0.15
+        bloom.threshold = 0.92 - night * 0.08
+        bloom.strength = 0.06 + night * 0.09
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */

@@ -35,6 +35,8 @@ import { createPhysicalSky } from './sky.ts'
 import './style.css'
 
 const WALK = 2.7
+import './glass.css'
+import { createPortrait } from './portrait.ts'
 const RUN = 5.5
 
 function must<T extends Element>(selector: string): T {
@@ -313,6 +315,7 @@ const apiAgents = createRemoteAgents(scene)
     travel: (title, enter) => travelHook(title, enter),
   })
   function hooksTeleport(x: number, z: number) {
+    portrait: (() => { const shot = createPortrait(renderer, () => avatar.object); return () => shot() })(),
       pos.x = x
       pos.z = z
       vel.x = 0
@@ -835,7 +838,7 @@ const apiAgents = createRemoteAgents(scene)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
       scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.1 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.18, 1.0, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.9, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }

@@ -87,6 +87,7 @@ type Hooks = {
   onPrefs: () => void
   onRank: (label: string) => void
   travel?: (title: string, enter?: boolean) => void
+  portrait?: () => string | null
 }
 
 export type Ui = {
@@ -135,7 +136,6 @@ export function mountUi(
 ): Ui {
   let current: PanelId | null = null
   let place = 'The Plaza'
-  let profileTab: Tab = 'today'
   let sharedHold: SharedProfile | null = null
   let raf = 0
   let toastTimer = 0
@@ -211,26 +211,29 @@ export function mountUi(
 
   const renderProfile = (): HTMLElement => {
     const save = getSave()
-    const tabs: Tab[] = ['today', 'cv', 'resume', 'portfolio', 'books']
-    const labels: Record<Tab, string> = { today: 'Today', cv: 'CV', resume: 'Resume', portfolio: 'Portfolio', books: 'Books' }
-    const bar = document.createElement('div')
-    bar.className = 'tabs'
-    for (const tab of tabs) {
-      const node = button(labels[tab], profileTab === tab ? 'primary' : 'ghost', () => {
-        profileTab = tab
-        open('profile')
-      })
-      node.setAttribute('aria-pressed', String(profileTab === tab))
-      bar.append(node)
+    const hero = document.createElement('div')
+    hero.className = 'profile-hero'
+    const shot = hooks.portrait?.() ?? null
+    if (shot) {
+      const img = document.createElement('img')
+      img.src = shot
+      img.alt = `${save.name}, full body`
+      hero.append(img)
     }
-    const body = document.createElement('div')
-    body.className = 'stack'
-    if (profileTab === 'today') body.append(renderToday(save))
-    if (profileTab === 'cv') body.append(renderDoc('cv'))
-    if (profileTab === 'resume') body.append(renderDoc('resume'))
-    if (profileTab === 'portfolio') body.append(renderDoc('portfolio'))
-    if (profileTab === 'books') body.append(renderBooks())
-    return frame(save.name, stack(bar, body))
+    const glass = document.createElement('section')
+    glass.className = 'glass'
+    const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
+    const docs = documents(save)
+    const doc = (text: string) => { const pre = document.createElement('pre'); pre.className = 'doc'; pre.textContent = text; return pre }
+    glass.append(
+      head('CV'), doc(docs.cv), document.createElement('hr'),
+      head('Resume'), doc(docs.resume), document.createElement('hr'),
+      head('Portfolio'), doc(docs.portfolio), document.createElement('hr'),
+      head('Books'), renderBooks(),
+    )
+    const card = frame(save.name, stack(hero, renderToday(save), glass, advice()))
+    card.classList.add('glass-sheet')
+    return card
   }
 
   const renderToday = (save: ReturnType<typeof getSave>): HTMLElement => {
@@ -273,15 +276,6 @@ export function mountUi(
       ? button('Share my CV page', 'primary', () => void shareCv())
       : para(`Pass ${3 - passedIds.length} more course${passedIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted'))
     return wrap
-  }
-
-  const renderDoc = (kind: 'cv' | 'resume' | 'portfolio'): HTMLElement => {
-    const docs = documents(getSave())
-    const text = docs[kind]
-    const pre = document.createElement('pre')
-    pre.className = 'doc'
-    pre.textContent = text
-    return stack(pre, button('Copy', 'primary', () => void copyText(text)), advice())
   }
 
   const renderBooks = (): HTMLElement => {
@@ -708,7 +702,8 @@ export function mountUi(
     support.rel = 'noopener noreferrer'
     support.className = 'help-link'
     support.textContent = 'Get help'
-    return frame('Settings', stack(
+    const settingsCard = (body: HTMLElement) => { const c = frame('Settings', body); c.classList.add('glass-sheet', 'settings-glass'); return c }
+    return settingsCard(stack(
       nameLabel,
       userLabel,
       nameError,
@@ -980,7 +975,6 @@ export function mountUi(
     stop()
     current = panel
     if (extra?.shared) sharedHold = extra.shared
-    if (extra?.tab) profileTab = extra.tab
     if (extra?.house) houseId = extra.house
     sheet.hidden = false
     sheet.setAttribute('role', 'dialog')

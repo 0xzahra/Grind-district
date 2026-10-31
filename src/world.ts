@@ -482,7 +482,7 @@ export function createWorld(options: {
   spot('east-arch', 13.4, 0, 2.5, 'Row road', 'East. Post a bounty. It lands on the portfolio.')
 
   // Dark, reflective storefront glass (picks up the PMREM environment): reads as real glazing, not paint.
-  const shopGlass = new THREE.MeshStandardMaterial({ color: 0x33414a, roughness: 0.1, metalness: 0.7, envMapIntensity: 1.4 })
+  const shopGlass = new THREE.MeshStandardMaterial({ color: 0x33414a, roughness: 0.1, metalness: 0.7, envMapIntensity: 1.0 })
   const addBuilding = (spec: {
     x: number
     z: number
@@ -1306,7 +1306,7 @@ export function createWorld(options: {
     hemi.color.setHex(night ? 0xb7d4ff : 0xfff4e8)
     hemi.groundColor.setHex(night ? 0x1c2e26 : 0x3d4f3a)
     fill.intensity = night ? 0.22 : 0.35
-    lampMat.emissiveIntensity = night ? 0.95 : dusk ? 0.45 : 0.08
+    lampMat.emissiveIntensity = night ? 0.7 : dusk ? 0.32 : 0.05
     trimPulse = night ? 1.12 : dusk ? 0.7 : 0.35
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = night ? 0.5 : 0.12

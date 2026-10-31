@@ -29,7 +29,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   canvas.addEventListener('webglcontextrestored', () => { canvas.style.opacity = '' })
   renderer.setPixelRatio(coarse ? Math.min(0.8, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 0.95
+  renderer.toneMappingExposure = 0.88
   renderer.outputColorSpace = THREE.SRGBColorSpace
   // Phones: no shadow maps (some mobile GPUs return an all-shadow depth map = black ground).
   renderer.shadowMap.enabled = !coarse
@@ -69,8 +69,8 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   world.sun.shadow.bias = -0.0004
   world.sun.shadow.normalBias = 0.04
   if (coarse) {
-    renderer.toneMappingExposure = 1.08
-    scene.environmentIntensity = 0.75
+    renderer.toneMappingExposure = 0.98
+    scene.environmentIntensity = 0.55
     scene.add(new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0.45), new THREE.AmbientLight(0xfff4e6, 0.35))
   }
   world.sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048)
@@ -93,7 +93,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     bokeh = new BokehPass(scene, camera, { focus: 45, aperture: 0.00012, maxblur: 0.006 })
     composer.addPass(bokeh)
   }
-  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.6, 0.88))
+  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.14, 0.5, 0.9))
   composer.addPass(new OutputPass())
 
   const resize = () => {
