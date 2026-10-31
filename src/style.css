@@ -1005,3 +1005,5 @@ body.sheet-open #chat {
 #stick:active { opacity: 1; }
 #stick::after { content: 'Move'; position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font: 500 12px Outfit, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #f2fdf8; opacity: 0.8; }
 #nub { box-shadow: 0 0 14px rgba(23,247,144,0.6); }
+.login-logo{width:160px;justify-self:center}.login-dlg input{padding:10px;border-radius:8px;border:1px solid rgba(23,247,144,.3);background:#0a1412;color:#f2fdf8}
+.login-dlg{z-index:100}

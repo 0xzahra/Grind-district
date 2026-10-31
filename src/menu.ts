@@ -130,6 +130,8 @@ export function mountMenu(enter: () => void): void {
 
   play.addEventListener('click', start)
   must('#menu-how').addEventListener('click', () => show('how'))
+  must('#menu-signin').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
+  if (location.search.includes('privy_oauth_code')) void import('./login.ts').then((m) => m.resumeOAuth())
   must('#menu-city').addEventListener('click', () => show('city'))
   must('#menu-courses').addEventListener('click', () => show('courses'))
   must('#menu-credits').addEventListener('click', () => show('credits'))
