@@ -122,11 +122,11 @@ export type VehicleKind = 'car' | 'jet' | 'drone'
 export type VehicleId = 'saloon' | 'tourer' | 'lightjet' | 'longjet' | 'skydrone'
 /** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
 export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
-  { id: 'saloon', kind: 'car', label: 'City saloon', price: 30, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
-  { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 42, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
-  { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 45, blurb: 'Six seats, regional range. Hangar fees every month.' },
-  { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 50, blurb: 'Lagos to London nonstop. Crew, hangar and fuel on you.' },
-  { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 55, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
+  { id: 'saloon', kind: 'car', label: 'City saloon', price: 600, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
+  { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 900, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
+  { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 1200, blurb: 'Six seats, regional range. Hangar fees every month.' },
+  { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 1500, blurb: 'Lagos to London nonstop. Crew, hangar and fuel on you.' },
+  { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
 ]
 const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))
 export function cleanOwnedVehicles(value: unknown): VehicleId[] {
@@ -139,6 +139,43 @@ export function quoteVehicle(ledger: number, owned: readonly string[], id: Vehic
   if (owned.includes(id)) return { ok: true, ledger, spent: 0, already: true }
   if (ledger < item.price) return { ok: false, error: `Short ${money(item.price - ledger)}. The ${item.label.toLowerCase()} stays parked.` }
   return { ok: true, ledger: cents(ledger - item.price), spent: item.price, already: false }
+}
+
+/** Starting balance per ladder level (in-game). Reaching a level tops the ledger up by the step. */
+export const RANK_START: Record<RankId, number> = { shrimp: 1000, crab: 1500, fish: 2500, dolphin: 4000, shark: 6500, whale: 10000 }
+
+export type CoinCategory = 'big' | 'alt' | 'meme'
+export const COIN_CATEGORIES: { id: CoinCategory; label: string; note: string; vol: number }[] = [
+  { id: 'big', label: 'Big caps', note: 'Large, liquid, slower. The core of a sane book.', vol: 0.0025 },
+  { id: 'alt', label: 'Altcoins', note: 'Mid caps. Bigger swings both ways.', vol: 0.006 },
+  { id: 'meme', label: 'Meme coins', note: 'Hype-driven. Size small or not at all.', vol: 0.014 },
+]
+/** Practice prices only. Nothing here touches a chain or a real exchange. */
+export const COINS: { id: string; cat: CoinCategory; label: string; base: number; minRank: RankId }[] = [
+  { id: 'btc', cat: 'big', label: 'BTC · Bitcoin', base: 64000, minRank: 'shrimp' },
+  { id: 'eth', cat: 'big', label: 'ETH · Ether', base: 3200, minRank: 'shrimp' },
+  { id: 'sol', cat: 'big', label: 'SOL · Solana', base: 150, minRank: 'shrimp' },
+  { id: 'link', cat: 'alt', label: 'LINK · Chainlink', base: 15, minRank: 'shrimp' },
+  { id: 'avax', cat: 'alt', label: 'AVAX · Avalanche', base: 30, minRank: 'crab' },
+  { id: 'dot', cat: 'alt', label: 'DOT · Polkadot', base: 6, minRank: 'crab' },
+  { id: 'doge', cat: 'meme', label: 'DOGE · Dogecoin', base: 0.15, minRank: 'crab' },
+  { id: 'wif', cat: 'meme', label: 'WIF · dogwifhat', base: 2.1, minRank: 'fish' },
+  { id: 'bonk', cat: 'meme', label: 'BONK · Bonk', base: 0.00003, minRank: 'fish' },
+]
+export function coinPrice(value: number): string {
+  if (value >= 1) return money(value)
+  return `$${value.toPrecision(3)}`
+}
+export function stepCoins(save: Save, dt: number, season: Season, rand: () => number = Math.random): void {
+  const step = Math.min(0.1, Math.max(0, dt))
+  const drift = season === 'bull' ? 0.0006 : -0.0006
+  for (const coin of COINS) {
+    const vol = COIN_CATEGORIES.find((c) => c.id === coin.cat)!.vol
+    const now = save.coinPrices[coin.id] ?? coin.base
+    let next = now * (1 + (drift + (rand() - 0.5) * 2 * vol) * step * 10)
+    next = Math.min(coin.base * 4, Math.max(coin.base * 0.2, next))
+    save.coinPrices[coin.id] = next
+  }
 }
 
 export const PROJECTS = [
@@ -189,6 +226,10 @@ export type Save = {
   drone: DroneId | 'none'
   ownedDrones: DroneId[]
   ownedVehicles: VehicleId[]
+  /** Highest ladder level whose starting balance was credited (-1 = none). */
+  startTier: number
+  coins: Record<string, Holding>
+  coinPrices: Record<string, number>
   xp: number
   reputation: number
   ledger: number
@@ -334,6 +375,7 @@ function mulberry32(seed: number): () => number {
 }
 
 function roundPx(value: number): number {
+  if (Math.abs(value) < 0.01) return Number(value.toPrecision(6))
   return Math.round(value * 10000) / 10000
 }
 
@@ -395,6 +437,9 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     drone: 'none',
     ownedDrones: [],
     ownedVehicles: [],
+    startTier: -1,
+    coins: {},
+    coinPrices: {},
     xp: 0,
     reputation: 0,
     ledger: 0,
@@ -571,6 +616,14 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.mask = cleanMask(row.mask)
   fresh.ownedDrones = cleanOwnedDrones(row.ownedDrones)
   fresh.ownedVehicles = cleanOwnedVehicles(row.ownedVehicles)
+  fresh.startTier = num(row.startTier, -1, RANKS.length - 1, -1)
+  const rawCoins = (row.coins && typeof row.coins === 'object' ? row.coins : {}) as Record<string, { qty?: unknown; avg?: unknown }>
+  const rawPrices = (row.coinPrices && typeof row.coinPrices === 'object' ? row.coinPrices : {}) as Record<string, unknown>
+  for (const coin of COINS) {
+    const h = rawCoins[coin.id]
+    if (h) fresh.coins[coin.id] = { qty: num(h.qty, 0, 1e15, 0), avg: num(h.avg, 0, 1e9, 0) }
+    fresh.coinPrices[coin.id] = num(rawPrices[coin.id], coin.base * 0.2, coin.base * 4, coin.base)
+  }
   const worn = cleanDrone(row.drone)
   fresh.drone = worn !== 'none' && fresh.ownedDrones.includes(worn) ? worn : 'none'
   fresh.xp = num(row.xp, 0, 1_000_000, 0)
@@ -947,6 +1000,15 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
   }
   rows.push(pos('UNIT · district coin', save.unit, save.unitPrice))
   rows.push(pos('MEME · new coin', save.meme, save.memePrice))
+  for (const coin of COINS) {
+    const h = save.coins?.[coin.id]
+    if (h && h.qty > 0) {
+      const price = save.coinPrices[coin.id] ?? coin.base
+      const pnl = (price - h.avg) * h.qty
+      const cat = COIN_CATEGORIES.find((c) => c.id === coin.cat)!.label
+      rows.push({ section: 'Investments', label: `${coin.label} · ${cat}`, value: `${money(h.qty * price)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` })
+    }
+  }
   rows.push({ section: 'Investments', label: 'Stocks', value: 'None listed yet' })
   return rows
 }

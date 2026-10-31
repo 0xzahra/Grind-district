@@ -20,3 +20,16 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-sheet { background: rgba(18,20,24,.9) !important; }
 }
+
+/* Balance feedback: count-up tint and a floating chip. No sound. */
+#pill-ledger { position: relative; transition: color .3s ease, box-shadow .3s ease; }
+#pill-ledger.ledger-up { animation: ledger-up 900ms ease-out; }
+#pill-ledger.ledger-down { animation: ledger-down 900ms ease-out; }
+@keyframes ledger-up { 0% { color: #e8c98a; box-shadow: 0 0 0 1px rgba(232,201,138,.7); transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes ledger-down { 0% { color: #d9a3a3; transform: scale(.97); } 100% { transform: scale(1); } }
+.ledger-chip { position: absolute; pointer-events: none; font: 600 12px/1 system-ui, sans-serif; padding: 4px 8px; border-radius: 999px; margin-left: 6px; margin-top: 4px;
+  background: rgba(18,20,24,.72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.14); animation: ledger-chip 1.6s ease-out forwards; }
+.ledger-chip.up { color: #e8c98a; }
+.ledger-chip.down { color: #d9a3a3; }
+@keyframes ledger-chip { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
+@media (prefers-reduced-motion: reduce) { #pill-ledger.ledger-up, #pill-ledger.ledger-down, .ledger-chip { animation: none; } }

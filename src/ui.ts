@@ -16,6 +16,11 @@ import {
   COURSE_XP,
   DRONES,
   VEHICLES,
+  COINS,
+  COIN_CATEGORIES,
+  coinPrice,
+  RANKS,
+  type CoinCategory,
   MASKS,
   PROJECTS,
   RESELL_USD,
@@ -43,6 +48,7 @@ import {
   buyChain,
   buyDrone,
   buyVehicle,
+  tradeCoin,
   claimHouse,
   markHouseVisit,
   declineTax,
@@ -161,11 +167,37 @@ export function mountUi(
     }, 4200)
   }
 
+  // Balance feedback without sound: count the pill toward the new value and float a +/- chip.
+  let shownLedger: number | null = null
+  let ledgerAnim = 0
+  const animateLedger = (target: number) => {
+    if (shownLedger === null || Math.abs(target - shownLedger) < 0.005) { shownLedger = target; pills.ledger.textContent = money(target); return }
+    const from = shownLedger
+    const delta = target - from
+    shownLedger = target
+    const chip = document.createElement('span')
+    chip.className = `ledger-chip ${delta >= 0 ? 'up' : 'down'}`
+    chip.textContent = `${delta >= 0 ? '+' : '-'}${money(Math.abs(delta))}`
+    pills.ledger.parentElement?.append(chip)
+    setTimeout(() => chip.remove(), 1600)
+    pills.ledger.classList.remove('ledger-up', 'ledger-down')
+    void pills.ledger.offsetWidth
+    pills.ledger.classList.add(delta >= 0 ? 'ledger-up' : 'ledger-down')
+    cancelAnimationFrame(ledgerAnim)
+    const t0 = performance.now()
+    const stepFn = (t: number) => {
+      const k = Math.min(1, (t - t0) / 700)
+      pills.ledger.textContent = money(from + delta * (1 - Math.pow(1 - k, 3)))
+      if (k < 1) ledgerAnim = requestAnimationFrame(stepFn)
+    }
+    ledgerAnim = requestAnimationFrame(stepFn)
+  }
+
   const refresh = () => {
     const save = getSave()
     pills.rank.textContent = rankFor(save.xp).label
     pills.place.textContent = place
-    pills.ledger.textContent = money(save.ledger)
+    animateLedger(save.ledger)
     pills.season.textContent = seasonLabel(seasonAt())
     pills.focus.hidden = !save.focus
   }
@@ -403,6 +435,45 @@ export function mountUi(
     return frame('Learning hall', body)
   }
 
+  let marketCat: CoinCategory = 'big'
+  const renderMarkets = (): HTMLElement => {
+    const wrap = stack(para('Markets', 'kicker'), para('Invest your in-game cash by category. Big caps reward patience: each buy adds reputation. Practice prices only, nothing on chain.', 'muted'))
+    const tabs = document.createElement('div')
+    tabs.className = 'tabs'
+    const rows = stack()
+    const paint = () => {
+      const save = getSave()
+      const rankIdx = RANKS.findIndex((r) => r.id === rankFor(save.xp).id)
+      const cat = COIN_CATEGORIES.find((c) => c.id === marketCat)!
+      rows.replaceChildren(para(cat.note, 'muted'))
+      for (const coin of COINS.filter((c) => c.cat === marketCat)) {
+        const price = save.coinPrices[coin.id] ?? coin.base
+        const h = save.coins[coin.id]
+        const locked = RANKS.findIndex((r) => r.id === coin.minRank) > rankIdx
+        rows.append(line(coin.label, locked ? `Opens at ${RANKS.find((r) => r.id === coin.minRank)!.label}` : `${coinPrice(price)}${h && h.qty > 0 ? ` · held ${money(h.qty * price)}` : ''}`))
+        if (locked) continue
+        const act = document.createElement('div')
+        act.className = 'tabs'
+        const go = (side: 'buy' | 'sell', f: number) => () => { const r = tradeCoin(coin.id, side, f); finish(r.message); paint() }
+        act.append(button('Buy 25%', 'ghost', go('buy', 0.25)), button('Buy 50%', 'ghost', go('buy', 0.5)))
+        if (h && h.qty > 0) act.append(button('Sell all', 'ghost', go('sell', 1)))
+        rows.append(act)
+      }
+    }
+    for (const cat of COIN_CATEGORIES) {
+      const node = button(cat.label, 'ghost', () => {
+        marketCat = cat.id
+        for (const child of tabs.querySelectorAll('button')) child.setAttribute('aria-pressed', String(child === node))
+        paint()
+      })
+      node.setAttribute('aria-pressed', String(cat.id === marketCat))
+      tabs.append(node)
+    }
+    paint()
+    wrap.append(tabs, rows)
+    return wrap
+  }
+
   const renderTrade = (symbol: 'unit' | 'meme'): HTMLElement => {
     const name = symbol === 'unit' ? 'UNIT' : 'MEME'
     let fraction = 0.5
@@ -479,6 +550,8 @@ export function mountUi(
       ? `${season} season. A plan logged on the sell can count when the close is red.`
       : `${season} season. MEME is attention. Size small. Rank will not follow a crash.`
     return frame(symbol === 'unit' ? 'Spot book' : 'Trenches book', stack(
+      renderMarkets(),
+      para(symbol === 'unit' ? 'UNIT · district coin' : 'MEME · new coin', 'kicker'),
       para(blurb, 'muted'),
       price,
       book,

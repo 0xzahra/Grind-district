@@ -20,6 +20,10 @@ import {
   hydrate,
   quoteDrone,
   quoteVehicle,
+  RANK_START,
+  RANKS,
+  COINS,
+  stepCoins,
   VEHICLES,
   type VehicleId,
   lagosDay,
@@ -102,7 +106,43 @@ function gainXp(amount: number): RankId | undefined {
   const before = rankFor(save.xp).id
   save.xp += amount
   const after = rankFor(save.xp).id
+  applyStarts()
   return before === after ? undefined : after
+}
+
+/** Credit each ladder level's starting balance once (Shrimp $1,000, then the step to each level). */
+function applyStarts(): void {
+  if (!save.signedUp) return
+  const idx = RANKS.findIndex((r) => r.id === rankFor(save.xp).id)
+  while (save.startTier < idx) {
+    const next = save.startTier + 1
+    const prev = next > 0 ? RANK_START[RANKS[next - 1].id] : 0
+    const grant = RANK_START[RANKS[next].id] - prev
+    save.ledger = cents(save.ledger + grant)
+    save.startTier = next
+    log('money', `${RANKS[next].label} starting balance`, `+${money(grant)} in-game for reaching ${RANKS[next].label}.`)
+  }
+}
+
+export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): { ok: boolean; message: string } {
+  const coin = COINS.find((c) => c.id === id)
+  if (!coin) return { ok: false, message: 'Not listed.' }
+  const rankIdx = RANKS.findIndex((r) => r.id === rankFor(save.xp).id)
+  if (RANKS.findIndex((r) => r.id === coin.minRank) > rankIdx) return { ok: false, message: `Opens at ${RANKS.find((r) => r.id === coin.minRank)!.label}.` }
+  const price = save.coinPrices[id] ?? coin.base
+  const holding = save.coins[id] ?? { qty: 0, avg: 0 }
+  const result = side === 'buy' ? buyHolding(save.ledger, holding, price, fraction) : sellHolding(save.ledger, holding, price, fraction)
+  if (!result.ok) return { ok: false, message: result.error }
+  save.ledger = result.ledger
+  save.coins[id] = result.holding
+  const sym = coin.label.split(' ')[0]
+  let extra = ''
+  if (side === 'buy' && coin.cat === 'big') { save.reputation += 1; extra = ' Reputation +1 for a big-cap position.' }
+  log('trade', `${side === 'buy' ? 'Bought' : 'Sold'} ${sym}`, `${money(result.cash)} in-game.`)
+  persist()
+  emit()
+  const pnl = result.pnl
+  return { ok: true, message: `${side === 'buy' ? 'Bought' : 'Sold'} ${sym} · ${money(result.cash)}${pnl != null ? ` · P&L ${pnl >= 0 ? '+' : ''}${money(pnl)}` : ''}.${extra}` }
 }
 
 let activityHook: (kind: Activity['kind'], label: string, detail: string) => void = () => {}
@@ -146,6 +186,7 @@ export function loadSave(prefer: Graphics): Save {
     save.body = 'player'
     if (save.tint === 0x17f790) save.tint = 0x1a4cff
   }
+  applyStarts()
   persist()
   return save
 }
@@ -160,6 +201,7 @@ export function rememberPlace(x: number, z: number): void {
 export function tickMarket(dt: number, now = Date.now()): void {
   applyDay(save, lagosDay(new Date()))
   stepPrices(save, dt, seasonAt(now))
+  stepCoins(save, dt, seasonAt(now))
   sample += dt
   if (sample >= 0.8) {
     sample = 0
@@ -183,6 +225,7 @@ export function signUp(name: string, username: string, body: 'player' | 'zuri'):
   save.username = handle
   save.body = body
   save.signedUp = true
+  applyStarts()
   persist()
   emit()
   return { ok: true }

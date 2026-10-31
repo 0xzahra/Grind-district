@@ -532,10 +532,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Indoors: no street fog (it washed the home out to white on phones) and a dimmer HDRI.
       if (scene.fog) { savedFog = scene.fog; scene.fog = null }
       savedEnv = scene.environmentIntensity
-      scene.environmentIntensity = Math.min(savedEnv, 0.45)
-      lamp.intensity = id === 'house' ? 14 : 22 + SIZE[id].w * 1.2
+      scene.environmentIntensity = Math.min(savedEnv, 0.3)
+      lamp.intensity = id === 'house' ? 8 : 15 + SIZE[id].w * 0.8
       lamp.distance = Math.max(18, SIZE[id].w * 1.3)
-      roomFill.intensity = id === 'house' ? 0.6 : 0.9
+      roomFill.intensity = id === 'house' ? 0.38 : 0.6
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
       if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.6, z: o.z - 0.3, yaw: Math.PI / 2 }
