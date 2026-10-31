@@ -1,97 +1,50 @@
 # Grind District
 
-A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses, reps, and consistency. Balance does not move it.
+A browser life sim inside Web3. You start as a shrimp and walk one shared 3D city with other players. Rank moves by courses, reps, and consistency. Balance does not move it.
 
-The tagline is the door: **No tribe. No continent. Just come grind.**
+**No tribe. No continent. Just come grind.**
 
-This build is the playable city. Gameplay stays off-chain. There is no token, no wallet, and no seed phrase. The ledger is practice USD, labeled as such. It is not real funds and it is not financial advice.
-
-The city does not run on Solana. `contracts/src/GrindRecord.sol` is Solidity, which is the language for an EVM record. The `.sol` extension is not a Solana program. That file is not deployed, and the practice ledger is not it.
+Live: https://grinddistrict.vercel.app
 
 Made by [Zahra](https://0xzahra.github.io).
+
+## What's in the city
+
+- **Shared 3D city.** Walk the streets with other players in real time, chat with people nearby, and see their names and ranks.
+- **Sign in with Google** through Privy. Your progress follows your account.
+- **20 courses with certificates.** Pass a course in the learning hall and earn a certificate that is added to your profile.
+- **Practice trading by category.** Trade practice books by market category on the trading floor and in the trenches. Practice funds are not real money and nothing here is financial advice.
+- **Vehicles.** Get around the city faster.
+- **Conference centre.** Talks and events in the city.
+- **Profiles with share cards.** Each player has a public profile and share card at `https://grinddistrict.vercel.app/cv/<username>`.
+- Gym, church, prayer space, cafés, boutique, houses, gadgets, and the plaza.
+
+## Top-ups (Base)
+
+Players can top up in **ETH or USDC on Base**. Funds go to **GrindTreasury** at `0x6bc81e26832986d56b6e59c31599f3113971ec33`, and **98%** of the top-up is credited in-game through **GrindLedger** at `0x88091d65d38a4e153267f43744fb48e10e456d30`. Both contracts are owned by a Safe multisig. See `contracts/AUDIT.md` for the internal review.
 
 ## Run
 
 ```bash
 npm install
 npm run dev
-```
-
-The dev server listens on port **47321**. Open the local URL Vite prints. The title screen stays up until **Enter the district**. If the browser cannot start WebGL, the same streets open as an overhead map: walk, click a door, press E.
-
-```bash
-npm run check
 npm run build
 ```
 
-`check` runs the game-rule assertions. `build` typechecks, runs those assertions, then writes `dist/`.
-
 ## How to play
 
-- WASD or the arrow keys walk. Shift runs. On a phone, use the stick.
-- Drag to look. The wheel zooms.
-- Click the ground to walk there.
-- Stand on a mint doorstep and press **E**, or the mint button, to enter.
-- Esc closes a sheet. Movement pauses while a sheet is open. Looking still works.
-- **Shot** saves a picture of the city.
-- **Music** toggles the looping theme (`public/assets/audio/theme.mp3`, falling back to Market Velocity if that file is missing). It is off by default. Once on, it resumes on your first tap next visit, unless reduced motion is set.
-- **Chat** (Enter, or the chat bar) sends a line to players within 12 m. Their bubbles show above their heads. Without Supabase keys the city stays single-player and only your own bubble shows.
+- WASD or arrow keys walk. Shift runs. On a phone, use the stick.
+- Drag to look. The wheel zooms. Click the ground to walk there.
+- Stand on a doorstep and press **E** to enter. Esc closes a sheet.
+- Enter opens chat.
 
-The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a streak. Skip a day and the streak starts over. Bull and bear seasons flip every six minutes on a shared clock and change the practice books and the café copy. The street still works when the marks fall.
-
-## The city
-
-| Place | What it does |
-| --- | --- |
-| Learning hall | Twelve short courses. A pass writes the CV, resume, and portfolio. The first Spot pass drops a one-time $25 practice stipend. |
-| Trading floor | Practice spot book in UNIT. Buy and sell a fraction of the ledger or the position. Logging a sized plan on a sell can count even when the close is red. |
-| Trenches | Practice MEME book. Attention can leave. Rank does not follow it. |
-| Influencer row | Post a bounty. Practice pay and a portfolio line. |
-| Boutique | Man, woman, Shrimp, Ledger, Marina, Signal. Masks wear the collection names in this city's own shapes. |
-| Gym | A timing set. One logged set a day. |
-| Church | Rest counts. One visit a day. |
-| Prayer space | Focus adds a quarter to the next course you pass. |
-| Cafés | Season headlines. Gossip, not a signal. |
-| Carbon desk | A practice pledge. It does not retire a real credit. |
-| The houses | Your house, plus a notes house, a set house, a grove house, and a vacant room on the east row. |
-| Gadgets | Scout, courier, and halo drones. Practice funds. A drone follows you. |
-| Conference hall | A short talk. Proof of work, not a slogan. |
-| Plaza | Fountain, rank totem, and Unit 4. The robot is labeled **Agent**. |
-
-A family request can ask for a little practice money. Paying is reputation. Declining has no penalty.
-
-Profile holds Today, CV, Resume, Portfolio, and the practice books. Copy a share link from Today. Opening someone else's link shows their profile and does not overwrite your save.
-
-Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. The sky runs a full day every ten real minutes from the GN time you pick; reduced motion holds it still. Pedestrians walk the sidewalks and cars keep to their lanes, stop at the plaza signals, and yield to people. Counts follow the graphics setting (phones use the low counts) and apply on the next load. A fresh visit picks low graphics on a phone or a narrow window, and medium otherwise.
-
-## Later, on purpose
-
-Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait until this city is the one people walk. This build does not pretend those exist.
-
-## The citizen
-
-Signup asks for a name, a username, and a body before you enter. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
-
-Settings also holds the map size, walking hints, and reduced motion, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
-
-The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
-
-## GrindRecord
-
-`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions and does not ask for a wallet. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
+## Contracts
 
 ```bash
 cd contracts
-forge install foundry-rs/forge-std
 forge test
 ```
 
-`contracts/AUDIT.md` is the internal review. It is not a sign-off from an outside firm. Do not deploy it until that review is repeated by someone who does not maintain the contract, and until the owner key is a multisig.
-
-## Where the next session starts
-
-`CONTINUATION.md` lists what is already in the city and what is still open, including the WebGL check on a machine that can create a context.
-
 ## Stack
 
-Vite, TypeScript, and Three.js. Progress is stored in this browser under `grind-district-save-v1`. Foundry tests the record contract.
+Vite, TypeScript, Three.js, Privy, Supabase, Vercel, and Foundry (Solidity on Base).

@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 // DISABLED until DEPOSIT_ADDRESS, SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set (and DEPOSITS_ENABLED=1).
 // Matching: the last 6 decimals of the USDC amount are the player's deposit_tag (e.g. 25.123456 -> tag 123456).
 // Idempotent: wallet_ledger has a unique (tx_hash, log_index). No keys are held; this only reads the chain.
-const USDC = '0x833589fCD6eDb6E08f4c7f8d3feE58D57d2CF8b9'
+const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 type Res = { status(n: number): { json(b: unknown): void } }
 
