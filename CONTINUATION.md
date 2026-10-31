@@ -10,15 +10,23 @@ npm run dev
 npm run check
 ```
 
-## Player 8453
+## Name and username
 
-`src/player.ts` is the original low-poly man, Player 8453. A new save is named **Player 8453** with body `player` and a blue shirt (`0x1a4cff`). Rank still starts at shrimp. The plate on the 3D body reads the profile name in block letters on a blue plate. Do not turn this mesh into a woman.
+A save starts with `name: ''`, `username: ''`, and `signedUp: false`. The title screen asks for both before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept) and the username (3–16, `[a-z0-9_]`, stored lowercase). Settings can edit both later. Reset progress keeps them.
 
-`src/zuri.ts` is the woman. Body id `zuri`. Longer dark hair, a softer jaw, lashes, and a fitted plum coat. She is meant to read cleaner than 8453. Shirt tint still recolors her scarf. Keep both sculpts.
+The plate (`tagPlayer`) draws the display name in block letters and `@username` under it. The profile, CV, resume, and portfolio use the same pair. Share links put the display name in `n` and the username in `u`. An old link with no `u` still opens.
 
-`src/citizens.ts` is the street roster. Adaeze, Nia, Amara, Kemi, Chioma, Sade, Lola, Ife, Zainab, Hauwa, and Bisi use Zuri. The men use Player 8453. `src/npcs.ts` builds them in 3D. The overhead map draws the same list.
+Do not invent a default name. `Player 8453`, `Shrimp`, and `Zuri` are not identities. An old save that lacks `signedUp: true` is unsigned, even if it still says Player 8453, and the city asks again.
 
-The reference plate image reads **PLAYER 8453**. A typed "8438" does not match that image. Keep 8453.
+## The man and the woman
+
+`src/player.ts` is the original low-poly man. Body id `player`. A new save wears that body and a blue shirt (`0x1a4cff`). Rank still starts at shrimp. Do not turn this mesh into a woman.
+
+`src/zuri.ts` is the woman. Body id `zuri`. Longer dark hair, a softer jaw, lashes, and a fitted plum coat. Shirt tint still recolors her scarf. Keep both sculpts. The boutique labels are **Man** and **Woman**.
+
+`src/citizens.ts` is the street roster. It has no names. Women use the `zuri` body. Men use the `player` body. `src/npcs.ts` labels them with rank only. Unit 4 stays **Unit 4** / **Agent**. The overhead map draws the same list.
+
+The reference plate image reads **PLAYER 8453**. That image is the lettering style. A typed "8438" does not match it. The in-game plate text is the name the person chose.
 
 The look to match, from `design/reference/`:
 
@@ -31,11 +39,11 @@ The look to match, from `design/reference/`:
 
 The head in `src/player.ts` is a sculpted icosahedron (jaw, chin, nose ridge, cheeks) plus flat hair shards, a pyramid nose, thin rims with a dark outline, and temple arms. A short key light sits on the body so the blonde and the blue shirt still read at night. Shirt color and the gold chain are the only style swaps. Hair stays blonde.
 
-A SwiftShader Chrome on 30 October 2026 created a real WebGL context, entered the city, and showed this body: grey suit, blue shirt, blonde facets, rectangular rims, and a blue plate reading PLAYER 8453. The cloud preview browser still cannot create WebGL and correctly opens the overhead map.
+A SwiftShader Chrome on 30 October 2026 created a real WebGL context and showed this body: grey suit, blue shirt, blonde facets, rectangular rims, and a blue plate. The plate text is now the name from signup, with `@username` on the second line. The cloud preview browser still cannot create WebGL and correctly opens the overhead map.
 
 The crowd in `src/npcs.ts` reuses this sculpt with different shirt tints. Unit 4 stays a labeled robot. Varying hair is open work, not a requirement to ship the city.
 
-An old save whose body is still `shrimp` is migrated to `player` in `loadSave`. If the stored name is `Shrimp`, it becomes `Player 8453`, and the old mint tint becomes blue. The shrimp mascot remains a free boutique body, so a player can switch back.
+An unsigned save whose body is still `shrimp` is migrated to `player` in `loadSave`, and the old mint tint becomes blue. After signup, a chosen shrimp body stays. The shrimp mascot remains a free boutique body.
 
 ## WebGL
 
@@ -53,13 +61,13 @@ Open work if the mesh still does not match the portrait up close: tighter hair f
 
 ## Menu, houses, and courses
 
-The title screen is a menu: Enter the district, How to play, The city, Courses, and Credits. Enter and Space start the city only from the home page. Credits says the city does not run on Solana, and that `.sol` is Solidity.
+The title screen is a menu: Enter the district, How to play, The city, Courses, and Credits. Enter and Space start the city only from the home page, and only after signup. If they are not signed up, those keys open the name form. Credits says the city does not run on Solana, and that `.sol` is Solidity.
 
-`src/houses.ts` is the east row: your house, Adaeze, Malik, Nia, and a vacant room. The same list builds the 3D meshes and the overhead map. Claim the room once (+3 reputation). A first visit to each neighbor is +2. Messaging and voice stay out.
+`src/houses.ts` is the east row: your house, the notes house (`adaeze`), the set house (`malik`), the grove house (`nia`), and a vacant room. Keep those ids so old `houseVisits` still match. The signs and sheets do not use personal names. The same list builds the 3D meshes and the overhead map. Claim the room once (+3 reputation). A first visit to each neighbor is +2. Messaging and voice stay out.
 
 `src/courses.ts` holds eight lessons. Each one is several paragraphs with a source line, plus four exercises. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
 
-`districtName` labels the band east of x 30 and south of z 14 as The houses, including Adaeze’s door, which sits inside the old influencer-row circle.
+`districtName` labels the band east of x 30 and south of z 14 as The houses, including the notes-house door, which sits inside the old influencer-row circle.
 
 ## Masks and drones
 
@@ -77,7 +85,7 @@ These are the open pieces. WebGL context, a wallet, a multisig, and deploying Gr
 - Other people are scripted citizens in `src/citizens.ts`. There is no networked player.
 - Drone jobs: a delivery, a photo, a race. Today a drone only follows.
 - Licensed collection artwork. The masks are named and wearable. They are not the real images.
-- Hair that changes per person. Every man shares 8453's blonde. Every woman shares Zuri's dark hair.
+- Hair that changes per person. Every man shares the blonde mesh. Every woman shares the dark-hair mesh.
 - A closer match of both faces to a portrait at camera distance: brow, hair facets, hands.
 - The theme mp3 on GitHub. The file API corrupts it. Push audio with git.
 - A fuller nature district. The basin and the carbon desk are the outdoor piece.
