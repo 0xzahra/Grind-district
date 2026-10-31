@@ -1,6 +1,6 @@
 import { rankFor, SKILL_META, type SkillId } from './logic.ts'
 import { getSave } from './state.ts'
-import { shareLink, shareOrCopy } from './share.ts'
+import { shareLink, shareOrCopy, profileLink, publishProfile } from './share.ts'
 import { track } from './track.ts'
 
 const b64url = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -88,7 +88,8 @@ export function passedCount(): number {
 
 export async function shareCv(): Promise<string> {
   const s = getSave()
-  const link = shareLink(`/cv/${encodeURIComponent(s.username)}`, 'cv', s.username)
+  const link = profileLink(s.username)
+  void publishProfile()
   const r = await shareOrCopy(`${s.name}'s Grind District CV`, link, 'cv')
   if (r !== 'failed') track('cv_shared', { courses: passedCount() })
   return r

@@ -802,7 +802,7 @@ export function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 }
 
-function skillLines(save: Save): string[] {
+export function skillLines(save: Save): string[] {
   return SKILL_ORDER.flatMap((id) => (save.skills[id]?.passed ? [SKILL_META[id].cv] : []))
 }
 

@@ -1,6 +1,3 @@
-import '@fontsource/archivo-black/400.css'
-import '@fontsource/outfit/400.css'
-import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
 import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -44,6 +41,7 @@ import { createPortrait } from './portrait.ts'
 const WALK = 2.7
 const RUN = 5.5
 
+let snapNext = false
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
 const topupModule = () => (topupChunk ??= import('./topup.ts').catch((e: unknown) => { topupChunk = null; throw e }))
 // Start fetching right away, while this build's chunks are certainly live (frequent redeploys remove old chunks).
@@ -381,18 +379,28 @@ const apiAgents = createRemoteAgents(scene)
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#pill-place').addEventListener('click', () => ui.open('city'))
-  document.querySelector('#shot')?.addEventListener('click', () => {
-    renderer.render(scene, camera)
+  // Screenshot (camera button beside the menu): grab the next rendered frame, add a small watermark, share or download.
+  document.querySelector('#shot')?.addEventListener('click', () => { snapNext = true })
+  const saveShot = async () => {
     try {
-      const link = document.createElement('a')
-      link.href = canvas.toDataURL('image/png')
-      link.download = 'grind-district.png'
-      link.click()
-      ui.toast('Shot saved.')
-    } catch {
-      ui.toast('This browser blocked the shot.')
-    }
-  })
+      const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height
+      const g = out.getContext('2d')!
+      g.drawImage(canvas, 0, 0)
+      const s = Math.max(1, out.width / 1200)
+      g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif`
+      const label = 'GRIND DISTRICT'
+      const w = g.measureText(label).width
+      g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
+      g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
+      const blob = await new Promise<Blob | null>((ok) => out.toBlob(ok, 'image/png'))
+      if (!blob) throw new Error('no blob')
+      const file = new File([blob], 'grind-district.png', { type: 'image/png' })
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Grind District' }).catch(() => {}); return }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'grind-district.png'; a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+      ui.toast('Screenshot saved.')
+    } catch { ui.toast('This browser blocked the screenshot.') }
+  }
 
 
   const input = createInput(canvas, stick, nub)
@@ -1185,6 +1193,7 @@ const apiAgents = createRemoteAgents(scene)
       update(dt)
       post.frame(dt, elapsed)
       post.render()
+      if (snapNext) { snapNext = false; void saveShot() }
       if (revealed) probe(dt)
       if (!revealed) {
         revealed = true

@@ -1418,3 +1418,45 @@ html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; alig
 .topup-qr { background: #fff; border-radius: 8px; padding: 4px; line-height: 0; }
 .topup-qr svg { width: 100%; height: auto; }
 .topup-warn { margin: 0; font-size: 13px; font-weight: 600; color: #f2c94c; }
+/* Activity / notification rows: title left, date right on its own column, body below. */
+.cc-list li:has(> strong), .cc-list .cc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 4px; align-items: baseline; }
+.cc-list li:has(> strong) > :not(strong):not(time), .cc-list .cc-row > :not(strong):not(time) { grid-column: 1 / -1; }
+.cc-list strong { overflow-wrap: anywhere; min-width: 0; }
+.cc-list time { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.cc-list p { font-variant-numeric: tabular-nums; }
+/* Screenshot button: beside the ☰ menu, same glass circle. Hidden on the title screen and in the menu. */
+#shot { position: fixed; z-index: 30; top: max(14px, env(safe-area-inset-top)); right: calc(max(12px, env(safe-area-inset-right)) + 52px); width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; padding: 0;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(22,22,24,.62); color: #f5f5f7; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); cursor: pointer; }
+#shot svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+html.title-on #shot, body:has(#menu:not([hidden])) #shot { display: none !important; }
+
+/* ===== Typography system (last layer): iPhone system font everywhere, one scale 12/14/16/20/28, line-height 1.4. ===== */
+:root {
+  --sys: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+  --serif: var(--sys);
+  --t-xs: 12px; --t-sm: 14px; --t-md: 16px; --t-lg: 20px; --t-xl: 28px;
+}
+html, body { font-family: var(--sys); font-size: 16px; line-height: 1.4; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body *:not(code):not(pre):not(.topup-mono):not(.wallet-addr):not(.agent-prompt):not(svg):not(svg *) { font-family: var(--sys) !important; }
+.tag-serif { font-style: normal !important; font-size: var(--t-sm) !important; }
+input, button, select, textarea { font-family: var(--sys); }
+/* Headings */
+h1, #menu .menu-title { font-size: var(--t-xl) !important; font-weight: 700 !important; letter-spacing: -0.02em !important; line-height: 1.15 !important; }
+h2, #caption h2, .sheet-head h2, #menu h2:not(.sr-only), .cc-sheet header h2, .cc-sheet h2, #menu-page-title { font-size: var(--t-lg) !important; font-weight: 600 !important; letter-spacing: -0.01em !important; line-height: 1.25 !important; color: #f5f5f7 !important; }
+h3, .glass h3, #cc-sheet-body h3 { font-size: var(--t-xs) !important; font-weight: 600 !important; letter-spacing: 0.06em !important; text-transform: uppercase; line-height: 1.4 !important; margin: 16px 0 8px !important; opacity: .72; }
+/* Body copy inside panels, sheets, popups, CV and lists */
+#sheet p, #cc-sheet-body p, .glass p, .cc-list p, #caption p, .wallet-dlg p, #menu p { font-size: var(--t-sm); line-height: 1.4; }
+.muted, .cc-muted, .cc-list time, .topup-label, .topup-status, .cc-btn-label, .cc-label, .ledger-chip, #bell .badge, .cc-badge { font-size: var(--t-xs) !important; line-height: 1.4; letter-spacing: 0; }
+.cc-list strong, .dm-nearby strong { font-size: var(--t-sm) !important; font-weight: 600 !important; line-height: 1.4 !important; }
+.cc-big { font-size: var(--t-xl) !important; font-weight: 700 !important; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cc-wide strong { font-size: var(--t-md) !important; font-weight: 600 !important; }
+button, .pill, #hud-clock, .cc-back, .cc-link, .dm-primary { letter-spacing: 0 !important; }
+.pill, #hud-clock, .cc-back, .cc-link, .dm-primary, .topup-tabs button { font-size: var(--t-sm) !important; font-weight: 600 !important; }
+.topup-go { font-size: var(--t-md) !important; font-weight: 600 !important; }
+.topup-input { font-size: var(--t-lg) !important; }
+.hud-wordmark, .menu-logo, .boot-wordmark, .login-wordmark { font-weight: 700 !important; letter-spacing: 0.08em !important; }
+/* Consistent spacing in panels and sheets */
+#cc-sheet-body > * + *, #sheet .stack > * + * { margin-top: 8px; }
+.cc-list li { padding: 12px 14px !important; }
+.cc-list { gap: 8px !important; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

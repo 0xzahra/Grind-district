@@ -4,7 +4,7 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
-import { shareLink, shareOrCopy, profileLink, shareToX } from './share.ts'
+import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { track } from './track.ts'
 import { COURSES, headlines } from './courses.ts'
@@ -277,7 +277,7 @@ export function mountUi(
     share.append(
       head('Invite and share'),
       button('Share on X', 'primary', () => shareToX(save.username, rankFor(getSave().xp).label)),
-      button('Share profile link', 'ghost', () => void shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' })),
+      button('Share profile link', 'ghost', () => void publishProfile().then(() => shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' }))),
       button('Copy invite link', 'ghost', () => void copyText(link('invite')).then(() => { status.textContent = 'Invite link copied.' })),
       status, joined,
     )
@@ -315,7 +315,7 @@ export function mountUi(
     }
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
     wrap.append(button('Copy share link', 'ghost', () => {
-      void copyText(profileLink(getSave().username))
+      void publishProfile(); void copyText(profileLink(getSave().username))
     }))
     wrap.append(button('Courses', 'ghost', () => open('learn')))
     const passedIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
