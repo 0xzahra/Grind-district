@@ -57,7 +57,7 @@ export function createZuri(): ShrimpAvatar {
   const avatar = new THREE.Group()
   avatar.rotation.y = Math.PI
   root.add(avatar)
-  const key = new THREE.PointLight(0xfff1ea, 2.8, 3.8, 2)
+  const key = new THREE.PointLight(0xfff1ea, 1.2, 3.8, 2)
   key.position.set(0, 2.2, -1.05)
   avatar.add(key)
   const faceLight = new THREE.PointLight(0xffe8f0, 1.0, 2.6, 2)
