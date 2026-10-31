@@ -1,4 +1,5 @@
 import { assetUrl } from './assets.ts'
+import { HOUSES, type HouseId } from './houses.ts'
 import { createInput } from './input.ts'
 import type { PanelId } from './logic.ts'
 import { decodeShare, seasonAt } from './logic.ts'
@@ -20,6 +21,7 @@ type Spot = {
   body: string
   action?: PanelId
   enter?: string
+  house?: HouseId
 }
 
 type Block = { x: number; z: number; w: number; d: number; label: string }
@@ -50,7 +52,7 @@ const blocks: Block[] = [
   { x: 22, z: -22, w: 8, d: 7, label: 'Boutique' },
   { x: -22, z: -22, w: 8, d: 8, label: 'Gym' },
   { x: 24, z: 26, w: 9, d: 11, label: 'Church' },
-  { x: 36, z: 32, w: 7, d: 6, label: 'House' },
+  ...HOUSES.map((home) => ({ x: home.x, z: home.z, w: home.w, d: home.d, label: home.title })),
   { x: 28, z: -16, w: 8, d: 6, label: 'Terminal café' },
   { x: -28, z: 16, w: 4.4, d: 2.6, label: 'Carbon' },
 ]
@@ -66,9 +68,9 @@ function citySpots(): Spot[] {
   const shop = at(8, 'nx')
   const gym = at(9, 'px')
   const church = at(10, 'nx')
-  const house = at(11, 'nx')
-  const net = at(12, 'pz')
-  const desk = at(13, 'px')
+  const homes = HOUSES.map((home, index) => ({ home, at: at(11 + index, home.door) }))
+  const net = at(11 + HOUSES.length, 'pz')
+  const desk = at(12 + HOUSES.length, 'px')
   return [
     { id: 'learn', ...hall, r: 2.5, title: 'Learning hall', body: 'Eight short courses. Pass one and it writes your CV, resume, and portfolio.', action: 'learn', enter: 'Open the hall' },
     { id: 'conference', ...conference, r: 2.3, title: 'Conference hall', body: 'One talk. Proof of work, not a slogan.', action: 'conference', enter: 'Take a seat' },
@@ -77,10 +79,19 @@ function citySpots(): Spot[] {
     { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'A practice book in UNIT. A sized plan can count even when the close is red.', action: 'trade', enter: 'Open the book' },
     { id: 'bounty', ...row, r: 2.6, title: 'Influencer row', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', action: 'bounty', enter: 'Post a bounty' },
     { id: 'trench', ...trench, r: 2.6, title: 'Trenches corner', body: 'MEME moves like attention. It can leave. Rank will not follow it down.', action: 'trench', enter: 'Open the trench book' },
-    { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'Four original bodies, free. Licensed collections stay off this street until there is a license.', action: 'boutique', enter: 'Try a body' },
+    { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'Five original bodies, free. Licensed collections stay off this street until there is a license.', action: 'boutique', enter: 'Try a body' },
     { id: 'gym', ...gym, r: 2.4, title: 'Gym', body: 'A short timing set. One logged set a day.', action: 'gym', enter: 'Train' },
     { id: 'church', ...church, r: 2.4, title: 'Church', body: 'A quiet room. Rest counts.', action: 'church', enter: 'Step in' },
-    { id: 'house', ...house, r: 2.3, title: 'House', body: 'A private room. Messaging and voice are not in this build.', action: 'house', enter: 'Your room' },
+    ...homes.map(({ home, at: doorAt }) => ({
+      id: home.id,
+      ...doorAt,
+      r: 2.2,
+      title: home.spotTitle,
+      body: home.body,
+      action: 'house' as const,
+      enter: home.enter,
+      house: home.id,
+    })),
     { id: 'net', ...net, r: 2.3, title: 'Internet café', body: 'Same board as campus, closer to the row.', action: 'cafe', enter: 'Read the room' },
     { id: 'climate', ...desk, r: 2.3, title: 'Carbon desk', body: 'Back a project with practice funds. It records the pledge.', action: 'climate', enter: 'The desk' },
     { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Prayer space', body: 'A ring of stones and no questions. Sitting puts focus on your next course.', action: 'prayer', enter: 'Sit' },
@@ -184,6 +195,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
+  must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
@@ -358,7 +370,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     ui.setPlace(districtName(pos.x, pos.z))
     const frame = input.read()
     const paused = ui.isOpen()
-    if (!paused && frame.interact && spot?.action) ui.open(spot.action)
+    if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
     if (!paused && frame.tap) {
       const scale = Math.min(canvas.width, canvas.height) / 78
       target = {
