@@ -3,7 +3,7 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
-import { shareLink, shareOrCopy } from './share.ts'
+import { shareLink, shareOrCopy, profileLink, shareToX } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { track } from './track.ts'
 import { COURSES, headlines } from './courses.ts'
@@ -28,7 +28,6 @@ import {
   TAX_USD,
   TINTS,
   documents,
-  encodeShare,
   money,
   nextRank,
   progressToNext,
@@ -270,13 +269,13 @@ export function mountUi(
     )
     const share = document.createElement('section')
     share.className = 'glass'
-    const link = (src: 'profile' | 'invite') => { const u = new URL(shareLink('/', src, save.username)); u.hash = `profile=${encodeShare(getSave())}`; return u.toString() }
+    const link = (src: 'profile' | 'invite') => src === 'profile' ? profileLink(save.username) : shareLink('/', 'invite', save.username)
     const status = para('', 'muted')
     const joined = para('', 'muted')
     share.append(
       head('Invite and share'),
-      para('Your invite link opens your full profile: CV, resume, portfolio and books. Family requests and your email never appear.', 'muted'),
-      button('Share profile, CV and books', 'primary', () => void shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' })),
+      button('Share on X', 'primary', () => shareToX(save.username, rankFor(getSave().xp).label)),
+      button('Share profile link', 'ghost', () => void shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' })),
       button('Copy invite link', 'ghost', () => void copyText(link('invite')).then(() => { status.textContent = 'Invite link copied.' })),
       status, joined,
     )
@@ -300,23 +299,21 @@ export function mountUi(
     fill.className = 'bar-fill'
     fill.style.width = `${Math.round(progressToNext(save.xp) * 100)}%`
     track.append(fill)
-    wrap.append(track, para('Balance does not move this bar.', 'muted'))
+    wrap.append(track)
     const streakNote = save.dailies && todayTasks(save).some((task) => task.done)
       ? `Streak ${save.streak}. You already logged a rep today.`
       : save.streak > 0
         ? `Streak ${save.streak}. One rep today makes it ${save.streak + 1}.`
         : 'No streak yet. One rep today starts it.'
     wrap.append(para(`${streakNote} Reputation ${save.reputation}.`))
-    wrap.append(para(`Practice ledger ${money(save.ledger)}. Not real funds.`, 'muted'))
+    wrap.append(para(`Balance ${money(save.ledger)}`, 'muted'))
     for (const task of todayTasks(save)) {
       const row = para(`${task.done ? 'Done' : 'Open'} · ${task.label}`, task.done ? 'task done' : 'task')
       wrap.append(row)
     }
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
     wrap.append(button('Copy share link', 'ghost', () => {
-      const url = new URL(shareLink('/', 'profile', getSave().username))
-      url.hash = `profile=${encodeShare(getSave())}`
-      void copyText(url.toString())
+      void copyText(profileLink(getSave().username))
     }))
     wrap.append(button('Courses', 'ghost', () => open('learn')))
     const passedIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
@@ -862,18 +859,18 @@ export function mountUi(
         ])
       case 'malik':
         return renderSimple('Set house', [
-          para('Mats by the door. One set is logged and left. The chart is not invited in.'),
+          para('A home gym. Log one workout set a day to keep your streak.'),
           para('A second set the same day does not stack the streak.'),
           button('Stay for the set', 'primary', () => visit('You stayed for the set.')),
         ])
       case 'nia':
         return renderSimple('Grove house', [
-          para('Seedlings in jars. A pledge is a note that you showed up. A tonne is a serial on a registry, and this city does not retire one.'),
+          para('Seedlings line the windows. The owner explains how climate pledges work: back a project and it is logged on your profile.'),
           button('Hear it out', 'primary', () => visit('You heard the grove house.')),
         ])
       case 'vacant':
         return renderSimple('Vacant house', [
-          para('The bed is made. The key is on the hook. Nobody lives here yet. The row kept the room.'),
+          para('An empty, furnished house. Nobody lives here yet.'),
           button('Look through', 'primary', () => visit('You looked through the vacant house.')),
         ])
       default: {

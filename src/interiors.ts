@@ -102,6 +102,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     mk(new THREE.BoxGeometry(1.2, 0.05, 2.2), std(0x3a2a20, 0.8), -w / 2 + 1.0, 0.02, 2.4)
     mk(new THREE.BoxGeometry(0.06, 0.95, 2.2), rail, -w / 2 + 1.65, 0.48, 2.4)
     obstacles.push({ kind: 'box', x: UP.x - w / 2 + 1.0, z: UP.z + 2.4, hx: 0.7, hz: 1.15 })
+    // Perimeter walls block like the ground floor.
+    for (const sz of [-1, 1]) obstacles.push({ kind: 'box', x: UP.x, z: UP.z + sz * (d / 2 + 0.125), hx: w / 2 + 0.3, hz: 0.18 })
+    for (const sx of [-1, 1]) obstacles.push({ kind: 'box', x: UP.x + sx * (w / 2 + 0.125), z: UP.z, hx: 0.18, hz: d / 2 + 0.3 })
     uses.push({ id: 'stairs-down', x: UP.x - w / 2 + 1.0, z: UP.z + 0.6, r: 0.9, title: 'Stairs', body: 'Back down to the ground floor.', enter: 'Go downstairs', run: () => goFloor(0) } as Use)
     const bulb = new THREE.MeshStandardMaterial({ color: 0xfff1d8, emissive: 0xffd9a0, emissiveIntensity: 0.55 })
     mk(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16), bulb, 0, 3.15, 0)
@@ -532,10 +535,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Indoors: no street fog (it washed the home out to white on phones) and a dimmer HDRI.
       if (scene.fog) { savedFog = scene.fog; scene.fog = null }
       savedEnv = scene.environmentIntensity
-      scene.environmentIntensity = Math.min(savedEnv, 0.3)
-      lamp.intensity = id === 'house' ? 8 : 15 + SIZE[id].w * 0.8
+      scene.environmentIntensity = Math.min(savedEnv, 0.18)
+      lamp.intensity = id === 'house' ? 6 : 10 + SIZE[id].w * 0.6
       lamp.distance = Math.max(18, SIZE[id].w * 1.3)
-      roomFill.intensity = id === 'house' ? 0.38 : 0.6
+      roomFill.intensity = id === 'house' ? 0.3 : 0.45
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
       if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.6, z: o.z - 0.3, yaw: Math.PI / 2 }

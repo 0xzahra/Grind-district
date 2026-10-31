@@ -38,10 +38,10 @@ import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
 import './style.css'
-
-const WALK = 2.7
 import './glass.css'
 import { createPortrait } from './portrait.ts'
+
+const WALK = 2.7
 const RUN = 5.5
 
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
@@ -176,9 +176,9 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     new Promise((resolve) => setTimeout(resolve, 1800)),
   ])
 
+  { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,16}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
   const renderer = createRenderer(canvas)
   if (!renderer) {
-  { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,16}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
     await startFlat(onReveal)
     return
   }
@@ -324,9 +324,9 @@ const apiAgents = createRemoteAgents(scene)
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
     travel: (title, enter) => travelHook(title, enter),
+    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
   })
   function hooksTeleport(x: number, z: number) {
-    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
       pos.x = x
       pos.z = z
       vel.x = 0
@@ -856,6 +856,36 @@ const apiAgents = createRemoteAgents(scene)
     return pulledCam.copy(desired)
   }
 
+  // Indoor camera collision: walk the look ray out and stop before the room shell or any wall-thin blocker,
+  // so the camera (and its near plane) never sits inside a wall. Cheap 2D test, no raycast.
+  const camProbe = new THREE.Vector3()
+  const indoorCamera = (origin: THREE.Vector3, cam: THREE.Vector3) => {
+    const room = interiors.bounds()
+    if (!room) return
+    const walls = interiors.obstacles().filter((o) => o.kind === 'box' && Math.min(o.hx, o.hz) < 0.3)
+    const pad = 0.35
+    let good = 0
+    const STEPS = 24
+    for (let i = 1; i <= STEPS; i++) {
+      const t = i / STEPS
+      camProbe.lerpVectors(origin, cam, t)
+      if (camProbe.y > 3.6) { good = t; continue } // above the walls: free
+      const inShell = Math.abs(camProbe.x - room.x) < room.hw + 0.5 - pad && Math.abs(camProbe.z - room.z) < room.hd + 0.5 - pad
+      let hit = !inShell
+      if (!hit) for (const w of walls) {
+        if (w.kind !== 'box') continue
+        if (Math.abs(camProbe.x - w.x) < w.hx + pad && Math.abs(camProbe.z - w.z) < w.hz + pad) { hit = true; break }
+      }
+      if (hit) break
+      good = t
+    }
+    if (good < 1) {
+      cam.lerpVectors(origin, cam, Math.max(good, 0.15))
+      smoothCam.copy(cam)
+      camVel.set(0, 0, 0)
+    }
+  }
+
   const showSpot = (next: Hotspot | null) => {
     const id = next?.id ?? null
     if (id === activeSpot) return
@@ -1011,6 +1041,14 @@ const apiAgents = createRemoteAgents(scene)
       pos.z += (vel.z * dt) / steps
       resolveCollision(pos, vel, blockers, PLAYER_R, Boolean(interiors.inside))
     }
+    {
+      // Indoors: never leave the room shell, whatever pushed the player (seats, busy moves, fast taps).
+      const room = interiors.bounds()
+      if (room) {
+        pos.x = THREE.MathUtils.clamp(pos.x, room.x - room.hw, room.x + room.hw)
+        pos.z = THREE.MathUtils.clamp(pos.z, room.z - room.hd, room.z + room.hd)
+      }
+    }
     avatar.object.position.set(pos.x, 0, pos.z)
     const groundSpeed = Math.hypot(vel.x, vel.z)
     const moving = groundSpeed > 0.22
@@ -1096,6 +1134,7 @@ const apiAgents = createRemoteAgents(scene)
     }
     const safe = pullCamera(lookTarget, smoothCam)
     if (safe.y < 0.4) safe.y = 0.4
+    if (interiors.inside) indoorCamera(lookTarget, safe)
     camera.position.copy(safe)
     // Cinematic intro: a high crane sweep over the skyline that settles behind the player.
     if (introT < 1 && !calmSky()) {
@@ -1184,6 +1223,7 @@ let opening = false
 
 function revealCity() {
   menu.hidden = true
+  document.documentElement.classList.remove('title-on')
   const boot = document.querySelector('#boot')
   if (boot) {
     boot.classList.add('hidden')

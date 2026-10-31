@@ -235,27 +235,56 @@ export function createWorld(options: {
   const facadeTex = (seed: number, wall = false) => {
     const rand = mulberry32(seed)
     return paint(128, 256, (g) => {
-      // Albedo: warm limestone with window frames and sills. Emissive copy: black wall, lit panes only.
-      g.fillStyle = wall ? ['#9a8f7f', '#8c8478', '#a39684', '#7d776e'][seed % 4]! : '#000000'
+      // Albedo: warm limestone, framed glazed windows with sills, a glazed shopfront and door at street level.
+      // Emissive copy: black wall, a few lit panes and the shopfront only.
+      g.fillStyle = wall ? ['#c9bca6', '#bdb3a3', '#cfc2ad', '#b4ada2'][seed % 4]! : '#000000'
       g.fillRect(0, 0, 128, 256)
       if (wall) {
-        g.fillStyle = 'rgba(0,0,0,0.12)'
-        for (let row = 10; row < 256; row += 28) g.fillRect(0, row, 128, 2)
-        g.fillStyle = '#4a4238'
-        for (let row = 18; row < 240; row += 28) for (let col = 14; col < 118; col += 22) {
-          g.fillRect(col - 2, row - 2, 14, 20)
-          g.fillStyle = '#c9b89a'
-          g.fillRect(col - 3, row + 18, 16, 2)
-          g.fillStyle = '#4a4238'
+        g.fillStyle = 'rgba(0,0,0,0.06)'
+        for (let row = 10; row < 210; row += 28) g.fillRect(0, row, 128, 1)
+      }
+      for (let row = 18; row < 200; row += 28) {
+        for (let col = 14; col < 118; col += 22) {
+          const lit = rand()
+          if (wall) {
+            g.fillStyle = '#6f6656' // frame
+            g.fillRect(col - 2, row - 2, 14, 20)
+            const grad = g.createLinearGradient(0, row, 0, row + 16)
+            grad.addColorStop(0, '#a9bfcb')
+            grad.addColorStop(1, '#62788a')
+            g.fillStyle = grad
+            g.fillRect(col, row, 10, 16)
+            g.fillStyle = '#6f6656' // mullion + transom
+            g.fillRect(col + 4.5, row, 1, 16)
+            g.fillRect(col, row + 5, 10, 1)
+            g.fillStyle = '#e4dccb' // sill
+            g.fillRect(col - 3, row + 18, 16, 2)
+          } else if (lit > 0.8) {
+            g.fillStyle = '#f0d7b0'
+            g.fillRect(col, row, 10, 16)
+          }
         }
       }
-      for (let row = 18; row < 240; row += 28) {
-        for (let col = 14; col < 118; col += 22) {
-          if (rand() > 0.72) continue
-          const lit = rand()
-          g.fillStyle = wall ? (lit > 0.45 ? '#3a4850' : '#1e262b') : lit > 0.86 ? '#ffe7c2' : lit > 0.45 ? '#f0d7b0' : '#000000'
-          g.fillRect(col, row, 10, 16)
+      // Street level: dark fascia, glazed shopfront bays and a central door.
+      if (wall) {
+        g.fillStyle = '#3b3631'
+        g.fillRect(0, 206, 128, 8)
+        g.fillStyle = '#4d463e'
+        g.fillRect(0, 214, 128, 42)
+        for (let col = 6; col < 122; col += 30) {
+          const grad = g.createLinearGradient(0, 218, 0, 252)
+          grad.addColorStop(0, '#b3c6cf')
+          grad.addColorStop(1, '#6e8290')
+          g.fillStyle = grad
+          g.fillRect(col, 218, 24, 34)
         }
+        g.fillStyle = '#5a3f2c' // door
+        g.fillRect(56, 220, 16, 36)
+        g.fillStyle = '#d2b47a'
+        g.fillRect(68, 236, 2, 4)
+      } else {
+        g.fillStyle = '#7a6a52'
+        for (let col = 6; col < 122; col += 30) g.fillRect(col, 218, 24, 34)
       }
     })
   }
@@ -476,10 +505,10 @@ export function createWorld(options: {
   ] as const) {
     obstacles.push({ kind: 'circle', x, z, r: 0.48 })
   }
-  spot('north-arch', 0, -13.4, 2.5, 'Campus road', 'North, to the learning hall. Courses you pass write your CV.')
-  spot('south-arch', 0, 13.4, 2.5, 'Trenches road', 'South. Attention trades here. Your rank does not.')
-  spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'West, to the spot book. Practice funds only.')
-  spot('east-arch', 13.4, 0, 2.5, 'Row road', 'East. Post a bounty. It lands on the portfolio.')
+  spot('north-arch', 0, -13.4, 2.5, 'Campus road', 'Road north to the learning hall, where courses build your CV.')
+  spot('south-arch', 0, 13.4, 2.5, 'Trenches road', 'Road south to the Trenches, the fast-moving meme market.')
+  spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'Road west to the trading floor.')
+  spot('east-arch', 13.4, 0, 2.5, 'Row road', 'Road east to Influencer Row, where you can post bounties.')
 
   // Dark, reflective storefront glass (picks up the PMREM environment): reads as real glazing, not paint.
   const shopGlass = new THREE.MeshStandardMaterial({ color: 0x2c3940, roughness: 0.06, metalness: 0.75, envMapIntensity: 0.9 })
@@ -505,7 +534,7 @@ export function createWorld(options: {
           metalness: 0.04,
           emissive: 0xfff1dd,
           emissiveMap: facadeTex(spec.seed ?? 1),
-          emissiveIntensity: 0.28,
+          emissiveIntensity: 0.12,
         })
       : stone
     if (spec.windows && material instanceof THREE.MeshStandardMaterial) facades.push(material)
@@ -624,26 +653,26 @@ export function createWorld(options: {
   }
 
   const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Learning hall', subtitle: 'courses file themselves', windows: true, seed: 3 })
-  spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', 'learn', 'Open the hall')
+  spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Take short courses. Each one you pass is added to your CV.', 'learn', 'Open the hall')
   const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'ninety seconds', windows: true, seed: 5 })
-  spot('conference', conference.x, conference.z, 2.3, 'Conference hall', 'One talk. Proof of work, not a slogan. The chairs are real enough.', 'conference', 'Take a seat')
+  spot('conference', conference.x, conference.z, 2.3, 'Conference hall', 'Take a seat and watch a short talk.', 'conference', 'Take a seat')
   const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', windows: true, seed: 8 })
-  spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Headlines change with the season. They are not a signal to size up.', 'cafe', 'Read the room')
+  spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Grab a coffee and read today\'s market headlines.', 'cafe', 'Read the room')
   addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 2.5, door: 'pz', title: 'Booth', subtitle: 'no seed asks', seed: 2 })
   addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 2.5, door: 'pz', title: 'Booth', subtitle: 'one-pagers', seed: 4 })
-  spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Projects pin a one-pager here. None of them can ask for your seed.')
+  spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Project stands. Browse what teams are building.')
 
   const floor = addBuilding({ x: -48, z: 0, w: 12, d: 16, h: 6, door: 'px', title: 'Trading floor', subtitle: 'spot, sized', windows: true, seed: 11 })
-  spot('trade', floor.x, floor.z, 2.6, 'Trading floor', 'A practice book in UNIT. A sized plan can count even when the close is red.', 'trade', 'Open the book')
+  spot('trade', floor.x, floor.z, 2.6, 'Trading floor', 'Buy and sell UNIT with in-game cash and practise sizing your trades.', 'trade', 'Open the book')
   const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Influencer row', subtitle: 'post the work', windows: true, seed: 13 })
-  spot('bounty', row.x, row.z, 2.6, 'Influencer row', 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', 'bounty', 'Post a bounty')
+  spot('bounty', row.x, row.z, 2.6, 'Influencer row', 'Post a bounty to earn in-game cash and add it to your portfolio.', 'bounty', 'Post a bounty')
   const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Trenches', subtitle: 'attention, sized', windows: true, seed: 17 })
-  spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'MEME moves like attention. It can leave. Rank will not follow it down.', 'trench', 'Open the trench book')
+  spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'Trade the volatile MEME coin. Big swings, high risk.', 'trench', 'Open the trench book')
 
   const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', windows: true, seed: 19 })
-  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'The man, the woman, and the mascots. Masks from the collection list hang on the side wall.', 'boutique', 'Try a body')
+  spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Clothing store. Change your character, outfit and mask.', 'boutique', 'Try a body')
   const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', windows: true, seed: 23 })
-  spot('gym', gym.x, gym.z, 2.4, 'Gym', 'A short timing set. One logged set a day. Balance is not invited.', 'gym', 'Train')
+  spot('gym', gym.x, gym.z, 2.4, 'Gym', 'Do a quick timing workout. One set a day keeps your streak going.', 'gym', 'Train')
   // Church: gabled stone nave, tall bell tower + spire + cross on the north facade, arched stained glass,
   // double doors, steps and a forecourt. Faces north to the plaza, away from the house row.
   const church = (() => {
@@ -771,7 +800,7 @@ export function createWorld(options: {
     doors.push({ x: at.x, z: at.z, own: obstacles[obstacles.length - 2] as Obstacle })
     return at
   })()
-  spot('church', church.x, church.z, 2.4, 'Church', 'A quiet room. Rest counts. Nobody checks your positions at the door.', 'church', 'Step in')
+  spot('church', church.x, church.z, 2.4, 'Church', 'A quiet place to sit and rest.', 'church', 'Step in')
   for (const home of HOUSES) {
     const door = addBuilding({
       x: home.x,
@@ -806,11 +835,11 @@ export function createWorld(options: {
     }
   }
   const net = addBuilding({ x: 28, z: -16, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', windows: true, seed: 37 })
-  spot('net', net.x, net.z, 2.3, 'Internet café', 'Same board as campus, closer to the row. Read it once a day.', 'cafe', 'Read the room')
+  spot('net', net.x, net.z, 2.3, 'Internet café', 'Read today\'s market headlines, same as the campus café.', 'cafe', 'Read the room')
   const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.7, door: 'px', title: 'Carbon', subtitle: 'practice pledge', seed: 41 })
-  spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a project with practice funds. It records the pledge. It does not retire a real tonne.', 'climate', 'The desk')
+  spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a climate project with in-game cash and log your pledge.', 'climate', 'The desk')
   const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'cars · jets · drones', windows: true, seed: 47 })
-  spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Drones, cars and jets. In-game cash only.', 'gadgets', 'Open the case')
+  spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Buy drones, cars and jets with in-game cash.', 'gadgets', 'Open the case')
 
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.
@@ -1020,7 +1049,7 @@ export function createWorld(options: {
   obstacles.push({ kind: 'box', x: MX, z: MZ + 1.5, hx: 5.15, hz: 4.65 })
   obstacles.push({ kind: 'circle', x: MX + 4.6, z: MZ - 3.4, r: 1.0 })
   reserved.push({ kind: 'box', x: MX, z: MZ - 1.5, hx: 7, hz: 8 })
-  spot('prayer', MX, MZ - 3.9, 1.6, 'Masjid', 'The prayer hall. Shoes off, phone quiet. Sitting puts focus on your next course.', 'prayer', 'Go inside')
+  spot('prayer', MX, MZ - 3.9, 1.6, 'Masjid', 'Prayer hall. Sit quietly to focus before your next course.', 'prayer', 'Go inside')
 
   const screenOf = (key: 'unit' | 'meme', x: number, z: number, rotationY: number) => {
     const canvas = document.createElement('canvas')
@@ -1079,7 +1108,7 @@ export function createWorld(options: {
     scene.add(ripple)
     ripples.push({ mesh: ripple, offset: i / 3 })
   }
-  spot('ring', 0, 0, 4.4, 'The Grind Ring', 'Same stone for a shrimp and a whale. No tribe. No continent. Just come grind.')
+  spot('ring', 0, 0, 4.4, 'The Grind Ring', 'The central plaza where every player meets.')
 
   const totem = new THREE.Group()
   totem.position.set(-9, 0, -8)
@@ -1094,7 +1123,7 @@ export function createWorld(options: {
   totem.add(plinth, pole, board)
   scene.add(totem)
   obstacles.push({ kind: 'circle', x: -9, z: -8, r: 0.7 })
-  spot('ladder', -9, -8, 2.3, 'The ladder', 'Shrimp, crab, fish, dolphin, shark, whale. Skill and the days you return. A bigger balance does not move it.')
+  spot('ladder', -9, -8, 2.3, 'The ladder', 'The rank ladder: shrimp to whale. Climb it by learning and coming back daily.')
 
   const addBench = (x: number, z: number) => {
     const group = new THREE.Group()
@@ -1219,7 +1248,7 @@ export function createWorld(options: {
   basinRim.position.set(-40, 0.14, 40)
   scene.add(basinWater, basinRim)
   obstacles.push({ kind: 'circle', x: -40, z: 40, r: 6 })
-  spot('water', -34, 34, 2.4, 'The basin', 'Park water. Climate work has a desk just north of here. Swimming is not the pledge.')
+  spot('water', -34, 34, 2.4, 'The basin', 'A park pond. The carbon desk is just to the north.')
   addGlow(-40, 1.2, 40, 0xbfe6ff, 6)
   addGlow(hall.x, 2.2, hall.z, 0xffe2b8, 8)
   addGlow(floor.x, 2.2, floor.z, 0x9fd4ff, 8)

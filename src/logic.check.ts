@@ -78,12 +78,12 @@ save.name = 'Reef'
 save.username = 'reef_01'
 save.signedUp = true
 const docs = documents(save, new Date('2026-10-30T12:00:00Z'))
-check(docs.cv.includes('Not a credential') && docs.cv.includes('Spot trading') && docs.cv.includes('Reef') && docs.resume.includes('@reef_01'), 'documents name the work and the disclaimer')
+check(docs.cv.includes('Not financial advice') && docs.cv.includes('Spot trading') && docs.cv.includes('Reef') && docs.resume.includes('@reef_01'), 'documents name the work and the disclaimer')
 check(!docs.cv.includes('<script>'), 'documents stay plain text')
 
 const round = decodeShare(encodeShare(save))
 check(round?.n === 'Reef' && round.u === 'reef_01' && round.k.includes('spot') && round.x === save.xp, 'share link round-trips')
-check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, s: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
+check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, s: 0, k: [], a: [] }).includes('Not financial advice'), 'shared text carries the disclaimer')
 check(decodeShare('nope') === null, 'bad share links are ignored')
 
 const fresh = createSave()

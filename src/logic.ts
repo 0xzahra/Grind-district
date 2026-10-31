@@ -125,7 +125,7 @@ export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price:
   { id: 'saloon', kind: 'car', label: 'City saloon', price: 600, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
   { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 900, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
   { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 1200, blurb: 'Six seats, regional range. Hangar fees every month.' },
-  { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 1500, blurb: 'Lagos to London nonstop. Crew, hangar and fuel on you.' },
+  { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 1500, blurb: 'Intercontinental range. Crew, hangar and fuel on you.' },
   { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
 ]
 const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))
@@ -179,7 +179,7 @@ export function stepCoins(save: Save, dt: number, season: Season, rand: () => nu
 }
 
 export const PROJECTS = [
-  { id: 'mangrove', name: 'Lagos mangrove' },
+  { id: 'mangrove', name: 'Coastal mangrove' },
   { id: 'stoves', name: 'Clean cookstoves' },
   { id: 'trees', name: 'Row trees' },
 ] as const
@@ -313,7 +313,7 @@ export function lagosStamp(ts: number): string {
     month: 'short',
     year: 'numeric',
   }).format(new Date(ts))
-  return `${date} Lagos`
+  return date
 }
 
 export function dayDiff(earlier: string, later: string): number {
@@ -810,61 +810,59 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
   const proof = save.activities.slice(0, 8)
   const season = seasonLabel(seasonAt(now.getTime()))
   const header = [
-    'GRIND DISTRICT',
-    'Practice profile. Not a credential. Not a wallet. Not financial advice.',
+    `${save.name}  ·  @${save.username}`,
+    'Grind District profile',
     '',
-    `Name: ${save.name}`,
-    `Username: @${save.username}`,
-    `Rank: ${rank.label} (${save.xp} XP${next ? `, next ${next.label} at ${next.xp}` : ', top of an open ladder'})`,
-    `Reputation: ${save.reputation} (this does not move the ladder)`,
-    `Streak: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with a rep`,
-    `Season at copy: ${season}`,
-    `Practice ledger: ${money(save.ledger)}`,
-    'Real funds in this build: none',
+    `Rank        ${rank.label} · ${save.xp} XP${next ? ` (${next.label} at ${next.xp})` : ''}`,
+    `Reputation  ${save.reputation}`,
+    `Streak      ${save.streak} day${save.streak === 1 ? '' : 's'}`,
+    `Market      ${season} season`,
+    `Balance     ${money(save.ledger)} in-game`,
   ]
   const cv = [
     ...header,
     '',
     'Skills',
-    ...(skills.length ? skills.map((line) => `- ${line}`) : ['- None filed. The learning hall is north of the plaza.']),
+    ...(skills.length ? skills.map((line) => `- ${line}`) : ['- No courses completed yet.']),
     '',
-    'Recent proof',
+    'Recent activity',
     ...(proof.length
       ? proof.map((item) => `- ${item.label} (${lagosStamp(item.at)})`)
-      : ['- Nothing filed yet.']),
+      : ['- Nothing yet.']),
     '',
-    'Investments (practice marks)',
+    'Holdings',
     holdingLine('UNIT', save.unit, save.unitPrice),
     holdingLine('MEME', save.meme, save.memePrice),
+    ...(save.taxOpen ? ['', `Open request: family transport, ${money(TAX_USD)}`] : []),
     '',
-    save.taxOpen ? `Open request: cousin, transport, ${money(TAX_USD)}. Paying is reputation. Declining has no penalty.` : 'Open request: none',
+    'In-game profile. Not financial advice.',
   ].join('\n')
 
   const resume = [
-    `${save.name} (@${save.username}) is a ${rank.label.toLowerCase()} in Grind District, one shared city. This resume is written from practice actions. It is not a degree and it is not a claim about real capital.`,
+    `${save.name} (@${save.username}) is a ${rank.label} in Grind District with ${save.xp} XP.`,
     '',
     skills.length
-      ? `Skills filed: ${skills.join('; ')}.`
-      : 'No skill is filed yet. The learning hall is north of the plaza, and the first course is Spot.',
+      ? `Skills: ${skills.join('; ')}.`
+      : 'No courses completed yet.',
     '',
     proof.length
-      ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`
-      : 'No proof is filed yet. A passed course, a bounty, or a pledge will land here on its own.',
+      ? `Recent activity: ${proof.map((item) => item.label).join('; ')}.`
+      : 'No activity yet.',
     '',
-    `Consistency: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with at least one rep. Reputation is ${save.reputation}. Rank does not read the practice ledger.`,
+    `Shows up consistently: ${save.streak}-day streak, reputation ${save.reputation}.`,
   ].join('\n')
 
   const portfolio = [
     `${save.name} (@${save.username}) — portfolio`,
-    'Generated from the city. Share the link. Do not send a seed phrase to anyone who asks to "verify" it.',
+    'Activity in Grind District.',
     '',
     ...(save.activities.length
       ? save.activities.slice(0, 16).map((item) => `- ${lagosStamp(item.at)} — ${item.label}. ${item.detail}`)
-      : ['- Empty. Finish a course or post a bounty and this page writes itself.']),
+      : ['- Nothing yet.']),
     '',
     save.carbon.length
-      ? `Practice pledges: ${save.carbon.map((note) => note.name).join(', ')}. These do not retire a real credit.`
-      : 'Practice pledges: none.',
+      ? `Climate pledges: ${save.carbon.map((note) => note.name).join(', ')}.`
+      : 'Climate pledges: none.',
     save.wants.length ? `Wants bought: ${save.wants.map((want) => want.label).join(', ')}.` : 'Wants bought: none.',
   ].join('\n')
 
@@ -872,7 +870,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
 }
 
 function holdingLine(symbol: string, holding: Holding, price: number): string {
-  if (holding.qty <= 0) return `- ${symbol}: flat`
+  if (holding.qty <= 0) return `- ${symbol}: no position`
   const pnl = positionPnl(holding, price)
   return `- ${symbol}: ${holding.qty.toFixed(4)} @ avg ${money(holding.avg)}, mark ${money(price)}, open ${money(pnl)}`
 }
@@ -946,12 +944,12 @@ export function sharedText(profile: SharedProfile): string {
   const skills = profile.k.map((id) => SKILL_META[id].title)
   return [
     `${profile.n}${profile.u ? ` · @${profile.u}` : ''} · ${rank.label}`,
-    'Grind District practice profile',
-    `XP ${profile.x} · reputation ${profile.p} · streak ${profile.s}`,
-    skills.length ? `Skills: ${skills.join(', ')}` : 'Skills: none filed',
-    'Proof:',
-    ...(profile.a.length ? profile.a.map((line) => `- ${line}`) : ['- none attached']),
-    'Not a credential. Not a wallet. Not financial advice.',
+    'Grind District profile',
+    `${profile.x} XP · reputation ${profile.p} · ${profile.s}-day streak`,
+    skills.length ? `Skills: ${skills.join(', ')}` : 'Skills: none yet',
+    'Recent activity:',
+    ...(profile.a.length ? profile.a.map((line) => `- ${line}`) : ['- nothing yet']),
+    'In-game profile. Not financial advice.',
   ].join('\n')
 }
 

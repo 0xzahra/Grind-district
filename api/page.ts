@@ -27,11 +27,12 @@ export default function handler(req: Req, res: Res) {
     desc = `${c.n ?? 'A player'} passed ${c.t ?? 'a course'} in Grind District.`
   } else {
     const u = String(req.query.username ?? '').slice(0, 16)
-    heading = `@${u} · CV`
-    title = `@${u}'s CV · Grind District`
-    desc = `Courses passed and work filed by @${u} in Grind District.`
+    heading = `@${u} · Grind District`
+    title = `@${u} is grinding in Grind District`
+    desc = `Join @${u} in a shared 3D city. Learn, trade and climb from shrimp to whale.`
   }
-  const game = `${origin}/?src=${kind}`
+  const ref = kind === 'cv' ? String(req.query.username ?? '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16) : ''
+  const game = `${origin}/?src=${ref ? 'invite' : kind}${ref ? `&ref=${ref}` : ''}`
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">

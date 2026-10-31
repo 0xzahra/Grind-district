@@ -582,12 +582,12 @@ export function markHouseVisit(id: string): { already: boolean } {
   save.houseVisits = [...save.houseVisits, id]
   save.reputation += 2
   const names: Record<string, string> = {
-    adaeze: 'Sat with the notes',
-    malik: 'Stopped for a set',
-    nia: 'Heard the grove house on credits',
+    adaeze: 'Studied at the notes house',
+    malik: 'Trained at the set house',
+    nia: 'Visited the grove house',
     vacant: 'Looked through the vacant house',
   }
-  log('social', names[id] ?? 'Visited a house', 'The east row is part of the city.')
+  log('social', names[id] ?? 'Visited a house', 'Visited a neighbour on the east row.')
   persist()
   emit()
   return { already: false }

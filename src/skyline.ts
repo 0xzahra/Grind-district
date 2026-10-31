@@ -6,34 +6,42 @@ import type { Graphics } from './logic.ts'
  * lit window grids that glow at night, rooftop plant and blinking aviation lights.
  * 3 draw calls for towers (base, setback, crown) + 1 rooftop + 1 beacons, whatever the count.
  */
-function windowTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas')
-  c.width = 64
-  c.height = 256
-  const g = c.getContext('2d')!
-  g.fillStyle = '#05080a'
+function windowTextures(): { map: THREE.CanvasTexture; glow: THREE.CanvasTexture } {
+  // Albedo: pale stone frame, blue-grey glass with a sky sheen, spandrel bands. Glow: lit panes only.
+  const mk = () => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; return c }
+  const a = mk(), e = mk()
+  const g = a.getContext('2d')!, ge = e.getContext('2d')!
+  g.fillStyle = '#b9b4aa'
   g.fillRect(0, 0, 64, 256)
+  ge.fillStyle = '#000'
+  ge.fillRect(0, 0, 64, 256)
   for (let y = 4; y < 256; y += 8) {
     for (let x = 3; x < 64; x += 6) {
-      const lit = Math.random() < 0.35
-      g.fillStyle = lit ? (Math.random() < 0.15 ? '#9ff7cf' : '#ffe8c4') : '#0d1418'
+      const grad = g.createLinearGradient(0, y, 0, y + 5)
+      grad.addColorStop(0, '#9fb6c4')
+      grad.addColorStop(1, '#5d7484')
+      g.fillStyle = grad
       g.fillRect(x, y, 4, 5)
+      if (Math.random() < 0.3) { ge.fillStyle = '#ffe3b8'; ge.fillRect(x, y, 4, 5) }
     }
   }
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.wrapS = t.wrapT = THREE.RepeatWrapping
-  return t
+  const out = [a, e].map((c, i) => {
+    const t = new THREE.CanvasTexture(c)
+    if (i === 0) t.colorSpace = THREE.SRGBColorSpace
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    return t
+  })
+  return { map: out[0]!, glow: out[1]! }
 }
 
 export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   const count = graphics === 'high' ? 90 : graphics === 'medium' ? 52 : 26
-  const win = windowTexture()
+  const win = windowTextures()
   const glass = new THREE.MeshStandardMaterial({
-    color: 0x1a2a30, roughness: 0.08, metalness: 0.9, map: win, emissive: 0xffffff, emissiveMap: win, emissiveIntensity: 0.3,
+    color: 0xffffff, roughness: 0.55, metalness: 0.1, map: win.map, emissive: 0xffffff, emissiveMap: win.glow, emissiveIntensity: 0.1,
     fog: true,
   })
-  const crownMat = new THREE.MeshStandardMaterial({ color: 0x20282c, roughness: 0.5, metalness: 0.6 })
+  const crownMat = new THREE.MeshStandardMaterial({ color: 0x8f8b84, roughness: 0.8, metalness: 0.1 })
   const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false })
   const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
   const base = new THREE.InstancedMesh(box, glass, count)
@@ -83,7 +91,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   }
   return {
     tick(t: number, night: number) {
-      glass.emissiveIntensity = 0.05 + night * 0.75
+      glass.emissiveIntensity = 0.02 + night * 0.6
       beacons.visible = Math.sin(t * 2.4) > 0.2 && night > 0.2
     },
   }

@@ -24,3 +24,18 @@ export async function shareOrCopy(title: string, link: string, src: string): Pro
     return 'failed'
   }
 }
+
+/** Short public profile link: /cv/username (OG card page that opens the game) (no payload in the URL). */
+export function profileLink(username: string): string {
+  return username ? `${location.origin}/cv/${encodeURIComponent(username)}` : `${location.origin}/`
+}
+
+/** Opens X with a short link and friendly prefilled text. */
+export function shareToX(username: string, rank: string): void {
+  track('share_click', { src: 'x' })
+  const text = username ? `I'm grinding in Grind District as @${username}, ${rank} rank. Come join:` : "I'm grinding in Grind District. Come join:"
+  const intent = new URL('https://x.com/intent/post')
+  intent.searchParams.set('text', text)
+  intent.searchParams.set('url', profileLink(username))
+  window.open(intent.toString(), '_blank', 'noopener')
+}
