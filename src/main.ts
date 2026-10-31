@@ -164,7 +164,7 @@ async function main(onReveal: () => void) {
     pos.z = 8
   }
   avatar.object.position.set(pos.x, 0, pos.z)
-  if (wearsPlate(getSave().body)) tagPlayer(avatar.object, getSave().username)
+  if (wearsPlate(getSave().body)) tagPlayer(avatar.object, getSave().name, getSave().username)
   avatar.setMask(getSave().mask)
   scene.add(avatar.object)
   let follower: THREE.Group | null = null
@@ -211,7 +211,7 @@ async function main(onReveal: () => void) {
     avatar = createAvatar(save.body, save.tint, save.luxury)
     avatar.object.position.set(pos.x, 0, pos.z)
     avatar.setMask(save.mask)
-    if (wearsPlate(save.body)) tagPlayer(avatar.object, save.username)
+    if (wearsPlate(save.body)) tagPlayer(avatar.object, save.name, save.username)
     scene.add(avatar.object)
     syncDrone()
   }
@@ -231,7 +231,7 @@ async function main(onReveal: () => void) {
       avatar.setStyle(save.tint, save.luxury)
       avatar.setMask(save.mask)
       syncDrone()
-      if (wearsPlate(save.body)) tagPlayer(avatar.object, save.username)
+      if (wearsPlate(save.body)) tagPlayer(avatar.object, save.name, save.username)
     },
     onBody: applyBody,
     onLook: applyLook,
@@ -597,6 +597,8 @@ async function begin() {
     menuNote.textContent = error instanceof Error ? error.message : 'The city could not open.'
   }
 }
+
+loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
 
 mountMenu(() => {
   void begin()
