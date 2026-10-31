@@ -206,7 +206,7 @@ export const COURSES: Course[] = [
       'An agent, in the plain sense, is software that can watch a task and take actions through tools: browse, post, trade, sign. It does not get those tools by magic. A person grants them. If it can move value, that permission is the whole risk.',
       'In this city an agent is labeled, and it stands on a robot, not inside a person’s face. Unit 4 in the plaza is the standard. The plaque says Agent. That is not a costume.',
       'A figure who will not say they are an agent is a person. Treat them as one. Do not hand them a signature because they hurried you, and do not hand them a seed for any reason. An unlabeled request “for the grind” is a reason to stop.',
-      'The label is how you tell the tool from the neighbor. Adaeze, Malik, and Nia live in the houses. They are people. Unit 4 is not.',
+      'The label is how you tell the tool from the neighbor. The houses on the east row are people. Unit 4 is not.',
       'Sources: the city’s own rule for agents, plus the ordinary definition of a tool-using agent that acts only with the permission it was given.',
     ],
     questions: [
@@ -229,7 +229,7 @@ export const COURSES: Course[] = [
         hint: 'Tools and value move only with a grant. The grant is the risk.',
       },
       {
-        prompt: 'Adaeze at her house is:',
+        prompt: 'Someone at a house on the east row is:',
         choices: ['An unlabeled agent', 'A person. The labeled agent in the plaza is Unit 4', 'A liquid staking receipt', 'A carbon credit'],
         answer: 1,
         hint: 'Neighbors are people. Unit 4 is the robot with the label.',
@@ -243,7 +243,7 @@ export const COURSES: Course[] = [
       'A portfolio here is a list of things you did: a course you passed, a bounty you wrote, a pledge you made, a set you logged. The city writes those lines from the actions. You can copy them. They are not a degree, and they are not a balance.',
       'People who hire, grant, or collaborate still ask what you finished. A small shipped thing beats a large story that never left the group chat. “Passed risk sizing. Posted a bounty. Practice ledger only.” is a line. “I am early” is not.',
       'Leave the seed phrase out of every line. Leave guaranteed yield out too. The work can be practice and still be real work, as long as the page says it is practice.',
-      'The houses count. Knocking on Adaeze’s door, claiming your room, sitting through the campus talk: those are visits and notes. The courses are the spine. Finish one before you narrate ten.',
+      'The houses count. Knocking on a neighbor’s door, claiming your room, sitting through the campus talk: those are visits and notes. The courses are the spine. Finish one before you narrate ten.',
       'Sources: the city’s profile, which files the CV, resume, and portfolio from actions rather than from a purchased certificate.',
     ],
     questions: [
