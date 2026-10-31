@@ -1204,3 +1204,7 @@ body.map-large #map { width: 120px !important; height: 120px !important; }
 #inbox li time { font-size: 11px; opacity: .7; }
 #inbox li p { margin: 4px 0 0; font-size: 12px; opacity: .85; }
 body.sheet-open #bell, body.sheet-open #inbox { display: none; }
+#rail-toggle { top: calc(max(14px, env(safe-area-inset-top)) + 66px) !important; }
+#nav { top: calc(max(14px, env(safe-area-inset-top)) + 116px) !important; transform: none !important; }
+body.rail-shut #nav { transform: translateX(120%) !important; }
+.menu-logo, .hud-wordmark { text-shadow: 0 1px 2px rgba(0,0,0,.8), 0 0 14px rgba(0,0,0,.55) !important; }
