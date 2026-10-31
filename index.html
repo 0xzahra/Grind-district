@@ -33,7 +33,7 @@
         <h1 class="sr-only">Grind District</h1>
         <header>
           <img class="lockup hud-logo" src="/brand/lockup.png" alt="Grind District" />
-          <p class="pills hud-cluster">
+          <p class="pills hud-cluster" hidden>
             <button id="pill-rank" type="button" class="pill">Shrimp</button>
             <button id="pill-place" type="button" class="pill" title="Open the City directory">The Plaza</button>
             <button id="pill-ledger" type="button" class="pill">$0.00</button>
@@ -42,9 +42,11 @@
           </p>
           <nav id="nav">
             <button id="nav-profile" type="button" class="icon-btn" aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg><span>Profile</span></button>
-            <button id="nav-learn" type="button" class="icon-btn" aria-label="Learn" title="Learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l9-3 9 3-9 3-9-3Zm3 2v6c0 1.5 3 3 6 3s6-1.5 6-3V8"/></svg><span>Learn</span></button>
-            <button id="nav-city" type="button" class="icon-btn" aria-label="City" title="City"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l5-3v14M9 20V4l7 3v13M16 20v-9l4 2v7M3 20h18"/></svg><span>City</span></button>
+            <button id="nav-wallet" type="button" class="icon-btn" aria-label="Wallet" title="Wallet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h2M3 9h18"/></svg><span>Wallet</span></button>
+            <button id="nav-boutique" type="button" class="icon-btn" aria-label="Boutique" title="Boutique"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7Zm3 0a3 3 0 0 1 6 0"/></svg><span>Boutique</span></button>
+            <button id="nav-city" type="button" class="icon-btn" aria-label="Map" title="Map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14"/></svg><span>Map</span></button>
             <button id="nav-settings" type="button" class="icon-btn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>
+            <a id="nav-support" class="icon-btn" href="https://x.com/0xarewah" target="_blank" rel="noopener noreferrer" aria-label="Support" title="Support"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17h.01"/></svg><span>Support</span></a>
             <span class="music-group">
               <button id="music" type="button" class="icon-btn" aria-pressed="false" aria-label="Music off" title="Music"></button>
               <input id="volume" type="range" min="0" max="100" value="70" disabled aria-label="Volume" />
@@ -53,6 +55,7 @@
           <div id="cam-tools" role="group" aria-label="Camera">
             <button id="cam-in" type="button" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             <button id="cam-out" type="button" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+            <button id="go-home" type="button" aria-label="Go home" title="Go home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4v-9Z"/></svg></button>
             <button id="cam-turn" type="button" aria-label="Turn camera" title="Turn camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg></button>
           </div>
           <canvas id="map" width="180" height="180" aria-label="City map. Tap it for the directory. C campus, F trading floor, I influencer row, T trenches."></canvas>
@@ -86,16 +89,14 @@
       <div id="menu">
         <div id="menu-home">
           <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
-          <p class="tag">No tribe, no continent, just come and grind.</p>
+          <p class="title-desc">Live a Web3 life. Learn, earn, climb from shrimp to whale.</p>
+          <p class="tag tag-serif">No tribe, no continent, just come and grind.</p>
           <nav class="menu-actions" aria-label="Game menu">
             <button id="play" type="button" class="primary" autofocus>Enter the district</button>
             <button id="menu-signin" type="button">Sign in</button>
             <button id="menu-how" type="button">How to play</button>
-            <button id="menu-city" type="button">The city</button>
-            <button id="menu-courses" type="button">Courses</button>
-            <button id="menu-credits" type="button">Credits</button>
           </nav>
-          <p id="menu-note">You start as a shrimp. Pick a name and a username, then walk in. The practice ledger is empty. Rank follows the work.</p>
+          <p id="menu-note"></p>
         </div>
         <div id="menu-signup" hidden>
           <h2>Pick a name</h2>

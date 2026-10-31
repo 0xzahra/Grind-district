@@ -1084,3 +1084,21 @@ body.touch .pills span, body.touch button.pill, body.touch #nav { backdrop-filte
   #sheet { padding-left: 0 !important; padding-right: 0 !important; padding-bottom: 0 !important; }
 }
 body.touch #hint{display:none}
+.cert-dlg{width:min(94vw,720px)!important;z-index:90}
+
+/* Title screen + Apple-style menu */
+#menu, #nav, #sheet, .wallet-dlg, #cam-tools { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Inter, system-ui, sans-serif; }
+.title-desc { margin: 0.4rem 0 0; font-size: 1rem; color: #e9e4da; letter-spacing: 0.01em; }
+.tag-serif { font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif !important; font-style: italic; font-size: 1.05rem !important; color: #d9c6a2 !important; letter-spacing: 0.01em; }
+#menu .menu-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+#menu .menu-actions button { width: auto !important; padding: 9px 18px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); color: #f5f5f7; backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+#menu .menu-actions button.primary { background: #f5f5f7; color: #111; border-color: transparent; }
+#nav { background: rgba(28, 28, 30, 0.55) !important; backdrop-filter: blur(20px) saturate(170%); border: 1px solid rgba(255,255,255,0.12) !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35); border-radius: 18px !important; }
+#nav .icon-btn { color: #f5f5f7 !important; }
+#nav .icon-btn.active { background: rgba(255,255,255,0.14) !important; box-shadow: none !important; color: #fff !important; }
+.sheet-card { background: rgba(28, 28, 30, 0.82) !important; backdrop-filter: blur(24px) saturate(160%); border: 1px solid rgba(255,255,255,0.12) !important; box-shadow: 0 20px 60px rgba(0,0,0,0.45) !important; }
+.sheet-card button { width: auto; border-radius: 999px; padding: 7px 14px; font-size: 13px; }
+.hud-cluster{display:none!important}

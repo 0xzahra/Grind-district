@@ -1,3 +1,4 @@
+import { attribution, track } from './track.ts'
 import { grade, courseById } from './courses.ts'
 import {
   BOUNTY_USD,
@@ -167,6 +168,7 @@ export function tickMarket(dt: number, now = Date.now()): void {
 }
 
 export function signUp(name: string, username: string, body: 'player' | 'zuri'): { ok: true } | { ok: false; error: string } {
+  queueMicrotask(() => { if (save.signedUp) track('signup', { username: save.username, ...attribution() }) })
   const display = cleanDisplayName(name)
   const handle = cleanUsername(username)
   if (!display) return { ok: false, error: 'Pick a name.' }
@@ -306,6 +308,7 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   if (focused) save.focus = false
   const gained = Math.round(COURSE_XP * (focused ? 1.25 : 1))
   save.skills[id] = { passed: true, tries }
+  track('course_complete', { course: id, tries })
   const rankedUp = gainXp(gained + bonus)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')

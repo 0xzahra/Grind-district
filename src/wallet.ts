@@ -1,3 +1,6 @@
+import { getSave } from './state'
+import { TOPUP, TRANSFER_FEE_BPS, topupReady } from './economy'
+import { track } from './track'
 // Optional real wallet on Base (8453). Injected EIP-1193 only; the city never holds keys.
 // WalletConnect is not wired (needs a project ID). Lazy-loaded from Settings.
 import qrcode from 'qrcode-generator'
@@ -63,7 +66,24 @@ export function openWallet(): void {
   const body = el('div', '', 'wallet-body')
   const closeBtn = el('button', 'Close', 'ghost')
   closeBtn.onclick = () => dlg.remove()
-  dlg.append(el('h2', 'Wallet · Base'), body, closeBtn)
+  const econ = el('div', '', 'wallet-econ')
+  const money = getSave().ledger
+  econ.append(
+    el('p', `In-game balance: $${money.toFixed(2)} (play money, not on-chain)`, 'wallet-ingame'),
+    el('p', `Transfers between players carry a ${TRANSFER_FEE_BPS / 100}% fee to the city treasury.`, 'muted'),
+  )
+  const top = el('button', 'Top up', 'ghost')
+  if (topupReady()) {
+    top.onclick = () => {
+      track('topup_attempt', { chain: TOPUP.chainId })
+      status.textContent = `Top-ups pay ${TOPUP.contract || TOPUP.address} on chain ${TOPUP.chainId} at ${TOPUP.rate} in-game $ per USDC.`
+    }
+  } else {
+    top.disabled = true
+    econ.append(el('p', 'Top-ups are coming soon.', 'muted'))
+  }
+  econ.append(top)
+  dlg.append(el('h2', 'Wallet · Base'), econ, body, closeBtn)
   document.body.append(dlg)
   const status = el('p', '', 'muted')
 

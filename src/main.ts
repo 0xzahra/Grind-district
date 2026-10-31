@@ -15,6 +15,7 @@ import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
+import { startTracking } from './track.ts'
 import { createSkyline } from './skyline.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
@@ -289,7 +290,8 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
-  must('#nav-learn').addEventListener('click', () => ui.open('learn'))
+  must('#nav-wallet').addEventListener('click', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
+  must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   map.addEventListener('click', () => ui.open('city'))
@@ -410,6 +412,13 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const lookSmooth = new THREE.Vector3()
   const vel = { x: 0, z: 0 }
   let target: THREE.Vector3 | null = null
+  // Go home: walk to the front door of your house (36, 32; door faces -x).
+  must('#go-home').addEventListener('click', () => {
+    target = new THREE.Vector3(36 - 3.5 - 1.2, 0, 32)
+    stuck = 0
+    prevDist = Infinity
+    ui.toast('Heading home. The H on the map is your house.')
+  })
   let stuck = 0
   let prevDist = Infinity
   let traveled = 0
@@ -796,6 +805,7 @@ async function begin() {
 }
 
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
+startTracking()
 
 mountMenu(() => {
   void begin()

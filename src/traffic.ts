@@ -27,8 +27,8 @@ const COUNTS: Record<Graphics, { people: number; cars: number }> = {
   medium: { people: 16, cars: 8 },
   high: { people: 24, cars: 10 },
 }
-const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x17f790, 0xb3122e, 0x2a2f36, 0xd9c7a1]
-const SHIRTS = [0x1a4cff, 0x17f790, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]
+const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x3d4a3f, 0xb3122e, 0x2a2f36, 0xd9c7a1]
+const SHIRTS = [0x1a4cff, 0x6b5a45, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]
 const LOD = 70
 const SIGNAL_PERIOD = 14
 
@@ -149,14 +149,22 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }
   const wheelsGeo = mergeSimple(wheelParts)
   const paint = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.55 })
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8, emissive: 0x17f790, emissiveIntensity: 0.05 })
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8, emissive: 0x000000, emissiveIntensity: 0 })
   const rubber = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.9 })
   const bodiesCar = new THREE.InstancedMesh(carBody, paint, counts.cars)
   const cabins = new THREE.InstancedMesh(cabinGeo, glass, counts.cars)
   const wheels = new THREE.InstancedMesh(wheelsGeo, rubber, counts.cars)
   const cars: Car[] = []
   for (let i = 0; i < counts.cars; i += 1) {
-    cars.push({ arm: i % 4, outbound: i % 2 === 0, t: (i * 0.37) % 1, speed: 6 + (i % 3), wait: 0 })
+    // Spawn spaced along the lanes: re-sample until at least 7 m (car + margin) from every car in the same lane.
+    const arm = i % 4
+    const outbound = i % 2 === 0
+    let t = (i * 0.37) % 1
+    for (let tries = 0; tries < 20; tries++) {
+      if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 7)) break
+      t = (t + 0.13) % 1
+    }
+    cars.push({ arm, outbound, t, speed: 6 + (i % 3), wait: 0 })
     bodiesCar.setColorAt(i, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
   }
   for (const mesh of [bodiesCar, cabins, wheels]) {
@@ -225,7 +233,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }).catch(() => { /* keep the box cars */ })
 
   // Signals at the four plaza stop lines.
-  const signalMat = new THREE.MeshBasicMaterial({ color: 0x17f790, toneMapped: false })
+  const signalMat = new THREE.MeshBasicMaterial({ color: 0x5fd27a, toneMapped: false })
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x20262a, roughness: 0.6 })
   for (const arm of ARMS) {
     const px = arm.ax * lanes.inner + (arm.az !== 0 ? lanes.roadHalf + 0.4 : 0) * (arm.az > 0 ? -1 : 1)
@@ -244,7 +252,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     tick(dt, time, focus, people = []) {
       obstacles.length = 0
       const green = Math.floor(time / SIGNAL_PERIOD) % 2 === 0 // true: x arms go, false: z arms go
-      signalMat.color.setHex(green ? 0x17f790 : 0xffb347)
+      signalMat.color.setHex(green ? 0x5fd27a : 0xffb347)
 
       walkers.forEach((w, i) => {
         w.t += (w.dir * w.speed * dt) / span
@@ -289,7 +297,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         for (const other of cars) {
           if (other === car || other.arm !== car.arm || other.outbound !== car.outbound) continue
           const ahead = car.outbound ? other.t - car.t : car.t - other.t
-          if (ahead > 0 && ahead * span < 6.5) target = Math.min(target, Math.max(0, (ahead * span - 5) * 2))
+          if (ahead > 0 && ahead * span < 9) target = Math.min(target, Math.max(0, (ahead * span - 6.2) * 2))
         }
         // Yield to the player and to anyone crossing in front.
         {
@@ -319,8 +327,13 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
             // At the stop line on green: swing onto the next arm, heading out.
             car.t = 0
             if (axisGo) {
-              car.arm = (car.arm + 1 + (i % 2)) % 4
-              car.outbound = true
+              // Only swing onto the next arm if its outbound lane is clear for a car length plus margin.
+              const nextArm = (car.arm + 1 + (i % 2)) % 4
+              const clear = cars.every((o) => o === car || o.arm !== nextArm || !o.outbound || o.t * span > 6.5)
+              if (clear) {
+                car.arm = nextArm
+                car.outbound = true
+              }
             }
           }
         }

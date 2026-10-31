@@ -38,12 +38,10 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
   switch (page) {
     case 'how':
       body.append(
-        copy('You start as a shrimp with an empty practice ledger. Rank moves when you learn, show up, and size your reps. Balance does not move it.'),
-        copy('WASD or the arrows walk. Shift runs. Drag looks around. The wheel zooms. Click the ground to walk there. Stand on a mint doorstep and press E, or the mint button.'),
-        copy('Esc closes a sheet. Movement pauses while a sheet is open.'),
-        copy('Twelve courses are in the learning hall, north of the plaza. A pass writes your CV, resume, and portfolio. The houses are the row to the east: yours, a notes house, a set house, a grove house, and a vacant room.'),
-        copy('The theme stays silent until you turn Music on. The ledger is practice USD. It is not a deposit, not a token, and not advice.'),
-        copy('If this browser cannot start WebGL, the same streets open as an overhead map. The doors are the same doors.'),
+        copy('Move: WASD or arrows (Shift runs), or the Move stick on a phone. Drag to look, scroll or pinch to zoom. E or the Enter button opens a door.'),
+        copy('Climb: shrimp, crab, fish, dolphin, shark, whale. You rank up by learning and showing up, not by balance.'),
+        copy('Courses and CV: pass courses in the learning hall to earn certificates. Pass three and your CV page unlocks to share.'),
+        copy('Boutique: walk in to try on bodies, shirts and accessories.'),
       )
       return { title: 'How to play', body }
     case 'city':
@@ -91,7 +89,7 @@ export function mountMenu(enter: () => void): void {
   const note = must<HTMLParagraphElement>('#menu-note')
   const saved = getSave()
   if (saved.signedUp) {
-    note.textContent = `${saved.name} · @${saved.username}. Rank follows the work you have filed.`
+    note.textContent = `Welcome back, @${saved.username}.`
   }
 
   const show = (next: Page) => {
@@ -132,9 +130,6 @@ export function mountMenu(enter: () => void): void {
   must('#menu-how').addEventListener('click', () => show('how'))
   must('#menu-signin').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
   if (location.search.includes('privy_oauth_code')) void import('./login.ts').then((m) => m.resumeOAuth())
-  must('#menu-city').addEventListener('click', () => show('city'))
-  must('#menu-courses').addEventListener('click', () => show('courses'))
-  must('#menu-credits').addEventListener('click', () => show('credits'))
   must('#menu-back').addEventListener('click', back)
   must('#signup-back').addEventListener('click', back)
   form.addEventListener('submit', (event) => {

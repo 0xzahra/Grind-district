@@ -53,8 +53,8 @@ function robot(): { object: THREE.Group; x: number; z: number } {
   const root = new THREE.Group()
   const shell = new THREE.MeshStandardMaterial({ color: 0x1c2824, roughness: 0.46, metalness: 0.35 })
   const mint = new THREE.MeshStandardMaterial({
-    color: 0x17f790,
-    emissive: 0x17f790,
+    color: 0xd9b26a,
+    emissive: 0xd9b26a,
     emissiveIntensity: 0.7,
     roughness: 0.35,
   })

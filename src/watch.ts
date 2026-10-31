@@ -4,9 +4,9 @@ import * as THREE from 'three'
 export function createWatch(scene: THREE.Scene, count: number) {
   const body = new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.35, metalness: 0.8 })
   const red = new THREE.MeshBasicMaterial({ color: 0xff2a2a })
-  const green = new THREE.MeshBasicMaterial({ color: 0x17f790 })
+  const green = new THREE.MeshBasicMaterial({ color: 0x3ad06a })
   const cone = new THREE.MeshBasicMaterial({
-    color: 0x45eb98, transparent: true, opacity: 0.02, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    color: 0xfff2dc, transparent: true, opacity: 0.02, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   })
   const hull = new THREE.BoxGeometry(1.4, 0.32, 0.9)
   const arm = new THREE.BoxGeometry(2.6, 0.08, 0.12)

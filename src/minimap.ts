@@ -43,7 +43,7 @@ export function drawMinimap(
     ctx.fillStyle = plot.door ? '#1a4a3c' : '#16362c'
     ctx.fillRect(left, top, w, h)
     if (plot.door) {
-      ctx.fillStyle = '#17f790'
+      ctx.fillStyle = '#c9a25e'
       ctx.fillRect(left + w / 2 - 2, top + h - 3, 4, 3)
     }
   }
@@ -55,6 +55,17 @@ export function drawMinimap(
   ctx.font = `600 ${Math.max(9, Math.round(width / 12))}px Outfit, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  // Named markers: home, boutique, gym.
+  const marks: Array<[number, number, string, string]> = [[36, 32, 'H', '#e8c98f'], [22, -22, 'B', '#f2ece0'], [-22, -22, 'G', '#f2ece0']]
+  ctx.font = `700 ${Math.max(9, Math.round(width / 14))}px -apple-system, Inter, sans-serif`
+  for (const [mx, mz, letter, col] of marks) {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)'
+    ctx.beginPath()
+    ctx.arc(X(mx), Y(mz), Math.max(6, width / 20), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = col
+    ctx.fillText(letter, X(mx), Y(mz) + 0.5)
+  }
   ctx.fillStyle = '#ffd27a'
   for (const other of others) {
     ctx.beginPath()

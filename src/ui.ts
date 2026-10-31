@@ -1,3 +1,6 @@
+import { openCertificate, shareCv } from './certs.ts'
+import { shareLink } from './share.ts'
+import { track } from './track.ts'
 import { COURSES, headlines } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { HOUSES, type HouseId } from './houses.ts'
@@ -243,10 +246,19 @@ export function mountUi(
     }
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
     wrap.append(button('Copy share link', 'ghost', () => {
-      const url = new URL(location.href)
+      const url = new URL(shareLink('/', 'profile', getSave().username))
       url.hash = `profile=${encodeShare(getSave())}`
       void copyText(url.toString())
     }))
+    wrap.append(button('Courses', 'ghost', () => open('learn')))
+    const passedIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
+    if (passedIds.length) {
+      wrap.append(para('Certificates', 'kicker'))
+      for (const id of passedIds) wrap.append(button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)))
+    }
+    wrap.append(passedIds.length >= 3
+      ? button('Share my CV page', 'primary', () => void shareCv())
+      : para(`Pass ${3 - passedIds.length} more course${passedIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted'))
     return wrap
   }
 
@@ -322,8 +334,10 @@ export function mountUi(
       const save = getSave()
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
+      if (!passed) track('course_start', { course: id })
       const wrap = stack(button('All courses', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${course.questions.length} exercises. A miss names the idea to reread.`, 'muted'))
       if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
+      if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
       for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
       const result = para('', 'result')
       course.questions.forEach((question, questionIndex) => {

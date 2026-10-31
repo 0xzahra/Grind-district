@@ -111,7 +111,7 @@ export function createWorld(options: {
   const stoneDark = new THREE.MeshStandardMaterial({ color: 0x24302b, roughness: 0.9, metalness: 0.05 })
   const trim = new THREE.MeshStandardMaterial({
     color: 0xc9a25e,
-    emissive: 0xffcf8a,
+    emissive: 0x000000,
     emissiveIntensity: 1.1,
     roughness: 0.38,
   })
@@ -337,7 +337,7 @@ export function createWorld(options: {
   sun.shadow.normalBias = 0.04
   scene.add(sun)
   scene.add(sun.target)
-  const fill = new THREE.DirectionalLight(0x8ef0c8, 0.28)
+  const fill = new THREE.DirectionalLight(0xe8e2d6, 0.2)
   fill.position.set(-12, 10, -8)
   scene.add(fill)
 
@@ -558,6 +558,24 @@ export function createWorld(options: {
       seed: home.seed,
     })
     spot(home.id, door.x, door.z, 2.2, home.spotTitle, home.body, 'house', home.enter, home.id)
+    if (home.id === 'yours') {
+      // Landmark so the player can find home from the plaza: brass roof marker + street signpost.
+      const marker = solid(new THREE.OctahedronGeometry(0.6, 0), trim, false)
+      marker.position.set(home.x, home.h + 1.6, home.z)
+      marker.name = 'home-marker'
+      scene.add(marker)
+      const post = solid(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 6), stoneDark)
+      post.position.set(door.x - 1.4, 1.2, door.z + 1.6)
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.4), new THREE.MeshStandardMaterial({ map: paint(256, 80, (g) => {
+        g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 80)
+        g.strokeStyle = '#c9a25e'; g.lineWidth = 4; g.strokeRect(4, 4, 248, 72)
+        g.fillStyle = '#f2ece0'; g.font = '600 38px Outfit, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+        g.fillText('YOUR HOUSE', 128, 42)
+      }), roughness: 0.6 }))
+      plate.position.set(door.x - 1.4, 2.2, door.z + 1.6)
+      plate.rotation.y = -Math.PI / 2
+      scene.add(post, plate)
+    }
   }
   const net = addBuilding({ x: 28, z: -16, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', windows: true, seed: 37 })
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Same board as campus, closer to the row. Read it once a day.', 'cafe', 'Read the room')
@@ -734,7 +752,7 @@ export function createWorld(options: {
   for (let i = 0; i < 3; i += 1) {
     const ripple = new THREE.Mesh(
       new THREE.TorusGeometry(1, 0.02, 6, 40),
-      new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0.1, depthWrite: false, toneMapped: false }),
     )
     ripple.rotation.x = Math.PI / 2
     ripple.position.y = 0.52

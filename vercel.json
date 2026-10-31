@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/cv/:username", "destination": "/api/page?kind=cv&username=:username" },
+    { "source": "/cert/:id", "destination": "/api/page?kind=cert&id=:id" }
+  ]
+}

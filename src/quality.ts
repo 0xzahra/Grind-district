@@ -90,7 +90,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     setNight(night: number) {
       if (bloom) {
         bloom.threshold = 0.9 - night * 0.12
-        bloom.strength = 0.18 + night * 0.22
+        bloom.strength = 0.1 + night * 0.15
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */

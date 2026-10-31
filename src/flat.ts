@@ -201,7 +201,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
-  must('#nav-learn').addEventListener('click', () => ui.open('learn'))
+  must('#nav-wallet').addEventListener('click', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
+  must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   map.addEventListener('click', () => ui.open('city'))
