@@ -102,7 +102,10 @@ function gainXp(amount: number): RankId | undefined {
   return before === after ? undefined : after
 }
 
+let activityHook: (kind: Activity['kind'], label: string, detail: string) => void = () => {}
+export function onActivity(fn: typeof activityHook): void { activityHook = fn }
 function log(kind: Activity['kind'], label: string, detail: string): void {
+  activityHook(kind, label, detail)
   save.activities.unshift({ id: makeId(), at: Date.now(), kind, label, detail })
   if (save.activities.length > 40) save.activities.length = 40
 }

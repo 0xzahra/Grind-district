@@ -6,6 +6,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { createAgentCompanion } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
+import { mountNotifications, notify } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -23,7 +24,7 @@ import { createSkyline } from './skyline.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, loadSave, rememberPlace, setGraphics, setVolume, tickMarket } from './state.ts'
+import { onActivity, subscribe, getSave, loadSave, rememberPlace, setGraphics, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -377,6 +378,14 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const chatLog = must<HTMLOListElement>('#chat-log')
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
+  mountNotifications()
+  notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome')
+  onActivity((kind, label, detail) => {
+    if (kind === 'tax') notify('Family request', `${label}. ${detail}`)
+    else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`)
+    else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail)
+  })
+  subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`) })
   const railToggle = must<HTMLButtonElement>('#rail-toggle')
   railToggle.addEventListener('click', () => {
     const shut = document.body.classList.toggle('rail-shut')
@@ -423,6 +432,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       }
       chatLog.append(item)
       if (chat.hidden && !self) msgBtn.classList.add('unread')
+      if (!self) notify('Nearby message', `${from}: ${text}`.slice(0, 120))
       while (chatLog.children.length > 5) chatLog.firstElementChild?.remove()
       window.setTimeout(() => item.remove(), 20000)
     },
