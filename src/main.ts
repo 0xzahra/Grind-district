@@ -292,6 +292,14 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
+    onTeleport: (x, z) => {
+      pos.x = x
+      pos.z = z
+      vel.x = 0
+      vel.z = 0
+      target = null
+      cameraReady = false
+    },
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))

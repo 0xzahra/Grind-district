@@ -61,6 +61,7 @@ export type PanelId =
   | 'gadgets'
   | 'gym'
   | 'church'
+  | 'bribe'
   | 'prayer'
   | 'cafe'
   | 'house'

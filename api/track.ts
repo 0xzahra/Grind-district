@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Accepts batched client events and inserts them with the service role. 202 no-op until env vars exist.
-const NAMES = new Set(['first_visit', 'session_start', 'signup', 'course_start', 'course_complete', 'cert_shared', 'cv_shared', 'share_click', 'transfer', 'topup_attempt'])
+const NAMES = new Set(['bribe', 'first_visit', 'session_start', 'signup', 'course_start', 'course_complete', 'cert_shared', 'cv_shared', 'share_click', 'transfer', 'topup_attempt'])
 type Req = { method?: string; body?: { events?: Array<Record<string, unknown>> } }
 type Res = { status(n: number): { json(b: unknown): void } }
 

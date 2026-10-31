@@ -627,3 +627,35 @@ async function syncProgress(json: string): Promise<void> {
     // Offline is fine: local save is the source of truth.
   }
 }
+
+// Bribes: in-game currency only. A clerk takes cash for a favour; it costs reputation, and the
+// surveillance drones sometimes catch it (the cash is gone, reputation drops more, no favour).
+export const BRIBES = {
+  shortcut: { label: 'Service-gate shortcut', cost: 5, detail: 'The clerk opens the service gate. You arrive at a district door at once.' },
+  queue: { label: 'Skip the gym queue', cost: 12, detail: 'Your name goes to the front: one more gym set counts today.' },
+  favour: { label: 'Quiet favour', cost: 8, detail: 'The clerk files today’s family request as handled. No tax prompt today.' },
+} as const
+export type BribeId = keyof typeof BRIBES
+export const BRIBE_REP_COST = 3
+export const BRIBE_CAUGHT_CHANCE = 0.15
+export const BRIBE_CAUGHT_REP = 8
+
+export function bribe(id: BribeId, roll = Math.random()): { ok: boolean; caught: boolean; message: string } {
+  const offer = BRIBES[id]
+  if (save.ledger < offer.cost) return { ok: false, caught: false, message: `You need ${offer.cost.toFixed(2)} in-game dollars. The clerk looks away.` }
+  save.ledger = cents(save.ledger - offer.cost)
+  const caught = roll < BRIBE_CAUGHT_CHANCE
+  if (caught) {
+    save.reputation = Math.max(0, save.reputation - BRIBE_CAUGHT_REP)
+    log('money', `Bribe caught · ${offer.label}`, `A drone logged it. -$${offer.cost} and -${BRIBE_CAUGHT_REP} reputation. No favour.`)
+  } else {
+    save.reputation = Math.max(0, save.reputation - BRIBE_REP_COST)
+    if (id === 'queue') save.dailies.gym = false
+    if (id === 'favour') save.taxOpen = false
+    log('money', `Bribe · ${offer.label}`, `-$${offer.cost} and -${BRIBE_REP_COST} reputation. ${offer.detail}`)
+  }
+  persist()
+  emit()
+  track('bribe', { kind: id, cost: offer.cost, caught })
+  return { ok: !caught, caught, message: caught ? `Caught by a drone. -$${offer.cost}, -${BRIBE_CAUGHT_REP} reputation, no favour.` : `Done. -$${offer.cost}, -${BRIBE_REP_COST} reputation. ${offer.detail}` }
+}

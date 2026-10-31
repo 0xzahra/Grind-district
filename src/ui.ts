@@ -34,6 +34,11 @@ import {
 } from './logic.ts'
 import {
   attendChurch,
+  bribe,
+  BRIBES,
+  BRIBE_CAUGHT_CHANCE,
+  BRIBE_REP_COST,
+  type BribeId,
   buyChain,
   buyDrone,
   claimHouse,
@@ -82,6 +87,7 @@ type Hooks = {
   onGraphics: () => void
   onPrefs: () => void
   onRank: (label: string) => void
+  onTeleport?: (x: number, z: number) => void
 }
 
 export type Ui = {
@@ -792,6 +798,48 @@ export function mountUi(
         return renderGadgets()
       case 'gym':
         return renderGym()
+      case 'bribe': {
+        // Bribe: pick an offer, see the in-game cost, confirm, get the favour at once.
+        const result = para('', 'result')
+        const offers: Array<{ id: BribeId; label: string; to?: [number, number] }> = [
+          { id: 'shortcut', label: 'Shortcut to the Trading floor', to: [-40.2, 0] },
+          { id: 'shortcut', label: 'Shortcut to the Learning hall', to: [0, -41] },
+          { id: 'shortcut', label: 'Shortcut to Influencer row', to: [40.2, 0] },
+          { id: 'shortcut', label: 'Shortcut to the Trenches', to: [0, 41] },
+          { id: 'queue', label: BRIBES.queue.label },
+          { id: 'favour', label: BRIBES.favour.label },
+        ]
+        let armed: HTMLButtonElement | null = null
+        const rows = offers.map((offer) => {
+          const cost = BRIBES[offer.id].cost
+          const node = button(`${offer.label} · $${cost}`, 'ghost', () => {
+            if (armed !== node) {
+              if (armed) armed.textContent = armed.dataset.label ?? ''
+              armed = node
+              node.textContent = `Confirm bribe · $${cost}`
+              result.textContent = BRIBES[offer.id].detail
+              return
+            }
+            armed = null
+            node.textContent = node.dataset.label ?? ''
+            const outcome = bribe(offer.id)
+            finish(outcome.message)
+            result.textContent = outcome.message
+            if (outcome.ok && offer.to) {
+              hooks.onTeleport?.(offer.to[0], offer.to[1])
+              close()
+            }
+          })
+          node.dataset.label = node.textContent ?? ''
+          return node
+        })
+        return renderSimple('Permit clerk', [
+          para(`Balance: $${getSave().ledger.toFixed(2)} in-game. Bribes use in-game money only.`),
+          para(`Each bribe costs ${BRIBE_REP_COST} reputation. Drones catch about ${Math.round(BRIBE_CAUGHT_CHANCE * 100)}%: the cash is gone and there is no favour.`, 'muted'),
+          ...rows,
+          result,
+        ])
+      }
       case 'church':
         return renderSimple('Church', [
           para('Rest is part of the grind. Leave the chart outside.'),

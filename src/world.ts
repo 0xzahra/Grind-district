@@ -440,6 +440,7 @@ export function createWorld(options: {
   ] as const) {
     obstacles.push({ kind: 'circle', x, z, r: 0.48 })
   }
+  spot('official', 6.4, 9.2, 1.8, 'Permit clerk', 'An official with a stamp and an open drawer. Favours for in-game cash.', 'bribe', 'Bribe')
   spot('north-arch', 0, -13.4, 2.5, 'Campus road', 'North, to the learning hall. Courses you pass write your CV.')
   spot('south-arch', 0, 13.4, 2.5, 'Trenches road', 'South. Attention trades here. Your rank does not.')
   spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'West, to the spot book. Practice funds only.')
