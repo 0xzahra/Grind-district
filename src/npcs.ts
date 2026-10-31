@@ -1,19 +1,14 @@
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
-import type { BodyId } from './logic.ts'
+import { CITIZENS, stepCitizens, type CitizenSim } from './citizens.ts'
+import { createDrone, spinDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
-
-type Point = { x: number; z: number }
 
 type Person = {
   avatar: Avatar
-  points: Point[]
-  index: number
-  speed: number
-  x: number
-  z: number
+  sim: CitizenSim
+  drone: THREE.Group | null
   radius: number
-  moving: boolean
 }
 
 function label(name: string, rank: string): THREE.Sprite {
@@ -73,72 +68,25 @@ function robot(): { object: THREE.Group; x: number; z: number } {
 
 export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacle[] } {
   const people: Person[] = []
-  const specs: Array<{
-    name: string
-    rank: string
-    body: BodyId
-    tint: number
-    luxury?: boolean
-    speed: number
-    points: Point[]
-  }> = [
-    { name: 'Adaeze', rank: 'Crab', body: 'player', tint: 0xff6f61, speed: 1.15, points: [{ x: -2.2, z: -37 }, { x: 2.2, z: -37 }] },
-    { name: 'Malik', rank: 'Fish', body: 'player', tint: 0x9fd4ff, speed: 1.25, points: [{ x: -37, z: -2 }, { x: -37, z: 2 }] },
-    { name: 'Nia', rank: 'Dolphin', body: 'player', tint: 0x1a4cff, speed: 1.2, points: [{ x: 37, z: -2 }, { x: 37, z: 2 }] },
-    { name: 'Jo', rank: 'Shrimp', body: 'player', tint: 0xf0d7b0, speed: 1.35, points: [{ x: -2, z: 37 }, { x: 2, z: 37 }] },
-    {
-      name: 'Sefu',
-      rank: 'Shark',
-      body: 'player',
-      tint: 0xf0d7b0,
-      luxury: true,
-      speed: 1.45,
-      points: [
-        { x: 0, z: -10 },
-        { x: 10, z: 0 },
-        { x: 0, z: 10 },
-        { x: -10, z: 0 },
-      ],
-    },
-  ]
-
-  for (const spec of specs) {
-    const avatar = createAvatar(spec.body, spec.tint, spec.luxury ?? false)
+  for (const spec of CITIZENS) {
+    const avatar = createAvatar(spec.body, spec.tint, spec.luxury)
+    avatar.setMask(spec.mask)
     avatar.object.add(label(spec.name, spec.rank))
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)
+    let drone: THREE.Group | null = null
+    if (spec.drone !== 'none') {
+      drone = createDrone(spec.drone)
+      drone.position.set(0.55, 2.15, 0.2)
+      avatar.object.add(drone)
+    }
     scene.add(avatar.object)
     people.push({
       avatar,
-      points: spec.points,
-      index: 1 % spec.points.length,
-      speed: spec.speed,
-      x: start.x,
-      z: start.z,
-      radius: 0.42,
-      moving: true,
-    })
-  }
-
-  const standers: Array<{ name: string; rank: string; body: BodyId; tint: number; x: number; z: number }> = [
-    { name: 'Ife', rank: 'Crab', body: 'player', tint: 0xf0d7b0, x: -7.4, z: 3.6 },
-    { name: 'Bo', rank: 'Fish', body: 'player', tint: 0x9fd4ff, x: 12, z: -36 },
-  ]
-  for (const spec of standers) {
-    const avatar = createAvatar(spec.body, spec.tint, false)
-    avatar.object.add(label(spec.name, spec.rank))
-    avatar.object.position.set(spec.x, 0, spec.z)
-    scene.add(avatar.object)
-    people.push({
-      avatar,
-      points: [{ x: spec.x, z: spec.z }],
-      index: 0,
-      speed: 0,
-      x: spec.x,
-      z: spec.z,
-      radius: 0.4,
-      moving: false,
+      sim: { spec, x: start.x, z: start.z, index: spec.points.length > 1 ? 1 % spec.points.length : 0 },
+      drone,
+      radius: spec.points.length > 1 ? 0.42 : 0.38,
     })
   }
 
@@ -157,34 +105,19 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
   return {
     tick(dt) {
       const obstacles: Obstacle[] = []
-      for (const person of people) {
-        const target = person.points[person.index]
-        if (target && person.moving) {
-          let dx = target.x - person.x
-          let dz = target.z - person.z
-          let dist = Math.hypot(dx, dz)
-          if (dist < 0.3) {
-            person.index = (person.index + 1) % person.points.length
-            const next = person.points[person.index]
-            if (next) {
-              dx = next.x - person.x
-              dz = next.z - person.z
-              dist = Math.hypot(dx, dz)
-            }
-          }
-          if (dist > 0.001) {
-            const step = Math.min(dist, person.speed * dt)
-            person.x += (dx / dist) * step
-            person.z += (dz / dist) * step
-            person.avatar.face(dx, dz, dt, true)
-            person.avatar.step(dt, true, person.speed)
-          }
-        } else {
-          person.avatar.step(dt, false, 0)
-        }
-        person.avatar.object.position.set(person.x, 0, person.z)
-        obstacles.push({ kind: 'circle', x: person.x, z: person.z, r: person.radius })
-      }
+      const before = people.map((person) => ({ x: person.sim.x, z: person.sim.z }))
+      stepCitizens(people.map((person) => person.sim), dt)
+      people.forEach((person, index) => {
+        const prior = before[index]
+        const dx = prior ? person.sim.x - prior.x : 0
+        const dz = prior ? person.sim.z - prior.z : 0
+        const moving = Math.hypot(dx, dz) > 0.001
+        if (moving) person.avatar.face(dx, dz, dt, true)
+        person.avatar.step(dt, moving, person.sim.spec.speed)
+        person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
+        if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)
+        obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })
+      })
 
       const goal = robotEnds[robotIndex]
       if (goal) {

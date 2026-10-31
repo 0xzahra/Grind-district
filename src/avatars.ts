@@ -1,8 +1,10 @@
 import * as THREE from 'three'
-import type { BodyId } from './logic.ts'
+import type { BodyId, MaskId } from './logic.ts'
+import { mountMask } from './masks.ts'
 import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
+import { createZuri } from './zuri.ts'
 
 export type Avatar = ShrimpAvatar
 
@@ -53,6 +55,10 @@ function rigged(build: (bob: THREE.Group) => {
   root.add(yaw)
   root.add(contactShadow(0.5))
   const parts = build(bob)
+  const maskAnchor = new THREE.Group()
+  maskAnchor.name = 'mask-anchor'
+  maskAnchor.position.set(0, 1.62, 0.18)
+  bob.add(maskAnchor)
   const motion = locomotion(yaw, bob, parts.legL, parts.legR, parts.armL, parts.armR)
   return {
     object: root,
@@ -63,6 +69,9 @@ function rigged(build: (bob: THREE.Group) => {
       parts.tint.emissive.setHex(tint)
       parts.tint.emissiveIntensity = 0.28
       parts.chain.visible = luxury
+    },
+    setMask(mask: MaskId) {
+      mountMask(maskAnchor, mask)
     },
   }
 }
@@ -154,6 +163,11 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean): Avata
   switch (body) {
     case 'player': {
       const avatar = createPlayer()
+      avatar.setStyle(tint, luxury)
+      return avatar
+    }
+    case 'zuri': {
+      const avatar = createZuri()
       avatar.setStyle(tint, luxury)
       return avatar
     }

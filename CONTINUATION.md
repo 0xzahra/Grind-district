@@ -12,7 +12,11 @@ npm run check
 
 ## Player 8453
 
-`src/player.ts` is the original low-poly citizen. A new save is named **Player 8453** with body `player` and a blue shirt (`0x1a4cff`). Rank still starts at shrimp. The plate on the 3D body reads the profile name in block letters on a blue plate.
+`src/player.ts` is the original low-poly man, Player 8453. A new save is named **Player 8453** with body `player` and a blue shirt (`0x1a4cff`). Rank still starts at shrimp. The plate on the 3D body reads the profile name in block letters on a blue plate. Do not turn this mesh into a woman.
+
+`src/zuri.ts` is the woman. Body id `zuri`. Longer dark hair, a softer jaw, lashes, and a fitted plum coat. She is meant to read cleaner than 8453. Shirt tint still recolors her scarf. Keep both sculpts.
+
+`src/citizens.ts` is the street roster. Adaeze, Nia, Amara, Kemi, Chioma, Sade, Lola, Ife, Zainab, Hauwa, and Bisi use Zuri. The men use Player 8453. `src/npcs.ts` builds them in 3D. The overhead map draws the same list.
 
 The reference plate image reads **PLAYER 8453**. A typed "8438" does not match that image. Keep 8453.
 
@@ -56,6 +60,28 @@ The title screen is a menu: Enter the district, How to play, The city, Courses, 
 `src/courses.ts` holds eight lessons. Each one is several paragraphs with a source line, plus four exercises. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
 
 `districtName` labels the band east of x 30 and south of z 14 as The houses, including Adaeze’s door, which sits inside the old influencer-row circle.
+
+## Masks and drones
+
+`src/masks.ts` mounts a mask on any avatar's `mask-anchor`. The ids are `punk`, `ape`, `pudgy`, `azuki`, `nodemonke`, `degods`. The labels are CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The geometry is original. Do not paste the licensed images, sprites, or character sheets into the repo. A later session can refine the silhouettes. It should not trace those collections.
+
+`src/drones.ts` is Scout ($18), Courier ($32), and Halo ($48) practice. `buyDrone` in `src/state.ts` equips one the player owns. The mesh follows the player in `src/main.ts` and is drawn on the overhead map. NPCs with a drone carry one as a child. Drones do not deliver, photograph, or open a camera.
+
+The gadgets stall is south of the plaza (`x: -16, z: 14`). The boutique sheet wears masks. Save fields are `mask`, `drone`, and `ownedDrones` on version 1.
+
+## What a later session can still add
+
+These are the open pieces. WebGL context, a wallet, a multisig, and deploying GrindRecord are already called out above. Do not redo those.
+
+- Proximity voice and player-to-player messaging. House copy still says they are later.
+- Other people are scripted citizens in `src/citizens.ts`. There is no networked player.
+- Drone jobs: a delivery, a photo, a race. Today a drone only follows.
+- Licensed collection artwork. The masks are named and wearable. They are not the real images.
+- Hair that changes per person. Every man shares 8453's blonde. Every woman shares Zuri's dark hair.
+- A closer match of both faces to a portrait at camera distance: brow, hair facets, hands.
+- The theme mp3 on GitHub. The file API corrupts it. Push audio with git.
+- A fuller nature district. The basin and the carbon desk are the outdoor piece.
+- Cash-fan emote. Do not add it unless someone asks.
 
 ## What stays off the chain
 
