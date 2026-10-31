@@ -11,12 +11,12 @@ import { buildHomeFurniture } from './homeFurniture.ts'
 import { paintSchedule } from './events.ts'
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
-export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference'
+export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
-type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void }
+type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number }
 
-const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 } }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 }, conference: { w: 18, d: 14 } }
+const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 }, conference: { w: 18, d: 14 }, lounge: { w: 16, d: 12 } }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
   house: { spot: 'yours', cx: 36, cz: 32 },
@@ -27,6 +27,7 @@ export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = 
   campus: { spot: 'learn', cx: 0, cz: -48 },
   studio: { spot: 'bounty', cx: 48, cz: 0 },
   conference: { spot: 'conference', cx: 16, cz: -54 },
+  lounge: { spot: 'lounge', cx: -40, cz: -36 },
 }
 
 const std = (color: number, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness })
@@ -518,6 +519,30 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         hooks.busy(1.6, o.x - 3.2, o.z + 0.8, Math.PI)
         hooks.toast('Recorded. Proof of work reads better than a price call.')
       } })
+    }
+    if (id === 'lounge') {
+      // Members' lounge: quiet walnut, leather and brass. Stations unlock by the visitor's rank; friends and guests may walk in.
+      const walnut = std(0x4e3626, 0.55), leather = std(0x3a2a20, 0.7), brass = std(0xb08d57, 0.35, 0.6), rugM = std(0x6b4b3a, 0.95)
+      const rug = add(new THREE.PlaneGeometry(7, 4.5), rugM, 0, 0.02, 0); rug.rotation.x = -Math.PI / 2
+      const STATIONS: Array<{ sid: string; title: string; rank: number; x: number; z: number; text: string }> = [
+        { sid: 'library', title: 'Library desk', rank: 0, x: -5.5, z: -4, text: 'A quiet desk. Reread a lesson in Career, Earn Paths.' },
+        { sid: 'strategy', title: 'Strategy room', rank: 1, x: -1.8, z: -4.6, text: 'A whiteboard with the week\u2019s challenges. Plan before you act.' },
+        { sid: 'terrace', title: 'Terrace bar', rank: 2, x: 1.8, z: -4.6, text: 'Water and tea only. Good place to meet your party.' },
+        { sid: 'board', title: 'Boardroom', rank: 3, x: 5.5, z: -4, text: 'Long table, twelve chairs. Hosts DAO-style debates.' },
+        { sid: 'study', title: 'Private study', rank: 4, x: 5.5, z: 3.5, text: 'Soundproofed. Research and writing.' },
+        { sid: 'suite', title: 'Whale suite', rank: 5, x: -5.5, z: 3.5, text: 'The top floor view. Mentors meet here.' },
+      ]
+      const RN = ['Shrimp', 'Crab', 'Fish', 'Dolphin', 'Shark', 'Whale']
+      for (const st of STATIONS) {
+        box(1.6, 0.75, 0.8, walnut, st.x, st.z)
+        box(0.12, 0.35, 0.12, brass, st.x + 0.55, st.z, 0.75, false)
+        use({ id: `lounge-${st.sid}`, x: st.x, z: st.z + 1, r: 1.2, title: st.title, body: `${RN[st.rank]}+ · ${st.text}`, enter: 'Use station', run: () => {
+          const lvl = hooks.rankIndex?.() ?? 0
+          hooks.toast(lvl >= st.rank ? `${st.title}: ${st.text}` : `${st.title} unlocks at ${RN[st.rank]}. Keep learning and showing up.`)
+        } })
+      }
+      for (const [x, z, ry] of [[-2, 1.5, 0], [2, 1.5, 0], [0, 3.2, Math.PI]] as Array<[number, number, number]>) { box(1.8, 0.45, 0.8, leather, x, z, 0, true, ry); box(1.8, 0.5, 0.18, leather, x, z + (ry ? -0.35 : 0.35), 0.45, false, ry) }
+      box(1.2, 0.4, 0.7, walnut, 0, 2.4)
     }
     if (id === 'conference') {
       // Conference centre: raised walnut stage on the north wall, a lectern, one big schedule screen,

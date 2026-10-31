@@ -1,3 +1,4 @@
+import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
@@ -789,6 +790,7 @@ const apiAgents = createRemoteAgents(scene)
   let busyFor = 0
   let exitCooldown = 0
   const interiors = createInteriors(scene, {
+    rankIndex: () => RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id),
     toast: (text) => ui.toast(text),
     openPanel: (panel) => ui.open(panel),
     onLook: () => applyLook(),
