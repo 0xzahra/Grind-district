@@ -14,7 +14,7 @@ contract DeployGrindLedger is Script {
         address treasury = 0x43985e56ac0c2CD9F95d4C1248cEB14E66Aa254a;
         IERC20 usdc = IERC20(0x036CbD53842c5426634e7929541eC2318f3dCF7e);
         vm.startBroadcast();
-        ledger = new GrindLedger(msg.sender, treasury, usdc);
+        ledger = new GrindLedger(msg.sender, treasury, usdc, address(0));
         vm.stopBroadcast();
     }
 }

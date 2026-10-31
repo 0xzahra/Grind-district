@@ -20,7 +20,7 @@ contract DeployGrindLedgerMainnet is Script {
         require(owner.code.length > 0, "OWNER must be a deployed Safe");
         require(BASE_USDC.code.length > 0, "USDC missing");
         vm.startBroadcast();
-        ledger = new GrindLedger(owner, SAFE, IERC20(BASE_USDC));
+        ledger = new GrindLedger(owner, SAFE, IERC20(BASE_USDC), address(0));
         vm.stopBroadcast();
         console2.log("GrindLedger", address(ledger), "owner", owner);
     }

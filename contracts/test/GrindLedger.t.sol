@@ -18,12 +18,13 @@ contract GrindLedgerTest is Test {
     address owner = address(0xA11CE);
     address alice = address(0xA);
     address bob = address(0xB);
+    address op = address(0x0E);
 
     event TopUp(address indexed player, address indexed asset, uint256 amount, bytes32 indexed ref);
 
     function setUp() public {
         usdc = new MockUSDC();
-        ledger = new GrindLedger(owner, SAFE, usdc);
+        ledger = new GrindLedger(owner, SAFE, usdc, op);
     }
 
     function test_transferTakesTwoPercentToTreasury() public {
@@ -68,5 +69,61 @@ contract GrindLedgerTest is Test {
     function test_zeroTopUpReverts() public {
         vm.expectRevert(GrindLedger.ZeroAmount.selector);
         ledger.topUp{value: 0}(bytes32("z"));
+    }
+
+    function test_operatorCanCredit() public {
+        vm.prank(op);
+        ledger.credit(alice, 5 ether, bytes32("o1"));
+        assertEq(ledger.balanceOf(alice), 5 ether);
+    }
+
+    function test_nonOperatorCannotCreditOrSetOperator() public {
+        vm.prank(bob);
+        vm.expectRevert(GrindLedger.NotOperator.selector);
+        ledger.credit(bob, 1, bytes32("n"));
+        vm.prank(op);
+        vm.expectRevert();
+        ledger.setOperator(bob, true);
+        vm.prank(op);
+        vm.expectRevert();
+        ledger.setDailyCreditCap(1);
+    }
+
+    function test_ownerAddsAndRevokesOperator() public {
+        vm.prank(owner);
+        ledger.setOperator(bob, true);
+        vm.prank(bob);
+        ledger.credit(bob, 1, bytes32("b1"));
+        vm.prank(owner);
+        ledger.setOperator(op, false);
+        assertFalse(ledger.isOperator(op));
+        vm.prank(op);
+        vm.expectRevert(GrindLedger.NotOperator.selector);
+        ledger.credit(alice, 1, bytes32("o2"));
+    }
+
+    function test_dailyCapEnforcedAndResets() public {
+        assertEq(ledger.dailyCreditCap(), 1_000_000 ether);
+        vm.startPrank(op);
+        ledger.credit(alice, 600_000 ether, bytes32("c1"));
+        vm.expectRevert(GrindLedger.DailyCapExceeded.selector);
+        ledger.credit(alice, 400_001 ether, bytes32("c2"));
+        ledger.credit(alice, 400_000 ether, bytes32("c3"));
+        vm.warp(block.timestamp + 1 days);
+        ledger.credit(alice, 1_000_000 ether, bytes32("c4"));
+        vm.stopPrank();
+    }
+
+    function test_ownerChangesCap() public {
+        vm.prank(owner);
+        ledger.setDailyCreditCap(10 ether);
+        vm.prank(op);
+        vm.expectRevert(GrindLedger.DailyCapExceeded.selector);
+        ledger.credit(alice, 11 ether, bytes32("k"));
+    }
+
+    function test_zeroInitialOperatorAllowed() public {
+        GrindLedger l = new GrindLedger(owner, SAFE, usdc, address(0));
+        assertFalse(l.isOperator(address(0)));
     }
 }

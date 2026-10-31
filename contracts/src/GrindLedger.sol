@@ -26,14 +26,43 @@ contract GrindLedger is ERC20, Ownable, ReentrancyGuard {
 
     mapping(bytes32 => bool) public creditedRef;
 
+    /// @notice Addresses (server keys) allowed to call credit() without a Safe signature.
+    mapping(address => bool) public isOperator;
+    /// @notice Max Grind (18-decimal units) mintable via credit() per UTC day. Owner can change it.
+    uint256 public dailyCreditCap = 1_000_000 ether;
+    /// @notice Amount credited so far on a given day index (block.timestamp / 1 days).
+    mapping(uint256 => uint256) public creditedOnDay;
+
+    event OperatorSet(address indexed operator, bool allowed);
+    event DailyCreditCapSet(uint256 cap);
+
     error ZeroAmount();
     error AlreadyCredited();
     error ForwardFailed();
+    error NotOperator();
+    error DailyCapExceeded();
 
-    constructor(address initialOwner, address treasury_, IERC20 usdc_) ERC20("Grind", "GRIND") Ownable(initialOwner) {
+    constructor(address initialOwner, address treasury_, IERC20 usdc_, address initialOperator)
+        ERC20("Grind", "GRIND")
+        Ownable(initialOwner)
+    {
         require(treasury_ != address(0), "treasury");
         treasury = treasury_;
         usdc = usdc_;
+        if (initialOperator != address(0)) {
+            isOperator[initialOperator] = true;
+            emit OperatorSet(initialOperator, true);
+        }
+    }
+
+    function setOperator(address operator, bool allowed) external onlyOwner {
+        isOperator[operator] = allowed;
+        emit OperatorSet(operator, allowed);
+    }
+
+    function setDailyCreditCap(uint256 cap) external onlyOwner {
+        dailyCreditCap = cap;
+        emit DailyCreditCapSet(cap);
     }
 
     /// @notice Pay ETH for Grind. Funds go to the treasury Safe; the server credits after the event.
@@ -52,8 +81,14 @@ contract GrindLedger is ERC20, Ownable, ReentrancyGuard {
     }
 
     /// @notice Server credits Grind for a verified top-up. Each ref credits once.
-    function credit(address player, uint256 amount, bytes32 ref) external onlyOwner {
+    ///         Callable by the owner or an operator; all credits share the daily cap.
+    function credit(address player, uint256 amount, bytes32 ref) external {
+        if (msg.sender != owner() && !isOperator[msg.sender]) revert NotOperator();
         if (creditedRef[ref]) revert AlreadyCredited();
+        uint256 day = block.timestamp / 1 days;
+        uint256 used = creditedOnDay[day] + amount;
+        if (used > dailyCreditCap) revert DailyCapExceeded();
+        creditedOnDay[day] = used;
         creditedRef[ref] = true;
         _mint(player, amount);
         emit Credited(player, amount, ref);
