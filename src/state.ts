@@ -4,6 +4,7 @@ import {
   CHAIN_USD,
   CLIMATE_USD,
   COURSE_XP,
+  DRONES,
   RESELL_USD,
   SAVE_KEY,
   SKILL_META,
@@ -15,6 +16,7 @@ import {
   cents,
   createSave,
   hydrate,
+  quoteDrone,
   lagosDay,
   makeId,
   markDaily,
@@ -27,7 +29,9 @@ import {
   sellHolding,
   stepPrices,
   type Activity,
+  type DroneId,
   type Graphics,
+  type MaskId,
   type RankId,
   type RepFlag,
   type Save,
@@ -130,6 +134,37 @@ export function setBody(body: Save['body']): void {
   save.body = body
   persist()
   emit()
+}
+
+export function setMask(mask: MaskId): void {
+  save.mask = mask
+  persist()
+  emit()
+}
+
+export function buyDrone(id: DroneId): { ok: boolean; message: string } {
+  const item = DRONES.find((drone) => drone.id === id)
+  if (!item) return { ok: false, message: 'That drone is not on the wall.' }
+  const quote = quoteDrone(save.ledger, save.ownedDrones, id)
+  if (!quote.ok) return { ok: false, message: quote.error }
+  if (!quote.already) {
+    save.ledger = quote.ledger
+    save.ownedDrones = [...save.ownedDrones, id]
+    save.wants.push({ label: `${item.label} drone`, spent: quote.spent, at: Date.now() })
+    log('money', `Bought a ${item.label} drone`, 'It follows. It does not carry a message.')
+  }
+  save.drone = id
+  persist()
+  emit()
+  return { ok: true, message: quote.already ? `${item.label} is up.` : `${item.label} is paid and flying.` }
+}
+
+export function pocketDrone(): { message: string } {
+  if (save.drone === 'none') return { message: 'Nothing is flying.' }
+  save.drone = 'none'
+  persist()
+  emit()
+  return { message: 'Pocketed. The drone is still yours.' }
 }
 
 export function setTint(tint: number): void {
