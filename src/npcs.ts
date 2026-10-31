@@ -11,7 +11,7 @@ type Person = {
   radius: number
 }
 
-function label(name: string, rank: string): THREE.Sprite {
+function label(primary: string, secondary = ''): THREE.Sprite {
   const canvas = document.createElement('canvas')
   canvas.width = 256
   canvas.height = 96
@@ -21,14 +21,20 @@ function label(name: string, rank: string): THREE.Sprite {
   context.beginPath()
   context.roundRect(8, 8, 240, 80, 18)
   context.fill()
-  context.fillStyle = '#e9fff4'
-  context.font = '700 28px Outfit, sans-serif'
   context.textAlign = 'center'
   context.textBaseline = 'middle'
-  context.fillText(name, 128, 36)
-  context.fillStyle = '#1af38f'
-  context.font = '600 20px Outfit, sans-serif'
-  context.fillText(rank, 128, 64)
+  if (secondary) {
+    context.fillStyle = '#e9fff4'
+    context.font = '700 28px Outfit, sans-serif'
+    context.fillText(primary, 128, 36)
+    context.fillStyle = '#1af38f'
+    context.font = '600 20px Outfit, sans-serif'
+    context.fillText(secondary, 128, 64)
+  } else {
+    context.fillStyle = '#1af38f'
+    context.font = '700 28px Outfit, sans-serif'
+    context.fillText(primary, 128, 48)
+  }
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(
@@ -71,7 +77,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury)
     avatar.setMask(spec.mask)
-    avatar.object.add(label(spec.name, spec.rank))
+    avatar.object.add(label(spec.rank))
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)
