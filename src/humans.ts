@@ -153,21 +153,44 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
     const idle = act('Idle'), walk = act('Walk'), run = act('Run')
     for (const a of [idle, walk, run]) if (a) { a.play(); a.setEffectiveWeight(0) }
     idle?.setEffectiveWeight(1)
-    let w = { idle: 1, walk: 0, run: 0 }
+    const w = { idle: 1, walk: 0, run: 0 }
     const baseFace = avatar.face
     avatar.face = (x, z, dt, moving) => { baseFace(x, z, dt, moving); person.rotation.y = bodyRef.rotation.y }
     avatar.step = (dt, moving, speed) => {
-      const goal = !moving ? { idle: 1, walk: 0, run: 0 } : speed > 4.2 ? { idle: 0, walk: 0, run: 1 } : { idle: 0, walk: 1, run: 0 }
+      const gi = moving ? 0 : 1, gr = moving && speed > 4.2 ? 1 : 0, gw = moving && !gr ? 1 : 0
       const k = 1 - Math.exp(-10 * dt)
-      w = { idle: w.idle + (goal.idle - w.idle) * k, walk: w.walk + (goal.walk - w.walk) * k, run: w.run + (goal.run - w.run) * k }
+      w.idle += (gi - w.idle) * k; w.walk += (gw - w.walk) * k; w.run += (gr - w.run) * k
       idle?.setEffectiveWeight(w.idle); walk?.setEffectiveWeight(w.walk); run?.setEffectiveWeight(w.run)
       if (walk) walk.timeScale = THREE.MathUtils.clamp(speed / 1.9, 0.6, 1.6)
       if (run) run.timeScale = THREE.MathUtils.clamp(speed / 5.2, 0.7, 1.4)
       // Distance LOD: people far from the camera animate at a quarter rate (set by the crowd via userData.far).
       root.userData.acc = (root.userData.acc ?? 0) + dt
-      if (root.userData.far && root.userData.acc < 0.12) return
+      // Offscreen people barely animate (nobody sees them); far ones at ~8 fps; near ones every frame.
+      const lod = mixerLod(root)
+      if (root.userData.acc < lod) return
       mixer.update(root.userData.acc)
       root.userData.acc = 0
     }
   }).catch(() => { /* keep the procedural body */ })
+}
+
+// Shared per-frame view info for mixer LOD (set once per frame by the render loop; no allocations per person).
+const viewFrustum = new THREE.Frustum()
+const viewMat = new THREE.Matrix4()
+const viewPos = new THREE.Vector3()
+const lodSphere = new THREE.Sphere(new THREE.Vector3(), 1.2)
+let viewReady = false
+export function setMixerViewer(camera: THREE.Camera): void {
+  viewMat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+  viewFrustum.setFromProjectionMatrix(viewMat)
+  viewPos.setFromMatrixPosition(camera.matrixWorld)
+  viewReady = true
+}
+function mixerLod(root: THREE.Object3D): number {
+  if (!viewReady || root.userData.player) return 0
+  root.getWorldPosition(lodSphere.center)
+  lodSphere.center.y += 0.9
+  if (!viewFrustum.intersectsSphere(lodSphere)) return 0.5
+  const d = lodSphere.center.distanceToSquared(viewPos)
+  return d > 900 ? 0.12 : d > 324 ? 0.06 : 0
 }

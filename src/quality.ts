@@ -63,7 +63,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let scale = 1
   let want = 1
   let base = 1
-  let slow = 0
+  let avg = 1 / 60
+  let cool = 3
   let w = 1
   let h = 1
   const build = () => {
@@ -121,10 +122,15 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       if (grade) grade.uniforms.time.value = t % 100
       if (level === 'low' || !composer) return
       if (!Number.isFinite(dt) || dt <= 0) return
-      slow = dt > 0.02 ? slow + 1 : Math.max(0, slow - 0.25)
-      if (slow > 20 && want > 0.6) { want -= 0.1; slow = 0 }
-      else if (slow === 0 && dt < 0.014 && want < 1) want = Math.min(1, want + 0.002)
-      if (Math.abs(want - scale) >= 0.05 || (want === 1 && scale !== 1)) {
+      // Smoothed frame time with hysteresis + cooldown: resizing reallocates every render target,
+      // so the old per-few-frames up/down oscillation caused visible hitches on phones.
+      avg += (dt - avg) * 0.05
+      cool -= dt
+      if (cool <= 0) {
+        if (avg > 0.022 && want > 0.6) { want = Math.max(0.6, want - 0.1); cool = 1.5 }
+        else if (avg < 0.0145 && want < 1) { want = Math.min(1, want + 0.1); cool = 4 }
+      }
+      if (want !== scale) {
         scale = want
         renderer.setPixelRatio(base * scale)
         renderer.setSize(w, h, false)

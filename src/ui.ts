@@ -1,6 +1,6 @@
 import { isLicensed, skinSlots } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
-import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
+import { agentJoinForm, notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
@@ -701,26 +701,7 @@ export function mountUi(
     }))
     const agentBox = document.createElement('div')
     agentBox.className = 'stack'
-    const agent = getAgent()
-    if (agent) {
-      agentBox.append(para(`${agent.name} is attached to your robot${agent.role ? ` (${agent.role})` : ''}. It walks with you, labeled AI agent.`, 'muted'),
-        button('Detach agent', 'ghost', () => { setAgent(null); open('settings') }))
-    } else {
-      const agentName = document.createElement('input')
-      agentName.type = 'text'
-      agentName.maxLength = 20
-      agentName.placeholder = 'Agent name'
-      const agentRole = document.createElement('input')
-      agentRole.type = 'text'
-      agentRole.maxLength = 24
-      agentRole.placeholder = 'What it does (optional)'
-      agentBox.append(para('Bring an AI agent into the city? It must attach to a robot and stays labeled.', 'muted'), agentName, agentRole,
-        button('Attach to a robot', 'primary', () => {
-          if (!agentName.value.trim()) { agentName.focus(); return }
-          setAgent({ name: agentName.value, role: agentRole.value })
-          open('settings')
-        }))
-    }
+    agentBox.append(agentJoinForm())
     const support = document.createElement('a')
     support.href = 'https://x.com/0xarewah'
     support.target = '_blank'

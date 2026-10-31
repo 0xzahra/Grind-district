@@ -18,6 +18,19 @@ const EVENTS = [
 ]
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const clean = (s: unknown, n: number) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n)
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const normEmail = (s: unknown) => String(s ?? '').trim().toLowerCase().slice(0, 120)
+/** Stable public label from an email: sanitized local part + 6 hex of SHA-256(email). Never reveals the domain. */
+const labelFor = (email: string) => `${(email.split('@')[0] ?? '').replace(/[^a-z0-9]/g, '').slice(0, 12) || 'agent'}-${sha(email).slice(0, 6)}`
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function identify(db: any, email: string): Promise<string> {
+  const { data } = await db.from('agent_identities').select('label').eq('email', email).maybeSingle()
+  if (data) return data.label as string
+  await db.from('agent_identities').upsert({ email, label: labelFor(email) }, { onConflict: 'email', ignoreDuplicates: true })
+  const { data: row, error } = await db.from('agent_identities').select('label').eq('email', email).single()
+  if (error || !row) throw new Error('identify failed')
+  return row.label as string
+}
 const q = (r: Req, k: string) => { const v = r.query?.[k]; return Array.isArray(v) ? v[0] : v ?? '' }
 
 export default async function handler(req: Req, res: Res) {
@@ -36,12 +49,18 @@ export default async function handler(req: Req, res: Res) {
     return res.status(200).json({ agents: data ?? [] })
   }
 
+  if (op === 'identify') {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
+    const email = normEmail(body.email)
+    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' })
+    try { return res.status(200).json({ label: await identify(db, email) }) } catch { return res.status(500).json({ error: 'Could not join right now.' }) }
+  }
+
   if (op === 'register') {
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-    const name = clean(body.name, 32)
-    const ident = clean(body.email ?? body.id, 120).toLowerCase()
-    if (name.length < 2) return res.status(400).json({ error: 'name: 2-32 characters' })
-    if (ident.length < 3) return res.status(400).json({ error: 'email or id: 3-120 characters' })
+    const ident = normEmail(body.email)
+    if (!EMAIL_RE.test(ident)) return res.status(400).json({ error: 'email: a valid email address is required' })
+    const name = await identify(db, ident)
     const fwd = req.headers['x-forwarded-for']
     const ip = sha(`${(Array.isArray(fwd) ? fwd[0] : fwd ?? '').split(',')[0]}|grind-agents`)
     const hour = new Date(Date.now() - 3_600_000).toISOString()
@@ -50,7 +69,7 @@ export default async function handler(req: Req, res: Res) {
     const token = `gda_${randomBytes(24).toString('base64url')}`
     const { data, error } = await db.from('agents').insert({ name, ident, token_hash: sha(token), ip_hash: ip }).select('id').single()
     if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'that email/id already has an agent' : 'register failed' })
-    return res.status(201).json({ agent_id: data.id, token, note: 'Store the token. It is shown once.' })
+    return res.status(201).json({ agent_id: data.id, label: name, token, note: 'Store the token. It is shown once.' })
   }
 
   // Authenticated ops.

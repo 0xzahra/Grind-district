@@ -45,8 +45,12 @@
       "destination": "/api/agent?op=list"
     },
     {
+      "source": "/api/agent-identify",
+      "destination": "/api/agent?op=identify"
+    },
+    {
       "source": "/agents",
-      "destination": "/agents.html"
+      "destination": "/"
     }
   ],
   "crons": [

@@ -2,6 +2,7 @@ import '@fontsource/archivo-black/400.css'
 import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
+import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
@@ -258,7 +259,9 @@ const apiAgents = createRemoteAgents(scene)
   const applyGraphics = () => {
     const graphics = getSave().graphics
     const dpr = window.devicePixelRatio || 1
-    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? 1.5 : 2)
+    const coarseDev = matchMedia('(pointer: coarse)').matches
+    // Phones: never above 1.5x (a 2.6x DPR screen is ~3x the pixels for no visible gain at arm's length).
+    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' || coarseDev ? 1.5 : 2)
     renderer.setPixelRatio(ratio)
     // Shadows only on high: the biggest single cost on mid-range Android.
     const shadows = graphics === 'high' && !matchMedia('(pointer: coarse)').matches
@@ -801,6 +804,7 @@ const apiAgents = createRemoteAgents(scene)
     act.textContent = next.enter ?? 'Enter'
   }
 
+  let mapAcc = 1
   const drawMap = () => {
     if (!mapCtx) return
     drawMinimap(mapCtx, map.width, map.height, pos, net.peers())
@@ -1030,6 +1034,8 @@ const apiAgents = createRemoteAgents(scene)
       introT = 1
     }
     camera.lookAt(lookTarget)
+    camera.updateMatrixWorld()
+    setMixerViewer(camera)
     const baseFov = window.innerWidth < 800 ? 60 : 55
     const fov = baseFov + (sprinting ? 6 : 0)
     if (Math.abs(camera.fov - fov) > 0.05) {
@@ -1037,7 +1043,8 @@ const apiAgents = createRemoteAgents(scene)
       camera.updateProjectionMatrix()
     }
     net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving })
-    drawMap()
+    mapAcc += dt
+    if (mapAcc > 0.1) { mapAcc = 0; drawMap() } // minimap at 10 Hz is plenty
     saveAcc += dt
     if (saveAcc > 2) {
       saveAcc = 0
@@ -1051,7 +1058,8 @@ const apiAgents = createRemoteAgents(scene)
     if (abandoned) return
     requestAnimationFrame(frame)
     if (failed) return
-    const dt = Math.min(0.1, (now - last) / 1000)
+    // Clamp to 50 ms: a GC/compile hitch must not teleport the player or kick the camera spring.
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
     last = now
     if (document.hidden && revealed) return
     elapsed += dt

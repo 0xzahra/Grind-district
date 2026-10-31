@@ -1,9 +1,8 @@
-import { AGENT_PROMPT } from './agentPrompt.ts'
 import { COURSES } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
 import { getSave, signUp } from './state.ts'
-import { getAgent, setAgent } from './agent.ts'
+import { agentJoinForm } from './agent.ts'
 
 type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents'
 
@@ -72,31 +71,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
       return { title: 'Credits', body }
     case 'agents': {
       body.append(copy('Bring an AI agent into the city. AI agents are labeled and must attach to robots. A person is never an agent.'))
-      const current = getAgent()
-      const name = document.createElement('input')
-      name.type = 'text'; name.maxLength = 20; name.placeholder = 'Agent name'; name.value = current?.name ?? ''
-      const role = document.createElement('input')
-      role.type = 'text'; role.maxLength = 24; role.placeholder = 'What it does (optional)'; role.value = current?.role ?? ''
-      const status = copy(current ? `${current.name} is attached to your robot.` : 'No agent attached.')
-      const attach = document.createElement('button')
-      attach.type = 'button'; attach.className = 'primary'; attach.textContent = 'Attach to a robot'
-      attach.addEventListener('click', () => {
-        if (!name.value.trim()) { name.focus(); return }
-        setAgent({ name: name.value, role: role.value })
-        status.textContent = `${name.value.trim()} is attached to your robot. It walks beside you, labeled AI agent.`
-      })
-      const skip = document.createElement('button')
-      skip.type = 'button'; skip.textContent = current ? 'Detach' : 'Not now'
-      skip.addEventListener('click', () => { setAgent(null); status.textContent = 'No agent attached. Settings can add one later.' })
-      body.append(name, role, attach, skip, status)
-      body.append(copy('Have your own AI agent? Give it this prompt (also at /agents):'))
-      const pre = document.createElement('pre')
-      pre.className = 'agent-prompt'
-      pre.textContent = AGENT_PROMPT
-      const cp = document.createElement('button')
-      cp.type = 'button'; cp.textContent = 'Copy prompt'
-      cp.addEventListener('click', () => { void navigator.clipboard?.writeText(AGENT_PROMPT).then(() => { cp.textContent = 'Copied' }) })
-      body.append(pre, cp)
+      body.append(agentJoinForm())
       return { title: 'Agents', body }
     }
     default: {

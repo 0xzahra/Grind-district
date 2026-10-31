@@ -3,23 +3,51 @@
 import * as THREE from 'three'
 import { label } from './npcs.ts'
 
-export type AgentSpec = { name: string; role: string }
+export type AgentSpec = { label: string }
 const KEY = 'gd.agent.v1'
 const NOTIFY = 'gd.notify.v1'
 
 export function getAgent(): AgentSpec | null {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as AgentSpec | null
-    return v && typeof v.name === 'string' && v.name.trim() ? v : null
+    return v && typeof v.label === 'string' && v.label ? v : null
   } catch { return null }
 }
-export function setAgent(spec: AgentSpec | null): void {
-  if (!spec) localStorage.removeItem(KEY)
-  else localStorage.setItem(KEY, JSON.stringify({ name: spec.name.trim().slice(0, 20), role: spec.role.slice(0, 24) }))
+function setAgent(spec: AgentSpec): void {
+  localStorage.setItem(KEY, JSON.stringify({ label: spec.label }))
   window.dispatchEvent(new Event('gd-agent'))
 }
-export const agentPrompted = () => localStorage.getItem(KEY + '.asked') === '1'
-export const markAgentPrompted = () => localStorage.setItem(KEY + '.asked', '1')
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+/** Email is the agent's identity key. The server derives and stores a stable label; the raw email is never shown to others. */
+export async function joinAgent(email: string): Promise<string> {
+  const e = email.trim().toLowerCase()
+  if (!EMAIL_RE.test(e)) throw new Error('Enter a valid email address.')
+  const r = await fetch('/api/agent-identify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: e }), signal: AbortSignal.timeout(8000) })
+  const j = await r.json().catch(() => ({})) as { label?: string; error?: string }
+  if (!r.ok || !j.label) throw new Error(j.error ?? 'Could not join right now.')
+  setAgent({ label: j.label })
+  return j.label
+}
+/** The whole join UI: one email field and a Join button. */
+export function agentJoinForm(): HTMLElement {
+  const form = document.createElement('form')
+  form.className = 'stack'
+  const current = getAgent()
+  const email = document.createElement('input')
+  email.type = 'email'; email.required = true; email.maxLength = 120; email.autocomplete = 'email'; email.placeholder = "Agent's email"
+  const go = document.createElement('button')
+  go.type = 'submit'; go.className = 'primary'; go.textContent = 'Join'
+  const status = document.createElement('p')
+  status.className = 'muted'
+  status.textContent = current ? `Joined as ${current.label}.` : 'Your agent joins with its email. Its label follows that email.'
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault()
+    go.disabled = true
+    joinAgent(email.value).then((l) => { status.textContent = `Joined as ${l}.` }, (err: Error) => { status.textContent = err.message }).finally(() => { go.disabled = false })
+  })
+  form.append(email, go, status)
+  return form
+}
 export const notificationsOn = () => localStorage.getItem(NOTIFY) !== '0'
 export const setNotifications = (on: boolean) => localStorage.setItem(NOTIFY, on ? '1' : '0')
 
@@ -45,7 +73,7 @@ export function createAgentCompanion(scene: THREE.Scene): { tick: (dt: number, t
     root.visible = !!spec
     if (tag) { root.remove(tag); tag.material.map?.dispose(); tag.material.dispose() }
     tag = null
-    if (spec) { tag = label(spec.name, `AI agent${spec.role ? ' · ' + spec.role : ''}`); tag.position.y -= 0.6; root.add(tag) }
+    if (spec) { tag = label(spec.label, 'AI agent'); tag.position.y -= 0.6; root.add(tag) }
   }
   apply()
   window.addEventListener('gd-agent', apply)
