@@ -7,6 +7,7 @@ import { loadSkinPermissions } from './skins.ts'
 import { createAgentCompanion } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { mountNotifications, notify } from './notify.ts'
+import { applyVolume, door, isMuted, mountSfx, setMuted, step } from './sfx.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -361,7 +362,12 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   })
 
   bindMusic(musicButton, volume, musicNote)
-  volume.addEventListener('input', () => setVolume(Number(volume.value)))
+  volume.addEventListener('input', () => { setVolume(Number(volume.value)); applyVolume() })
+  mountSfx()
+  const soundBtn = must<HTMLButtonElement>('#nav-sound')
+  const paintSound = () => { soundBtn.setAttribute('aria-pressed', String(!isMuted())); soundBtn.classList.toggle('active', !isMuted()); soundBtn.title = isMuted() ? 'Sound off' : 'Sound on' }
+  paintSound()
+  soundBtn.addEventListener('click', () => { setMuted(!isMuted()); paintSound() })
 
   const input = createInput(canvas, stick, nub)
   must('#cam-in').addEventListener('click', () => input.nudgeZoom(-260))
@@ -545,6 +551,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     const room = interiors.roomFor(doorSpot.id)
     if (!room) return false
     streetDoor = { x: doorSpot.x, z: doorSpot.z }
+    door()
     const at = interiors.enter(room)
     pos.x = at.x
     pos.z = at.z
@@ -559,6 +566,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     return true
   }
   const leaveRoom = () => {
+    door()
     const out = interiors.exit(streetDoor.x, streetDoor.z)
     pos.x = out.x
     pos.z = out.z
@@ -573,6 +581,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   let stuck = 0
   let prevDist = Infinity
   let traveled = 0
+  let stepAcc = 0
   let activeSpot: string | null = null
   let spot: Hotspot | null = null
   let cameraReady = false
@@ -789,6 +798,8 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       spinDrone(follower, dt, elapsed)
     }
     traveled += Math.hypot(vel.x, vel.z) * dt
+    stepAcc += Math.hypot(vel.x, vel.z) * dt
+    if (stepAcc > 0.75) { stepAcc = 0; step() }
     if (traveled > 10) hint.classList.add('quiet')
 
     marker.visible = Boolean(target) && !paused
