@@ -1353,14 +1353,14 @@ export function createWorld(options: {
   const nightSky = new THREE.Color(0x02040a)
   const nightLow = new THREE.Color(0x0a1210)
   const duskSky = new THREE.Color(0x2a3a6a)
-  const duskLow = new THREE.Color(0xff9a5a)
+  const duskLow = new THREE.Color(0xe9a476)
   const daySky = new THREE.Color(0x3d8fe0)
-  const dayLow = new THREE.Color(0xcfe6f0)
+  const dayLow = new THREE.Color(0xe6dccd)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
-  const sunDay = new THREE.Color(0xffe2b8)
-  const sunDusk = new THREE.Color(0xffb27a)
-  const moonLight = new THREE.Color(0x8fa8ff)
+  const sunDay = new THREE.Color(0xffd8a6)
+  const sunDusk = new THREE.Color(0xf6ad7c)
+  const moonLight = new THREE.Color(0xa7b2d4)
   const setDaylight = (phase: number) => {
     const angle = (phase - 0.25) * Math.PI * 2
     const elev = Math.sin(angle)
@@ -1373,7 +1373,7 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.0065 - day * 0.0035
+    fog.density = 0.0058 - day * 0.0034 + dusk * 0.0008 // soft warm haze
     // Day: the sun drives everything. Night: a faint cool moon and almost no ambient; lamps do the rest.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
