@@ -28,3 +28,4 @@ contracts/lib
 *.sw?
 .vercel
 .env*
+faces-dev.html
