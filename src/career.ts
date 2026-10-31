@@ -98,6 +98,28 @@ export function initCareer(opts: { toast: (m: string) => void; rankUp: (label: s
   const tickEvents = () => { for (const e of schedule(new Date(), 1)) if (e.open && Math.abs(e.day.getTime() + e.hour * 36e5 - Date.now()) < 36e5) post(`${e.kind} starting: ${e.title} with ${e.host}.`, 'place:Conference centre', `ev-${e.id}`) }
   tickEvents(); window.setInterval(tickEvents, 60_000)
 }
+// Live city moments: a deterministic rotation (every 3 hours, 45 minutes long). Show up nearby for small XP.
+const MOMENTS = [
+  { id: 'market', title: 'Pop-up market on the plaza', place: 'Plaza', go: 'place:The Grind Ring', x: 0, z: 0 },
+  { id: 'lecture', title: 'Guest lecturer at the Learning hall', place: 'Learning hall', go: 'place:Learning hall', x: 0, z: -44 },
+  { id: 'cars', title: 'Car show outside Gadgets', place: 'Gadgets', go: 'place:Gadgets', x: -16, z: 18 },
+]
+export function currentMoment(now = Date.now()) {
+  const slot = Math.floor(now / (3 * 36e5)); const into = now - slot * 3 * 36e5
+  return into < 45 * 60_000 ? { ...MOMENTS[slot % MOMENTS.length]!, key: `m-${slot}` } : null
+}
+export function startMoments(pos: () => { x: number; z: number }): void {
+  const tick = () => {
+    const m = currentMoment(); if (!m) return
+    post(`Live now: ${m.title}. Drop by for a little XP.`, m.go, m.key)
+    const p = pos()
+    if (Math.hypot(p.x - m.x, p.z - m.z) < 14 && !c.feedSeen.includes(`${m.key}-xp`)) {
+      c.feedSeen = [`${m.key}-xp`, ...c.feedSeen].slice(0, 80); store()
+      bonusXp(15, `Showed up: ${m.title}`, 'Live city moment. +15 XP.'); toast(`${m.title} · +15 XP`)
+    }
+  }
+  tick(); window.setInterval(tick, 10_000)
+}
 export function feedRankUp(label: string): void { post(`${getSave().name || 'A player'} ranked up to ${label}.`, 'place:The Grind Ring') }
 
 // ---------- UI ----------

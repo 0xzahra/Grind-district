@@ -8,7 +8,7 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { publishProfile } from './share.ts'
-import { initCareer, renderCareer, renderFeed, onCareer, feedRankUp } from './career.ts'
+import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp } from './career.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
@@ -368,7 +368,9 @@ const apiAgents = createRemoteAgents(scene)
     ui.toast(`Travelled to ${spot.title}.`)
   }
   travelHook = (title, enter) => {
-    const spot = world.hotspots.find((h) => h.title === title)
+    const alias: Record<string, string> = { Plaza: 'The Grind Ring' }
+    const want = alias[title] ?? title
+    const spot = world.hotspots.find((h) => h.title === want) ?? world.hotspots.find((h) => want.startsWith(h.title) || h.title.startsWith(want))
     if (!spot) return
     travelTo(spot)
     if (!enter) return
@@ -447,6 +449,7 @@ const apiAgents = createRemoteAgents(scene)
   })
   const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
   initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
+  startMoments(() => (interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z }))
   subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })
   subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`, undefined, 'panel:profile') })
   // Map lives inside the three-line menu; the menu starts collapsed so the screen stays clear.
