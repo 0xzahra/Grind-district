@@ -54,7 +54,7 @@ export async function publishProfile(): Promise<boolean> {
     // Fresh device: adopt the look saved on the account.
     const j = r.ok ? await r.json().catch(() => null) as { look?: { h: number; b: number; hair: number | null; skin?: number | null; lux?: { last: string; streak: number; best: number } } | null } | null : null
     if (j?.look?.lux) (await import('./luxury.ts')).adoptLux(j.look.lux)
-    if (j?.look && !mo.hasLocalMorph() && typeof j.look.h === 'number') { mo.setMorph({ h: j.look.h, b: j.look.b, hair: j.look.hair, skin: j.look.skin ?? null }); window.dispatchEvent(new Event('gd:look')) }
+    if (j?.look && !mo.hasLocalMorph() && typeof j.look.h === 'number') { mo.setMorph({ h: j.look.h, b: j.look.b, hair: j.look.hair, skin: j.look.skin ?? null, lip: (j.look as { lip?: number | null }).lip ?? null, blush: (j.look as { blush?: number | null }).blush ?? null }); window.dispatchEvent(new Event('gd:look')) }
     return r.ok
   } catch { return false }
 }

@@ -73,6 +73,22 @@ function load(name: HumanModel): Promise<Template> {
 /** Warm the cache so the first city frame does not wait on people. */
 export function preloadHumans(names: HumanModel[]): void { for (const n of names) void load(n).catch(() => undefined) }
 
+// Makeup: soft lip tint and blush as tiny matte shapes on the head bone (3 meshes, player only).
+export let MAKEUP_Y = 0.03, MAKEUP_Z = 0.125
+export function tuneMakeup(y: number, z: number): void { MAKEUP_Y = y; MAKEUP_Z = z }
+function makeupGroup(): THREE.Group {
+  const g = new THREE.Group()
+  const lip = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 8), new THREE.MeshStandardMaterial({ color: 0xb05a5a, roughness: 0.45 }))
+  lip.scale.set(1.15, 0.42, 0.5)
+  g.add(lip)
+  for (const s of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.CircleGeometry(0.016, 14), new THREE.MeshStandardMaterial({ color: 0xd98c84, roughness: 1, transparent: true, opacity: 0.45, depthWrite: false }))
+    b.position.set(s * 0.04, 0.03, -0.012); b.rotation.y = s * 0.5
+    g.add(b)
+  }
+  return g
+}
+
 function wireGlasses(): THREE.Group {
   const g = new THREE.Group()
   const metal = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.9, roughness: 0.2 })
@@ -98,7 +114,7 @@ function wireGlasses(): THREE.Group {
  * Swap a procedural avatar's body for a real animated person once the model loads.
  * The procedural body stays as the instant fallback (and if loading fails). Masks keep the procedural body.
  */
-export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { look?: Look; glasses?: boolean; height?: number } = {}): void {
+export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { look?: Look; glasses?: boolean; height?: number; makeup?: { lip?: number | null; blush?: number | null } } = {}): void {
   const root = avatar.object
   // The procedural body is the root child with the most descendants (it is the one face() rotates).
   let body: THREE.Object3D | null = null
@@ -142,6 +158,25 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         person.add(g)
         person.updateMatrixWorld(true)
         head.attach(g)
+      }
+    }
+    if (opts.makeup) {
+      person.updateMatrixWorld(true)
+      const head = person.getObjectByName('Head')
+      if (head) {
+        const hp = new THREE.Vector3(); head.getWorldPosition(hp)
+        const local = hp.clone().applyMatrix4(new THREE.Matrix4().copy(person.matrixWorld).invert())
+        const mk = makeupGroup()
+        mk.position.set(local.x, local.y + MAKEUP_Y / person.scale.y, local.z + MAKEUP_Z / person.scale.z)
+        mk.scale.setScalar(1 / person.scale.x)
+        person.add(mk); person.updateMatrixWorld(true); head.attach(mk)
+        const set = (lip?: number | null, blush?: number | null) => {
+          const [l, b1, b2] = mk.children as THREE.Mesh[]
+          l!.visible = lip != null; if (lip != null) (l!.material as THREE.MeshStandardMaterial).color.setHex(lip)
+          for (const b of [b1!, b2!]) { b.visible = blush != null; if (blush != null) (b.material as THREE.MeshStandardMaterial).color.setHex(blush) }
+        }
+        set(opts.makeup.lip, opts.makeup.blush)
+        root.userData.setMakeup = set
       }
     }
     root.userData.person = person

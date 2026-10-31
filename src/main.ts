@@ -461,7 +461,8 @@ const apiAgents = createRemoteAgents(scene)
   })
   const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
   initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
-  startMoments(() => (interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z }))
+  // startMoments ticks immediately when a moment is live; interiors is declared further down, so guard the TDZ.
+  startMoments(() => { try { return interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z } } catch { return { x: pos.x, z: pos.z } } })
   subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })
   subscribe((rankedUp) => { if (rankedUp) notify('Rank up', `You are now ${rankFor(getSave().xp).label}.`, undefined, 'panel:profile') })
   // Map lives inside the three-line menu; the menu starts collapsed so the screen stays clear.
@@ -963,12 +964,25 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   let mapAcc = 1
-  const bake = () => !interiors.inside && bakeSatellite(renderer, scene, getSave().graphics === 'low' ? 256 : 512)
+  // interiors is declared later in main(); a timer can fire before that, so read it defensively.
+  const indoors = () => { try { return Boolean(interiors.inside) } catch { return true } }
+  const bake = () => !indoors() && bakeSatellite(renderer, scene, getSave().graphics === 'low' ? 256 : 512)
   let baked = false
-  const tryBake = () => { if (!interiors.inside) { bake(); baked = true } else setTimeout(tryBake, 5000) }
+  const tryBake = () => { if (!indoors()) { bake(); baked = true } else setTimeout(tryBake, 5000) }
   setTimeout(tryBake, 4000)
   void baked
-  if (location.search.includes('debugmap')) Object.assign(window, { __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles })
+  if (location.search.includes('debugmap')) Object.assign(window, { __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __face: (dy = 0) => {
+    const c = new THREE.PerspectiveCamera(20, 1, 0.05, 50)
+    const hp = new THREE.Vector3(); (avatar.object.getObjectByName('Head') ?? avatar.object).getWorldPosition(hp)
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(avatar.object.getWorldQuaternion(new THREE.Quaternion()))
+    c.position.copy(hp).addScaledVector(fwd, -1.1); c.position.y += 0.05 + dy; c.lookAt(hp.x, hp.y + 0.05, hp.z)
+    const rt = new THREE.WebGLRenderTarget(400, 400); rt.texture.colorSpace = THREE.SRGBColorSpace
+    renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
+    const px = new Uint8Array(400 * 400 * 4); renderer.readRenderTargetPixels(rt, 0, 0, 400, 400, px)
+    const cv = document.createElement('canvas'); cv.width = cv.height = 400; const g = cv.getContext('2d')!; const im = g.createImageData(400, 400)
+    for (let y = 0; y < 400; y++) im.data.set(px.subarray((399 - y) * 1600, (400 - y) * 1600), y * 1600)
+    g.putImageData(im, 0, 0); return cv.toDataURL()
+  } })
   setInterval(bake, 10 * 60 * 1000) // refreshed rarely
   const drawMap = () => {
     if (!mapCtx) return

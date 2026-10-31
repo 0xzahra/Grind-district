@@ -175,6 +175,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     avatar.object.scale.set(sc.b, sc.h, sc.b)
     upgradeToHuman(avatar, model, {
       glasses: own && !female,
+      makeup: own ? { lip: mo.lip, blush: mo.blush } : undefined,
       look: own ? (female ? { hair, top: tint, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6, top: tint }) : undefined,
       height: female ? 1.68 : 1.78,
     })
@@ -189,6 +190,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         avatar.object.userData.look = look
         const apply = avatar.object.userData.applyLook as ((l: typeof look) => void) | undefined
         apply?.(look)
+        ;(avatar.object.userData.setMakeup as ((l?: number | null, b?: number | null) => void) | undefined)?.(now.lip, now.blush)
       }
     }
     const setMask = avatar.setMask

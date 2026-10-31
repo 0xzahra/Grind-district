@@ -33,7 +33,7 @@ export default async function handler(req: Req, res: Res) {
   const col = (v: unknown) => v == null ? null : Math.max(0, Math.min(0xffffff, Math.round(Number(v) || 0)))
   const prev = await db.from('public_profiles').select('look').eq('username', p.data.username).maybeSingle()
   const old = (prev?.data?.look ?? {}) as Record<string, unknown>
-  if (lk && typeof lk === 'object') row.look = { ...old, h: Math.max(0.92, Math.min(1.08, Number(lk.h) || 1)), b: Math.max(0.9, Math.min(1.15, Number(lk.b) || 1)), hair: col(lk.hair), skin: col(lk.skin) }
+  if (lk && typeof lk === 'object') row.look = { ...old, h: Math.max(0.92, Math.min(1.08, Number(lk.h) || 1)), b: Math.max(0.9, Math.min(1.15, Number(lk.b) || 1)), hair: col(lk.hair), skin: col(lk.skin), lip: col((lk as { lip?: unknown }).lip), blush: col((lk as { blush?: unknown }).blush) }
   // Daily check-in streak rides in the same jsonb (no schema change). Keep whichever record is newer.
   const lx = b.lux as { last?: unknown; streak?: unknown; best?: unknown } | undefined
   if (lx && typeof lx === 'object' && /^\d{4}-\d{2}-\d{2}$/.test(String(lx.last ?? ''))) {
