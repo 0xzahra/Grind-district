@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 const LIMIT = 62
 export const MAP_LIMIT = LIMIT
 
@@ -16,6 +17,37 @@ const PLOTS: Array<{ x: number; z: number; w: number; d: number; door?: boolean 
   { x: 52, z: 40, w: 6, d: 5 },
 ]
 
+let sat: HTMLCanvasElement | null = null
+/** Satellite-style base map: one orthographic top-down render of the real scene, cached in a 2D canvas. */
+export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene, size = 512): void {
+  const cam = new THREE.OrthographicCamera(-LIMIT, LIMIT, LIMIT, -LIMIT, 1, 400)
+  cam.position.set(0, 200, 0)
+  cam.up.set(0, 0, -1)
+  cam.lookAt(0, 0, 0)
+  const rt = new THREE.WebGLRenderTarget(size, size)
+  rt.texture.colorSpace = THREE.SRGBColorSpace
+  const fog = scene.fog
+  const prev = renderer.getRenderTarget()
+  try {
+    scene.fog = null
+    renderer.setRenderTarget(rt)
+    renderer.render(scene, cam)
+    const px = new Uint8Array(size * size * 4)
+    renderer.readRenderTargetPixels(rt, 0, 0, size, size, px)
+    const c = sat ?? document.createElement('canvas')
+    c.width = c.height = size
+    const ctx = c.getContext('2d')!
+    const img = ctx.createImageData(size, size)
+    for (let y = 0; y < size; y++) img.data.set(px.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4)
+    ctx.putImageData(img, 0, 0)
+    sat = c
+  } catch { /* keep the vector map */ } finally {
+    renderer.setRenderTarget(prev)
+    scene.fog = fog
+    rt.dispose()
+  }
+}
+
 export function drawMinimap(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -28,6 +60,8 @@ export function drawMinimap(
   ctx.clearRect(0, 0, width, height)
   ctx.fillStyle = '#101816'
   ctx.fillRect(0, 0, width, height)
+  if (sat) ctx.drawImage(sat, 0, 0, width, height)
+  if (!sat) {
   ctx.strokeStyle = '#2f6d58'
   ctx.lineWidth = Math.max(2, width / 36)
   ctx.beginPath()
@@ -52,6 +86,7 @@ export function drawMinimap(
   ctx.beginPath()
   ctx.arc(X(-40), Y(40), Math.max(4, width / 28), 0, Math.PI * 2)
   ctx.fill()
+  }
   ctx.fillStyle = '#9dccb6'
   ctx.font = `600 ${Math.max(9, Math.round(width / 12))}px Outfit, sans-serif`
   ctx.textAlign = 'center'

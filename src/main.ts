@@ -18,7 +18,7 @@ import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
-import { drawMinimap } from './minimap.ts'
+import { drawMinimap, bakeSatellite } from './minimap.ts'
 import { createNet } from './net.ts'
 import { encodeShare } from './logic.ts'
 import { dmUnread, mountMessages, openInbox, openThread } from './messages.ts'
@@ -961,6 +961,9 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   let mapAcc = 1
+  const bake = () => bakeSatellite(renderer, scene, getSave().graphics === 'low' ? 256 : 512)
+  setTimeout(bake, 4000)
+  setInterval(bake, 10 * 60 * 1000) // refreshed rarely
   const drawMap = () => {
     if (!mapCtx) return
     drawMinimap(mapCtx, map.width, map.height, pos, net.peers())
