@@ -12,6 +12,7 @@ import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
+import { createTraffic } from './traffic.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
@@ -159,6 +160,13 @@ async function main(onReveal: () => void) {
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
   const crowd = createCrowd(scene)
+  const traffic = createTraffic(scene, world.lanes, getSave().graphics)
+  // ~10 real minutes per in-game day. GN time in Settings picks where the clock starts.
+  const DAY_SECONDS = 600
+  const phaseFor = (time: string) => (time === 'day' ? 0.42 : time === 'dusk' ? 0.74 : 0.02)
+  let dayPhase = phaseFor(getSave().timeOfDay)
+  let lightAcc = 1
+  const calmSky = () => reduceMotion || getSave().reduceMotion
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
   const pos = { x: getSave().posX, z: getSave().posZ }
@@ -190,7 +198,9 @@ async function main(onReveal: () => void) {
   const applyLook = () => {
     const time = getSave().timeOfDay
     world.setLook({ time, season: seasonAt() })
-    renderer.toneMappingExposure = time === 'day' ? 1.05 : time === 'dusk' ? 1.02 : 0.96
+    dayPhase = phaseFor(time)
+    world.setDaylight(dayPhase)
+    renderer.toneMappingExposure = 1.0
   }
   const applyGraphics = () => {
     const graphics = getSave().graphics
@@ -329,6 +339,9 @@ async function main(onReveal: () => void) {
   let camYaw = 0
   let camPitch = 0.42
   let camDist = 8.4
+  let lookIdle = 0
+  const camVel = new THREE.Vector3()
+  const lookSmooth = new THREE.Vector3()
   const vel = { x: 0, z: 0 }
   let target: THREE.Vector3 | null = null
   let stuck = 0
@@ -418,11 +431,23 @@ async function main(onReveal: () => void) {
       ui.refresh()
     }
     crowdObstacles = crowd.tick(dt)
+    crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
+    // Reduced motion holds the sky still at the chosen GN time.
+    if (!calmSky()) dayPhase = (dayPhase + dt / DAY_SECONDS) % 1
+    lightAcc += dt
+    if (lightAcc > 0.25) {
+      lightAcc = 0
+      world.setDaylight(dayPhase)
+      const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
+      renderer.toneMappingExposure = 0.96 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.1
+    }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()
     const paused = ui.isOpen()
+    if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
+    else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 4.6, 16)
@@ -525,7 +550,15 @@ async function main(onReveal: () => void) {
       ui.open('tax')
     }
 
-    lookTarget.set(pos.x, 1.15, pos.z)
+    // After a moment without manual look, ease the camera behind the walking direction.
+    if (lookIdle > 1.6 && directed === false && Math.hypot(vel.x, vel.z) > 1 && !paused) {
+      const behind = Math.atan2(-vel.x, -vel.z)
+      const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
+      camYaw += delta * (1 - Math.exp(-1.2 * dt))
+    }
+    if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
+    lookSmooth.lerp(lookTarget.set(pos.x, 1.15, pos.z), 1 - Math.exp(-14 * dt))
+    lookTarget.copy(lookSmooth)
     const horiz = camDist * Math.cos(camPitch)
     desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + camDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
     const ideal = pullCamera(lookTarget, desiredCam)
@@ -533,7 +566,10 @@ async function main(onReveal: () => void) {
       smoothCam.copy(ideal)
       cameraReady = true
     } else {
-      smoothCam.lerp(ideal, 1 - Math.exp(-6 * dt))
+      // Critically damped spring toward the ideal spot; the collision pull below snaps in instantly.
+      const k = 38
+      camVel.addScaledVector(pulledCam.copy(ideal).sub(smoothCam), k * dt).multiplyScalar(Math.exp(-2 * Math.sqrt(k) * dt))
+      smoothCam.addScaledVector(camVel, dt)
     }
     const safe = pullCamera(lookTarget, smoothCam)
     if (safe.y < 0.4) safe.y = 0.4

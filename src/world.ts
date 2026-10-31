@@ -22,6 +22,10 @@ export type World = {
   tick: (time: number, focus: THREE.Vector3) => void
   setLook: (look: { time: TimeOfDay; season: Season }) => void
   setRank: (label: string) => void
+  /** Continuous day clock. 0 is midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset. */
+  setDaylight: (phase: number) => void
+  /** Sidewalk lanes and stop lines for the ambient city. */
+  lanes: { roadHalf: number; walk: number; inner: number; outer: number }
 }
 
 type Door = 'px' | 'nx' | 'pz' | 'nz'
@@ -288,10 +292,28 @@ export function createWorld(options: {
   fill.position.set(-12, 10, -8)
   scene.add(fill)
 
+  const skyTop = new THREE.Color(0x02040a)
+  const skyLow = new THREE.Color(0x070a09)
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(200, 24, 12),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: { top: { value: skyTop }, low: { value: skyLow } },
+      vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 low; varying float h; void main(){ gl_FragColor = vec4(mix(low, top, smoothstep(-0.05, 0.6, h)), 1.0); }',
+    }),
+  )
+  sky.userData.ghost = true
+  sky.raycast = () => undefined
+  sky.renderOrder = -1
+  scene.add(sky)
   const fog = new THREE.Fog(0x070a09, 28, 140)
   scene.fog = fog
   const background = new THREE.Color(0x070a09)
   scene.background = background
+  const sunOffset = new THREE.Vector3(14, 22, 10)
 
   const addGlow = (x: number, y: number, z: number, color: number, night: number) => {
     const light = new THREE.PointLight(color, night, 14, 2)
@@ -871,6 +893,7 @@ export function createWorld(options: {
     const night = look.time === 'night'
     const dusk = look.time === 'dusk'
     const bear = look.season === 'bear'
+    seasonBear = bear
     background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
     fog.color.copy(background)
     fog.near = night ? 26 : dusk ? 32 : 40
@@ -891,6 +914,54 @@ export function createWorld(options: {
     stars.visible = night
   }
 
+  let seasonBear = false
+  const nightSky = new THREE.Color(0x02040a)
+  const nightLow = new THREE.Color(0x0a1210)
+  const duskSky = new THREE.Color(0x2a3a6a)
+  const duskLow = new THREE.Color(0xff9a5a)
+  const daySky = new THREE.Color(0x3d8fe0)
+  const dayLow = new THREE.Color(0xcfe6f0)
+  const tmpA = new THREE.Color()
+  const tmpB = new THREE.Color()
+  const sunDay = new THREE.Color(0xfff1d6)
+  const sunDusk = new THREE.Color(0xffb27a)
+  const moonLight = new THREE.Color(0x9fb4ff)
+  const setDaylight = (phase: number) => {
+    const angle = (phase - 0.25) * Math.PI * 2
+    const elev = Math.sin(angle)
+    const day = THREE.MathUtils.smoothstep(elev, -0.12, 0.3)
+    const dusk = Math.exp(-((elev / 0.16) ** 2))
+    const night = 1 - day
+    tmpA.copy(nightSky).lerp(daySky, day).lerp(duskSky, dusk * 0.6)
+    tmpB.copy(nightLow).lerp(dayLow, day).lerp(duskLow, dusk * 0.75)
+    skyTop.copy(tmpA)
+    skyLow.copy(tmpB)
+    background.copy(tmpB)
+    fog.color.copy(tmpB)
+    fog.near = 26 + day * 14
+    fog.far = 136 + day * 24
+    // The key light is the sun by day and the moon by night, always from above the horizon.
+    const up = Math.max(0.35, Math.abs(elev))
+    const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
+    sunOffset.set(side * 20, 8 + up * 18, 10)
+    sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
+    if (seasonBear) sun.color.lerp(moonLight, 0.25)
+    sun.intensity = (elev >= 0 ? 0.6 + day * 1.1 : 0.55) * (seasonBear ? 0.85 : 1)
+    hemi.intensity = 0.4 + day * 0.68
+    hemi.color.copy(moonLight).lerp(sunDay, day)
+    hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)
+    fill.intensity = 0.22 + day * 0.13
+    lampMat.emissiveIntensity = 0.08 + night * 0.87
+    trimPulse = 0.35 + night * 0.77
+    trim.emissiveIntensity = trimPulse
+    waterMat.emissiveIntensity = 0.12 + night * 0.38
+    for (const facade of facades) facade.emissiveIntensity = 0.05 + night * 0.4
+    for (const light of glow) light.intensity = Number(light.userData.night) * Math.max(0, night - 0.1)
+    moon.visible = night > 0.25
+    moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)
+    stars.visible = night > 0.6
+  }
+
   if (reduceMotion) {
     ripples.forEach((ripple, index) => {
       ripple.mesh.scale.setScalar(0.7 + index * 0.45)
@@ -904,13 +975,16 @@ export function createWorld(options: {
     hotspots,
     sun,
     setLook,
+    setDaylight,
+    lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: 18, outer: 39 },
     setRank(label: string) {
       ladderMap.dispose()
       ladderMap = paintLadder(label)
       ladderMat.map = ladderMap
     },
     tick(time, focus) {
-      sun.position.set(focus.x + 14, 22, focus.z + 10)
+      sun.position.set(focus.x + sunOffset.x, sunOffset.y, focus.z + sunOffset.z)
+      sky.position.set(focus.x, 0, focus.z)
       sun.target.position.set(focus.x, 0, focus.z)
       sun.target.updateMatrixWorld()
       if (!reduceMotion) {
