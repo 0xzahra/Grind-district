@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { MaskId } from './logic.ts'
 import { mountMask } from './masks.ts'
 
-const MINT = 0x1af38f
+const MINT = 0x17f790
 
 export type ShrimpAvatar = {
   object: THREE.Group

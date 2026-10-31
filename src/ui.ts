@@ -13,7 +13,6 @@ import {
   SKILL_META,
   TAX_USD,
   TINTS,
-  ZAHRA,
   documents,
   encodeShare,
   money,
@@ -420,7 +419,7 @@ export function mountUi(
       const span = Math.max(0.0001, max - min)
       const last = hist[hist.length - 1] ?? min
       const first = hist[0] ?? min
-      ctx.strokeStyle = last >= first ? '#1af38f' : '#ff6f61'
+      ctx.strokeStyle = last >= first ? '#17f790' : '#ff6f61'
       ctx.lineWidth = 4
       ctx.beginPath()
       hist.forEach((value, index) => {
@@ -690,10 +689,14 @@ export function mountUi(
       toast('Back to zero. Your name stayed. GN time and volume stayed.')
     })
     const support = document.createElement('a')
-    support.href = ZAHRA
+    support.href = 'https://x.com/0xarewah'
     support.target = '_blank'
     support.rel = 'noopener noreferrer'
-    support.textContent = 'Support · Made by Zahra'
+    support.className = 'help-link'
+    support.textContent = 'Get help'
+    const wallet = button('Wallet on Base', 'ghost', () => {
+      void import('./wallet.ts').then((m) => m.openWallet())
+    })
     return frame('Settings', stack(
       nameLabel,
       userLabel,
@@ -709,6 +712,10 @@ export function mountUi(
       para('The theme stays silent until you turn Music on. Volume is the slider by that button. With reduced motion on, it never resumes by itself.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
+      para('Wallet', 'kicker'),
+      wallet,
+      para('Grind is in-game currency only. The wallet shows your real Base balance; you sign every send yourself.', 'muted'),
+      para('Support', 'kicker'),
       support,
       button('About this city', 'ghost', () => open('about')),
       reset,
@@ -901,11 +908,10 @@ export function mountUi(
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
           para('This build is the city: districts, a man and a woman you can wear, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do. You pick the name and the username.'),
-          para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
+          para('The ledger is practice. There is no deployed token and the city never asks for a seed phrase. The optional Base wallet in Settings only reads your balance and asks your own wallet to sign. Nothing here is financial advice. This city does not run on Solana.'),
           para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
           para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
           para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
-          button('Made by Zahra', 'primary', () => window.open(ZAHRA, '_blank', 'noopener')),
         ])
       case 'tax':
         return renderSimple('Family request', [

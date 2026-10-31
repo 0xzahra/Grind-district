@@ -61,7 +61,7 @@ export function createDrone(id: DroneId): THREE.Group {
   switch (id) {
     case 'scout': {
       const shell = mat(0x143028, 0.4, 0.35)
-      const glow = mat(0x1af38f, 0.3, 0.1, 0.7)
+      const glow = mat(0x17f790, 0.3, 0.1, 0.7)
       mesh(new THREE.BoxGeometry(0.16, 0.06, 0.16), shell, root)
       rotors.push(...quad(root, shell, glow))
       break

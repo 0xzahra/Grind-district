@@ -96,7 +96,7 @@ export function loadSave(prefer: Graphics): Save {
   applyDay(save, lagosDay(new Date()))
   if (!save.signedUp && save.body === 'shrimp') {
     save.body = 'player'
-    if (save.tint === 0x1af38f) save.tint = 0x1a4cff
+    if (save.tint === 0x17f790) save.tint = 0x1a4cff
   }
   persist()
   return save

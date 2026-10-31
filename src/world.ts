@@ -94,8 +94,8 @@ export function createWorld(options: {
   const stone = new THREE.MeshStandardMaterial({ color: 0x3c4b45, roughness: 0.88, metalness: 0.04 })
   const stoneDark = new THREE.MeshStandardMaterial({ color: 0x24302b, roughness: 0.9, metalness: 0.05 })
   const trim = new THREE.MeshStandardMaterial({
-    color: 0x1af38f,
-    emissive: 0x1af38f,
+    color: 0x17f790,
+    emissive: 0x17f790,
     emissiveIntensity: 1.1,
     roughness: 0.38,
   })
@@ -143,7 +143,7 @@ export function createWorld(options: {
     paint(1024, 448, (g) => {
       g.fillStyle = '#0c1411'
       g.fillRect(0, 0, 1024, 448)
-      g.strokeStyle = '#1af38f'
+      g.strokeStyle = '#17f790'
       g.lineWidth = 16
       g.strokeRect(18, 18, 988, 412)
       g.textAlign = 'center'
@@ -155,7 +155,7 @@ export function createWorld(options: {
         size -= 4
         g.font = `${size}px "Archivo Black", sans-serif`
       }
-      g.fillStyle = '#1af38f'
+      g.fillStyle = '#17f790'
       g.fillText(label, 512, 170)
       g.fillStyle = '#d5efe2'
       g.font = '500 40px Outfit, sans-serif'
@@ -166,7 +166,7 @@ export function createWorld(options: {
     paint(512, 1024, (g) => {
       g.fillStyle = '#0d1512'
       g.fillRect(0, 0, 512, 1024)
-      g.strokeStyle = '#1af38f'
+      g.strokeStyle = '#17f790'
       g.lineWidth = 12
       g.strokeRect(16, 16, 480, 992)
       g.textAlign = 'center'
@@ -179,7 +179,7 @@ export function createWorld(options: {
       ranks.forEach((rank, index) => {
         const y = 210 + index * 120
         if (rank === you) {
-          g.fillStyle = '#1af38f'
+          g.fillStyle = '#17f790'
           g.fillRect(48, y - 42, 416, 84)
           g.fillStyle = '#062117'
           g.font = '52px "Archivo Black", sans-serif'
@@ -203,7 +203,7 @@ export function createWorld(options: {
         for (let col = 14; col < 118; col += 22) {
           if (rand() > 0.72) continue
           const lit = rand()
-          g.fillStyle = lit > 0.86 ? '#1af38f' : lit > 0.45 ? '#f0d7b0' : '#121a17'
+          g.fillStyle = lit > 0.86 ? '#17f790' : lit > 0.45 ? '#f0d7b0' : '#121a17'
           g.fillRect(col, row, 10, 16)
         }
       }
@@ -272,7 +272,7 @@ export function createWorld(options: {
   ground.name = 'ground'
   scene.add(ground)
 
-  const hemi = new THREE.HemisphereLight(0xb7d4ff, 0x1c2e26, 0.45)
+  const hemi = new THREE.HemisphereLight(0x9fb8d8, 0x0b120f, 0.25)
   scene.add(hemi)
   const sun = new THREE.DirectionalLight(0xfff1d6, 0.85)
   sun.position.set(14, 22, 10)
@@ -309,7 +309,7 @@ export function createWorld(options: {
   sky.raycast = () => undefined
   sky.renderOrder = -1
   scene.add(sky)
-  const fog = new THREE.Fog(0x070a09, 28, 140)
+  const fog = new THREE.FogExp2(0x0a1412, 0.012)
   scene.fog = fog
   const background = new THREE.Color(0x070a09)
   scene.background = background
@@ -583,7 +583,7 @@ export function createWorld(options: {
       // Sidewalks first, then the asphalt over them, then walkways.
       g.fillStyle = '#7d8a83'
       for (const road of roads) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
-      g.fillStyle = '#2f3a36'
+      g.fillStyle = '#1e2624'
       for (const road of roads) fillRect(road)
       g.strokeStyle = 'rgba(230, 236, 232, 0.5)'
       g.lineWidth = 3
@@ -680,11 +680,11 @@ export function createWorld(options: {
   emblem.add(plane, halo)
   scene.add(basin, rim, water, pedestal, emblem)
   obstacles.push({ kind: 'circle', x: 0, z: 0, r: 2.9 })
-  addGlow(0, 1.6, 0, 0x1af38f, 12)
+  addGlow(0, 1.6, 0, 0x17f790, 12)
   for (let i = 0; i < 3; i += 1) {
     const ripple = new THREE.Mesh(
       new THREE.TorusGeometry(1, 0.02, 6, 40),
-      new THREE.MeshBasicMaterial({ color: 0x1af38f, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: 0x17f790, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false }),
     )
     ripple.rotation.x = Math.PI / 2
     ripple.position.y = 0.52
@@ -862,7 +862,7 @@ export function createWorld(options: {
     const g = screen.context
     g.fillStyle = '#0c1411'
     g.fillRect(0, 0, 256, 128)
-    g.fillStyle = '#1af38f'
+    g.fillStyle = '#17f790'
     g.font = '600 18px Outfit, sans-serif'
     g.fillText(screen.key === 'unit' ? 'UNIT' : 'MEME', 12, 22)
     if (values.length < 2) {
@@ -874,7 +874,7 @@ export function createWorld(options: {
     const span = Math.max(0.0001, max - min)
     const last = values[values.length - 1] ?? min
     const first = values[0] ?? min
-    g.strokeStyle = last >= first ? '#1af38f' : '#ff6f61'
+    g.strokeStyle = last >= first ? '#17f790' : '#ff6f61'
     g.lineWidth = 3
     g.beginPath()
     values.forEach((value, index) => {
@@ -896,8 +896,7 @@ export function createWorld(options: {
     seasonBear = bear
     background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
     fog.color.copy(background)
-    fog.near = night ? 26 : dusk ? 32 : 40
-    fog.far = night ? 136 : 160
+    fog.density = night ? 0.013 : dusk ? 0.011 : 0.008
     sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xffb27a : 0xfff1d6)
     sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
     hemi.intensity = night ? 0.4 : dusk ? 0.66 : 1.08
@@ -923,9 +922,9 @@ export function createWorld(options: {
   const dayLow = new THREE.Color(0xcfe6f0)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
-  const sunDay = new THREE.Color(0xfff1d6)
+  const sunDay = new THREE.Color(0xffe2b8)
   const sunDusk = new THREE.Color(0xffb27a)
-  const moonLight = new THREE.Color(0x9fb4ff)
+  const moonLight = new THREE.Color(0x8fa8ff)
   const setDaylight = (phase: number) => {
     const angle = (phase - 0.25) * Math.PI * 2
     const elev = Math.sin(angle)
@@ -938,23 +937,25 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.near = 26 + day * 14
-    fog.far = 136 + day * 24
+    fog.density = 0.013 - day * 0.005
     // The key light is the sun by day and the moon by night, always from above the horizon.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.6 + day * 1.1 : 0.55) * (seasonBear ? 0.85 : 1)
-    hemi.intensity = 0.4 + day * 0.68
+    sun.intensity = (elev >= 0 ? 0.5 + day * 1.1 : 0.35) * (seasonBear ? 0.85 : 1)
+    hemi.intensity = 0.25 + day * 0.4
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)
-    fill.intensity = 0.22 + day * 0.13
+    fill.intensity = 0.12
     lampMat.emissiveIntensity = 0.08 + night * 0.87
     trimPulse = 0.35 + night * 0.77
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.12 + night * 0.38
+    // Wet-street night: the ground picks up neon and the env map after dark.
+    groundMat.roughness = 0.92 - night * 0.5
+    groundMat.metalness = 0.02 + night * 0.28
     for (const facade of facades) facade.emissiveIntensity = 0.05 + night * 0.4
     for (const light of glow) light.intensity = Number(light.userData.night) * Math.max(0, night - 0.1)
     moon.visible = night > 0.25

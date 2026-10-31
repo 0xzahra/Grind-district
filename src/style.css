@@ -1,6 +1,6 @@
 :root {
   color-scheme: dark;
-  --mint: #1af38f;
+  --mint: #17f790;
   --ink: #e9fff4;
   --dim: #9dccb6;
   --night: #070a09;
@@ -951,7 +951,7 @@ body.sheet-open #toast {
 }
 
 #chat-log li b {
-  color: #1af38f;
+  color: #17f790;
   font-weight: 600;
 }
 
@@ -992,3 +992,16 @@ body.touch #chat {
 body.sheet-open #chat {
   display: none;
 }
+
+/* Wallet dialog + support link */
+.wallet-dlg { position: fixed; inset: auto 50% 50% auto; transform: translate(50%, 50%); z-index: 60; width: min(92vw, 380px); max-height: 88vh; overflow: auto; padding: 18px; border-radius: 12px; background: rgba(0,0,0,0.82); border: 1px solid rgba(23,247,144,0.3); color: #f2fdf8; display: grid; gap: 10px; }
+.wallet-body { display: grid; gap: 8px; }
+.wallet-addr { font-family: ui-monospace, monospace; color: #17f790; }
+.wallet-qr { background: #fff; padding: 6px; width: max-content; border-radius: 8px; }
+.wallet-send { display: grid; gap: 6px; }
+.wallet-send input, .wallet-send select { padding: 8px; border-radius: 8px; border: 1px solid rgba(23,247,144,0.3); background: #0a1412; color: #f2fdf8; }
+.help-link { color: #17f790; font-weight: 500; }
+#stick { background: radial-gradient(circle, rgba(23,247,144,0.08), rgba(0,0,0,0.35)); transition: opacity 0.4s ease; opacity: 0.55; }
+#stick:active { opacity: 1; }
+#stick::after { content: 'Move'; position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font: 500 12px Outfit, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #f2fdf8; opacity: 0.8; }
+#nub { box-shadow: 0 0 14px rgba(23,247,144,0.6); }

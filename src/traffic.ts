@@ -21,8 +21,8 @@ const COUNTS: Record<Graphics, { people: number; cars: number }> = {
   medium: { people: 16, cars: 8 },
   high: { people: 24, cars: 10 },
 }
-const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x16f08b, 0xb3122e, 0x2a2f36, 0xd9c7a1]
-const SHIRTS = [0x1a4cff, 0x16f08b, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]
+const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x17f790, 0xb3122e, 0x2a2f36, 0xd9c7a1]
+const SHIRTS = [0x1a4cff, 0x17f790, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]
 const LOD = 70
 const SIGNAL_PERIOD = 14
 
@@ -73,7 +73,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }
   const wheelsGeo = mergeSimple(wheelParts)
   const paint = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.55 })
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8, emissive: 0x16f08b, emissiveIntensity: 0.05 })
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8, emissive: 0x17f790, emissiveIntensity: 0.05 })
   const rubber = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.9 })
   const bodiesCar = new THREE.InstancedMesh(carBody, paint, counts.cars)
   const cabins = new THREE.InstancedMesh(cabinGeo, glass, counts.cars)
@@ -92,7 +92,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }
 
   // Signals at the four plaza stop lines.
-  const signalMat = new THREE.MeshBasicMaterial({ color: 0x16f08b, toneMapped: false })
+  const signalMat = new THREE.MeshBasicMaterial({ color: 0x17f790, toneMapped: false })
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x20262a, roughness: 0.6 })
   for (const arm of ARMS) {
     const px = arm.ax * lanes.inner + (arm.az !== 0 ? lanes.roadHalf + 0.4 : 0) * (arm.az > 0 ? -1 : 1)
@@ -111,7 +111,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     tick(dt, time, focus, people = []) {
       obstacles.length = 0
       const green = Math.floor(time / SIGNAL_PERIOD) % 2 === 0 // true: x arms go, false: z arms go
-      signalMat.color.setHex(green ? 0x16f08b : 0xffb347)
+      signalMat.color.setHex(green ? 0x17f790 : 0xffb347)
 
       walkers.forEach((w, i) => {
         w.t += (w.dir * w.speed * dt) / span

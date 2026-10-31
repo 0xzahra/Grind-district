@@ -43,7 +43,7 @@ export function drawMinimap(
     ctx.fillStyle = plot.door ? '#1a4a3c' : '#16362c'
     ctx.fillRect(left, top, w, h)
     if (plot.door) {
-      ctx.fillStyle = '#1af38f'
+      ctx.fillStyle = '#17f790'
       ctx.fillRect(left + w / 2 - 2, top + h - 3, 4, 3)
     }
   }
@@ -68,7 +68,7 @@ export function drawMinimap(
   ctx.beginPath()
   ctx.arc(X(player.x), Y(player.z), Math.max(4, width / 32), 0, Math.PI * 2)
   ctx.stroke()
-  ctx.fillStyle = '#1af38f'
+  ctx.fillStyle = '#17f790'
   ctx.beginPath()
   ctx.arc(X(player.x), Y(player.z), Math.max(2.5, width / 48), 0, Math.PI * 2)
   ctx.fill()

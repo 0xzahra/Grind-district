@@ -131,8 +131,8 @@ function cityObstacles(): Obstacle[] {
 
 function palette(time: string): { ground: string; road: string; block: string; ink: string; label: string } {
   if (time === 'day') return { ground: '#d7efe6', road: '#7ddec0', block: '#12382c', ink: '#e9fff4', label: '#e9fff4' }
-  if (time === 'dusk') return { ground: '#2c221c', road: '#4e6a52', block: '#1b3330', ink: '#e9fff4', label: '#1af38f' }
-  return { ground: '#12211b', road: '#1f6a52', block: '#16362c', ink: '#e9fff4', label: '#1af38f' }
+  if (time === 'dusk') return { ground: '#2c221c', road: '#4e6a52', block: '#1b3330', ink: '#e9fff4', label: '#17f790' }
+  return { ground: '#12211b', road: '#1f6a52', block: '#16362c', ink: '#e9fff4', label: '#17f790' }
 }
 
 export async function startFlat(onReady: () => void): Promise<void> {
@@ -289,7 +289,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     const h = Math.max(28, scale * 1.4)
     ctx.save()
     ctx.translate(h * 0.55, -h * 0.85)
-    ctx.fillStyle = drone === 'halo' ? '#9fd4ff' : drone === 'courier' ? '#c4a574' : '#1af38f'
+    ctx.fillStyle = drone === 'halo' ? '#9fd4ff' : drone === 'courier' ? '#c4a574' : '#17f790'
     ctx.beginPath()
     ctx.moveTo(0, -6)
     ctx.lineTo(7, 0)
@@ -350,7 +350,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
       const size = Math.max(42, scale * 2.4)
       ctx.drawImage(portrait, -size / 2, -size * 0.62, size, size)
     } else {
-      ctx.fillStyle = '#1af38f'
+      ctx.fillStyle = '#17f790'
       ctx.beginPath()
       ctx.arc(0, 0, 10, 0, Math.PI * 2)
       ctx.fill()
@@ -387,7 +387,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     for (const block of blocks) {
       const top = project(block.x - block.w / 2, block.z - block.d / 2)
       context.fillStyle = colors.block
-      context.strokeStyle = '#1af38f'
+      context.strokeStyle = '#17f790'
       context.lineWidth = Math.max(2, scale * 0.12)
       context.fillRect(top.x, top.y, block.w * scale, block.d * scale)
       context.strokeRect(top.x, top.y, block.w * scale, block.d * scale)
@@ -402,11 +402,11 @@ export async function startFlat(onReady: () => void): Promise<void> {
     for (const place of spots) {
       if (!place.action) continue
       const at = project(place.x, place.z)
-      context.fillStyle = '#1af38f'
+      context.fillStyle = '#17f790'
       context.fillRect(at.x - 5, at.y - 5, 10, 10)
     }
     const ring = project(0, 0)
-    context.strokeStyle = '#1af38f'
+    context.strokeStyle = '#17f790'
     context.lineWidth = 3
     context.beginPath()
     context.arc(ring.x, ring.y, 2.9 * scale, 0, Math.PI * 2)

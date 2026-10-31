@@ -13,7 +13,7 @@ import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
-import { createPost, createProbe } from './quality.ts'
+import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
@@ -178,6 +178,22 @@ async function main(onReveal: () => void) {
     pos.x = 0
     pos.z = 8
   }
+  // Soft blob shadow keeps the player grounded on Low/Medium where real shadows are off.
+  const blob = (() => {
+    const c = document.createElement('canvas')
+    c.width = c.height = 64
+    const g = c.getContext('2d')!
+    const r = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+    r.addColorStop(0, 'rgba(0,0,0,0.45)')
+    r.addColorStop(1, 'rgba(0,0,0,0)')
+    g.fillStyle = r
+    g.fillRect(0, 0, 64, 64)
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }))
+    m.rotation.x = -Math.PI / 2
+    m.renderOrder = 1
+    scene.add(m)
+    return m
+  })()
   avatar.object.position.set(pos.x, 0, pos.z)
   if (wearsPlate(getSave().body)) tagPlayer(avatar.object, getSave().name, getSave().username)
   avatar.setMask(getSave().mask)
@@ -207,12 +223,13 @@ async function main(onReveal: () => void) {
     world.setDaylight(dayPhase)
     renderer.toneMappingExposure = 1.0
   }
+  applyEnvironment(renderer, scene)
   const post = createPost(renderer, scene, camera)
   const probe = createProbe(() => getSave().graphics, (g) => { setGraphics(g); applyGraphics() })
   const applyGraphics = () => {
     const graphics = getSave().graphics
     const dpr = window.devicePixelRatio || 1
-    const ratio = graphics === 'low' ? 1 : Math.min(dpr, 2)
+    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? 1.5 : 2)
     renderer.setPixelRatio(ratio)
     // Shadows only on high: the biggest single cost on mid-range Android.
     const shadows = graphics === 'high'
@@ -337,7 +354,7 @@ async function main(onReveal: () => void) {
 
   const marker = new THREE.Mesh(
     new THREE.RingGeometry(0.28, 0.4, 28),
-    new THREE.MeshBasicMaterial({ color: 0x1af38f, transparent: true, opacity: 0.85, side: THREE.DoubleSide, toneMapped: false }),
+    new THREE.MeshBasicMaterial({ color: 0x17f790, transparent: true, opacity: 0.85, side: THREE.DoubleSide, toneMapped: false }),
   )
   marker.rotation.x = -Math.PI / 2
   marker.position.y = 0.04
@@ -347,7 +364,9 @@ async function main(onReveal: () => void) {
 
   let camYaw = 0
   let camPitch = 0.42
-  let camDist = 8.4
+  let camDist = 5.6
+  let sprinting = false
+  const shoulder = new THREE.Vector3()
   let lookIdle = 0
   const camVel = new THREE.Vector3()
   const lookSmooth = new THREE.Vector3()
@@ -384,7 +403,7 @@ async function main(onReveal: () => void) {
     const width = window.innerWidth
     const height = window.innerHeight
     camera.aspect = width / Math.max(1, height)
-    camera.fov = width < 800 ? 62 : 52
+    camera.fov = width < 800 ? 60 : 55
     camera.updateProjectionMatrix()
     applyGraphics()
   }
@@ -451,9 +470,13 @@ async function main(onReveal: () => void) {
       renderer.toneMappingExposure = 0.96 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.1
       nightLevel = THREE.MathUtils.clamp(-sunUp * 2 + 0.3, 0, 1)
       post.setNight(nightLevel)
+      scene.environmentIntensity = 0.6 - nightLevel * 0.25
+      renderer.toneMappingExposure = 0.9 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.15
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
+    blob.position.set(pos.x, 0.03, pos.z)
+    blob.visible = getSave().graphics !== 'high'
     ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()
@@ -462,7 +485,7 @@ async function main(onReveal: () => void) {
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
-    camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 4.6, 16)
+    camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 3.2, 12)
 
     if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
 
@@ -510,6 +533,7 @@ async function main(onReveal: () => void) {
     const dirX = wishLen > 0.001 ? wishX / wishLen : 0
     const dirZ = wishLen > 0.001 ? wishZ / wishLen : 0
     const running = frame.run || frame.stick > 0.88
+    sprinting = running && mag > 0.2
     const speed = (running ? RUN : WALK) * mag
     const rate = 1 - Math.exp(-9 * dt)
     vel.x += (dirX * speed - vel.x) * rate
@@ -569,7 +593,9 @@ async function main(onReveal: () => void) {
       camYaw += delta * (1 - Math.exp(-1.2 * dt))
     }
     if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
-    lookSmooth.lerp(lookTarget.set(pos.x, 1.15, pos.z), 1 - Math.exp(-14 * dt))
+    // Over-the-shoulder: frame the player slightly left of centre, GTA style.
+    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar(0.55 * Math.min(1, 6 / camDist))
+    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, 1.45, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const horiz = camDist * Math.cos(camPitch)
     desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + camDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
@@ -587,6 +613,12 @@ async function main(onReveal: () => void) {
     if (safe.y < 0.4) safe.y = 0.4
     camera.position.copy(safe)
     camera.lookAt(lookTarget)
+    const baseFov = window.innerWidth < 800 ? 60 : 55
+    const fov = baseFov + (sprinting ? 6 : 0)
+    if (Math.abs(camera.fov - fov) > 0.05) {
+      camera.fov += (fov - camera.fov) * (1 - Math.exp(-6 * dt))
+      camera.updateProjectionMatrix()
+    }
     net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving })
     drawMap()
     saveAcc += dt
@@ -610,6 +642,7 @@ async function main(onReveal: () => void) {
     elapsed += dt
     try {
       update(dt)
+      post.frame(dt, elapsed)
       post.render()
       if (revealed) probe(dt)
       if (!revealed) {

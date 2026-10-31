@@ -80,7 +80,7 @@ function createLedger(): Avatar {
   return rigged((bob) => {
     const cloth = new THREE.MeshStandardMaterial({ color: 0x143028, roughness: 0.62, metalness: 0.08 })
     const tint = new THREE.MeshStandardMaterial({
-      color: 0x1af38f,
+      color: 0x17f790,
       roughness: 0.35,
       metalness: 0.12,
       emissive: 0x0a6b40,
@@ -108,7 +108,7 @@ function createLedger(): Avatar {
 function createMarina(): Avatar {
   return rigged((bob) => {
     const tint = new THREE.MeshStandardMaterial({
-      color: 0x1af38f,
+      color: 0x17f790,
       roughness: 0.42,
       metalness: 0.06,
       emissive: 0x0a6b40,
@@ -136,7 +136,7 @@ function createSignal(): Avatar {
   return rigged((bob) => {
     const cloth = new THREE.MeshStandardMaterial({ color: 0x1a2420, roughness: 0.78 })
     const tint = new THREE.MeshStandardMaterial({
-      color: 0x1af38f,
+      color: 0x17f790,
       roughness: 0.4,
       emissive: 0x0a6b40,
       emissiveIntensity: 0.3,

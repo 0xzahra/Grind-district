@@ -27,11 +27,11 @@ function label(primary: string, secondary = ''): THREE.Sprite {
     context.fillStyle = '#e9fff4'
     context.font = '700 28px Outfit, sans-serif'
     context.fillText(primary, 128, 36)
-    context.fillStyle = '#1af38f'
+    context.fillStyle = '#17f790'
     context.font = '600 20px Outfit, sans-serif'
     context.fillText(secondary, 128, 64)
   } else {
-    context.fillStyle = '#1af38f'
+    context.fillStyle = '#17f790'
     context.font = '700 28px Outfit, sans-serif'
     context.fillText(primary, 128, 48)
   }
@@ -51,8 +51,8 @@ function robot(): { object: THREE.Group; x: number; z: number } {
   const root = new THREE.Group()
   const shell = new THREE.MeshStandardMaterial({ color: 0x1c2824, roughness: 0.46, metalness: 0.35 })
   const mint = new THREE.MeshStandardMaterial({
-    color: 0x1af38f,
-    emissive: 0x1af38f,
+    color: 0x17f790,
+    emissive: 0x17f790,
     emissiveIntensity: 0.7,
     roughness: 0.35,
   })

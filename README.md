@@ -62,7 +62,7 @@ A family request can ask for a little practice money. Paying is reputation. Decl
 
 Profile holds Today, CV, Resume, Portfolio, and the practice books. Copy a share link from Today. Opening someone else's link shows their profile and does not overwrite your save.
 
-Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. A fresh visit picks low graphics on a phone or a narrow window, and medium otherwise.
+Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. The sky runs a full day every ten real minutes from the GN time you pick; reduced motion holds it still. Pedestrians walk the sidewalks and cars keep to their lanes, stop at the plaza signals, and yield to people. Counts follow the graphics setting (phones use the low counts) and apply on the next load. A fresh visit picks low graphics on a phone or a narrow window, and medium otherwise.
 
 ## Later, on purpose
 

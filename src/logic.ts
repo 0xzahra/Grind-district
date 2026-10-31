@@ -86,7 +86,7 @@ export const RANKS: { id: RankId; label: string; xp: number }[] = [
 
 export const TINTS = [
   { id: 'blue', hex: 0x1a4cff, label: 'Blue' },
-  { id: 'mint', hex: 0x1af38f, label: 'Mint' },
+  { id: 'mint', hex: 0x17f790, label: 'Mint' },
   { id: 'sand', hex: 0xf0d7b0, label: 'Sand' },
   { id: 'coral', hex: 0xff6f61, label: 'Coral' },
   { id: 'ice', hex: 0x9fd4ff, label: 'Ice' },
