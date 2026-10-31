@@ -5,7 +5,7 @@ import { getProfile } from './_profile.js'
 export const config = { runtime: 'nodejs' }
 type El = { type: string; props: Record<string, unknown> }
 const h = (type: string, style: Record<string, unknown>, ...children: Array<El | string>): El => ({ type, props: { style: { display: 'flex', ...style }, children } })
-const ORIGIN = 'https://grind-district.vercel.app'
+const ORIGIN = 'https://grinddistrict.app'
 const GOLD = '#c9a25e'
 
 function skyline(): El {
@@ -30,7 +30,7 @@ export default async function handler(req: { url?: string }, res: { setHeader(k:
     h('div', { position: 'absolute', left: 0, right: 0, bottom: 0, height: 360, background: 'linear-gradient(180deg, rgba(11,10,8,0) 0%, rgba(11,10,8,0.85) 100%)' }),
     h('div', { position: 'absolute', left: 64, top: 56, right: 64, bottom: 56, flexDirection: 'column', border: `1px solid rgba(201,162,94,0.45)`, borderRadius: 24, padding: 48 },
       h('div', { alignItems: 'center' },
-        { type: 'img', props: { src: `${ORIGIN}/brand/logo-black.jpg`, width: 150, height: 100, style: { borderRadius: 14, objectFit: 'cover' } } },
+        { type: 'img', props: { src: "https://grind-district.vercel.app/brand/logo-black.jpg", width: 150, height: 100, style: { borderRadius: 14, objectFit: 'cover' } } },
         h('div', { marginLeft: 24, fontSize: 26, color: GOLD, letterSpacing: 6 }, 'GRIND DISTRICT')),
       h('div', { fontSize: 72, color: '#f2ece0', marginTop: 36, fontWeight: 700 }, name.slice(0, 28)),
       h('div', { fontSize: 32, color: GOLD, marginTop: 4 }, handle),

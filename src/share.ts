@@ -4,7 +4,7 @@ import { rankFor, skillLines } from './logic.ts'
 
 /** Every outgoing share link carries src, ref (the sharer's username) and utm_* params. */
 export function shareLink(base: string, src: 'profile' | 'cv' | 'cert' | 'invite', username: string): string {
-  const url = new URL(base, location.origin)
+  const url = new URL(base, 'https://grinddistrict.app')
   url.searchParams.set('src', src)
   if (username) url.searchParams.set('ref', username)
   url.searchParams.set('utm_source', 'player_share')
@@ -29,7 +29,7 @@ export async function shareOrCopy(title: string, link: string, src: string): Pro
 
 /** Short public profile link: /cv/username (OG card page that opens the game) (no payload in the URL). */
 export function profileLink(username: string): string {
-  return username ? `https://grind-district.vercel.app/cv/${encodeURIComponent(username.toLowerCase())}` : 'https://grind-district.vercel.app/'
+  return username ? `https://grinddistrict.app/cv/${encodeURIComponent(username.toLowerCase())}` : 'https://grinddistrict.app/'
 }
 
 /** Opens X with a short link and friendly prefilled text. */
