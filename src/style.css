@@ -345,6 +345,34 @@ body.flat header {
   width: 100%;
 }
 
+.bodies {
+  margin: 0;
+  padding: 0.7rem 0.75rem 0.8rem;
+  border: 1px solid rgba(26, 243, 143, 0.45);
+  border-radius: 12px;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.bodies legend {
+  padding: 0 0.35rem;
+  color: var(--dim);
+}
+
+.bodies label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  color: var(--ink);
+}
+
+.bodies input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--mint);
+}
+
 #signup-form .primary,
 #signup-back {
   min-height: 48px;
@@ -509,7 +537,7 @@ body.flat header {
     right: max(12px, env(safe-area-inset-right));
     width: auto;
     margin-inline: 0;
-    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 168px);
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 148px);
   }
 
   #hint {
@@ -556,7 +584,21 @@ body.touch #dock {
   border: 1px solid rgba(26, 243, 143, 0.45);
   background: rgba(7, 12, 10, 0.82);
   z-index: 2;
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+body.map-large #map {
+  width: 176px;
+  height: 176px;
+}
+
+body.hints-off #hint {
+  display: none;
+}
+
+#act {
+  min-height: 48px;
 }
 
 .tools {
@@ -851,11 +893,25 @@ body.sheet-open #toast {
     max-width: calc(100vw - 7.6rem);
   }
 
+  body.map-large header {
+    max-width: calc(100vw - 10.5rem);
+  }
+
+  #nav button,
+  #nav #credit {
+    min-height: 40px;
+  }
+
   #map {
-    width: 92px;
-    height: 92px;
+    width: 104px;
+    height: 104px;
     top: max(10px, env(safe-area-inset-top));
     right: max(10px, env(safe-area-inset-right));
+  }
+
+  body.map-large #map {
+    width: 132px;
+    height: 132px;
   }
 
   .tools {
