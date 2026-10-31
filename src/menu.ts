@@ -63,7 +63,8 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
     case 'credits':
       body.append(
         copy('Grind District is made by Zahra.'),
-        copy('The street body is an original low-poly citizen, Player 8453. It is not taken from a licensed collection.'),
+        copy('Player 8453 is a man: blonde hair, glasses, grey suit. Zuri is a woman, with longer hair and a fitted coat, cut to read cleaner than he does. Both are original.'),
+        copy('Masks in the boutique use the names CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The shapes are Grind District cuts, not the licensed artwork.'),
         copy('The city does not run on Solana, and it does not ask for a wallet. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
         copy('Market Velocity is the theme. It loops at three minutes and stays paused until you press play.'),
       )
