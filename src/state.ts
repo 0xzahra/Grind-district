@@ -11,7 +11,8 @@ import {
   STIPEND_USD,
   TAX_USD,
   applyDay,
-  cleanName,
+  cleanDisplayName,
+  cleanUsername,
   buyHolding,
   cents,
   createSave,
@@ -92,9 +93,8 @@ export function loadSave(prefer: Graphics): Save {
     save = createSave(new Date(), { graphics: prefer })
   }
   applyDay(save, lagosDay(new Date()))
-  if (save.body === 'shrimp') {
+  if (!save.signedUp && save.body === 'shrimp') {
     save.body = 'player'
-    if (save.username === 'Shrimp') save.username = 'Player 8453'
     if (save.tint === 0x1af38f) save.tint = 0x1a4cff
   }
   persist()
@@ -124,10 +124,35 @@ export function tickMarket(dt: number, now: number): void {
   }
 }
 
-export function setUsername(name: string): void {
-  save.username = cleanName(name)
+export function signUp(name: string, username: string): { ok: true } | { ok: false; error: string } {
+  const display = cleanDisplayName(name)
+  const handle = cleanUsername(username)
+  if (!display) return { ok: false, error: 'Pick a name.' }
+  if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
+  save.name = display
+  save.username = handle
+  save.signedUp = true
   persist()
   emit()
+  return { ok: true }
+}
+
+export function setName(name: string): { ok: true } | { ok: false; error: string } {
+  const display = cleanDisplayName(name)
+  if (!display) return { ok: false, error: 'Pick a name.' }
+  save.name = display
+  persist()
+  emit()
+  return { ok: true }
+}
+
+export function setUsername(name: string): { ok: true } | { ok: false; error: string } {
+  const handle = cleanUsername(name)
+  if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
+  save.username = handle
+  persist()
+  emit()
+  return { ok: true }
 }
 
 export function setBody(body: Save['body']): void {
@@ -391,7 +416,7 @@ export function claimHouse(): { message: string; already: boolean } {
   log('social', 'Claimed a room', 'Private for now. Messaging and voice are not in this build.')
   persist()
   emit()
-  return { already: false, message: 'The room is yours. Reputation +3. Adaeze, Malik, and Nia are on the same row.' }
+  return { already: false, message: 'The room is yours. Reputation +3. The notes house, the set house, and the grove house are on this row.' }
 }
 
 export function markHouseVisit(id: string): { already: boolean } {
@@ -400,9 +425,9 @@ export function markHouseVisit(id: string): { already: boolean } {
   save.houseVisits = [...save.houseVisits, id]
   save.reputation += 2
   const names: Record<string, string> = {
-    adaeze: 'Sat with Adaeze',
-    malik: 'Stopped at Malik’s',
-    nia: 'Heard Nia on credits',
+    adaeze: 'Sat with the notes',
+    malik: 'Stopped for a set',
+    nia: 'Heard the grove house on credits',
     vacant: 'Looked through the vacant house',
   }
   log('social', names[id] ?? 'Visited a house', 'The east row is part of the city.')
@@ -465,9 +490,15 @@ export function resetProgress(): void {
   const graphics = save.graphics
   const volume = save.volume
   const timeOfDay = save.timeOfDay
+  const name = save.name
+  const username = save.username
+  const signedUp = save.signedUp
   save = createSave(new Date(), { graphics })
   save.volume = volume
   save.timeOfDay = timeOfDay
+  save.name = name
+  save.username = username
+  save.signedUp = signedUp
   save.seenIntro = true
   persist()
   emit()
