@@ -6,9 +6,8 @@ import { drawMinimap } from './minimap.ts'
 import { applyPrefs } from './prefs.ts'
 import type { DroneId, MaskId, PanelId } from './logic.ts'
 import { decodeShare, seasonAt } from './logic.ts'
-import { bindMusic } from './music.ts'
 import { CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, rememberPlace, setVolume, tickMarket } from './state.ts'
+import { getSave, rememberPlace, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { districtName } from './world.ts'
 
@@ -143,9 +142,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
   const captionBody = must<HTMLParagraphElement>('#cap-body')
   const stick = must<HTMLDivElement>('#stick')
   const nub = must<HTMLDivElement>('#nub')
-  const musicButton = must<HTMLButtonElement>('#music')
-  const volume = must<HTMLInputElement>('#volume')
-  const musicNote = must<HTMLParagraphElement>('#music-note')
   const act = must<HTMLButtonElement>('#act')
   const map = must<HTMLCanvasElement>('#map')
   const sheet = must<HTMLElement>('#sheet')
@@ -222,8 +218,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
     }
   })
 
-  bindMusic(musicButton, volume, musicNote)
-  volume.addEventListener('input', () => setVolume(Number(volume.value)))
   const input = createInput(canvas, stick, nub)
   act.addEventListener('click', () => input.requestInteract())
 

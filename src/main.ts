@@ -6,9 +6,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { createAgentCompanion } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
-import { mountTitleMusic } from './titleMusic.ts'
 import { mountNotifications, notify } from './notify.ts'
-import { applyVolume, door, isMuted, mountSfx, setMuted, step } from './sfx.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
@@ -16,7 +14,6 @@ import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
-import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
@@ -26,7 +23,7 @@ import { createSkyline } from './skyline.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { onActivity, subscribe, setTime, getSave, loadSave, rememberPlace, setGraphics, setVolume, tickMarket } from './state.ts'
+import { onActivity, subscribe, setTime, getSave, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -130,9 +127,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const captionBody = must<HTMLParagraphElement>('#cap-body')
   const stick = must<HTMLDivElement>('#stick')
   const nub = must<HTMLDivElement>('#nub')
-  const musicButton = must<HTMLButtonElement>('#music')
-  const volume = must<HTMLInputElement>('#volume')
-  const musicNote = must<HTMLParagraphElement>('#music-note')
   const act = must<HTMLButtonElement>('#act')
   const map = must<HTMLCanvasElement>('#map')
   const sheet = must<HTMLElement>('#sheet')
@@ -140,7 +134,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
 
   const prefer: Graphics = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium'
   loadSave(prefer)
-  volume.value = String(getSave().volume)
 
   const touchQuery = window.matchMedia('(pointer: coarse)')
   const setTouch = () => {
@@ -368,13 +361,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     }
   })
 
-  bindMusic(musicButton, volume, musicNote)
-  volume.addEventListener('input', () => { setVolume(Number(volume.value)); applyVolume() })
-  mountSfx()
-  const soundBtn = must<HTMLButtonElement>('#nav-sound')
-  const paintSound = () => { soundBtn.setAttribute('aria-pressed', String(!isMuted())); soundBtn.classList.toggle('active', !isMuted()); soundBtn.title = isMuted() ? 'Sound off' : 'Sound on' }
-  paintSound()
-  soundBtn.addEventListener('click', () => { setMuted(!isMuted()); paintSound() })
 
   const input = createInput(canvas, stick, nub)
   must('#cam-in').addEventListener('click', () => input.nudgeZoom(-260))
@@ -555,7 +541,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     const room = interiors.roomFor(doorSpot.id)
     if (!room) return false
     streetDoor = { x: doorSpot.x, z: doorSpot.z }
-    door()
     const at = interiors.enter(room)
     pos.x = at.x
     pos.z = at.z
@@ -570,7 +555,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     return true
   }
   const leaveRoom = () => {
-    door()
     const out = interiors.exit(streetDoor.x, streetDoor.z)
     pos.x = out.x
     pos.z = out.z
@@ -585,7 +569,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   let stuck = 0
   let prevDist = Infinity
   let traveled = 0
-  let stepAcc = 0
   let activeSpot: string | null = null
   let spot: Hotspot | null = null
   let cameraReady = false
@@ -803,8 +786,6 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
       spinDrone(follower, dt, elapsed)
     }
     traveled += Math.hypot(vel.x, vel.z) * dt
-    stepAcc += Math.hypot(vel.x, vel.z) * dt
-    if (stepAcc > 0.75) { stepAcc = 0; step() }
     if (traveled > 10) hint.classList.add('quiet')
 
     marker.visible = Boolean(target) && !paused
@@ -1016,9 +997,7 @@ void import('./preview.ts').then((m) => {
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
 startTracking()
 
-const unmountTitleMusic = mountTitleMusic(menu)
 mountMenu(() => {
-  unmountTitleMusic()
   void begin()
 })
 

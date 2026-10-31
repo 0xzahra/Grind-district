@@ -1,7 +1,5 @@
 import { isLicensed, skinSlots } from './skins.ts'
 import { getAgent, setAgent, notificationsOn, setNotifications } from './agent.ts'
-import { applyVolume, isMuted, setMuted } from './sfx.ts'
-import { setVolume } from './state.ts'
 import { ZAHRA, type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { shareLink } from './share.ts'
@@ -684,18 +682,8 @@ export function mountUi(
       hooks.onGraphics()
       hooks.onRank(rankFor(getSave().xp).label)
       close()
-      toast('Back to zero. Your name stayed. GN time and volume stayed.')
+      toast('Back to zero. Your name stayed. GN time stayed.')
     })
-    const audioRow = document.createElement('div')
-    audioRow.className = 'tabs'
-    const master = document.createElement('input')
-    master.type = 'range'; master.min = '0'; master.max = '100'; master.value = String(getSave().volume)
-    master.setAttribute('aria-label', 'Master volume')
-    master.addEventListener('input', () => { setVolume(Number(master.value)); applyVolume() })
-    const themeOn = document.querySelector('#music')?.getAttribute('aria-pressed') === 'true'
-    audioRow.append(master,
-      button(isMuted() ? 'Sounds off' : 'Sounds on', isMuted() ? 'ghost' : 'primary', () => { setMuted(!isMuted()); open('settings') }),
-      button(themeOn ? 'Music on' : 'Music off', themeOn ? 'primary' : 'ghost', () => { (document.querySelector('#music') as HTMLButtonElement | null)?.click(); window.setTimeout(() => open('settings'), 50) }))
     const notifyRow = document.createElement('div')
     notifyRow.className = 'tabs'
     notifyRow.append(button(notificationsOn() ? 'Notifications on' : 'Notifications off', notificationsOn() ? 'primary' : 'ghost', () => {
@@ -754,9 +742,6 @@ export function mountUi(
       comfort,
       para('The theme stays silent until you turn Music on. Volume is the slider by that button. With reduced motion on, it never resumes by itself.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
-      para('Audio', 'kicker'),
-      audioRow,
-      para('Silent by default. Master volume covers the city sound and the theme.', 'muted'),
       para('Notifications', 'kicker'),
       notifyRow,
       para('Agents', 'kicker'),
