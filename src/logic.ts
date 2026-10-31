@@ -157,6 +157,7 @@ export type Save = {
   name: string
   username: string
   signedUp: boolean
+  privyId: string
   body: BodyId
   tint: number
   luxury: boolean
@@ -358,6 +359,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     name: '',
     username: '',
     signedUp: false,
+    privyId: '',
     body: 'player',
     tint: TINTS[0].hex,
     luxury: false,
@@ -411,6 +413,13 @@ function num(value: unknown, min: number, max: number, fallback: number): number
 
 function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
+}
+
+export function cleanPrivyId(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const id = value.trim()
+  if (!/^did:privy:[A-Za-z0-9_-]{8,80}$/.test(id)) return ''
+  return id
 }
 
 export function cleanDisplayName(value: unknown): string {
@@ -532,6 +541,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
     fresh.username = ''
     fresh.signedUp = false
   }
+  fresh.privyId = cleanPrivyId(row.privyId)
   fresh.body = cleanBody(row.body)
   fresh.tint = cleanTint(row.tint)
   fresh.luxury = bool(row.luxury, false)
