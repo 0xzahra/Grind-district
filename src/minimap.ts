@@ -56,7 +56,7 @@ export function drawMinimap(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   // Named markers: home, boutique, gym.
-  const marks: Array<[number, number, string, string]> = [[36, 32, 'H', '#e8c98f'], [22, -22, 'B', '#f2ece0'], [-22, -22, 'G', '#f2ece0'], [24, 27, '✝', '#f2ece0']]
+  const marks: Array<[number, number, string, string]> = [[36, 32, 'H', '#e8c98f'], [22, -22, 'B', '#f2ece0'], [-22, -22, 'G', '#f2ece0'], [24, 27, '✝', '#f2ece0'], [-24, 27, 'M', '#f2ece0']]
   ctx.font = `700 ${Math.max(9, Math.round(width / 14))}px -apple-system, Inter, sans-serif`
   for (const [mx, mz, letter, col] of marks) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)'

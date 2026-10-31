@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { Graphics } from './logic.ts'
 
@@ -65,6 +66,17 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     })
     composer = new EffectComposer(renderer, target)
     composer.addPass(new RenderPass(scene, camera))
+    // Ambient occlusion on High, desktop only (too heavy for phone GPUs).
+    if (level === 'high' && !coarse && gl2) {
+      try {
+        const ao = new GTAOPass(scene, camera, 1, 1)
+        ao.blendIntensity = 0.75
+        ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.2, thickness: 1.0, scale: 1.0, samples: 12 })
+        composer.addPass(ao)
+      } catch (error) {
+        console.warn('[grind] AO unavailable', error)
+      }
+    }
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 0.85)
     composer.addPass(bloom)
     composer.addPass(new OutputPass())

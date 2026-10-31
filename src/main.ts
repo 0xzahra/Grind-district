@@ -25,6 +25,7 @@ import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
+import { createAmbient } from './ambient.ts'
 import './style.css'
 
 const WALK = 2.7
@@ -169,7 +170,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFShadowMap
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 260)
@@ -187,6 +188,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
   const crowd = createCrowd(scene)
+  const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
   const skyline = createSkyline(scene, getSave().graphics)
@@ -596,6 +598,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
     skyline.tick(elapsed, nightLevel)
+    ambient.tick(elapsed, focus, nightLevel)
     if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()

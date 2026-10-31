@@ -66,24 +66,46 @@ export function openWallet(): void {
   const body = el('div', '', 'wallet-body')
   const closeBtn = el('button', 'Close', 'ghost')
   closeBtn.onclick = () => dlg.remove()
+  // In-game wallet: every player has one. Linking an external wallet is optional.
   const econ = el('div', '', 'wallet-econ')
   const money = getSave().ledger
   econ.append(
-    el('p', `In-game balance: $${money.toFixed(2)} (play money, not on-chain)`, 'wallet-ingame'),
-    el('p', `Transfers between players carry a ${TRANSFER_FEE_BPS / 100}% fee to the city treasury.`, 'muted'),
+    el('p', `In-game balance: $${money.toFixed(2)}`, 'wallet-ingame'),
+    el('p', `Upgrades and purchases spend this balance. Transfers between players carry a ${TRANSFER_FEE_BPS / 100}% fee to the city treasury.`, 'muted'),
   )
-  const top = el('button', 'Top up', 'ghost')
-  if (topupReady()) {
-    top.onclick = () => {
-      track('topup_attempt', { chain: TOPUP.chainId })
-      status.textContent = `Top-ups pay ${TOPUP.contract || TOPUP.address} on chain ${TOPUP.chainId} at ${TOPUP.rate} in-game $ per USDC.`
+  const deposit = el('div', '', 'wallet-deposit')
+  deposit.append(el('p', 'Checking top-ups…', 'muted'))
+  econ.append(deposit)
+  void (async () => {
+    const { accessToken } = await import('./login.ts')
+    const token = await accessToken()
+    let info: { configured?: boolean; depositAddress?: string | null; wallet?: { deposit_tag: string; balance: number } } = {}
+    try {
+      info = await (await fetch('/api/wallet', { headers: token ? { authorization: `Bearer ${token}` } : {} })).json()
+    } catch { /* offline */ }
+    deposit.replaceChildren()
+    if (!info.depositAddress) {
+      deposit.append(el('p', 'Top-ups are coming soon.', 'muted'))
+      return
     }
-  } else {
-    top.disabled = true
-    econ.append(el('p', 'Top-ups are coming soon.', 'muted'))
-  }
-  econ.append(top)
-  dlg.append(el('h2', 'Wallet · Base'), econ, body, closeBtn)
+    if (!info.wallet) {
+      deposit.append(el('p', 'Sign in to get your personal deposit tag.', 'muted'))
+      return
+    }
+    track('topup_attempt', { shown: true })
+    deposit.append(
+      el('p', 'Top up with USDC on Base', 'wallet-ingame'),
+      el('p', info.depositAddress, 'wallet-addr'),
+      el('p', `End the amount with your tag: e.g. 10.${info.wallet.deposit_tag} USDC. Credits land within a day.`, 'muted'),
+    )
+  })()
+  const linkToggle = el('button', 'Link an external wallet (optional)', 'ghost')
+  body.hidden = true
+  linkToggle.onclick = () => { body.hidden = !body.hidden }
+  econ.append(linkToggle)
+  void TOPUP
+  void topupReady
+  dlg.append(el('h2', 'Wallet'), econ, body, closeBtn)
   document.body.append(dlg)
   const status = el('p', '', 'muted')
 

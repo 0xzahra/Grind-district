@@ -99,7 +99,7 @@ function citySpots(): Spot[] {
     { id: 'net', ...net, r: 2.3, title: 'Internet café', body: 'Same board as campus, closer to the row.', action: 'cafe', enter: 'Read the room' },
     { id: 'climate', ...desk, r: 2.3, title: 'Carbon desk', body: 'Back a project with practice funds. It records the pledge.', action: 'climate', enter: 'The desk' },
     { id: 'gadgets', ...at(blocks.length - 1, 'pz'), r: 2.2, title: 'Gadgets', body: 'Scout, courier, and halo. A drone follows you. Practice funds.', action: 'gadgets', enter: 'Open the case' },
-    { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Prayer space', body: 'A ring of stones and no questions. Sitting puts focus on your next course.', action: 'prayer', enter: 'Sit' },
+    { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Masjid', body: 'The prayer hall. Sitting puts focus on your next course.', action: 'prayer', enter: 'Sit' },
     { id: 'ring', x: 0, z: 0, r: 4.4, title: 'The Grind Ring', body: 'Same stone for a shrimp and a whale. No tribe. No continent. Just come grind.' },
     { id: 'ladder', x: -9, z: -8, r: 2.3, title: 'The ladder', body: 'Shrimp, crab, fish, dolphin, shark, whale. Skill and the days you return.' },
     { id: 'water', x: -34, z: 34, r: 2.4, title: 'The basin', body: 'Park water. Climate work has a desk just north of here.' },

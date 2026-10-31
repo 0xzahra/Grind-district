@@ -1,21 +1,22 @@
 import * as THREE from 'three'
 import type { Obstacle } from './physics.ts'
-import { claimHouse, finishGym, getSave, setTime, walkGym } from './state.ts'
+import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
 import { passedCount } from './certs.ts'
 import { rankFor } from './logic.ts'
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
-export type RoomId = 'house' | 'gym' | 'boutique'
+export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
 type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void }
 
-const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 } }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 13, d: 10 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 } }
+const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 } }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 13, d: 10 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 } }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
   house: { spot: 'yours', cx: 36, cz: 32 },
   gym: { spot: 'gym', cx: -22, cz: -22 },
   boutique: { spot: 'boutique', cx: 22, cz: -22 },
+  mosque: { spot: 'prayer', cx: -24, cz: 27 },
 }
 
 const std = (color: number, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness })
@@ -206,6 +207,47 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         add(new THREE.CylinderGeometry(0.03, 0.03, 0.85, 6), rail, x, 0.42, 2.4)
         obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + 2.4, r: 0.3 })
       }
+    }
+    if (id === 'mosque') {
+      // Qibla wall is the east wall (+x). Carpet rows run north-south, worshippers face +x.
+      const carpet = std(0x7a1f2b, 1)
+      const stripe = std(0xc9a25e, 0.9)
+      box(w - 1.2, 0.02, d - 1.2, carpet, 0.3, 0, 0, false)
+      for (let x = -5; x <= 5; x += 1.6) box(0.05, 0.025, d - 1.4, stripe, x, 0, 0, false)
+      // Mihrab niche and minbar.
+      const niche = std(0xe6dcc6, 0.6)
+      box(0.4, 3.0, 1.8, niche, w / 2 - 0.2, 0)
+      box(0.05, 2.4, 1.2, std(0x1f3f5a, 0.5), w / 2 - 0.42, 0, 0.1, false)
+      add(new THREE.SphereGeometry(0.6, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), niche, w / 2 - 0.45, 2.5, 0).scale.set(0.4, 1, 1)
+      for (let i = 0; i < 5; i++) box(0.5, 0.3 + i * 0.3, 0.9, std(0x5a3f2c, 0.6), w / 2 - 0.9 - i * 0.5, 2.0, 0, i === 0)
+      obstacles.push({ kind: 'box', x: o.x + w / 2 - 1.9, z: o.z + 2.0, hx: 1.3, hz: 0.5 })
+      // Soft natural light: tall arched windows on the side walls, warm skylight.
+      const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.55, roughness: 0.2 })
+      for (let x = -5; x <= 5; x += 2.5) for (const side of [-1, 1]) box(1.0, 2.0, 0.04, glass, x, side * (d / 2 - 0.02), 0.9, false)
+      // Modest low-poly worshippers in rows facing the qibla: standing, bowing, prostrating. No faces.
+      const robes = [0xf2efe8, 0xe4dccd, 0x3a3f47, 0x6b5a45, 0x2a3b5c]
+      const pose = (x: number, z: number, kind: number, c: number) => {
+        const m = std(c, 0.95)
+        const g = new THREE.Group()
+        g.position.set(x, 0, z)
+        g.rotation.y = Math.PI / 2
+        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.8, 8), m)
+        const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.8, 8), m)
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), std(0xffffff, 0.9))
+        if (kind === 0) { legs.position.y = 0.4; torso.position.y = 1.2; head.position.y = 1.72 }
+        else if (kind === 1) { legs.position.y = 0.4; torso.position.set(0, 0.95, 0.35); torso.rotation.x = Math.PI / 2; head.position.set(0, 0.95, 0.82) }
+        else { legs.position.set(0, 0.22, -0.2); legs.rotation.x = Math.PI / 2.4; torso.position.set(0, 0.3, 0.35); torso.rotation.x = Math.PI / 2.2; head.position.set(0, 0.14, 0.82) }
+        g.add(torso, legs, head)
+        group.add(g)
+        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.35 })
+      }
+      let n = 0
+      for (const x of [3.2, 1.6]) for (let z = -4; z <= 4; z += 1.0) { pose(x, z, n % 3 === 0 ? 0 : n % 3 === 1 ? 1 : 2, robes[n % robes.length]!); n++ }
+      use({ id: 'pray', x: -1.0, z: 0, r: 1.4, title: 'Prayer rows', body: 'Join the back row. Quiet focus for your next course.', enter: 'Pray', run: () => {
+        hooks.busy(2.2, o.x - 0.6, o.z, Math.PI / 2)
+        hooks.toast(sitPrayer().message)
+      } })
+      box(1.2, 0.5, 0.4, std(0x5a3f2c, 0.7), -w / 2 + 1.0, -d / 2 + 0.6)
     }
     scene.add(group)
     const entry = { group, obstacles, uses }

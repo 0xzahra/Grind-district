@@ -30,7 +30,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const sun = new THREE.DirectionalLight(0xffd6a0, 2.2)
   sun.position.set(-60, 70, 40)
   scene.add(sun)
-  const m = (c: number, r = 0.85) => new THREE.MeshStandardMaterial({ color: c, roughness: r })
+  const m = (c: number, r = 1.3) => new THREE.MeshStandardMaterial({ color: c, roughness: r })
   const ground = new THREE.Mesh(new THREE.CircleGeometry(72, 48), m(0x6e675e, 1))
   ground.rotation.x = -Math.PI / 2
   scene.add(ground)
@@ -79,13 +79,13 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   }
   scene.add(trees)
   // NPCs: walkers on loops, traders at desks inside the trading floor's forecourt, café sitters.
-  const body = new THREE.CapsuleGeometry(0.35, 1.0, 3, 8)
+  const body = new THREE.CapsuleGeometry(0.55, 1.5, 3, 8)
   const outfits = [0x2a3b5c, 0x8c2f39, 0xe8dcc8, 0x3d4a3f, 0x6b5a45, 0xc77d3a]
   type Npc = { mesh: THREE.Mesh; kind: 'walk' | 'trade' | 'cafe'; a: number; r: number; s: number; x: number; z: number }
   const npcs: Npc[] = []
   const addNpc = (kind: Npc['kind'], x: number, z: number, a = 0, r = 0, s = 0) => {
     const mesh = new THREE.Mesh(body, m(outfits[npcs.length % outfits.length]!))
-    mesh.position.set(x, 0.85, z)
+    mesh.position.set(x, 1.3, z)
     scene.add(mesh)
     npcs.push({ mesh, kind, a, r, s, x, z })
   }
@@ -128,12 +128,12 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     last = now
     t += dt
     const a = t * 0.06
-    camera.position.set(Math.cos(a) * 95, 52, Math.sin(a) * 95)
+    camera.position.set(Math.cos(a) * 62, 30, Math.sin(a) * 62)
     camera.lookAt(0, 2, 0)
     for (const n of npcs) {
       if (n.kind === 'walk') {
         n.a += n.s * dt
-        n.mesh.position.set(Math.cos(n.a) * n.r, 0.85 + Math.abs(Math.sin(t * 6 + n.r)) * 0.08, Math.sin(n.a) * n.r)
+        n.mesh.position.set(Math.cos(n.a) * n.r, 1.3 + Math.abs(Math.sin(t * 6 + n.r)) * 0.08, Math.sin(n.a) * n.r)
       } else if (n.kind === 'trade') {
         n.mesh.rotation.z = Math.sin(t * 2 + n.x) * 0.06
       } else {

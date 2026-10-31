@@ -114,3 +114,13 @@ export function openLogin(): void {
   body.append(google, el('p', 'or', 'muted'), email, send, code, verify, msg)
   void client().then(async (p) => { if (await p.getAccessToken()) await afterLogin(p) }).catch(() => {})
 }
+
+/** Current Privy access token, or null when signed out / Privy not configured. */
+export async function accessToken(): Promise<string | null> {
+  if (!APP_ID) return null
+  try {
+    return (await (await client()).getAccessToken()) ?? null
+  } catch {
+    return null
+  }
+}

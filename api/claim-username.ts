@@ -1,6 +1,7 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
+import { ensureWallet } from './_wallet.js'
 
 type Req = { method?: string; headers: Record<string, string | undefined>; body?: { username?: string } }
 type Res = { status(n: number): { json(b: unknown): void } }
@@ -23,8 +24,12 @@ export default async function handler(req: Req, res: Res) {
   if (!c.ok) return res.status(400).json({ error: c.reason })
   const db = createClient(url, key, { auth: { persistSession: false } })
   const existing = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
-  if (existing.data) return res.status(200).json({ username: existing.data.username, userId })
+  if (existing.data) {
+    await ensureWallet(db, userId)
+    return res.status(200).json({ username: existing.data.username, userId })
+  }
   const { error } = await db.from('players').insert({ privy_user_id: userId, username: c.name })
   if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'Taken' : 'Could not save' })
+  await ensureWallet(db, userId) // in-game wallet record on sign-up; no keys involved
   res.status(200).json({ username: c.name, userId })
 }
