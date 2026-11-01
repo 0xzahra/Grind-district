@@ -2,6 +2,7 @@
 // a members' lounge, a plaza and a classic stone quad for the campus. Generic designs, no real buildings.
 // Geometry is merged per material (about a dozen draw calls); pools and yacht detail only on medium/high.
 import * as THREE from 'three'
+import { pbrSet } from './pbrTex.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { Obstacle } from './physics.ts'
@@ -29,13 +30,13 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
     stone: new THREE.MeshStandardMaterial({ color: 0xd9cfbd, roughness: 0.9 }),
     stoneWarm: new THREE.MeshStandardMaterial({ color: 0xc8b391, roughness: 0.92 }),
     plaster: new THREE.MeshStandardMaterial({ color: 0xf1eee8, roughness: 0.85 }),
-    timber: new THREE.MeshStandardMaterial({ color: 0x8a5d3b, roughness: 0.7 }),
-    deck: new THREE.MeshStandardMaterial({ color: 0xa47a52, roughness: 0.8 }),
+    timber: new THREE.MeshStandardMaterial({ ...pbrSet('brown_planks_03', 1), color: 0xc9a27e, roughness: 1 }),
+    deck: new THREE.MeshStandardMaterial({ ...pbrSet('brown_planks_03', 1), color: 0xd8b48e, roughness: 1 }),
     glass: new THREE.MeshStandardMaterial({ color: 0x2b3a44, roughness: 0.08, metalness: 0.9, envMapIntensity: 1.1 }),
     dark: new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.6, metalness: 0.4 }),
     brass: new THREE.MeshStandardMaterial({ color: 0xb8975a, roughness: 0.4, metalness: 0.8 }),
-    lawn: new THREE.MeshStandardMaterial({ color: 0x5f8f4a, roughness: 1 }),
-    water: new THREE.MeshStandardMaterial({ color: 0x1f5a6e, roughness: 0.15, metalness: 0.3, envMapIntensity: 1.2 }),
+    lawn: new THREE.MeshStandardMaterial({ ...pbrSet('leafy_grass', 1), color: 0xb6c79a, roughness: 1 }),
+    water: new THREE.MeshStandardMaterial({ color: 0x1d4f60, roughness: 0.08, metalness: 0.55, envMapIntensity: 1.4, normalMap: waveNormals(), normalScale: new THREE.Vector2(0.35, 0.35) }),
     pool: new THREE.MeshStandardMaterial({ color: 0x5fb3c8, roughness: 0.1, metalness: 0.1 }),
     hull: new THREE.MeshStandardMaterial({ color: 0xf6f5f2, roughness: 0.35, metalness: 0.1 }),
     leaf: new THREE.MeshStandardMaterial({ color: 0x3f6b3a, roughness: 0.95 }),
@@ -173,10 +174,39 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   for (const [mat, list] of bag) {
     const merged = mergeGeometries(list.map((g) => { g.deleteAttribute('uv'); return g }), false)
     if (!merged) continue
+    worldUV(merged, mat === M.water ? 0.25 : mat === M.lawn ? 0.5 : 0.6)
     const mesh = new THREE.Mesh(merged, mat)
     mesh.castShadow = hi && mat !== M.water && mat !== M.lawn && mat !== M.pool
     mesh.receiveShadow = true
     mesh.matrixAutoUpdate = false
     scene.add(mesh)
   }
+}
+
+/** Small tiling wave normal map (painted once) so the marina water breaks up its sky reflection. */
+function waveNormals(): THREE.Texture {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S
+  const g = c.getContext('2d')!, img = g.createImageData(S, S)
+  const h = (x: number, y: number) => Math.sin((x / S) * Math.PI * 2 * 3 + Math.sin((y / S) * Math.PI * 2 * 2) * 1.5) + 0.6 * Math.sin((y / S) * Math.PI * 2 * 5 + (x / S) * Math.PI * 2)
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = h(x + 1, y) - h(x - 1, y), dy = h(x, y + 1) - h(x, y - 1)
+    const n = new THREE.Vector3(-dx, -dy, 2).normalize(), k = (y * S + x) * 4
+    img.data[k] = (n.x * 0.5 + 0.5) * 255; img.data[k + 1] = (n.y * 0.5 + 0.5) * 255; img.data[k + 2] = (n.z * 0.5 + 0.5) * 255; img.data[k + 3] = 255
+  }
+  g.putImageData(img, 0, 0)
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 1)
+  return t
+}
+
+/** World-space box-projected UVs (merged geometry is already in world space), metres * scale. */
+function worldUV(g: THREE.BufferGeometry, scale: number): void {
+  const p = g.getAttribute('position'), n = g.getAttribute('normal')
+  if (!p || !n) return
+  const uv = new Float32Array(p.count * 2)
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i))
+    const [u, w] = ax >= ay && ax >= az ? [p.getZ(i), p.getY(i)] : ay >= az ? [p.getX(i), p.getZ(i)] : [p.getX(i), p.getY(i)]
+    uv[i * 2] = u * scale; uv[i * 2 + 1] = w * scale
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
 }

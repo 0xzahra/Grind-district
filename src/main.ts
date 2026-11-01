@@ -29,6 +29,7 @@ import { createWatch } from './watch.ts'
 import { startTracking } from './track.ts'
 import { createSkyline } from './skyline.ts'
 import { createStreetProps } from './props.ts'
+import { createStreetscape } from './streetscape.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
@@ -230,6 +231,7 @@ const apiAgents = createRemoteAgents(scene)
   let nightLevel = 0
   const skyline = createSkyline(scene, getSave().graphics)
   createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics })
+  createStreetscape(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
   let bob = 0

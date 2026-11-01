@@ -241,8 +241,27 @@ export function createWorld(options: {
   let ladderMap = paintLadder(options.rankLabel)
   const ladderMat = new THREE.MeshBasicMaterial({ map: ladderMap, toneMapped: false })
 
+  // Glass curtain-wall towers (trading floor, influencer row): dense mullion grid, mostly glazing.
+  const CURTAIN = new Set([11, 13])
+  // 'spec' packs roughness (G) and metalness (B) in one map: glazing smooth + metallic so it mirrors the sky env map.
+  const facadeSpec = (seed: number) => paint(128, 256, (g) => {
+    g.fillStyle = 'rgb(0,235,0)'; g.fillRect(0, 0, 128, 256)
+    g.fillStyle = 'rgb(0,28,210)'
+    if (CURTAIN.has(seed)) { for (let row = 4; row < 206; row += 14) for (let col = 2; col < 126; col += 16) g.fillRect(col, row, 14, 12) }
+    else for (let row = 18; row < 200; row += 28) for (let col = 14; col < 118; col += 22) g.fillRect(col, row, 10, 16)
+    for (let col = 6; col < 122; col += 30) g.fillRect(col, 218, 24, 34)
+  })
   const facadeTex = (seed: number, wall = false) => {
     const rand = mulberry32(seed)
+    if (CURTAIN.has(seed)) return paint(128, 256, (g) => {
+      g.fillStyle = wall ? '#5d6670' : '#000000'; g.fillRect(0, 0, 128, 256)
+      for (let row = 4; row < 206; row += 14) for (let col = 2; col < 126; col += 16) {
+        if (wall) { const gr = g.createLinearGradient(0, row, 0, row + 12); gr.addColorStop(0, '#7f97a8'); gr.addColorStop(1, '#3e5262'); g.fillStyle = gr; g.fillRect(col, row, 14, 12) }
+        else if (rand() > 0.85) { g.fillStyle = '#e9d7b8'; g.fillRect(col, row, 14, 12) }
+      }
+      g.fillStyle = wall ? '#2f3438' : '#000'; g.fillRect(0, 206, 128, 10)
+      for (let col = 6; col < 122; col += 30) { g.fillStyle = wall ? '#8aa1ad' : '#6b5c48'; g.fillRect(col, 218, 24, 34) }
+    })
     return paint(128, 256, (g) => {
       // Albedo: warm limestone, framed glazed windows with sills, a glazed shopfront and door at street level.
       // Emissive copy: black wall, a few lit panes and the shopfront only.
@@ -539,11 +558,14 @@ export function createWorld(options: {
       ? new THREE.MeshStandardMaterial({
           map: facadeTex(spec.seed ?? 1, true),
           normalMap: concrete.normalMap,
-          roughness: 0.84,
-          metalness: 0.04,
           emissive: 0xfff1dd,
           emissiveMap: facadeTex(spec.seed ?? 1),
           emissiveIntensity: 0.08,
+          roughnessMap: facadeSpec(spec.seed ?? 1),
+          metalnessMap: facadeSpec(spec.seed ?? 1),
+          roughness: 1,
+          metalness: 0.85,
+          envMapIntensity: 1.1,
         })
       : (spec.seed ?? 0) % 2 === 1 && !spec.steeple ? brick : stone
     if (spec.windows && material instanceof THREE.MeshStandardMaterial) facades.push(material)
@@ -641,6 +663,18 @@ export function createWorld(options: {
     awning.position.set(face.x + shift[0], spec.h - 0.08, face.z + shift[1])
     awning.userData.ghost = true
     group.add(sign, awning)
+    {
+      // Entrance canopy: glass slab on two steel tie rods, just above head height.
+      const side = spec.door === 'px' || spec.door === 'nx'
+      const cw = 2.6, cd = 1.5
+      const cx = face.x + shift[0] * 1.05, cz = face.z + shift[1] * 1.05
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(side ? cd : cw, 0.06, side ? cw : cd), shopGlass)
+      canopy.position.set(cx, 2.45, cz)
+      const frame = solid(new THREE.BoxGeometry(side ? cd + 0.06 : cw + 0.06, 0.1, side ? cw + 0.06 : cd + 0.06), stoneDark, false)
+      frame.position.set(cx, 2.4, cz)
+      canopy.userData.ghost = frame.userData.ghost = true
+      group.add(frame, canopy)
+    }
     group.name = `bldg:${spec.title}`
     group.position.set(spec.x, 0, spec.z)
     scene.add(group)
@@ -1196,12 +1230,30 @@ export function createWorld(options: {
   }
 
   const dummy = new THREE.Object3D()
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.16, 1.05, 5), bark, treeSpots.length)
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.72, 0), leaf, treeSpots.length)
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.17, 1.05, 8), bark, treeSpots.length)
+  // Organic crowns: subdivided, noise-displaced clumps with baked vertex shade (darker underside = cheap AO).
+  const crownGeo = (r: number, seed: number) => {
+    const g = new THREE.IcosahedronGeometry(r, 2)
+    const p = g.getAttribute('position') as THREE.BufferAttribute
+    const col = new Float32Array(p.count * 3)
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i)
+      const n = 1 + 0.18 * Math.sin(x * 7.1 + seed) * Math.cos(z * 6.3 + seed) + 0.1 * Math.sin(y * 9.7 + seed * 2)
+      p.setXYZ(i, x * n, y * n, z * n)
+      const sh = 0.55 + 0.45 * THREE.MathUtils.clamp((y / r + 1) / 2, 0, 1)
+      col.set([sh * (0.9 + 0.1 * Math.sin(x * 13)), sh, sh * 0.92], i * 3)
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    g.computeVertexNormals()
+    return g
+  }
+  Object.assign(leaf, { flatShading: false, vertexColors: true, color: new THREE.Color(0x4f8a3e), roughness: 0.85 })
+  leaf.needsUpdate = true
+  const crowns = new THREE.InstancedMesh(crownGeo(0.72, 1), leaf, treeSpots.length)
   trunks.castShadow = true
   trunks.receiveShadow = true
   crowns.castShadow = true
-  const crowns2 = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.55, 0), leaf, treeSpots.length)
+  const crowns2 = new THREE.InstancedMesh(crownGeo(0.55, 4), leaf, treeSpots.length)
   crowns2.castShadow = true
   treeSpots.forEach(([x, z, base], index) => {
     // Full-size street and park trees (~4 m), visible at every quality level.
