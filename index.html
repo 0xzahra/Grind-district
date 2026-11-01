@@ -116,24 +116,20 @@
         </div>
         <div id="menu-account" hidden>
           <h2>Enter the district</h2>
-          <p>Sign in to keep your name, rank and CV.</p>
+          <p>Sign in with an email code or Google to keep your username, rank and CV on any device. Or play as a guest and save later.</p>
           <nav class="menu-actions menu-actions-col" aria-label="Account">
-            <button id="account-new" type="button" class="primary">Create a new account</button>
-            <button id="account-existing" type="button">I already have an account</button>
+            <button id="account-existing" type="button" class="primary">Sign in (email or Google)</button>
+            <button id="account-new" type="button">Play as guest</button>
             <button id="account-back" type="button">Back</button>
           </nav>
         </div>
         <div id="menu-signup" hidden>
-          <h2>Pick a name</h2>
-          <p>The city does not assign one. The name goes on your plate. The username is the handle on your profile.</p>
+          <h2>Play as a guest</h2>
+          <p>Pick a display name and body. Your progress stays on this device until you sign in; a username comes with your account.</p>
           <form id="signup-form">
             <label class="field">
               Name
               <input id="signup-name" name="name" type="text" maxlength="24" autocomplete="name" required />
-            </label>
-            <label class="field">
-              Username
-              <input id="signup-user" name="username" type="text" maxlength="16" autocapitalize="off" autocomplete="username" spellcheck="false" required />
             </label>
             <fieldset class="bodies">
               <legend>Body</legend>

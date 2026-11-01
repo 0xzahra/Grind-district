@@ -255,7 +255,9 @@ export function tickMarket(dt: number, now = Date.now()): void {
 export function signUp(name: string, username: string, body: 'player' | 'zuri'): { ok: true } | { ok: false; error: string } {
   queueMicrotask(() => { if (save.signedUp) track('signup', { username: save.username, ...attribution() }) })
   const display = cleanDisplayName(name)
-  const handle = cleanUsername(username)
+  // Guests get no username: handles are only ever claimed through a Privy session (/api/claim-username).
+  const claimed = localStorage.getItem('gd.privy.username')
+  const handle = claimed ? cleanUsername(claimed) : (cleanUsername(username) && username === claimed ? cleanUsername(username) : 'guest')
   if (!display) return { ok: false, error: 'Pick a name.' }
   if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
   save.name = display
@@ -277,7 +279,33 @@ export function setName(name: string): { ok: true } | { ok: false; error: string
   return { ok: true }
 }
 
+/** Bind this device's save to a signed-in Privy account. The current (guest) progress moves into the account slot
+ *  unless that slot already has progress, in which case the account's own save wins (no silent overwrite). */
+export function adoptAccount(privyUserId: string, handle: string, serverSave?: unknown): 'migrated' | 'kept' | 'server' {
+  const before = slotKey()
+  localStorage.setItem('gd.privy.userId', privyUserId)
+  const after = slotKey()
+  let outcome: 'migrated' | 'kept' | 'server' = 'migrated'
+  const existing = after !== before ? localStorage.getItem(after) : null
+  if (serverSave && !existing) {
+    try { save = hydrate(serverSave); outcome = 'server' } catch { /* keep local */ }
+  } else if (existing) {
+    try { save = hydrate(JSON.parse(existing) as unknown); outcome = 'kept' } catch { /* keep local */ }
+  }
+  save.username = handle
+  if (!save.name) save.name = handle
+  save.signedUp = true
+  applyStarts()
+  persist()
+  emit()
+  return outcome
+}
+export const isAccountBound = () => !!localStorage.getItem('gd.privy.userId') && !!localStorage.getItem('gd.privy.username')
+
 export function setUsername(name: string): { ok: true } | { ok: false; error: string } {
+  // Usernames are owned by the Privy account (claimed server-side); they cannot be changed locally.
+  if (isAccountBound()) return { ok: false, error: 'Your username is tied to your account.' }
+  return { ok: false, error: 'Sign in (email or Google) to claim a username.' }
   const handle = cleanUsername(name)
   if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
   save.username = handle

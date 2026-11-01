@@ -783,6 +783,21 @@ const apiAgents = createRemoteAgents(scene)
     return null
   }))
   setPresence({ find: (u) => net.findPeer(u) })
+  // Guests: after the first reward or purchase, offer to save progress to an account (once per session);
+  // on leaving with progress, the browser asks to confirm. Signed-in players sync their save every minute.
+  {
+    const st = await import('./state.ts')
+    st.onActivity(() => {
+      if (st.isAccountBound() || sessionStorage.getItem('gd.savePrompted')) return
+      sessionStorage.setItem('gd.savePrompted', '1')
+      window.setTimeout(() => void import('./login.ts').then((m) => m.openLogin('Save your progress: sign in with an email code or Google. Your guest progress moves to your account.')), 1500)
+    })
+    window.addEventListener('beforeunload', (e) => {
+      if (st.isAccountBound() || !sessionStorage.getItem('gd.savePrompted')) return
+      e.preventDefault(); e.returnValue = ''
+    })
+    window.setInterval(() => { if (st.isAccountBound() && !document.hidden) void import('./login.ts').then((m) => m.syncProgress()) }, 60_000)
+  }
   // Tap another player: their public profile (full-body shot + what they chose to share), then Message.
   let peerTarget: THREE.Object3D | null = null
   const peerShot = createPortrait(renderer, () => peerTarget!)
@@ -790,7 +805,7 @@ const apiAgents = createRemoteAgents(scene)
   const openPeer = async (p: { id: string; name: string; username: string; object: THREE.Object3D }) => {
     if (peerBusy) return
     // Signed-in players open the full server profile (Message, Add friend, Invite, Go near them).
-    if (p.username && localStorage.getItem('gd.privy.username')) { setCC(true); void openProfile(p.username); return }
+    if (p.username && p.username !== 'guest' && localStorage.getItem('gd.privy.username')) { setCC(true); void openProfile(p.username); return }
     peerBusy = true
     ui.toast(`Opening ${p.name || 'player'}…`)
     try {

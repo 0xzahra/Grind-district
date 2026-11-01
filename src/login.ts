@@ -22,24 +22,25 @@ export async function resumeOAuth(): Promise<void> {
   const state = q.get('privy_oauth_state')
   if (!APP_ID || !code || !state) return
   history.replaceState(null, '', location.pathname)
-  const privy = await client()
-  await privy.auth.oauth.loginWithCode(code, state, 'google')
-  openLogin()
+  try {
+    const privy = await client()
+    await privy.auth.oauth.loginWithCode(code, state, 'google')
+    openLogin()
+  } catch (e) {
+    openLogin(`Google sign-in did not complete: ${(e as Error).message || 'unknown error'}. Try again or use an email code.`)
+  }
 }
 
 /** On the title screen, a returning player who signs in goes straight into the city under their handle. */
-async function enterAs(handle: string): Promise<void> {
+async function enterAs(_handle: string): Promise<void> {
   const menu = document.getElementById('menu')
   if (!menu || menu.hidden) return
-  const { getSave, signUp } = await import('./state.ts')
-  const s = getSave()
-  if (!s.signedUp) signUp(s.name || handle, handle, s.body === 'zuri' ? 'zuri' : 'player')
   const go = el('button', 'Enter the district', 'primary')
   go.onclick = () => { document.getElementById('login-dlg')?.remove(); document.getElementById('play')?.click() }
   document.querySelector('#login-dlg .wallet-body')?.append(go)
 }
 
-export function openLogin(): void {
+export function openLogin(notice = ''): void {
   document.getElementById('login-dlg')?.remove()
   const dlg = el('div', '', 'wallet-dlg login-dlg')
   dlg.id = 'login-dlg'
@@ -48,16 +49,32 @@ export function openLogin(): void {
   const logo = el('p', 'Grind District', 'login-wordmark')
   const body = el('div', '', 'wallet-body')
   const close = el('button', 'Play as guest', 'ghost')
-  close.onclick = () => dlg.remove()
+  close.onclick = () => { dlg.remove(); window.dispatchEvent(new Event('gd-login-closed')) }
+  // One flow at a time: hide the title-screen account panel while this dialog is up.
+  const acct = document.getElementById('menu-account'); const acctWas = acct?.hidden
+  if (acct) acct.hidden = true
+  window.addEventListener('gd-login-closed', () => { if (acct && acctWas === false && !document.getElementById('login-dlg')) acct.hidden = false }, { once: true })
   dlg.append(logo, el('h2', 'Sign in'), body, close)
   document.body.append(dlg)
-  const msg = el('p', '', 'muted')
+  const msg = el('p', notice, 'muted')
 
   if (!APP_ID) {
     body.append(el('p', 'Sign in is coming soon. You can play now as a guest; your progress stays on this device.', 'muted'))
     return
   }
 
+  // Bind the device to the Privy account: ask the server which username this account owns (if any), move guest
+  // progress into the account slot, and only then offer a username claim (always with the Privy token).
+  const bind = async (token: string, j: { username?: string | null; userId?: string; save?: unknown }) => {
+    if (!j.userId || !j.username) return false
+    localStorage.setItem(CLAIMED_KEY, j.username)
+    const { adoptAccount } = await import('./state.ts')
+    const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
+    void syncProgress(token)
+    body.replaceChildren(el('p', `Signed in as @${j.username}.`), el('p', how === 'migrated' ? 'Your guest progress is now saved to your account.' : how === 'server' ? 'Loaded your saved progress.' : 'Loaded your account progress on this device.', 'muted'))
+    void enterAs(j.username)
+    return true
+  }
   const pickUsername = async (token: string) => {
     const input = el('input'); input.placeholder = 'username'; input.maxLength = 16; input.autocapitalize = 'off'
     const state = el('p', '', 'muted')
@@ -76,15 +93,11 @@ export function openLogin(): void {
     save.onclick = async () => {
       const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ username: input.value, ref: localStorage.getItem('gd.invitedBy') ?? undefined }) })
       const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string; invitedBy?: string | null }
-      if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
-      if (j.username) {
-        localStorage.setItem(CLAIMED_KEY, j.username)
-        void enterAs(j.username)
-        body.replaceChildren(el('p', `Signed in as @${j.username}.`), ...(j.invitedBy ? [el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)] : []))
-        if (j.invitedBy) localStorage.removeItem('gd.invitedBy')
+      if (j.username && (await bind(token, j))) {
+        if (j.invitedBy) { body.append(el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)); localStorage.removeItem('gd.invitedBy') }
       } else state.textContent = j.error ?? 'Could not save'
     }
-    body.replaceChildren(el('p', 'Choose your username. It is unique across the city.'), input, state, save)
+    body.replaceChildren(el('p', 'Choose your username. It is unique across the city and stays with this account.'), input, state, save)
   }
 
   const afterLogin = async (privy: Awaited<ReturnType<typeof client>>) => {
@@ -95,9 +108,13 @@ export function openLogin(): void {
       const { grantSignupBonus, SIGNUP_BONUS } = await import('./state.ts')
       if (grantSignupBonus(sub)) body.prepend(el('p', `Welcome bonus: $${SIGNUP_BONUS.toLocaleString()} in-game added to your ledger.`))
     } catch { /* bonus is best-effort */ }
-    const known = localStorage.getItem(CLAIMED_KEY)
-    if (known) { body.replaceChildren(el('p', `Signed in as @${known}.`)); void enterAs(known) }
-    else void pickUsername(token)
+    body.replaceChildren(el('p', 'Signing you in…', 'muted'))
+    const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: '{}' }).catch(() => null)
+    const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string } : {}
+    if (!r || !r.ok) { body.replaceChildren(el('p', (j as { error?: string }).error ?? 'Could not reach the server. Try again.', 'muted')); return }
+    // A cached handle from another account must never stick: the server's answer wins.
+    if (!j.username) { localStorage.removeItem(CLAIMED_KEY); if (j.userId) localStorage.setItem('gd.privy.userId', j.userId); void pickUsername(token); return }
+    await bind(token, j)
   }
 
   const google = el('button', 'Continue with Google', 'primary')
@@ -139,4 +156,13 @@ export async function accessToken(): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+/** Push the local save to the account (server copy for other devices). Best-effort, throttled by callers. */
+export async function syncProgress(token?: string | null): Promise<void> {
+  if (!localStorage.getItem(CLAIMED_KEY)) return
+  const t = token ?? await accessToken()
+  if (!t) return
+  const { getSave } = await import('./state.ts')
+  await fetch('/api/profile?op=progress', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify({ save: getSave() }) }).catch(() => null)
 }

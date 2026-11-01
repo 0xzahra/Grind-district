@@ -19,6 +19,13 @@ export default async function handler(req: Req, res: Res) {
   const db = createClient(url, key, { auth: { persistSession: false } })
   const p = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
   if (!p.data) return res.status(404).json({ error: 'claim a username first' })
+  if (req.query?.op === 'progress') {
+    // Server copy of the save (local stays the source of truth): last write wins, 256 KB cap.
+    const raw = JSON.stringify(req.body?.save ?? null)
+    if (!req.body?.save || raw.length > 262_144) return res.status(400).json({ error: 'bad save' })
+    const up = await db.from('player_progress').upsert({ privy_user_id: userId, save: req.body.save, updated_at: new Date().toISOString() }, { onConflict: 'privy_user_id' })
+    return up.error ? res.status(503).json({ error: 'progress sync unavailable' }) : res.status(200).json({ ok: true })
+  }
   if (req.query?.op === 'agent-code') {
     // One-time code (30 min) the player's AI agent sends to /api/agent-register to link itself to this profile.
     const code = `gdc_${randomBytes(9).toString('base64url')}`

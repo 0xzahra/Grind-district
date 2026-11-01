@@ -91,7 +91,6 @@ export function mountMenu(enter: () => void): void {
   const play = must<HTMLButtonElement>('#play')
   const form = must<HTMLFormElement>('#signup-form')
   const nameInput = must<HTMLInputElement>('#signup-name')
-  const userInput = must<HTMLInputElement>('#signup-user')
   const error = must<HTMLParagraphElement>('#signup-error')
   const note = must<HTMLParagraphElement>('#menu-note')
   const account = must<HTMLElement>('#menu-account')
@@ -164,7 +163,7 @@ export function mountMenu(enter: () => void): void {
       error.textContent = 'Pick a body.'
       return
     }
-    const outcome = signUp(nameInput.value, userInput.value, body)
+    const outcome = signUp(nameInput.value, '', body)
     if (!outcome.ok) {
       error.hidden = false
       error.textContent = outcome.error

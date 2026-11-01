@@ -844,6 +844,8 @@ export function mountUi(
     handle.type = 'text'
     handle.maxLength = 16
     handle.value = save.username
+    handle.readOnly = true // bound to the Privy account; guests get one when they sign in
+    handle.title = 'Your username is tied to your account'
     handle.autocomplete = 'username'
     handle.spellcheck = false
     handle.addEventListener('change', () => {
