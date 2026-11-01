@@ -1579,3 +1579,10 @@ body.sheet-open #online-chip, body.cc-sheet-on #online-chip { display: none !imp
 .sat-zoom button { width: 34px !important; height: 34px; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; background: rgba(10,11,13,.72) !important; color: #fff; font-size: 18px; text-align: center !important; justify-content: center !important; }
 .sat-legend { position: absolute; left: 8px; bottom: 8px; z-index: 2; font-size: 10.5px; padding: 2px 7px; border-radius: 6px; background: rgba(10,11,13,.65); color: #eee; }
 .map-entry[hidden] { display: none !important; }
+.cc-split { display: flex; gap: 14px; margin: 4px 0 0 !important; }
+.cc-split span { display: grid; }
+.cc-split small { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; opacity: .65; }
+.cc-split b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.cc-spend-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cc-spend-grid .cc-row { display: grid; gap: 2px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid rgba(217,178,106,.35); background: rgba(217,178,106,.07); color: inherit; }
+.cc-spend-grid .cc-row p { margin: 0; font-size: 11.5px; opacity: .75; }

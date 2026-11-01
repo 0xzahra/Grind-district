@@ -32,7 +32,7 @@ import { createStreetProps } from './props.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { onActivity, subscribe, setTime, getSave, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
+import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -549,16 +549,37 @@ const apiAgents = createRemoteAgents(scene)
     // and it re-reads the ledger every second while the sheet is open (credits land asynchronously).
     const head = el('div', '', 'cc-balance-head')
     const big = el('p', `$${save.ledger.toFixed(2)}`, 'cc-big')
-    head.append(big)
+    const split = el('p', '', 'cc-split')
+    const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toFixed(2)}`)); split.append(c) } }
+    paintSplit()
+    head.append(big, split)
     sheetBody.replaceChildren(head, el('p', 'In-game virtual balance. Top up with ETH or USDC on Base below.', 'cc-muted'))
     const tick = window.setInterval(() => {
       if (ccSheet.hidden || sheetTitle.textContent !== 'Balance' || !big.isConnected) { clearInterval(tick); return }
       const v = `$${getSave().ledger.toFixed(2)}`
-      if (big.textContent !== v) big.textContent = v
+      if (big.textContent !== v) { big.textContent = v; paintSplit(); paintSpend() }
     }, 1000)
     const topBtn = el('button', 'Top up', 'topup-go')
     topBtn.type = 'button'
-    const credited = () => { paintStatus(); big.textContent = `$${getSave().ledger.toFixed(2)}` }
+    const credited = () => { paintStatus(); big.textContent = `$${getSave().ledger.toFixed(2)}`; paintSplit(); paintSpend(); spend.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+    // 'Spend it': after a deposit (or any time there is cash), shortcuts to the premium things in the city.
+    const spend = el('div', '', 'cc-spend')
+    const go = (fn: () => void) => () => { closeSheet(); setCC(false); fn() }
+    const paintSpend = () => {
+      const b = balanceSplit()
+      spend.replaceChildren()
+      if (b.total < 1) return
+      spend.append(el('h3', b.toppedUp > 0 ? 'Spend it' : 'Things to buy'))
+      const items: Array<[string, string, () => void]> = [
+        ['Premium outfits', 'Suits, gowns, watch, pearls · from $90', go(() => ui.open('boutique'))],
+        ['House upgrade', 'Furnish your home, next tier', go(() => travelHook('Your house', true))],
+        ['Car or drone', 'Gadgets pavilion · in-game', go(() => ui.open('gadgets'))],
+        ['Lounge pass', "Members' lounge rooms", go(() => travelHook('Members lounge', true))],
+      ]
+      const grid = el('div', '', 'cc-spend-grid')
+      for (const [t, d, f] of items) { const btn = el('button', '', 'cc-row'); btn.type = 'button'; btn.append(el('strong', t), el('p', d)); btn.onclick = f; grid.append(btn) }
+      spend.append(grid)
+    }
     topBtn.onclick = () => {
       topBtn.disabled = true; topBtn.textContent = 'Opening…'
       // The chunk can 404 if the site was redeployed after this tab loaded: say so and offer a reload instead of failing silently.
@@ -569,7 +590,8 @@ const apiAgents = createRemoteAgents(scene)
       })
     }
     const topSlot = el('div')
-    sheetBody.append(topBtn, topSlot, el('h3', 'In-game activity'))
+    paintSpend()
+    sheetBody.append(topBtn, topSlot, spend, el('h3', 'In-game activity'))
     const list = el('ol', '', 'cc-list')
     const moves = save.activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
     for (const a of moves) { const li = el('li'); li.append(el('strong', a.label), el('time', when(a.at)), el('p', a.detail)); list.append(li) }
