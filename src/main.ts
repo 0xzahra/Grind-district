@@ -993,7 +993,7 @@ const apiAgents = createRemoteAgents(scene)
   const tryBake = () => { if (!indoors()) { bake(); baked = true } else setTimeout(tryBake, 5000) }
   setTimeout(tryBake, 4000)
   void baked
-  if (location.search.includes('debugmap')) Object.assign(window, { __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  if (location.search.includes('debugmap')) Object.assign(window, { __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1045,8 +1045,8 @@ const apiAgents = createRemoteAgents(scene)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
-      scene.environmentIntensity = 0.6 * (1 - nightLevel) + 0.1 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.0, 0.9, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
+      scene.environmentIntensity = 0.75 * (1 - nightLevel) + 0.18 * nightLevel
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.18, 1.05, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }

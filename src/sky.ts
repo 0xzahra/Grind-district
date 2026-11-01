@@ -15,9 +15,9 @@ export function createPhysicalSky(scene: THREE.Scene) {
   const mat = sky.material as THREE.ShaderMaterial
   mat.fog = false
   const u = mat.uniforms as Record<string, { value: number | THREE.Vector3 }>
-  u.turbidity!.value = 6
-  u.rayleigh!.value = 1.6
-  u.mieCoefficient!.value = 0.004
+  u.turbidity!.value = 2.2
+  u.rayleigh!.value = 2.4
+  u.mieCoefficient!.value = 0.0025
   u.mieDirectionalG!.value = 0.85
   scene.add(sky)
   const sunDir = new THREE.Vector3()
@@ -31,7 +31,7 @@ export function createPhysicalSky(scene: THREE.Scene) {
       ;(u.sunPosition!.value as THREE.Vector3).copy(sunDir)
       // Night: dim the scattering so the sky goes deep blue-black instead of grey.
       const night = THREE.MathUtils.clamp(-elev * 3, 0, 1)
-      u.rayleigh!.value = 1.6 - night * 1.5
+      u.rayleigh!.value = 2.4 - night * 2.2
       if (follow) sky.position.copy(follow)
     },
   }

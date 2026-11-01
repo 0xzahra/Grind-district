@@ -1251,7 +1251,12 @@ export function createWorld(options: {
     [-4.8, 28],
     [-4.8, 38],
     [48, 22], [48, 34], [48, 46], [48, 62], [40, 76], [35.6, 16.4],
+    // Opposite kerb of each arterial road, staggered so every stretch of road has a pool of light at night.
+    [-21, -4.8], [-33, -4.8], [-44, -4.8], [21, 4.8], [33, 4.8], [44, 4.8],
+    [-4.8, -21], [-4.8, -33], [-4.8, -44], [4.8, 21], [4.8, 33], [4.8, 44],
   ] as const) addLamp(x, z)
+  // A few real warm lamp lights at road junctions (cheap: 4 lights, night only); the rest are light-pool decals.
+  for (const [x, z] of [[-21, -4.8], [21, 4.8], [-4.8, -21], [4.8, 21]] as const) addGlow(x, 2.2, z, 0xffd6a0, 5)
 
   const basinWater = new THREE.Mesh(new THREE.CircleGeometry(6.2, 32), waterMat)
   basinWater.rotation.x = -Math.PI / 2
@@ -1359,12 +1364,12 @@ export function createWorld(options: {
   }
 
   let seasonBear = false
-  const nightSky = new THREE.Color(0x02040a)
-  const nightLow = new THREE.Color(0x0a1210)
+  const nightSky = new THREE.Color(0x0a1430)
+  const nightLow = new THREE.Color(0x1a2438)
   const duskSky = new THREE.Color(0x2a3a6a)
   const duskLow = new THREE.Color(0xe9a476)
-  const daySky = new THREE.Color(0x3d8fe0)
-  const dayLow = new THREE.Color(0xe6dccd)
+  const daySky = new THREE.Color(0x2f86ea)
+  const dayLow = new THREE.Color(0xa9cdf0)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
   const sunDay = new THREE.Color(0xffd8a6)
@@ -1382,29 +1387,29 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.0058 - day * 0.0034 + dusk * 0.0008 // soft warm haze
+    fog.density = 0.0042 - day * 0.0032 + dusk * 0.0008 // day: barely any haze, clear blue
     // Day: the sun drives everything. Night: a faint cool moon and almost no ambient; lamps do the rest.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.25 + day * 1.0 : 0.05) * (seasonBear ? 0.85 : 1)
+    sun.intensity = (elev >= 0 ? 0.3 + day * 1.45 : 0.12) * (seasonBear ? 0.85 : 1)
     sun.castShadow = day > 0.15
-    hemi.intensity = 0.04 + day * 0.56
+    hemi.intensity = 0.22 + day * 0.7
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(0x07090c).lerp(tmpA.setHex(0x3d4f3a), day)
     fill.intensity = 0.02 + day * 0.1
-    lampMat.emissiveIntensity = 0.08 + night * 2.2
+    lampMat.emissiveIntensity = 0.08 + night * 1.6
     trimPulse = 0.15 + night * 0.2
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.05 + night * 0.08
     groundMat.roughness = 0.97 - night * 0.3
     groundMat.metalness = 0.02 + night * 0.12
-    for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.45
-    for (const light of glow) light.intensity = Number(light.userData.night) * 0.8 * Math.max(0, night - 0.1)
+    for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.7
+    for (const light of glow) light.intensity = Number(light.userData.night) * 1.15 * Math.max(0, night - 0.1)
     poolNight = night
-    decalMat.opacity = 0.75 * Math.max(0, night - 0.15)
+    decalMat.opacity = 0.9 * Math.max(0, night - 0.15)
     if (!decals && lampSpots.length) buildDecals()
     moon.visible = night > 0.25
     moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)
