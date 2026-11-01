@@ -425,7 +425,8 @@ const apiAgents = createRemoteAgents(scene)
   must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#pill-place').addEventListener('click', () => ui.open('city'))
   // Screenshot (camera button beside the menu): grab the next rendered frame, add a small watermark, share or download.
-  document.querySelector('#shot')?.addEventListener('click', () => { snapNext = true })
+  // Render and copy the frame inside the tap itself: the drawing buffer is still valid and the share sheet keeps its user activation.
+  document.querySelector('#shot')?.addEventListener('click', () => { try { post.render() } catch { /* next frame */ } void saveShot() })
   const saveShot = async () => {
     try {
       const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height
@@ -437,13 +438,18 @@ const apiAgents = createRemoteAgents(scene)
       const w = g.measureText(label).width
       g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
       g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
-      const blob = await new Promise<Blob | null>((ok) => out.toBlob(ok, 'image/png'))
+      const blob = await new Promise<Blob | null>((ok) => out.toBlob(ok, 'image/jpeg', 0.92))
       if (!blob) throw new Error('no blob')
-      const file = new File([blob], 'grind-district.png', { type: 'image/png' })
-      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Grind District' }).catch(() => {}); return }
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'grind-district.png'; a.click()
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000)
-      ui.toast('Screenshot saved.')
+      const name = `grind-district-${Date.now()}.jpg`
+      const file = new File([blob], name, { type: 'image/jpeg' })
+      if (navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'Grind District' }); return }
+        catch (e) { if ((e as Error).name === 'AbortError') return /* user closed the share sheet */ }
+      }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name
+      document.body.append(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+      ui.toast('Screenshot saved to Downloads.')
     } catch { ui.toast('This browser blocked the screenshot.') }
   }
 
