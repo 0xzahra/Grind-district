@@ -16,6 +16,7 @@ import { accessToken } from './login.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
+import { courseArt } from './courseArt.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Slot } from './wardrobe.ts'
@@ -445,7 +446,7 @@ export function mountUi(
       // Each view replaces the whole body and scrolls the sheet to the top, so an exercise never sits on top of lesson text.
       const toTop = () => { let n: HTMLElement | null = body; while (n) { if (n.scrollHeight > n.clientHeight + 1) n.scrollTop = 0; n = n.parentElement } }
       const showLesson = () => {
-        const wrap = stack(button('← Your path', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${total} exercises. A miss names the idea to reread.`, 'muted'))
+        const wrap = stack(button('← Your path', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'), para(`${total} exercises. A miss names the idea to reread.`, 'muted'))
         if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
         if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
         for (const paragraph of course.paragraphs) wrap.append(para(paragraph))

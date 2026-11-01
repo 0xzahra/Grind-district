@@ -3,6 +3,8 @@ import { COURSES } from './courses.ts'
 import { getSave } from './state.ts'
 import { RANKS, SKILL_META, type SkillId } from './logic.ts'
 import { openCertificate } from './certs.ts'
+import { courseArt } from './courseArt.ts'
+const LEVELS = ['Beginner', 'Beginner', 'Intermediate', 'Intermediate', 'Advanced', 'Advanced']
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] => {
   const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n
@@ -55,17 +57,19 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
     const uh = h('div', 'lx-unit-h'); uh.append(ring(got / items.length, 40, `${got}/${items.length}`))
     const ut = h('div'); ut.append(h('small', '', `Unit ${u + 1}`), h('b', '', UNIT_NAMES[u] ?? `Unit ${u + 1}`)); uh.append(ut)
     unit.append(uh)
-    const path = h('div', 'lx-path')
-    items.forEach((c, i) => {
+    const path = h('div', 'lx-grid')
+    items.forEach((c) => {
       const ok = passed(c.id)
       const isNext = c === nextCourse
-      const node = h('button', `lx-lesson${ok ? ' done' : ''}${isNext ? ' next' : ''}`)
-      node.style.marginLeft = `${[0, 18, 32, 18][i % 4]}%`
-      const dot = h('span', 'lx-dot', ok ? '✓' : String(u * 4 + i + 1))
-      const tx = h('div'); tx.append(h('b', '', SKILL_META[c.id].title), h('small', '', ok ? 'Complete · certificate earned' : `${c.minutes} · ${c.questions.length} exercises`))
-      node.append(dot, tx)
-      node.onclick = () => onCourse(c.id)
-      path.append(node)
+      const card = h('button', `lx-card${ok ? ' done' : ''}${isNext ? ' next' : ''}`)
+      card.type = 'button'
+      const body = h('div', 'lx-card-b')
+      const pct = ok ? 1 : isNext ? 0.08 : 0
+      const pb = h('div', 'lx-bar'); const pf = h('i'); pf.style.width = `${Math.round(pct * 100)}%`; pb.append(pf)
+      body.append(h('small', 'lx-level', `${LEVELS[u] ?? 'Advanced'}${ok ? ' · ✓ Done' : isNext ? ' · Up next' : ''}`), h('b', '', SKILL_META[c.id].title), h('span', 'lx-count', `${c.questions.length} exercises · ${c.minutes}`), pb)
+      card.append(courseArt(c.id), body)
+      card.onclick = () => onCourse(c.id)
+      path.append(card)
     })
     unit.append(path)
     root.append(unit)
