@@ -25,7 +25,7 @@ async function api<T>(op: string, opts: { q?: string; post?: Record<string, unkn
   // from Google/email on this device may not have the username cached yet.
   const known = localStorage.getItem(CLAIMED_KEY) || localStorage.getItem('gd.privy.userId') || Object.keys(localStorage).some((k) => k.startsWith('privy:'))
   const token = known ? await accessToken() : null
-  if (!token) return { ok: false, status: 401, data: { error: 'Sign in to use messages', noToken: true } as T & { error?: string } }
+  if (!token) return { ok: false, status: 401, data: { error: 'Sign in to use messages', noToken: true } as unknown as T & { error?: string } }
   const r = await fetch(`/api/messages?op=${op}${opts.q ?? ''}`, {
     method: opts.post ? 'POST' : 'GET',
     headers: { authorization: `Bearer ${token}`, ...(opts.post ? { 'content-type': 'application/json' } : {}) },
