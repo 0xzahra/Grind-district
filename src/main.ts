@@ -437,32 +437,39 @@ const apiAgents = createRemoteAgents(scene)
   must('#pill-place').addEventListener('click', () => ui.open('city'))
   // Screenshot (camera button beside the menu): grab the next rendered frame, add a small watermark, share or download.
   // Render and copy the frame inside the tap itself: the drawing buffer is still valid and the share sheet keeps its user activation.
-  document.querySelector('#shot')?.addEventListener('click', () => { try { post.render() } catch { /* next frame */ } void saveShot() })
-  const saveShot = async () => {
-    try {
-      const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height
-      const g = out.getContext('2d')!
-      g.drawImage(canvas, 0, 0)
-      const s = Math.max(1, out.width / 1200)
-      g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif`
-      const label = 'GRIND DISTRICT'
-      const w = g.measureText(label).width
-      g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
-      g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
-      const blob = await new Promise<Blob | null>((ok) => out.toBlob(ok, 'image/jpeg', 0.92))
-      if (!blob) throw new Error('no blob')
-      const name = `grind-district-${Date.now()}.jpg`
-      const file = new File([blob], name, { type: 'image/jpeg' })
-      if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: 'Grind District' }); return }
-        catch (e) { if ((e as Error).name === 'AbortError') return /* user closed the share sheet */ }
-      }
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name
+  // Screenshot: capture on pointerdown (render a frame, PNG blob, File) so the click can call navigator.share
+  // synchronously with ONLY files (Android targets drop images when text/url ride along). Fallback: download.
+  let shotFile: Promise<File | null> | null = null
+  const capture = (): Promise<File | null> => {
+    try { post.render() } catch { /* use the last frame */ }
+    const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height
+    const g = out.getContext('2d')!
+    g.drawImage(canvas, 0, 0)
+    const s = Math.max(1, out.width / 1200)
+    g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, Inter, sans-serif`
+    const label = 'GRIND DISTRICT', w = g.measureText(label).width
+    g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
+    g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
+    return new Promise((ok) => out.toBlob((b) => ok(b ? new File([b], `grind-district-${Date.now()}.png`, { type: 'image/png' }) : null), 'image/png'))
+  }
+  const shotBtn = document.querySelector<HTMLButtonElement>('#shot')
+  shotBtn?.addEventListener('pointerdown', () => { shotFile = capture() })
+  shotBtn?.addEventListener('click', () => {
+    const pending = shotFile ?? capture()
+    shotFile = null
+    const download = (f: File) => {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name
       document.body.append(a); a.click(); a.remove()
       setTimeout(() => URL.revokeObjectURL(a.href), 10000)
       ui.toast('Screenshot saved to Downloads.')
-    } catch { ui.toast('This browser blocked the screenshot.') }
-  }
+    }
+    void pending.then((file) => {
+      if (!file) { ui.toast('This browser blocked the screenshot.'); return }
+      if (navigator.canShare?.({ files: [file] })) {
+        navigator.share({ files: [file] }).catch((e: Error) => { if (e.name !== 'AbortError') download(file) })
+      } else download(file)
+    })
+  })
 
 
   const input = createInput(canvas, stick, nub)
@@ -1404,7 +1411,7 @@ const apiAgents = createRemoteAgents(scene)
       update(dt)
       post.frame(dt, elapsed)
       post.render()
-      if (snapNext) { snapNext = false; void saveShot() }
+      if (snapNext) { snapNext = false; shotBtn?.click() }
       if (revealed) probe(dt)
       if (!revealed) {
         revealed = true
