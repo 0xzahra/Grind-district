@@ -21,8 +21,11 @@ const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'nu
 
 async function api<T>(op: string, opts: { q?: string; post?: Record<string, unknown> } = {}): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> {
   // Guests (no claimed username) never load the Privy SDK here.
-  const token = localStorage.getItem(CLAIMED_KEY) ? await accessToken() : null
-  if (!token) return { ok: false, status: 401, data: { error: 'Sign in to use messages' } as T & { error?: string } }
+  // Any Privy trace (claimed username, user id, or an SDK session key) means try for a token: a session restored
+  // from Google/email on this device may not have the username cached yet.
+  const known = localStorage.getItem(CLAIMED_KEY) || localStorage.getItem('gd.privy.userId') || Object.keys(localStorage).some((k) => k.startsWith('privy:'))
+  const token = known ? await accessToken() : null
+  if (!token) return { ok: false, status: 401, data: { error: 'Sign in to use messages', noToken: true } as T & { error?: string } }
   const r = await fetch(`/api/messages?op=${op}${opts.q ?? ''}`, {
     method: opts.post ? 'POST' : 'GET',
     headers: { authorization: `Bearer ${token}`, ...(opts.post ? { 'content-type': 'application/json' } : {}) },
@@ -35,11 +38,14 @@ async function api<T>(op: string, opts: { q?: string; post?: Record<string, unkn
 
 export const dmUnread = () => unread
 
-function signedOut(body: HTMLElement) {
+function signedOut(body: HTMLElement, hasSession = false) {
+  // hasSession: a valid Privy token exists but no username is linked to it yet, so the fix is claiming one, not signing in.
   body.replaceChildren(
-    el('p', 'Messages go to a player’s Messages tab even when they are offline. Sign in and claim a username to send and receive them.', 'cc-muted'),
+    el('p', hasSession
+      ? 'You are signed in, but no username is linked yet. Claim one to send and receive messages.'
+      : 'Messages go to a player’s Messages tab even when they are offline. Sign in and claim a username to send and receive them.', 'cc-muted'),
   )
-  const sign = el('button', 'Sign in', 'dm-primary'); sign.type = 'button'; sign.onclick = () => openLogin()
+  const sign = el('button', hasSession ? 'Claim username' : 'Sign in', 'dm-primary'); sign.type = 'button'; sign.onclick = () => openLogin()
   body.append(sign, nearbyRow())
 }
 
@@ -58,7 +64,7 @@ export async function openInbox(): Promise<void> {
   body.replaceChildren(el('p', 'Loading…', 'cc-muted'))
   const r = await api<{ me: string; threads: Thread[]; blocked: string[] }>('inbox')
   if (!ctx.isOpen('Messages') || current) return
-  if (r.status === 401) return signedOut(body)
+  if (r.status === 401) return signedOut(body, !(r.data as { noToken?: boolean }).noToken)
   if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load messages.', 'cc-muted'), nearbyRow()); return }
   setUnread(r.data.threads.reduce((s, t) => s + t.unread, 0))
   const list = el('ol', '', 'cc-list dm-threads')
@@ -94,7 +100,7 @@ export async function openThread(withUser: string): Promise<void> {
   body.replaceChildren(el('p', 'Loading…', 'cc-muted'))
   const r = await api<{ me: string; lines: Line[]; blocked: boolean }>('thread', { q: `&with=${encodeURIComponent(u)}` })
   if (current !== u) return
-  if (r.status === 401) return signedOut(body)
+  if (r.status === 401) return signedOut(body, !(r.data as { noToken?: boolean }).noToken)
   if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load.', 'cc-muted')); return }
   const back = el('button', '‹ All messages', 'cc-link'); back.type = 'button'; back.onclick = () => void openInbox()
   const log = el('ol', '', 'dm-log')
@@ -194,7 +200,7 @@ export async function openFriends(): Promise<void> {
   const body = ctx.body()
   body.replaceChildren(el('p', 'Loading…', 'cc-muted'))
   const r = await api<Social>('social')
-  if (r.status === 401) return signedOut(body)
+  if (r.status === 401) return signedOut(body, !(r.data as { noToken?: boolean }).noToken)
   if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load friends.', 'cc-muted')); return }
   social = r.data
   const s = r.data

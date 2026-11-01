@@ -1,5 +1,5 @@
 /* Messages tab + tapped-player profile. Glass, calm, no neon. */
-.dm-primary { display: block; width: 100%; margin: 8px 0; padding: 10px 14px; border: 0; border-radius: 999px; background: #f5f5f7; color: #111; font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; }
+.dm-primary { position: static; box-sizing: border-box; display: block; width: 100%; margin: 8px 0; padding: 10px 14px; border: 0; border-radius: 999px; background: #f5f5f7; color: #111; font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; }
 .dm-primary:disabled { opacity: .5; }
 .dm-nearby { display: grid; gap: 2px; width: 100%; margin: 8px 0 10px; padding: 10px 12px; text-align: left; border: 1px solid rgba(255,255,255,.12); border-radius: 14px; background: rgba(255,255,255,.05); color: inherit; font: inherit; cursor: pointer; }
 .dm-nearby strong { font: 600 14px/1.3 -apple-system, Inter, system-ui, sans-serif; }
@@ -23,3 +23,7 @@
 .dm-blocked .cc-link { margin: 0; }
 .peer-shot { display: block; width: min(180px, 46vw); aspect-ratio: 360 / 600; margin: 0 auto 6px; object-fit: contain; border-radius: 18px; background: radial-gradient(ellipse at 50% 35%, rgba(255,255,255,.14), rgba(255,255,255,.02)); }
 .peer-actions { display: flex; justify-content: center; margin: 4px 0 10px; }
+
+/* Sign-in button and the Nearby card stack, never overlap. */
+#cc-sheet-body .dm-primary { position: static !important; margin: 10px 0 12px !important; }
+#cc-sheet-body .dm-nearby { position: static !important; box-sizing: border-box; clear: both; }
