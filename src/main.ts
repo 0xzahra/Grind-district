@@ -973,8 +973,15 @@ const apiAgents = createRemoteAgents(scene)
       if (hit) break
       good = t
     }
-    if (good < 1) {
-      cam.lerpVectors(origin, cam, Math.max(good, 0.15))
+    if (good < 0.35) {
+      // Backed against a wall: swing the camera to the room side and lift it, instead of jamming it into the head.
+      const dx = room.x - origin.x, dz = room.z - origin.z, len = Math.hypot(dx, dz) || 1
+      const reach = Math.min(1.8, Math.max(0.8, Math.min(room.hw, room.hd) - 0.6))
+      cam.set(origin.x + (dx / len) * reach, 2.55, origin.z + (dz / len) * reach)
+      smoothCam.copy(cam)
+      camVel.set(0, 0, 0)
+    } else if (good < 1) {
+      cam.lerpVectors(origin, cam, good)
       smoothCam.copy(cam)
       camVel.set(0, 0, 0)
     }
