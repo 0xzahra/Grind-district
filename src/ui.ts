@@ -437,51 +437,75 @@ export function mountUi(
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
       if (!passed) track('course_start', { course: id })
-      const wrap = stack(button('← Your path', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${course.questions.length} exercises. A miss names the idea to reread.`, 'muted'))
-      if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
-      if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
-      for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
-      const result = para('', 'result')
-      course.questions.forEach((question, questionIndex) => {
-        wrap.append(para(question.prompt, 'kicker'))
+      const total = course.questions.length
+      // Each view replaces the whole body and scrolls the sheet to the top, so an exercise never sits on top of lesson text.
+      const toTop = () => { let n: HTMLElement | null = body; while (n) { if (n.scrollHeight > n.clientHeight + 1) n.scrollTop = 0; n = n.parentElement } }
+      const showLesson = () => {
+        const wrap = stack(button('← Your path', 'ghost', showList), para(SKILL_META[id].title, 'kicker'), para(`${total} exercises. A miss names the idea to reread.`, 'muted'))
+        if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
+        if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
+        for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
+        wrap.append(button(passed ? 'Review the exercises' : `Start exercises · ${total}`, 'primary', () => showExercise(0)), advice())
+        body.replaceChildren(wrap)
+        toTop()
+      }
+      const showExercise = (questionIndex: number) => {
+        const question = course.questions[questionIndex]
+        if (!question) return
+        const wrap = stack(button('← Back to the lesson', 'ghost', showLesson))
+        const head = document.createElement('div')
+        head.className = 'ex-head'
+        head.append(para(SKILL_META[id].title, 'kicker'), para(`Exercise ${questionIndex + 1} of ${total}`, 'ex-count'))
+        const bar = document.createElement('div')
+        bar.className = 'ex-bar'
+        bar.style.setProperty('--p', String((questionIndex + 1) / total))
+        head.append(bar)
+        wrap.append(head, para(question.prompt, 'ex-prompt'))
+        const result = para('', 'result')
         question.choices.forEach((choice, choiceIndex) => {
           const node = button(choice, 'ghost choice', () => {
             if (passed) return
             picks[questionIndex] = choiceIndex
-            question.choices.forEach((_, index) => {
-              const peer = wrap.querySelector<HTMLButtonElement>(`[data-q="${questionIndex}"][data-c="${index}"]`)
-              peer?.setAttribute('aria-pressed', String(index === choiceIndex))
-            })
+            wrap.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((peer) => peer.setAttribute('aria-pressed', String(peer.dataset.c === String(choiceIndex))))
+            result.textContent = ''
           })
-          node.dataset.q = String(questionIndex)
           node.dataset.c = String(choiceIndex)
+          node.setAttribute('aria-pressed', String(picks[questionIndex] === choiceIndex))
           node.disabled = Boolean(passed)
           wrap.append(node)
         })
-      })
-      const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP · +5 rep`, 'primary', () => {
-        if (picks.some((pick) => pick === null)) {
-          result.textContent = 'Answer every exercise, then check.'
-          return
+        const nav = document.createElement('div')
+        nav.className = 'ex-nav'
+        if (questionIndex > 0) nav.append(button('← Previous', 'ghost', () => showExercise(questionIndex - 1)))
+        if (questionIndex < total - 1) {
+          nav.append(button('Next →', 'primary', () => {
+            if (picks[questionIndex] === null && !passed) { result.textContent = 'Pick an answer first.'; return }
+            showExercise(questionIndex + 1)
+          }))
+        } else {
+          const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP · +5 rep`, 'primary', () => {
+            const missing = picks.findIndex((pick) => pick === null)
+            if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
+            const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
+            if (outcome.ok) {
+              const extra = outcome.stipend ? ' Campus put $25 practice on your ledger.' : ''
+              const focus = outcome.focus ? ' Focus added a quarter.' : ''
+              const bonus = outcome.bonus ? ` Streak +${outcome.bonus} XP.` : ''
+              finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
+              showCourse(id)
+              return
+            }
+            if (outcome.already) { result.textContent = 'Already on your CV.'; return }
+            result.textContent = outcome.hints.filter(Boolean).join(' ')
+          })
+          submit.disabled = Boolean(passed)
+          nav.append(submit)
         }
-        const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
-        if (outcome.ok) {
-          const extra = outcome.stipend ? ' Campus put $25 practice on your ledger.' : ''
-          const focus = outcome.focus ? ' Focus added a quarter.' : ''
-          const bonus = outcome.bonus ? ` Streak +${outcome.bonus} XP.` : ''
-          finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
-          showCourse(id)
-          return
-        }
-        if (outcome.already) {
-          result.textContent = 'Already on your CV.'
-          return
-        }
-        result.textContent = outcome.hints.filter(Boolean).join(' ')
-      })
-      submit.disabled = Boolean(passed)
-      wrap.append(submit, result, advice())
-      body.replaceChildren(wrap)
+        wrap.append(nav, result)
+        body.replaceChildren(wrap)
+        toTop()
+      }
+      showLesson()
     }
     showList()
     return frame('Learning hall', body)

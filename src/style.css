@@ -1537,3 +1537,10 @@ body.cc-sheet-on #caption, body.sheet-open #caption, body:has(#cc-sheet:not([hid
 #cc-sheet-body { padding-left: max(16px, env(safe-area-inset-left)) !important; padding-right: max(16px, env(safe-area-inset-right)) !important; overflow-x: hidden; }
 #cc-sheet-body .cc-balance-head { position: sticky; top: -10px; z-index: 2; margin: -10px -16px 6px !important; padding: 10px 16px 6px; background: rgba(16, 17, 19, 0.96); }
 #cc-sheet-body .cc-balance-head .cc-big { display: block !important; visibility: visible !important; margin: 0 !important; }
+.ex-head { display: grid; gap: 4px; padding-bottom: 6px; }
+.ex-head .kicker { margin: 0 !important; }
+.ex-count { margin: 0 !important; font-weight: 600 !important; font-size: 15px !important; color: #f2f2f2; }
+.ex-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; position: relative; }
+.ex-bar::after { content: ''; position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--p, 0)); background: #d9b26a; }
+.ex-prompt { font-size: 16px !important; line-height: 1.45 !important; margin: 4px 0 6px !important; position: static !important; }
+.ex-nav { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-top: 6px; }
