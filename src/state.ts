@@ -131,10 +131,33 @@ function applyStarts(): void {
     const next = save.startTier + 1
     const prev = next > 0 ? RANK_START[RANKS[next - 1].id] : 0
     const grant = RANK_START[RANKS[next].id] - prev
-    save.ledger = cents(save.ledger + grant)
     save.startTier = next
-    log('money', `${RANKS[next].label} starting balance`, `+${money(grant)} in-game for reaching ${RANKS[next].label}.`)
+    const label = RANKS[next].label
+    if (isAccountBound()) {
+      // Accounts: the server records each one-time grant; money lands only if this is the first time.
+      void serverGrant(`start:${RANKS[next].id}`, grant).then((fresh) => {
+        if (!fresh) return
+        save.ledger = cents(save.ledger + grant)
+        log('money', `${label} starting balance`, `+${money(grant)} in-game for reaching ${label}.`)
+        persist(); emit()
+      })
+      continue
+    }
+    save.ledger = cents(save.ledger + grant)
+    log('money', `${label} starting balance`, `+${money(grant)} in-game for reaching ${label}.`)
   }
+}
+
+/** Server-enforced one-time grant (player_grants). true = first time for this account; false = already had it or offline. */
+export async function serverGrant(id: string, amount: number): Promise<boolean> {
+  try {
+    const { accessToken } = await import('./login.ts')
+    const t = await accessToken()
+    if (!t) return false
+    const r = await fetch('/api/profile?op=grant', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify({ id, amount }) })
+    const j = await r.json().catch(() => ({})) as { fresh?: boolean }
+    return r.ok && j.fresh === true
+  } catch { return false }
 }
 
 export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): { ok: boolean; message: string } {
@@ -295,6 +318,21 @@ export function adoptAccount(privyUserId: string, handle: string, serverSave?: u
   save.username = handle
   if (!save.name) save.name = handle
   save.signedUp = true
+  // Clean up earlier duplicate one-time grants recorded in this save's activity (old per-login bug).
+  for (const label of ['Sign-up bonus', ...RANKS.map((r) => `${r.label} starting balance`)]) {
+    const hits = save.activities.filter((a) => a.label === label)
+    if (hits.length > 1) {
+      const per = label === 'Sign-up bonus' ? 1000 : (() => { const i = RANKS.findIndex((r) => `${r.label} starting balance` === label); return RANK_START[RANKS[i]!.id] - (i > 0 ? RANK_START[RANKS[i - 1]!.id] : 0) })()
+      save.ledger = cents(Math.max(0, save.ledger - per * (hits.length - 1)))
+      save.activities = save.activities.filter((a) => a !== hits[0] ? a.label !== label : true)
+    }
+  }
+  // Record the starts this save already holds; a migrated guest save loses any the account had already been paid.
+  const holds = save.startTier
+  for (let t = 0; t <= holds; t++) {
+    const id = RANKS[t]!.id, amt = RANK_START[id] - (t > 0 ? RANK_START[RANKS[t - 1]!.id] : 0)
+    void serverGrant(`start:${id}`, amt).then((fresh) => { if (!fresh && outcome === 'migrated') { save.ledger = cents(Math.max(0, save.ledger - amt)); persist(); emit() } })
+  }
   applyStarts()
   persist()
   emit()
@@ -762,14 +800,9 @@ async function syncProgress(json: string): Promise<void> {
 
 export const SIGNUP_BONUS = 1000
 /** One 1,000 in-game sign-up bonus per verified (Privy) login id. In-game money only. */
-export function grantSignupBonus(verifiedId: string): boolean {
-  if (!verifiedId) return false
-  const key = 'gd.signupBonus.v1'
-  let claimed: string[] = []
-  try { claimed = JSON.parse(localStorage.getItem(key) ?? '[]') as string[] } catch { claimed = [] }
-  if (claimed.includes(verifiedId)) return false
-  claimed.push(verifiedId)
-  localStorage.setItem(key, JSON.stringify(claimed))
+export async function grantSignupBonus(_verifiedId: string): Promise<boolean> {
+  // Once per account, enforced server-side (player_grants), never per login or per device.
+  if (!(await serverGrant('signup', SIGNUP_BONUS))) return false
   save.ledger = Math.round((save.ledger + SIGNUP_BONUS) * 100) / 100
   log('social', 'Sign-up bonus', `$${SIGNUP_BONUS.toLocaleString()} in-game for a verified login.`)
   persist()

@@ -70,8 +70,10 @@ export function openLogin(notice = ''): void {
     localStorage.setItem(CLAIMED_KEY, j.username)
     const { adoptAccount } = await import('./state.ts')
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
+    const st = await import('./state.ts')
+    const bonus = await st.grantSignupBonus('')
     void syncProgress(token)
-    body.replaceChildren(el('p', `Signed in as @${j.username}.`), el('p', how === 'migrated' ? 'Your guest progress is now saved to your account.' : how === 'server' ? 'Loaded your saved progress.' : 'Loaded your account progress on this device.', 'muted'))
+    body.replaceChildren(el('p', `Signed in as @${j.username}.`), el('p', how === 'migrated' ? 'Your guest progress is now saved to your account.' : how === 'server' ? 'Loaded your saved progress.' : 'Loaded your account progress on this device.', 'muted'), ...(bonus ? [el('p', `Welcome bonus: $${st.SIGNUP_BONUS.toLocaleString()} in-game added (once per account).`)] : []))
     void enterAs(j.username)
     return true
   }
@@ -103,11 +105,6 @@ export function openLogin(notice = ''): void {
   const afterLogin = async (privy: Awaited<ReturnType<typeof client>>) => {
     const token = await privy.getAccessToken()
     if (!token) { msg.textContent = 'Sign in failed'; return }
-    try {
-      const sub = (JSON.parse(atob(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string }).sub ?? ''
-      const { grantSignupBonus, SIGNUP_BONUS } = await import('./state.ts')
-      if (grantSignupBonus(sub)) body.prepend(el('p', `Welcome bonus: $${SIGNUP_BONUS.toLocaleString()} in-game added to your ledger.`))
-    } catch { /* bonus is best-effort */ }
     body.replaceChildren(el('p', 'Signing you in…', 'muted'))
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: '{}' }).catch(() => null)
     const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string } : {}

@@ -19,6 +19,16 @@ export default async function handler(req: Req, res: Res) {
   const db = createClient(url, key, { auth: { persistSession: false } })
   const p = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
   if (!p.data) return res.status(404).json({ error: 'claim a username first' })
+  if (req.query?.op === 'grant') {
+    // One-time grants per Privy account. Insert-if-absent: fresh=true only the first time (idempotent).
+    const id = String(req.body?.id ?? '')
+    const START: Record<string, number> = { shrimp: 1000, crab: 500, fish: 1000, dolphin: 1500, shark: 2500, whale: 3500 }
+    const amount = id === 'signup' ? 1000 : id.startsWith('start:') ? START[id.slice(6)] : undefined
+    if (amount === undefined) return res.status(400).json({ error: 'unknown grant' })
+    const ins = await db.from('player_grants').upsert({ privy_user_id: userId, grant_id: id, amount }, { onConflict: 'privy_user_id,grant_id', ignoreDuplicates: true }).select('grant_id')
+    if (ins.error) return res.status(503).json({ error: 'grants unavailable', fresh: false })
+    return res.status(200).json({ fresh: (ins.data ?? []).length === 1, amount })
+  }
   if (req.query?.op === 'progress') {
     // Server copy of the save (local stays the source of truth): last write wins, 256 KB cap.
     const raw = JSON.stringify(req.body?.save ?? null)
