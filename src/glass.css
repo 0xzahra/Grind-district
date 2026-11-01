@@ -38,7 +38,7 @@
 body:has(#menu:not([hidden])) :is(#hud, #msg-btn, #chat, #stick, #sheet, #nav, #rail-toggle, #cc-readout, .pills) { display: none !important; }
 
 /* Title screen: hide every in-game layer until "Enter the district" (class removed in revealCity). */
-html.title-on #app > :not(#menu):not(#boot):not(#view), html.title-on body > :not(#app):not(script):not(#boot) { display: none !important; visibility: hidden !important; }
+html.title-on #app > :not(#menu):not(#boot):not(#view), html.title-on body > :not(#app):not(script):not(#boot):not(#login-dlg) { display: none !important; visibility: hidden !important; }
 
 /* Loader never lingers once the city is revealed. */
 #boot.hidden, #boot[aria-hidden="true"] { display: none !important; }

@@ -27,6 +27,18 @@ export async function resumeOAuth(): Promise<void> {
   openLogin()
 }
 
+/** On the title screen, a returning player who signs in goes straight into the city under their handle. */
+async function enterAs(handle: string): Promise<void> {
+  const menu = document.getElementById('menu')
+  if (!menu || menu.hidden) return
+  const { getSave, signUp } = await import('./state.ts')
+  const s = getSave()
+  if (!s.signedUp) signUp(s.name || handle, handle, s.body === 'zuri' ? 'zuri' : 'player')
+  const go = el('button', 'Enter the district', 'primary')
+  go.onclick = () => { document.getElementById('login-dlg')?.remove(); document.getElementById('play')?.click() }
+  document.querySelector('#login-dlg .wallet-body')?.append(go)
+}
+
 export function openLogin(): void {
   document.getElementById('login-dlg')?.remove()
   const dlg = el('div', '', 'wallet-dlg login-dlg')
@@ -67,6 +79,7 @@ export function openLogin(): void {
       if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
       if (j.username) {
         localStorage.setItem(CLAIMED_KEY, j.username)
+        void enterAs(j.username)
         body.replaceChildren(el('p', `Signed in as @${j.username}.`), ...(j.invitedBy ? [el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)] : []))
         if (j.invitedBy) localStorage.removeItem('gd.invitedBy')
       } else state.textContent = j.error ?? 'Could not save'
@@ -83,7 +96,7 @@ export function openLogin(): void {
       if (grantSignupBonus(sub)) body.prepend(el('p', `Welcome bonus: $${SIGNUP_BONUS.toLocaleString()} in-game added to your ledger.`))
     } catch { /* bonus is best-effort */ }
     const known = localStorage.getItem(CLAIMED_KEY)
-    if (known) body.replaceChildren(el('p', `Signed in as @${known}.`))
+    if (known) { body.replaceChildren(el('p', `Signed in as @${known}.`)); void enterAs(known) }
     else void pickUsername(token)
   }
 
