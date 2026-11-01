@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { pbrSet } from './pbrTex.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { Obstacle } from './physics.ts'
@@ -10,20 +11,20 @@ import { RANKS } from './logic.ts'
 
 type Mat = 'oak' | 'walnut' | 'white' | 'linen' | 'fabric' | 'cushion' | 'blue' | 'metal' | 'shade' | 'leaf' | 'pot' | 'rug' | 'rug2' | 'screen' | 'book'
 const MATS: Record<Mat, () => THREE.Material> = {
-  oak: () => new THREE.MeshStandardMaterial({ color: 0xb08a62, roughness: 0.7 }),
-  walnut: () => new THREE.MeshStandardMaterial({ color: 0x5e4330, roughness: 0.65 }),
+  oak: () => new THREE.MeshStandardMaterial({ ...pbrSet('wood_table_001', 1), color: 0xe0c3a0, roughness: 1 }),
+  walnut: () => new THREE.MeshStandardMaterial({ ...pbrSet('wood_table_001', 1), color: 0x8a6448, roughness: 1 }),
   white: () => new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.8 }),
-  linen: () => new THREE.MeshStandardMaterial({ color: 0xf1ede4, roughness: 0.95 }),
+  linen: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xf1ede4, roughness: 1 }),
   // Plain warm upholstery: the old patterned texture read as black on phones.
-  fabric: () => new THREE.MeshStandardMaterial({ color: 0xc9b9a0, roughness: 0.95 }),
-  cushion: () => new THREE.MeshStandardMaterial({ color: 0x8a5a44, roughness: 0.95 }),
-  blue: () => new THREE.MeshStandardMaterial({ color: 0x4d6070, roughness: 0.95 }),
+  fabric: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xc9b9a0, roughness: 1 }),
+  cushion: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0x8a5a44, roughness: 1 }),
+  blue: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0x4d6070, roughness: 1 }),
   metal: () => new THREE.MeshStandardMaterial({ color: 0x3a3c3f, roughness: 0.45, metalness: 0.6 }),
   // Lamp shades: faint warm self-light only (no extra real lights).
   shade: () => new THREE.MeshStandardMaterial({ color: 0xf3e6cf, roughness: 0.9, emissive: 0xffd8a0, emissiveIntensity: 0.22 }),
-  leaf: () => new THREE.MeshStandardMaterial({ color: 0x4f6b3e, roughness: 0.85, flatShading: true }),
+  leaf: () => new THREE.MeshStandardMaterial({ color: 0x4f6b3e, roughness: 0.8 }),
   pot: () => new THREE.MeshStandardMaterial({ color: 0xa8664a, roughness: 0.9 }),
-  rug: () => new THREE.MeshStandardMaterial({ color: 0x9b8f7c, roughness: 1 }),
+  rug: () => new THREE.MeshStandardMaterial({ ...pbrSet('fabric_pattern_07', 2), color: 0xd8cbb6, roughness: 1 }),
   rug2: () => new THREE.MeshStandardMaterial({ color: 0x6c7a72, roughness: 1 }),
   screen: () => new THREE.MeshStandardMaterial({ color: 0x111316, roughness: 0.25, metalness: 0.3 }),
   book: () => new THREE.MeshStandardMaterial({ color: 0x7a4a3a, roughness: 0.85 }),
