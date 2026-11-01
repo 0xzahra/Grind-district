@@ -85,14 +85,9 @@ export default async function handler(req: Req, res: Res) {
       erc = { chain: m[1]!, registry: m[2]!.toLowerCase(), id: m[3]!, verified }
       ident = `eip155:${erc.chain}:${erc.registry}:${erc.id}`
     } else if (!EMAIL_RE.test(ident)) return res.status(400).json({ error: 'email: a valid email address is required' })
-    const name = erc ? await identify(db, ident).catch(() => `agent-${sha(ident).slice(0, 6)}`) : await identify(db, ident)
-    const fwd = req.headers['x-forwarded-for']
-    const ip = sha(`${(Array.isArray(fwd) ? fwd[0] : fwd ?? '').split(',')[0]}|grind-agents`)
-    const hour = new Date(Date.now() - 3_600_000).toISOString()
-    const { count } = await db.from('agents').select('id', { count: 'exact', head: true }).eq('ip_hash', ip).gte('created_at', hour)
-    if ((count ?? 0) >= 3) return res.status(429).json({ error: 'too many registrations from this network; try in an hour' })
     // Optional: link to the player who sent the prompt (one-time claim code from their Agents screen).
     let owner: string | null = null
+    let ownerLook: Record<string, unknown> = {}
     const claim = String(body.claim ?? '').trim().slice(0, 40)
     if (claim) {
       const h = sha(claim)
@@ -101,10 +96,19 @@ export default async function handler(req: Req, res: Res) {
       const c = lk.agentClaim as { exp?: number } | undefined
       if (!prof || !c || (c.exp ?? 0) < Date.now()) return res.status(400).json({ error: 'claim code invalid or expired; ask your player to copy a fresh prompt' })
       owner = prof.username as string
-      const { agentClaim: _drop, ...rest } = lk
+      ownerLook = lk
+    }
+    const name = erc ? await identify(db, ident).catch(() => `agent-${sha(ident).slice(0, 6)}`) : await identify(db, ident)
+      const { agentClaim: _drop, ...rest } = ownerLook
       void _drop
+    if (owner) {
       await db.from('public_profiles').update({ look: { ...rest, agent: { label: name, via: erc ? 'erc8004' : 'email', at: new Date().toISOString() } } }).eq('username', owner)
     }
+    const fwd = req.headers['x-forwarded-for']
+    const ip = sha(`${(Array.isArray(fwd) ? fwd[0] : fwd ?? '').split(',')[0]}|grind-agents`)
+    const hour = new Date(Date.now() - 3_600_000).toISOString()
+    const { count } = await db.from('agents').select('id', { count: 'exact', head: true }).eq('ip_hash', ip).gte('created_at', hour)
+    if ((count ?? 0) >= 3) return res.status(429).json({ error: 'too many registrations from this network; try in an hour' })
     const token = `gda_${randomBytes(24).toString('base64url')}`
     const { data, error } = await db.from('agents').insert({ name, ident, token_hash: sha(token), ip_hash: ip }).select('id').single()
     if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'that email/id already has an agent' : 'register failed' })

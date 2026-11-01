@@ -318,6 +318,7 @@ export function adoptAccount(privyUserId: string, handle: string, serverSave?: u
   save.username = handle
   if (!save.name) save.name = handle
   save.signedUp = true
+  save.seenIntro = true // returning accounts never see the new-player card again
   // Clean up earlier duplicate one-time grants recorded in this save's activity (old per-login bug).
   for (const label of ['Sign-up bonus', ...RANKS.map((r) => `${r.label} starting balance`)]) {
     const hits = save.activities.filter((a) => a.label === label)
@@ -446,6 +447,7 @@ export function setVolume(volume: number): void {
 }
 
 export function dismissIntro(): void {
+  try { localStorage.setItem('gd.introSeen', '1') } catch { /* private mode */ }
   if (save.seenIntro) return
   save.seenIntro = true
   persist()

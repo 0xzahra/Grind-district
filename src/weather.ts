@@ -24,19 +24,21 @@ export function createWeather(scene: THREE.Scene, ground: THREE.MeshStandardMate
   const q = new THREE.Quaternion()
   const s = new THREE.Vector3(1, 1, 1)
   const p = new THREE.Vector3()
+  const CYCLE = 900
+  const WET = 60
   const baseRough = ground.roughness
   const forced = new URLSearchParams(location.search).get('weather')
-  let clock = forced === 'rain' ? 10 : 0
+  // Mostly clear: only ~12% of (Lagos) days are rainy, and even then one short shower per ~5 min cycle at most.
+  const rainyDay = () => { const d = new Date(Date.now() + 3600_000).toISOString().slice(0, 10); let h = 7; for (const c of d) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 100 < 12 }
+  let clock = forced === 'rain' ? 10 : WET + 1
   let rain = 0 // 0..1 eased intensity
   let flash = 0
   let nextFlash = 6
-  const CYCLE = 310
-  const WET = 70
   return {
     /** Returns lightning pulse 0..1 for the caller to add to sky/sun intensity. */
     tick(dt: number, cam: THREE.Camera, outside: boolean, calm: boolean): number {
       clock = (clock + dt) % CYCLE
-      const raining = forced === 'clear' ? false : forced === 'rain' || clock < WET
+      const raining = forced === 'clear' ? false : forced === 'rain' || (rainyDay() && clock < WET)
       rain += ((raining ? 1 : 0) - rain) * (1 - Math.exp(-dt / 6))
       ground.roughness = baseRough - rain * 0.38
       flash = Math.max(0, flash - dt * 5)

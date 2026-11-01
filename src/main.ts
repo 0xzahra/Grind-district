@@ -1393,8 +1393,8 @@ const apiAgents = createRemoteAgents(scene)
           const shared = decodeShare(matched[1])
           history.replaceState(null, '', `${location.pathname}${location.search}`)
           if (shared) ui.open('shared', { shared })
-          else if (!getSave().seenIntro) ui.open('intro')
-        } else if (!getSave().seenIntro) {
+          else if (!getSave().seenIntro && !localStorage.getItem('gd.introSeen')) ui.open('intro')
+        } else if (!getSave().seenIntro && !localStorage.getItem('gd.introSeen') && !localStorage.getItem('gd.privy.username')) {
           ui.open('intro')
         }
       }
