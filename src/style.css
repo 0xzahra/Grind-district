@@ -1524,3 +1524,14 @@ pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .lux-item{display:flex;flex-direction:column;padding:8px 10px;border-radius:12px;margin-bottom:6px;background:rgba(255,255,255,.04);opacity:.75}
 .lux-item.on{opacity:1;border:1px solid rgba(216,180,106,.5)}.lux-item small{opacity:.7;font-size:11px}
 .skin-tones button{width:30px;height:30px;min-width:0;border-radius:50%;padding:0}.skin-tones button.primary{outline:2px solid #d8b46a;outline-offset:2px}
+
+/* --- Mobile fixes (Nov 2026) --- */
+/* Any open panel hides the place caption. */
+body.cc-sheet-on #caption, body.sheet-open #caption, body:has(#cc-sheet:not([hidden])) #caption, body:has(.wallet-dlg[open]) #caption { display: none !important; }
+#caption[hidden] { display: none !important; }
+/* Bottom sheets: text never clips at the edges on narrow phones. */
+#sheet, #cc-sheet, #cc-sheet-body, .sheet-card { box-sizing: border-box; max-width: 100vw; }
+.sheet-card { padding-left: max(18px, env(safe-area-inset-left)) !important; padding-right: max(18px, env(safe-area-inset-right)) !important; overflow-x: hidden; }
+.sheet-card *, #cc-sheet-body * { box-sizing: border-box; max-width: 100%; }
+.sheet-card p, .sheet-card h2, .sheet-card h3, .sheet-card li, #cc-sheet-body p, #cc-sheet-body li { overflow-wrap: anywhere; word-break: normal; hyphens: auto; white-space: normal; }
+#cc-sheet-body { padding-left: max(16px, env(safe-area-inset-left)) !important; padding-right: max(16px, env(safe-area-inset-right)) !important; overflow-x: hidden; }

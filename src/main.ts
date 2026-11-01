@@ -946,11 +946,14 @@ const apiAgents = createRemoteAgents(scene)
     }
   }
 
+  // Place caption: shows briefly on entering an area, then hides itself (the Enter button stays while in range).
+  let captionTimer = 0
   const showSpot = (next: Hotspot | null) => {
     const id = next?.id ?? null
     if (id === activeSpot) return
     activeSpot = id
     spot = next
+    clearTimeout(captionTimer)
     if (!next) {
       caption.hidden = true
       act.hidden = true
@@ -959,6 +962,7 @@ const apiAgents = createRemoteAgents(scene)
     captionTitle.textContent = next.title
     captionBody.textContent = next.body
     caption.hidden = false
+    captionTimer = window.setTimeout(() => { caption.hidden = true }, 4000)
     act.hidden = !(next.action || next.use || next.exit)
     act.textContent = next.enter ?? 'Enter'
   }
