@@ -63,6 +63,43 @@ export default async function handler(req: Req, res: Res) {
     const bl = await db.from('message_blocks').select('blocked').eq('blocker', user).eq('blocked', o).maybeSingle()
     return res.status(200).json({ me: user, with: o, blocked: !!bl.data, lines: (r.data ?? []).reverse() })
   }
+  if (op === 'search') {
+    // Username/name prefix search over public profiles (players who have not shared a card still match by username).
+    const q = String(req.query?.q ?? '').toLowerCase().replace(/[^a-z0-9_]/g, '').trim().slice(0, 16)
+    if (q.length < 2) return res.status(200).json({ results: [] })
+    const [pp, pl] = await Promise.all([
+      db.from('public_profiles').select('username,name,rank,updated_at').or(`username.ilike.${q}%,name.ilike.%${q}%`).order('updated_at', { ascending: false }).limit(20),
+      db.from('players').select('username').ilike('username', `${q}%`).limit(20),
+    ])
+    const out = new Map<string, { username: string; name: string; rank: string; seen: string | null }>()
+    for (const r of pp.data ?? []) out.set(r.username, { username: r.username, name: r.name, rank: r.rank, seen: r.updated_at })
+    for (const r of pl.data ?? []) if (!out.has(r.username)) out.set(r.username, { username: r.username, name: '', rank: '', seen: null })
+    out.delete(user)
+    return res.status(200).json({ results: [...out.values()].slice(0, 20) })
+  }
+  if (op === 'profile') {
+    const c = cleanUsername(req.query?.u)
+    if (!c.ok) return res.status(400).json({ error: 'bad username' })
+    const o = c.name
+    const [a, bb] = user < o ? [user, o] : [o, user]
+    const [pp, pl, fr, party, bl] = await Promise.all([
+      db.from('public_profiles').select('username,name,rank,reputation,skills,pinned,look,updated_at').eq('username', o).maybeSingle(),
+      db.from('players').select('username').eq('username', o).maybeSingle(),
+      db.from('friendships').select('requester,status').eq('a', a).eq('b', bb).maybeSingle(),
+      db.from('parties').select('id,members').contains('members', [user]).maybeSingle(),
+      db.from('message_blocks').select('blocker').eq('blocker', user).eq('blocked', o).maybeSingle(),
+    ])
+    if (!pp.data && !pl.data) return res.status(404).json({ error: 'No player with that username' })
+    const f = fr.data
+    const friend = !f ? 'none' : f.status === 'accepted' ? 'friends' : f.requester === user ? 'outgoing' : 'incoming'
+    const lk = (pp.data?.look ?? {}) as Record<string, unknown>
+    const lux = lk.lux as { streak?: number } | undefined
+    return res.status(200).json({ me: user, self: o === user, profile: {
+      username: o, name: pp.data?.name ?? '', rank: pp.data?.rank ?? '', reputation: pp.data?.reputation ?? 0,
+      skills: pp.data?.skills ?? [], pinned: pp.data?.pinned ?? [], seen: pp.data?.updated_at ?? null,
+      look: { h: lk.h ?? 1, b: lk.b ?? 1, hair: lk.hair ?? null, skin: lk.skin ?? null }, streak: lux?.streak ?? 0,
+    }, friend, inParty: !!(party.data && (party.data.members as string[]).includes(o)), blocked: !!bl.data })
+  }
   if (op === 'social') {
     const [fr, mine, inv] = await Promise.all([
       db.from('friendships').select('a,b,requester,status').or(`a.eq.${user},b.eq.${user}`).limit(200),

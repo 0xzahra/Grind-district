@@ -22,7 +22,7 @@ import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
 import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
 import { encodeShare } from './logic.ts'
-import { dmUnread, mountMessages, openInbox, openThread } from './messages.ts'
+import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPresence } from './messages.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
@@ -331,9 +331,16 @@ const apiAgents = createRemoteAgents(scene)
   greetToast = (m) => { ui.toast(m) }
   ;(window as unknown as { gdPos?: () => { x: number; z: number } }).gdPos = () => ({ x: pos.x, z: pos.z })
   window.addEventListener('gd-teleport', (e) => {
-    const d = (e as CustomEvent<{ x: number; z: number }>).detail
-    if (!d || interiors.inside) { ui.toast('Step outside to join your party.'); return }
-    pos.x = d.x + 1.2; pos.z = d.z + 1.2; avatar.object.position.set(pos.x, 0, pos.z); setCC(false); ui.toast('Joined your party.')
+    const d = (e as CustomEvent<{ x: number; z: number; who?: string }>).detail
+    if (!d || interiors.inside) { ui.toast(d?.who ? 'Step outside first.' : 'Step outside to join your party.'); return }
+    pos.x = d.x + 1.2; pos.z = d.z + 1.2; avatar.object.position.set(pos.x, 0, pos.z); setCC(false); ui.toast(d.who ? `You are next to @${d.who}.` : 'Joined your party.')
+  })
+  window.addEventListener('gd-find', (e) => {
+    const d = (e as CustomEvent<{ u: string; x: number; z: number }>).detail
+    const dx = d.x - pos.x, dz = d.z - pos.z, m = Math.round(Math.hypot(dx, dz))
+    const dirs = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east']
+    const dir = dirs[((Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) % 8) + 8) % 8]
+    setCC(false); ui.toast(m < 3 ? `@${d.u} is right here.` : `@${d.u} is ${m} m ${dir} (gold dot on the minimap).`)
   })
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
@@ -773,12 +780,15 @@ const apiAgents = createRemoteAgents(scene)
     if (import.meta.env.VITE_VOICE_NOTES !== '1') return 'Voice notes open soon.'
     return null
   }))
+  setPresence({ find: (u) => net.findPeer(u) })
   // Tap another player: their public profile (full-body shot + what they chose to share), then Message.
   let peerTarget: THREE.Object3D | null = null
   const peerShot = createPortrait(renderer, () => peerTarget!)
   let peerBusy = false
   const openPeer = async (p: { id: string; name: string; username: string; object: THREE.Object3D }) => {
     if (peerBusy) return
+    // Signed-in players open the full server profile (Message, Add friend, Invite, Go near them).
+    if (p.username && localStorage.getItem('gd.privy.username')) { setCC(true); void openProfile(p.username); return }
     peerBusy = true
     ui.toast(`Opening ${p.name || 'player'}…`)
     try {
@@ -1039,7 +1049,7 @@ const apiAgents = createRemoteAgents(scene)
   const tryBake = () => { if (!indoors()) { bake(); baked = true } else setTimeout(tryBake, 5000) }
   setTimeout(tryBake, 4000)
   void baked
-  if (location.search.includes('debugmap')) Object.assign(window, { __give: (n: number) => { getSave().ledger += n }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __give: (n: number) => { getSave().ledger += n }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)

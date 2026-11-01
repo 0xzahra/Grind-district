@@ -37,6 +37,8 @@ export type Net = {
   tick: (dt: number, me: { x: number; z: number; yaw: number; moving: boolean }) => void
   setMe: (me: Me) => void
   /** Peer under a ray (tap), or null. */
+  /** Where a player is in the city right now (by username), or null if not in this city. */
+  findPeer: (username: string) => { x: number; z: number } | null
   pick: (ray: THREE.Raycaster) => { id: string; name: string; username: string; object: THREE.Object3D } | null
   /** Ask a peer for their public profile (encodeShare payload). Resolves null after 4 s. */
   requestProfile: (peerId: string) => Promise<string | null>
@@ -229,6 +231,11 @@ export function createNet(options: {
   return {
     online: () => connected,
     peers: () => [...peers.values()].map((peer) => ({ x: peer.avatar.object.position.x, z: peer.avatar.object.position.z })),
+    findPeer(u) {
+      const want = u.toLowerCase()
+      for (const peer of peers.values()) if (clean(peer.username).toLowerCase() === want) return { x: peer.avatar.object.position.x, z: peer.avatar.object.position.z }
+      return null
+    },
     pick(ray) {
       let best: { id: string; name: string; username: string; object: THREE.Object3D } | null = null
       let bestD = Infinity

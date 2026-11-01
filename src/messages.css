@@ -27,3 +27,14 @@
 /* Sign-in button and the Nearby card stack, never overlap. */
 #cc-sheet-body .dm-primary { position: static !important; margin: 10px 0 12px !important; }
 #cc-sheet-body .dm-nearby { position: static !important; box-sizing: border-box; clear: both; }
+.dm-search input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid #ffffff22;background:#0f1513;color:inherit;font:inherit;margin:6px 0}
+.dm-results:empty{display:none}
+.dm-threads li{position:relative}
+.dm-dot{position:absolute;left:-2px;top:14px;width:8px;height:8px;border-radius:50%;background:#e2b45f;z-index:1}
+.pf-head{display:flex;gap:14px;align-items:center;margin:8px 0}
+.pf-avatar svg{display:block;border-radius:14px}
+.pf-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pf-badge{font-size:12px;padding:3px 8px;border-radius:999px;background:#ffffff14}
+.pf-badge.on{background:#2f6b47;color:#e8fff0}
+.pf-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.pf-skills,.pf-certs{margin:4px 0 8px 18px;padding:0}

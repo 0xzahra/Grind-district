@@ -70,6 +70,7 @@ export async function openInbox(): Promise<void> {
   const list = el('ol', '', 'cc-list dm-threads')
   for (const t of r.data.threads) {
     const li = el('li', '', t.unread ? 'unread' : 'read')
+    if (t.unread) li.prepend(el('span', '', 'dm-dot'))
     const btn = el('button', '', 'cc-row'); btn.type = 'button'
     btn.append(el('strong', `@${t.with}${t.unread ? ` · ${t.unread} new` : ''}`), el('time', when(t.at)), el('p', `${t.mine ? 'You: ' : ''}${t.last}`.slice(0, 120)))
     btn.onclick = () => void openThread(t.with)
@@ -79,7 +80,7 @@ export async function openInbox(): Promise<void> {
   const fr = el('button', '', 'cc-row dm-nearby'); fr.type = 'button'
   fr.append(el('strong', 'Friends & party'), el('p', 'Add friends, party up to 4, join me.'))
   fr.onclick = () => void openFriends()
-  body.replaceChildren(el('p', `Signed in as @${r.data.me}`, 'cc-muted'), nearbyRow(), fr, list)
+  body.replaceChildren(el('p', `Signed in as @${r.data.me}`, 'cc-muted'), searchBox(), nearbyRow(), fr, el('h3', 'Conversations'), list)
   if (r.data.blocked.length) {
     const h = el('h3', 'Blocked'); body.append(h)
     for (const u of r.data.blocked) {
@@ -103,6 +104,7 @@ export async function openThread(withUser: string): Promise<void> {
   if (r.status === 401) return signedOut(body, !(r.data as { noToken?: boolean }).noToken)
   if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load.', 'cc-muted')); return }
   const back = el('button', '‹ All messages', 'cc-link'); back.type = 'button'; back.onclick = () => void openInbox()
+  const prof = el('button', `View @${u}’s profile`, 'cc-link'); prof.type = 'button'; prof.onclick = () => void openProfile(u)
   const log = el('ol', '', 'dm-log')
   const add = (l: Line) => {
     const li = el('li', '', l.sender === r.data.me ? 'mine' : 'theirs')
@@ -149,7 +151,7 @@ export async function openThread(withUser: string): Promise<void> {
   const addF = el('button', 'Add friend', 'cc-link'); addF.type = 'button'
   addF.onclick = async () => { const x = await api<{ status?: string }>('friend', { post: { u, action: 'add' } }); addF.textContent = x.ok ? (x.data.status === 'accepted' ? 'Friends ✓' : 'Request sent') : (x.data.error ?? 'Failed'); addF.disabled = true }
   safety.append(addF, block)
-  body.replaceChildren(back, log, form, status, safety)
+  body.replaceChildren(back, prof, log, form, status, safety)
   log.scrollTop = log.scrollHeight
   void poll()
 }
@@ -239,3 +241,98 @@ async function pollSocial(): Promise<void> {
 }
 window.setTimeout(() => void pollSocial(), 6000)
 window.setInterval(() => void pollSocial(), 30000)
+
+// ---------- Player search & profiles ----------
+type Presence = { find: (u: string) => { x: number; z: number } | null }
+let presence: Presence | null = null
+/** main.ts wires live city presence so profiles can say who is online and teleport near them. */
+export function setPresence(p: Presence): void { presence = p }
+type Profile = { username: string; name: string; rank: string; reputation: number; skills: string[]; pinned: string[]; seen: string | null; look: { h: number; b: number; hair: number | null; skin: number | null }; streak: number }
+
+function searchBox(): HTMLElement {
+  const wrap = el('div', '', 'dm-search')
+  const inp = el('input'); inp.type = 'search'; inp.placeholder = 'Search players by username'; inp.maxLength = 16; inp.setAttribute('aria-label', 'Search players')
+  const out = el('ol', '', 'cc-list dm-results')
+  let t = 0, seq = 0
+  inp.onkeydown = (e) => e.stopPropagation()
+  inp.oninput = () => {
+    window.clearTimeout(t)
+    const q = inp.value.trim().toLowerCase().replace(/^@/, '')
+    if (q.length < 2) { out.replaceChildren(); return }
+    t = window.setTimeout(async () => {
+      const my = ++seq
+      const r = await api<{ results: Array<{ username: string; name: string; rank: string }> }>('search', { q: `&q=${encodeURIComponent(q)}` })
+      if (my !== seq) return
+      if (!r.ok) { out.replaceChildren(el('li', r.data.error ?? 'Search failed', 'empty')); return }
+      out.replaceChildren(...r.data.results.map((p) => {
+        const li = el('li'); const b = el('button', '', 'cc-row'); b.type = 'button'
+        const on = presence?.find(p.username)
+        b.append(el('strong', `@${p.username}${on ? ' · online' : ''}`), el('p', [p.name, p.rank].filter(Boolean).join(' · ') || 'Player'))
+        b.onclick = () => void openProfile(p.username)
+        li.append(b); return li
+      }))
+      if (!r.data.results.length) out.append(el('li', 'No players found.', 'empty'))
+    }, 280)
+  }
+  wrap.append(inp, out)
+  return wrap
+}
+
+const hex = (n: number | null, d: string) => n == null ? d : `#${Math.max(0, Math.min(0xffffff, n)).toString(16).padStart(6, '0')}`
+function silhouette(p: Profile): HTMLElement {
+  // Simple portrait from the saved look (skin, hair, height, build): no network image needed.
+  const skin = hex(p.look.skin, '#8d5a3b'), hair = hex(p.look.hair, '#1d1612')
+  const w = Math.round(46 * (p.look.b || 1)), h = Math.round(92 * (p.look.h || 1))
+  const box = el('div', '', 'pf-avatar')
+  box.innerHTML = `<svg viewBox="0 0 120 140" width="96" height="112" aria-hidden="true"><rect width="120" height="140" rx="16" fill="#1b2420"/><ellipse cx="60" cy="${140 - h + 30}" rx="${w / 2 + 4}" ry="${h / 2}" fill="#33413b"/><circle cx="60" cy="${140 - h + 2}" r="17" fill="${skin}"/><path d="M43 ${140 - h} q17 -22 34 0 q-2 -10 -17 -12 q-15 2 -17 12z" fill="${hair}"/></svg>`
+  return box
+}
+
+export async function openProfile(username: string): Promise<void> {
+  if (!ctx) return
+  const u = username.toLowerCase().replace(/^@/, '')
+  current = ''
+  const title = `Player @${u}`
+  ctx.openSheet(title, () => {})
+  const body = ctx.body()
+  body.replaceChildren(el('p', 'Loading…', 'cc-muted'))
+  const r = await api<{ me: string; self: boolean; profile: Profile; friend: 'none' | 'friends' | 'outgoing' | 'incoming'; inParty: boolean; blocked: boolean }>('profile', { q: `&u=${encodeURIComponent(u)}` })
+  if (!ctx.isOpen(title)) return
+  if (r.status === 401) return signedOut(body, !(r.data as { noToken?: boolean }).noToken)
+  if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load profile.', 'cc-muted')); return }
+  const p = r.data.profile
+  const here = presence?.find(u) ?? null
+  const head = el('div', '', 'pf-head')
+  const info = el('div')
+  info.append(el('strong', p.name || `@${u}`), el('p', `@${u}`, 'cc-muted'))
+  const badges = el('div', '', 'pf-badges')
+  const badge = (t: string, cls = '') => badges.append(el('span', t, `pf-badge ${cls}`))
+  badge(here ? 'Online · in the city' : p.seen ? `Seen ${when(p.seen)}` : 'Offline', here ? 'on' : '')
+  if (p.rank) badge(p.rank)
+  if (r.data.friend === 'friends') badge('Friend')
+  if (r.data.inParty) badge('In your party')
+  if (p.streak >= 3) badge(`${p.streak}-day streak`)
+  if (p.reputation >= 1000) badge('Trusted')
+  info.append(badges)
+  head.append(silhouette(p), info)
+  const sheet = el('div', '', 'pf-sheet')
+  sheet.append(el('h3', 'Career sheet'), el('p', `Rank: ${p.rank || 'New'} · Reputation ${p.reputation.toLocaleString()}`))
+  if (p.skills.length) { const ul = el('ul', '', 'pf-skills'); for (const s of p.skills) ul.append(el('li', s)); sheet.append(ul) }
+  else sheet.append(el('p', 'No skills shared yet.', 'cc-muted'))
+  sheet.append(el('h3', 'Pinned certificates'))
+  if (p.pinned.length) { const ul = el('ul', '', 'pf-certs'); for (const s of p.pinned) ul.append(el('li', s)); sheet.append(ul) }
+  else sheet.append(el('p', 'Nothing pinned.', 'cc-muted'))
+  const acts = el('div', '', 'pf-actions'); const st = el('p', '', 'cc-muted')
+  const btn = (t: string, fn: () => Promise<unknown> | void, cls = 'dm-primary') => { const b = el('button', t, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; try { await fn() } finally { b.disabled = false } }; acts.append(b); return b }
+  if (!r.data.self) {
+    btn('Message', () => { void openThread(u) })
+    const fl = { none: 'Add friend', outgoing: 'Request sent', incoming: 'Accept friend', friends: 'Friends ✓' }[r.data.friend]
+    const fb = btn(fl, async () => { const x = await api<{ status?: string }>('friend', { post: { u, action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? `You and @${u} are friends.` : 'Friend request sent.') : (x.data.error ?? 'Failed'); if (x.ok) fb.textContent = x.data.status === 'accepted' ? 'Friends ✓' : 'Request sent' }, 'cc-link')
+    if (r.data.friend === 'friends' || r.data.friend === 'outgoing') fb.disabled = true, fb.onclick = null
+    if (!r.data.inParty) btn('Invite to party', async () => { const x = await api('party_invite', { post: { u } }); st.textContent = x.ok ? `Party invite sent to @${u}.` : (x.data.error === 'Invite friends only' ? 'Add them as a friend first: only friends can be invited.' : (x.data.error ?? 'Failed')) }, 'cc-link')
+    if (here) btn('Find on map', () => { window.dispatchEvent(new CustomEvent('gd-find', { detail: { u, ...here } })) }, 'cc-link')
+    if (here) btn('Go near them', () => { const at = presence?.find(u); if (at) window.dispatchEvent(new CustomEvent('gd-teleport', { detail: { ...at, who: u } })); else st.textContent = `@${u} just left the city.` }, 'cc-link')
+  } else acts.append(el('p', 'This is you.', 'cc-muted'))
+  const back = el('button', '‹ Messages', 'cc-link'); back.type = 'button'; back.onclick = () => void openInbox()
+  body.replaceChildren(back, head, acts, st, sheet)
+}
