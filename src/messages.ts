@@ -247,7 +247,7 @@ type Presence = { find: (u: string) => { x: number; z: number } | null }
 let presence: Presence | null = null
 /** main.ts wires live city presence so profiles can say who is online and teleport near them. */
 export function setPresence(p: Presence): void { presence = p }
-type Profile = { username: string; name: string; rank: string; reputation: number; skills: string[]; pinned: string[]; seen: string | null; look: { h: number; b: number; hair: number | null; skin: number | null }; streak: number }
+type Profile = { username: string; name: string; rank: string; reputation: number; skills: string[]; pinned: string[]; seen: string | null; look: { h: number; b: number; hair: number | null; skin: number | null }; streak: number; agent: string | null }
 
 function searchBox(): HTMLElement {
   const wrap = el('div', '', 'dm-search')
@@ -308,6 +308,7 @@ export async function openProfile(username: string): Promise<void> {
   const badges = el('div', '', 'pf-badges')
   const badge = (t: string, cls = '') => badges.append(el('span', t, `pf-badge ${cls}`))
   badge(here ? 'Online · in the city' : p.seen ? `Seen ${when(p.seen)}` : 'Offline', here ? 'on' : '')
+  if (p.agent) badge(`Agent · ${p.agent}`, 'agent')
   if (p.rank) badge(p.rank)
   if (r.data.friend === 'friends') badge('Friend')
   if (r.data.inParty) badge('In your party')

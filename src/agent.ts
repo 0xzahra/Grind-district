@@ -18,42 +18,66 @@ function setAgent(spec: AgentSpec): void {
   localStorage.setItem(KEY, JSON.stringify({ label: spec.label }))
   window.dispatchEvent(new Event('gd-agent'))
 }
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-/** Email is the agent's identity key. The server derives and stores a stable label; the raw email is never shown to others. */
-export async function joinAgent(email: string): Promise<string> {
-  const e = email.trim().toLowerCase()
-  if (!EMAIL_RE.test(e)) throw new Error('Enter a valid email address.')
-  const r = await fetch('/api/agent-identify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: e }), signal: AbortSignal.timeout(8000) })
-  const j = await r.json().catch(() => ({})) as { label?: string; error?: string }
-  if (!r.ok || !j.label) throw new Error(j.error ?? 'Could not join right now.')
-  setAgent({ label: j.label })
-  return j.label
+/** Copy text on phones too: async Clipboard API, then a hidden-textarea execCommand fallback. */
+export async function copyText(text: string): Promise<boolean> {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true } } catch { /* fall through */ }
+  const ta = document.createElement('textarea')
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px'
+  document.body.append(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length)
+  let ok = false
+  try { ok = document.execCommand('copy') } catch { ok = false }
+  ta.remove()
+  return ok
 }
-/** The whole join UI: one email field and a Join button. */
+
+/** Agents screen: the full join prompt (with this player's one-time claim code) and a Copy prompt button.
+ *  No email box: the agent registers itself through the API with its own email or ERC-8004 id. */
 export function agentJoinForm(): HTMLElement {
-  const form = document.createElement('form')
-  form.className = 'stack agent-join'
+  const wrap = document.createElement('div')
+  wrap.className = 'stack agent-join'
   const prompt = document.createElement('pre')
   prompt.className = 'agent-prompt'
-  prompt.textContent = AGENT_PROMPT
-  const current = getAgent()
-  const email = document.createElement('input')
-  email.type = 'email'; email.required = true; email.maxLength = 120; email.autocomplete = 'email'; email.placeholder = "Agent's email"
-  const go = document.createElement('button')
-  go.type = 'submit'; go.className = 'primary'; go.textContent = 'Join'
+  let text = AGENT_PROMPT.replaceAll('{{CLAIM}}', '<claim code: sign in first>')
+  prompt.textContent = text
+  const copyBtn = document.createElement('button')
+  copyBtn.type = 'button'; copyBtn.className = 'primary agent-copy'; copyBtn.textContent = 'Copy prompt'
   const status = document.createElement('p')
   status.className = 'muted'
-  status.textContent = current ? `Joined as ${current.label}.` : 'Your agent joins with its email. Its label follows that email.'
-  form.addEventListener('submit', (ev) => {
-    ev.preventDefault()
-    go.disabled = true
-    joinAgent(email.value).then((l) => { status.textContent = `Joined as ${l}.` }, (err: Error) => { status.textContent = err.message }).finally(() => { go.disabled = false })
-  })
+  const current = getAgent()
+  status.textContent = current ? `Your agent: ${current.label}.` : 'Copy the prompt and paste it to your AI agent. It registers itself; this page updates when it joins.'
+  copyBtn.onclick = async () => {
+    const ok = await copyText(text)
+    copyBtn.textContent = ok ? 'Copied ✓' : 'Select and copy the text above'
+    if (!ok) { const r = document.createRange(); r.selectNodeContents(prompt); const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(r) }
+    window.setTimeout(() => { copyBtn.textContent = 'Copy prompt' }, 2000)
+  }
   const note = document.createElement('p')
   note.className = 'agent-note'
   note.textContent = CURRENCY_NOTE
-  form.append(prompt, email, go, status, note)
-  return form
+  wrap.append(copyBtn, prompt, status, note)
+  // Signed-in players get a fresh one-time claim code baked into the prompt, then we watch for the link.
+  void (async () => {
+    if (!localStorage.getItem('gd.privy.username')) return
+    const token = await (await import('./login.ts')).accessToken().catch(() => null)
+    if (!token) return
+    const r = await fetch('/api/profile?op=agent-code', { method: 'POST', headers: { authorization: `Bearer ${token}` } }).catch(() => null)
+    const j = r && r.ok ? await r.json().catch(() => null) as { code?: string; username?: string; agent?: { label?: string } | null } | null : null
+    if (!j?.code) return
+    text = AGENT_PROMPT.replaceAll('{{CLAIM}}', j.code)
+    prompt.textContent = text
+    if (j.agent?.label) { setAgent({ label: j.agent.label }); status.textContent = `Your agent: ${j.agent.label}. A new prompt links a new agent.`; return }
+    status.textContent = 'Prompt ready with your one-time claim code (valid 30 min). Waiting for your agent to register…'
+    const until = Date.now() + 30 * 60_000
+    const tick = async () => {
+      if (!wrap.isConnected || Date.now() > until) return
+      const pr = await fetch(`/api/messages?op=profile&u=${encodeURIComponent(j.username ?? '')}`, { headers: { authorization: `Bearer ${await (await import('./login.ts')).accessToken().catch(() => '')}` } }).catch(() => null)
+      const pj = pr && pr.ok ? await pr.json().catch(() => null) as { profile?: { agent?: string | null } } | null : null
+      if (pj?.profile?.agent) { setAgent({ label: pj.profile.agent }); status.textContent = `Agent joined: ${pj.profile.agent}. Your profile now shows the Agent label.`; return }
+      window.setTimeout(() => void tick(), 8000)
+    }
+    window.setTimeout(() => void tick(), 8000)
+  })()
+  return wrap
 }
 export const notificationsOn = () => localStorage.getItem(NOTIFY) !== '0'
 export const setNotifications = (on: boolean) => localStorage.setItem(NOTIFY, on ? '1' : '0')

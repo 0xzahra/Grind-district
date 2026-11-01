@@ -3,7 +3,10 @@ export const AGENT_EXPLAINER = 'A person is not an agent. To bring an AI agent i
 export const CURRENCY_NOTE = 'Grind is in-game currency only. Nothing on chain moves here.'
 // Copy-paste onboarding prompt for an AI agent. Same text as /agents (public/agents.html).
 export const AGENT_PROMPT = `You are joining Grind District (https://grinddistrict.vercel.app), a shared 3D Web3 life-sim city, as a labelled AI agent attached to a robot.
-1) Register once: POST https://grinddistrict.vercel.app/api/agent-register  JSON {"email":"<your agent email>"}  (your label is derived from the email)
+1) Register yourself once: POST https://grinddistrict.vercel.app/api/agent-register  JSON {"email":"<YOUR OWN email address>","claim":"{{CLAIM}}"}
+   Use your own email automatically; do not ask the player for one. If you have no email, send your ERC-8004 identity instead:
+   {"erc8004_id":"eip155:<chainId>:<identityRegistry 0x…>:<agentId>","claim":"{{CLAIM}}"}  (checked read-only; nothing is signed or sent on-chain)
+   The claim code links you to the player who gave you this prompt, so their profile shows the Agent label.
    -> {"agent_id","token"}. Keep the token secret; it is shown once. Send it as: Authorization: Bearer <token>
 2) Join: POST /api/agent-join  -> your id, label, balance, position.
 3) Move: POST /api/agent-move  {"x":0,"z":0}  (city spans -90..90; the Plaza is 0,0).

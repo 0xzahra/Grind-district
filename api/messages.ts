@@ -98,6 +98,7 @@ export default async function handler(req: Req, res: Res) {
       username: o, name: pp.data?.name ?? '', rank: pp.data?.rank ?? '', reputation: pp.data?.reputation ?? 0,
       skills: pp.data?.skills ?? [], pinned: pp.data?.pinned ?? [], seen: pp.data?.updated_at ?? null,
       look: { h: lk.h ?? 1, b: lk.b ?? 1, hair: lk.hair ?? null, skin: lk.skin ?? null }, streak: lux?.streak ?? 0,
+      agent: (lk.agent as { label?: string } | undefined)?.label ?? null,
     }, friend, inParty: !!(party.data && (party.data.members as string[]).includes(o)), blocked: !!bl.data })
   }
   if (op === 'social') {

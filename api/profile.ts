@@ -1,6 +1,7 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import rewardWallet from './_rewardWallet.js'
+import { createHash, randomBytes } from 'node:crypto'
 
 // POST { name, rank, reputation, balance, skills } with a Privy token: upsert the caller's public share-card snapshot.
 // The username comes from the server's players row, never from the client.
@@ -18,6 +19,17 @@ export default async function handler(req: Req, res: Res) {
   const db = createClient(url, key, { auth: { persistSession: false } })
   const p = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
   if (!p.data) return res.status(404).json({ error: 'claim a username first' })
+  if (req.query?.op === 'agent-code') {
+    // One-time code (30 min) the player's AI agent sends to /api/agent-register to link itself to this profile.
+    const code = `gdc_${randomBytes(9).toString('base64url')}`
+    const prev = await db.from('public_profiles').select('look').eq('username', p.data.username).maybeSingle()
+    const look = { ...((prev.data?.look ?? {}) as Record<string, unknown>), agentClaim: { h: createHash('sha256').update(code).digest('hex'), exp: Date.now() + 30 * 60_000 } }
+    const up = prev.data
+      ? await db.from('public_profiles').update({ look }).eq('username', p.data.username)
+      : await db.from('public_profiles').insert({ username: p.data.username, privy_user_id: userId, look })
+    if (up.error) return res.status(500).json({ error: 'could not create code' })
+    return res.status(200).json({ code, username: p.data.username, agent: (prev.data?.look as { agent?: unknown } | undefined)?.agent ?? null })
+  }
   const b = req.body ?? {}
   const n = (v: unknown, max: number) => Math.max(0, Math.min(max, Number(v) || 0))
   const row = {

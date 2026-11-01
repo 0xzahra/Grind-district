@@ -21,7 +21,7 @@ const clean = (s: unknown, n: number) => String(s ?? '').replace(/[\u0000-\u001f
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const normEmail = (s: unknown) => String(s ?? '').trim().toLowerCase().slice(0, 120)
 /** Stable public label from an email: sanitized local part + 6 hex of SHA-256(email). Never reveals the domain. */
-const labelFor = (email: string) => `${(email.split('@')[0] ?? '').replace(/[^a-z0-9]/g, '').slice(0, 12) || 'agent'}-${sha(email).slice(0, 6)}`
+const labelFor = (email: string) => email.startsWith('eip155:') ? `agent${(email.split(':')[3] ?? '').slice(0, 8)}-${sha(email).slice(0, 6)}` : `${(email.split('@')[0] ?? '').replace(/[^a-z0-9]/g, '').slice(0, 12) || 'agent'}-${sha(email).slice(0, 6)}`
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function identify(db: any, email: string): Promise<string> {
   const { data } = await db.from('agent_identities').select('label').eq('email', email).maybeSingle()
@@ -30,6 +30,21 @@ async function identify(db: any, email: string): Promise<string> {
   const { data: row, error } = await db.from('agent_identities').select('label').eq('email', email).single()
   if (error || !row) throw new Error('identify failed')
   return row.label as string
+}
+// ERC-8004 agent identity: CAIP-style "eip155:<chainId>:<identityRegistry>:<agentId>" (agentId = ERC-721 token id).
+const ERC8004_RE = /^eip155:(\d{1,10}):(0x[0-9a-fA-F]{40}):(\d{1,78})$/
+const RPC: Record<string, string> = { '1': 'https://ethereum-rpc.publicnode.com', '11155111': 'https://ethereum-sepolia-rpc.publicnode.com', '8453': 'https://mainnet.base.org', '84532': 'https://sepolia.base.org' }
+/** Read-only eth_call ownerOf(agentId) on the identity registry. true = exists, false = no such token, null = could not check. */
+async function erc8004Exists(chain: string, registry: string, id: string): Promise<boolean | null> {
+  const rpc = RPC[chain]
+  if (!rpc) return null
+  const data = '0x6352211e' + BigInt(id).toString(16).padStart(64, '0')
+  try {
+    const r = await fetch(rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: registry, data }, 'latest'] }), signal: AbortSignal.timeout(4000) })
+    const j = await r.json() as { result?: string; error?: unknown }
+    if (j.error) return false
+    return typeof j.result === 'string' && /[1-9a-f]/i.test(j.result.slice(2 + 24)) ? true : false
+  } catch { return null }
 }
 const q = (r: Req, k: string) => { const v = r.query?.[k]; return Array.isArray(v) ? v[0] : v ?? '' }
 
@@ -58,18 +73,42 @@ export default async function handler(req: Req, res: Res) {
 
   if (op === 'register') {
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-    const ident = normEmail(body.email)
-    if (!EMAIL_RE.test(ident)) return res.status(400).json({ error: 'email: a valid email address is required' })
-    const name = await identify(db, ident)
+    // Identity: the agent's own email, or (if it has none) its ERC-8004 agent id. Read-only checks only.
+    let ident = normEmail(body.email)
+    let erc: { chain: string; registry: string; id: string; verified: boolean | null } | null = null
+    if (!ident) {
+      const raw = String(body.erc8004_id ?? '').trim()
+      const m = ERC8004_RE.exec(raw)
+      if (!m) return res.status(400).json({ error: 'send "email" (your own email) or, if you have none, "erc8004_id" as eip155:<chainId>:<identityRegistry 0x…40 hex>:<agentId>' })
+      const verified = await erc8004Exists(m[1]!, m[2]!, m[3]!)
+      if (verified === false) return res.status(400).json({ error: 'erc8004_id: no such agent token on that registry (ownerOf reverted)' })
+      erc = { chain: m[1]!, registry: m[2]!.toLowerCase(), id: m[3]!, verified }
+      ident = `eip155:${erc.chain}:${erc.registry}:${erc.id}`
+    } else if (!EMAIL_RE.test(ident)) return res.status(400).json({ error: 'email: a valid email address is required' })
+    const name = erc ? await identify(db, ident).catch(() => `agent-${sha(ident).slice(0, 6)}`) : await identify(db, ident)
     const fwd = req.headers['x-forwarded-for']
     const ip = sha(`${(Array.isArray(fwd) ? fwd[0] : fwd ?? '').split(',')[0]}|grind-agents`)
     const hour = new Date(Date.now() - 3_600_000).toISOString()
     const { count } = await db.from('agents').select('id', { count: 'exact', head: true }).eq('ip_hash', ip).gte('created_at', hour)
     if ((count ?? 0) >= 3) return res.status(429).json({ error: 'too many registrations from this network; try in an hour' })
+    // Optional: link to the player who sent the prompt (one-time claim code from their Agents screen).
+    let owner: string | null = null
+    const claim = String(body.claim ?? '').trim().slice(0, 40)
+    if (claim) {
+      const h = sha(claim)
+      const { data: prof } = await db.from('public_profiles').select('username,look').eq('look->agentClaim->>h', h).maybeSingle()
+      const lk = (prof?.look ?? {}) as Record<string, unknown>
+      const c = lk.agentClaim as { exp?: number } | undefined
+      if (!prof || !c || (c.exp ?? 0) < Date.now()) return res.status(400).json({ error: 'claim code invalid or expired; ask your player to copy a fresh prompt' })
+      owner = prof.username as string
+      const { agentClaim: _drop, ...rest } = lk
+      void _drop
+      await db.from('public_profiles').update({ look: { ...rest, agent: { label: name, via: erc ? 'erc8004' : 'email', at: new Date().toISOString() } } }).eq('username', owner)
+    }
     const token = `gda_${randomBytes(24).toString('base64url')}`
     const { data, error } = await db.from('agents').insert({ name, ident, token_hash: sha(token), ip_hash: ip }).select('id').single()
     if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'that email/id already has an agent' : 'register failed' })
-    return res.status(201).json({ agent_id: data.id, label: name, token, note: 'Store the token. It is shown once.' })
+    return res.status(201).json({ agent_id: data.id, label: name, token, owner, identity: erc ? { type: 'erc8004', ...erc } : { type: 'email' }, note: 'Store the token. It is shown once.' })
   }
 
   // Authenticated ops.
