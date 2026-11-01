@@ -1550,3 +1550,6 @@ body.cc-sheet-on #caption, body.sheet-open #caption, body:has(#cc-sheet:not([hid
 .sat-pin::before { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; transform: translate(-50%, -50%); border-radius: 50%; background: #d9b26a; border: 2px solid #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .sat-pin span { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -6px); white-space: nowrap; font-size: 10px; line-height: 1.2; padding: 1px 5px; border-radius: 6px; background: rgba(10,11,13,.78); color: #f2f2f2; pointer-events: none; max-width: none !important; }
 .sat-me { position: absolute; width: 10px; height: 10px; transform: translate(-50%, -50%); border-radius: 50%; background: #fff; border: 2px solid #2b6cb0; }
+#online-chip { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 46px); left: 12px; z-index: 5; padding: 4px 10px; border-radius: 999px; font: 600 12px/1.2 Inter, system-ui, sans-serif; color: #e8f1ea; background: rgba(10,11,13,.6); border: 1px solid rgba(255,255,255,.14); font-variant-numeric: tabular-nums; }
+body.sheet-open #online-chip, body.cc-sheet-on #online-chip { display: none !important; }
+#online-chip[hidden] { display: none !important; }

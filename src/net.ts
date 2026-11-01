@@ -17,6 +17,8 @@ import { tagPlayer } from './player.ts'
  */
 
 export const HEAR_RADIUS = 12
+const peerRingGeo = new THREE.RingGeometry(0.42, 0.52, 28)
+const peerRingMat = new THREE.MeshBasicMaterial({ color: 0xd9b26a, transparent: true, opacity: 0.7, depthWrite: false, fog: false })
 const SEND_HZ = 5
 const BUBBLE_MS = 7000
 const MAX_TEXT = 140
@@ -114,6 +116,8 @@ export function createNet(options: {
   getSelf: () => THREE.Object3D
   onLine: (line: { from: string; text: string; self: boolean; audio?: string }) => void
   onStatus: (online: boolean) => void
+  /** Players in the city right now (presence, includes you). */
+  onCount?: (n: number) => void
   /** Public profile payload (encodeShare: no emails, wallets, family requests or location). */
   getProfile?: () => string
 }): Net {
@@ -141,6 +145,10 @@ export function createNet(options: {
       if (peer) options.scene.remove(peer.avatar.object)
       const avatar = createAvatar(wire.body, wire.tint, false)
       tagPlayer(avatar.object, clean(wire.name).slice(0, 24), clean(wire.username).slice(0, 16))
+      // Real players get a soft gold ring at their feet so they never read as NPC passers-by.
+      const ring = new THREE.Mesh(peerRingGeo, peerRingMat)
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ring.userData.ghost = true; ring.raycast = () => undefined
+      avatar.object.add(ring)
       avatar.object.position.set(wire.x, 0, wire.z)
       options.scene.add(avatar.object)
       peer = { ...wire, avatar, tx: wire.x, tz: wire.z, seen: performance.now(), lastX: wire.x, lastZ: wire.z }
@@ -201,10 +209,15 @@ export function createNet(options: {
             waiting.delete(m.from)
           })
           .on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
+          .on('presence', { event: 'sync' }, () => { options.onCount?.(Object.keys(room.presenceState()).length) })
           .subscribe((status) => {
             connected = status === 'SUBSCRIBED'
             options.onStatus(connected)
-            if (connected) void room.track({ id, at: Date.now() })
+            if (connected) {
+              void room.track({ id, at: Date.now(), u: me.username })
+              // Announce straight away so others see us without waiting for movement.
+              void room.send({ type: 'broadcast', event: 'pos', payload: wire() })
+            }
           })
         channel = room
       })

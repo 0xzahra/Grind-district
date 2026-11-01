@@ -701,6 +701,10 @@ const apiAgents = createRemoteAgents(scene)
     const save = getSave()
     return { name: save.name, username: save.username, body: save.body, tint: save.tint }
   }
+  const onlineChip = document.createElement('button')
+  onlineChip.type = 'button'; onlineChip.id = 'online-chip'; onlineChip.className = 'pill'; onlineChip.hidden = true
+  onlineChip.onclick = () => { ui.toast(onlineChip.title || 'Players online') ; travelHook('Plaza', false) }
+  document.querySelector('#hud header')?.append(onlineChip)
   const net = createNet({
     scene,
     me: identity(),
@@ -735,6 +739,11 @@ const apiAgents = createRemoteAgents(scene)
       chatStatus.textContent = online
         ? 'Live · 12 m'
         : 'Solo city.'
+      onlineChip.hidden = !online
+    },
+    onCount: (n) => {
+      onlineChip.textContent = `● ${n} online`
+      onlineChip.title = n > 1 ? `${n - 1} other player${n > 2 ? 's' : ''} in the city. Real players have a gold ring and a name tag.` : 'Only you right now.'
     },
   })
   void import('./voice.ts').then((m) => m.mountVoice(chat, net, (t) => ui.toast(t), () => {
@@ -946,14 +955,15 @@ const apiAgents = createRemoteAgents(scene)
   const indoorCamera = (origin: THREE.Vector3, cam: THREE.Vector3) => {
     const room = interiors.bounds()
     if (!room) return
-    const walls = interiors.obstacles().filter((o) => o.kind === 'box' && Math.min(o.hx, o.hz) < 0.3)
-    const pad = 0.35
+    const walls = interiors.obstacles().filter((o) => o.kind === 'box' && Math.min(o.hx, o.hz) < 0.6)
+    // Keep the camera under the ceiling: from above, single-sided wall planes read as giant slabs.
+    if (cam.y > 2.7) cam.y = 2.7
+    const pad = 0.45
     let good = 0
     const STEPS = 24
     for (let i = 1; i <= STEPS; i++) {
       const t = i / STEPS
       camProbe.lerpVectors(origin, cam, t)
-      if (camProbe.y > 3.6) { good = t; continue } // above the walls: free
       const inShell = Math.abs(camProbe.x - room.x) < room.hw + 0.5 - pad && Math.abs(camProbe.z - room.z) < room.hd + 0.5 - pad
       let hit = !inShell
       if (!hit) for (const w of walls) {
@@ -1238,8 +1248,9 @@ const apiAgents = createRemoteAgents(scene)
     shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar(0.55 * Math.min(1, 6 / camDist))
     lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, 1.45, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
-    const horiz = camDist * Math.cos(camPitch)
-    desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + camDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
+    const useDist = interiors.inside ? Math.min(camDist, 3.6) : camDist // rooms are small: a short boom never reaches the walls
+    const horiz = useDist * Math.cos(camPitch)
+    desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + useDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
     const ideal = pullCamera(lookTarget, desiredCam)
     if (!cameraReady) {
       smoothCam.copy(ideal)
