@@ -11,11 +11,17 @@ import type { ShrimpAvatar } from './shrimp.ts'
 export const MEN = ['man1', 'man2', 'man3', 'man4'] as const
 export const WOMEN = ['woman1', 'woman2', 'woman3', 'woman4'] as const
 export type HumanModel = (typeof MEN)[number] | (typeof WOMEN)[number]
-export type Look = { skin?: number; hair?: number; top?: number }
+export type Look = { skin?: number; hair?: number; top?: number; bottom?: number; shoes?: number }
+export type Extras = { chain?: boolean; watch?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean }
 
 type Template = { scene: THREE.Group; clips: THREE.AnimationClip[]; parts: { name: string; start: number; count: number }[]; height: number }
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const cache = new Map<HumanModel, Promise<Template>>()
+const GOLD = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.9, roughness: 0.3 })
+const PEARL = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.35 })
+const STEEL = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.85, roughness: 0.3 })
+const SHADE = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 })
+const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
 const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0, envMapIntensity: 0.7 }) // matte cloth/skin: no plastic sheen
 
 function toFloat(attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, size: number): THREE.BufferAttribute {
@@ -114,7 +120,7 @@ function wireGlasses(): THREE.Group {
  * Swap a procedural avatar's body for a real animated person once the model loads.
  * The procedural body stays as the instant fallback (and if loading fails). Masks keep the procedural body.
  */
-export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { look?: Look; glasses?: boolean; height?: number; makeup?: { lip?: number | null; blush?: number | null } } = {}): void {
+export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { look?: Look; extras?: Extras; glasses?: boolean; height?: number; makeup?: { lip?: number | null; blush?: number | null } } = {}): void {
   const root = avatar.object
   // The procedural body is the root child with the most descendants (it is the one face() rotates).
   let body: THREE.Object3D | null = null
@@ -134,7 +140,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       const col = geo.getAttribute('color') as THREE.BufferAttribute
       const c = new THREE.Color()
       for (const p of t.parts) {
-        const hex = /skin/i.test(p.name) ? look.skin : /^hair/i.test(p.name) ? look.hair : /shirt$|dress|^jacket/i.test(p.name) ? look.top : undefined
+        const hex = /skin/i.test(p.name) ? look.skin : /^hair/i.test(p.name) ? look.hair : /shirt\d?$|dress|jacket/i.test(p.name) ? look.top : /pants/i.test(p.name) ? look.bottom : /shoes|socks/i.test(p.name) ? look.shoes : undefined
         if (hex === undefined) continue
         c.setHex(hex) // vertex colours are linear; setHex converts from sRGB
         for (let i = p.start; i < p.start + p.count; i++) col.setXYZ(i, c.r, c.g, c.b)
@@ -178,6 +184,30 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         set(opts.makeup.lip, opts.makeup.blush)
         root.userData.setMakeup = set
       }
+    }
+    {
+      // Accessories on the rig's bones (gold chain, pearls, watch, shades, cap): a handful of tiny meshes, one shared material each.
+      person.updateMatrixWorld(true)
+      const inv = new THREE.Matrix4().copy(person.matrixWorld).invert()
+      const at = (bone: string, obj: THREE.Object3D, dx: number, dy: number, dz: number) => {
+        const b = person.getObjectByName(bone); if (!b) return
+        const wp = new THREE.Vector3(); b.getWorldPosition(wp); const l = wp.applyMatrix4(inv)
+        obj.position.set(l.x + dx / person.scale.x, l.y + dy / person.scale.y, l.z + dz / person.scale.z)
+        obj.scale.setScalar(1 / person.scale.x); obj.visible = false
+        person.add(obj); person.updateMatrixWorld(true); b.attach(obj)
+      }
+      const torus = (r: number, t: number, m: THREE.Material) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, t, 6, 20), m); o.rotation.x = Math.PI / 2.3; return o }
+      const parts: Record<keyof Extras, THREE.Object3D> = {
+        chain: torus(0.085, 0.011, GOLD), pearls: torus(0.08, 0.012, PEARL),
+        watch: new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.025, 12), STEEL),
+        shades: (() => { const g = new THREE.Group(); for (const x of [-0.035, 0.035]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.028, 0.008), SHADE); l.position.x = x; g.add(l) } return g })(),
+        cap: (() => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.SphereGeometry(0.105, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), CAP); const v = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.01, 0.08), CAP); v.position.set(0, 0, 0.1); g.add(c, v); return g })(),
+      }
+      at('Neck', parts.chain, 0, -0.04, 0.025); at('Neck', parts.pearls, 0, -0.03, 0.02)
+      at('LowerArm.L', parts.watch, 0, -0.12, 0); at('Head', parts.shades, 0, 0.1, 0.11); at('Head', parts.cap, 0, 0.17, 0)
+      const setExtras = (e: Extras = {}) => { for (const k of Object.keys(parts) as Array<keyof Extras>) parts[k].visible = !!e[k] }
+      setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
+      root.userData.setExtras = setExtras
     }
     root.userData.person = person
     root.userData.body = bodyRef

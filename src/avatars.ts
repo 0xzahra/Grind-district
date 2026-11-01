@@ -7,7 +7,8 @@ import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
-import { MEN, WOMEN, upgradeToHuman } from './humans.ts'
+import { MEN, WOMEN, upgradeToHuman, type Extras } from './humans.ts'
+import { worn, piece } from './wardrobe.ts'
 
 export type Avatar = ShrimpAvatar
 
@@ -167,8 +168,14 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
   // Real animated people replace the human bodies (player, Zuri, citizens). Masked players keep the procedural body.
   if (body === 'player' || body === 'zuri') {
     const female = body === 'zuri'
-    const model = variant === undefined ? (female ? 'woman4' : 'man4') : female ? WOMEN[variant % WOMEN.length]! : MEN[variant % MEN.length]!
     const own = variant === undefined
+    const w = worn()
+    const topPiece = own ? piece(w.top) : undefined
+    const ownModel = female ? (topPiece?.model === 'casual' ? 'woman3' : 'woman4') : (topPiece && topPiece.model !== 'suit' ? 'man1' : 'man4')
+    const model = own ? ownModel : female ? WOMEN[variant! % WOMEN.length]! : MEN[variant! % MEN.length]!
+    const outfit = () => { const v = worn(); return { top: piece(v.top)?.hex, bottom: piece(v.bottom)?.hex, shoes: piece(v.shoes)?.hex } }
+    const extras = (lux: boolean): Extras => { const a = worn().acc; return { chain: lux, watch: a.includes('watch-steel'), shades: a.includes('shades'), cap: a.includes('cap'), pearls: a.includes('pearls') } }
+    if (own) avatar.object.userData.extras = extras(luxury)
     const mo = getMorph()
     const hair = mo.hair ?? (female ? 0x2a1a12 : 0xd9c08a)
     const sc = own ? mo : citizenScale(variant!)
@@ -176,7 +183,8 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     upgradeToHuman(avatar, model, {
       glasses: own && !female,
       makeup: own ? { lip: mo.lip, blush: mo.blush } : undefined,
-      look: own ? (female ? { hair, top: tint, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6, top: tint }) : undefined,
+      extras: own ? extras(luxury) : undefined,
+      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().top ?? tint } : undefined,
       height: female ? 1.68 : 1.78,
     })
     if (own) {
@@ -186,7 +194,10 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       avatar.setStyle = (t, lux) => {
         setStyle(t, lux)
         const now = getMorph(); avatar.object.scale.set(now.b, now.h, now.b)
-        const look = { ...base, hair: now.hair ?? base.hair, top: t, ...(now.skin ? { skin: now.skin } : {}) }
+        const o = outfit()
+        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t }
+        avatar.object.userData.extras = extras(lux)
+        ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))
         avatar.object.userData.look = look
         const apply = avatar.object.userData.applyLook as ((l: typeof look) => void) | undefined
         apply?.(look)

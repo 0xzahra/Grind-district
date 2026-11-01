@@ -1553,3 +1553,9 @@ body.cc-sheet-on #caption, body.sheet-open #caption, body:has(#cc-sheet:not([hid
 #online-chip { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 46px); left: 12px; z-index: 5; padding: 4px 10px; border-radius: 999px; font: 600 12px/1.2 Inter, system-ui, sans-serif; color: #e8f1ea; background: rgba(10,11,13,.6); border: 1px solid rgba(255,255,255,.14); font-variant-numeric: tabular-nums; }
 body.sheet-open #online-chip, body.cc-sheet-on #online-chip { display: none !important; }
 #online-chip[hidden] { display: none !important; }
+.wardrobe { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.wardrobe .ward { display: grid !important; grid-template-columns: 22px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; width: 100% !important; text-align: left; padding: 8px 10px !important; border-radius: 12px !important; border: 1px solid rgba(255,255,255,.12) !important; background: rgba(255,255,255,.04) !important; }
+.wardrobe .ward.on { border-color: #d9b26a !important; background: rgba(217,178,106,.12) !important; }
+.wardrobe .ward i { grid-row: 1 / 3; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); }
+.wardrobe .ward b { font-weight: 500; font-size: 13px; line-height: 1.2; white-space: normal; }
+.wardrobe .ward small { font-size: 11px; opacity: .7; }

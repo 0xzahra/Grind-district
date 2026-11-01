@@ -18,6 +18,7 @@ import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
+import { PIECES, owns, own, wear, worn, type Slot } from './wardrobe.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
   BODIES,
@@ -56,6 +57,7 @@ import {
 import {
   attendChurch,
   buyChain,
+  buyWant,
   buyDrone,
   buyVehicle,
   tradeCoin,
@@ -661,7 +663,7 @@ export function mountUi(
   let boutiqueStyle: Style = 'all'
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Original bodies, free. The man and the woman are on this wall.', 'muted'))
+    const wrap = stack(para('Original bodies, free: the gentleman and the lady. Colours recolour your top; pieces below are priced in in-game dollars.', 'muted'))
     const bodies = document.createElement('div')
     bodies.className = 'tabs'
     for (const body of BODIES) {
@@ -684,12 +686,36 @@ export function mountUi(
     for (const tint of TINTS.filter((t) => boutiqueStyle === 'all' || (TINT_STYLE[t.id] ?? []).includes(boutiqueStyle))) {
       const node = button(tint.label, save.tint === tint.hex ? 'primary' : 'ghost', () => {
         setTint(tint.hex)
+        { const w = worn(); if (w.top) { const cur = PIECES.find((x) => x.id === w.top); if (cur) wear(cur) } } // colour wins over a worn top so the change is visible
+        hooks.onBody()
         hooks.onStyle()
         open('boutique')
       })
       tints.append(node)
     }
-    wrap.append(para('Color', 'kicker'), tints)
+    wrap.append(para('Colour · recolours your top', 'kicker'), tints)
+    // Wardrobe: real pieces with in-game prices. Buying wears it; tapping an owned piece wears / removes it.
+    const lady = save.body === 'zuri'
+    const slotNames: Record<Slot, string> = { top: 'Tops, dresses & suits', bottom: 'Trousers', shoes: 'Shoes', acc: 'Accessories' }
+    for (const slot of ['top', 'bottom', 'shoes', 'acc'] as Slot[]) {
+      const grid = document.createElement('div'); grid.className = 'wardrobe'
+      for (const pc of PIECES.filter((x) => x.slot === slot && (!x.for || x.for === (lady ? 'lady' : 'gent')))) {
+        const on = slot === 'acc' ? worn().acc.includes(pc.id) : worn()[slot] === pc.id
+        const mine = owns(pc.id)
+        const card = button('', `ghost ward${on ? ' on' : ''}`, () => {
+          if (!mine) { const r = buyWant(pc.label, pc.usd); if (!r.ok) { finish(r.message); return } own(pc.id) }
+          wear(pc)
+          hooks.onBody()
+          open('boutique')
+        })
+        const sw = document.createElement('i'); sw.style.background = `#${pc.hex.toString(16).padStart(6, '0')}`
+        const nm = document.createElement('b'); nm.textContent = pc.label
+        const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? 'Owned · tap to wear' : pc.usd ? money(pc.usd) : 'Free'
+        card.append(sw, nm, pr)
+        grid.append(card)
+      }
+      wrap.append(para(slotNames[slot], 'kicker'), grid)
+    }
     const mo = getMorph()
     const slider = (label: string, key: 'h' | 'b', min: number, max: number) => {
       const row = document.createElement('label'); row.className = 'morph-row'

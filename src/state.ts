@@ -781,3 +781,14 @@ export function joinEvent(ev: { id: string; title: string; kind: string; xp: num
   emit(rankedUp)
   return { already: false, rankedUp, message: `You joined. +${money(ev.xp)} in-game, reputation +${ev.rep}. It is on your portfolio.` }
 }
+
+/** Generic in-game purchase (wardrobe, upgrades). Practice dollars only; logged as a want. */
+export function buyWant(label: string, usd: number): { ok: boolean; message: string } {
+  if (save.ledger < usd) return { ok: false, message: `Short ${money(usd - save.ledger)}.` }
+  save.ledger = cents(save.ledger - usd)
+  save.wants.push({ label, spent: usd, at: Date.now() })
+  log('money', `Bought ${label}`, `${money(usd)} in-game.`)
+  persist()
+  emit()
+  return { ok: true, message: `${label} is yours.` }
+}
