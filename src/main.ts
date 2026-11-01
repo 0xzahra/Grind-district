@@ -1011,7 +1011,7 @@ const apiAgents = createRemoteAgents(scene)
   let mapAcc = 1
   // interiors is declared later in main(); a timer can fire before that, so read it defensively.
   const indoors = () => { try { return Boolean(interiors.inside) } catch { return true } }
-  const bake = () => !indoors() && bakeSatellite(renderer, scene, getSave().graphics === 'low' ? 256 : 512)
+  const bake = () => !indoors() && bakeSatellite(renderer, scene, 512) // one-off render; 512 keeps rooftops/roads readable when zoomed
   let baked = false
   const tryBake = () => { if (!indoors()) { bake(); baked = true } else setTimeout(tryBake, 5000) }
   setTimeout(tryBake, 4000)

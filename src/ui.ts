@@ -1083,9 +1083,37 @@ export function mountUi(
             if (!m || !m.url) return []
             const box = document.createElement('div')
             box.className = 'sat-map'
+            const inner = document.createElement('div')
+            inner.className = 'sat-inner'
             const img = document.createElement('img')
             img.src = m.url; img.alt = 'Top-down map of the city'; img.draggable = false
-            box.append(img)
+            inner.append(img)
+            box.append(inner)
+            // Drag to pan, pinch (or +/−) to zoom. Pins counter-scale so labels stay readable.
+            let z = 1, tx = 0, ty = 0
+            const pts = new Map<number, { x: number; y: number }>()
+            let pinch0 = 0, z0 = 1
+            const apply = () => {
+              const w = box.clientWidth || 1, lim = (w * (z - 1)) / 2
+              tx = Math.max(-lim, Math.min(lim, tx)); ty = Math.max(-lim, Math.min(lim, ty))
+              inner.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`
+              inner.style.setProperty('--iz', String(1 / z))
+            }
+            box.addEventListener('pointerdown', (e) => { if ((e.target as HTMLElement).closest('.sat-pin, .sat-zoom')) return; box.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2) { const [a1, b1] = [...pts.values()]; pinch0 = Math.hypot(a1!.x - b1!.x, a1!.y - b1!.y); z0 = z } })
+            box.addEventListener('pointermove', (e) => {
+              const prev = pts.get(e.pointerId); if (!prev) return
+              const cur = { x: e.clientX, y: e.clientY }; pts.set(e.pointerId, cur)
+              if (pts.size === 2) { const [a1, b1] = [...pts.values()]; const d = Math.hypot(a1!.x - b1!.x, a1!.y - b1!.y); if (pinch0) z = Math.max(1, Math.min(5, z0 * d / pinch0)) }
+              else { tx += cur.x - prev.x; ty += cur.y - prev.y }
+              apply()
+            })
+            const end = (e: PointerEvent) => { pts.delete(e.pointerId); if (pts.size < 2) pinch0 = 0 }
+            box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end)
+            box.addEventListener('wheel', (e) => { e.preventDefault(); z = Math.max(1, Math.min(5, z * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); apply() }, { passive: false })
+            const zoom = document.createElement('div'); zoom.className = 'sat-zoom'
+            for (const [t, f] of [['+', 1.4], ['−', 1 / 1.4]] as const) { const zb = document.createElement('button'); zb.type = 'button'; zb.textContent = t; zb.setAttribute('aria-label', t === '+' ? 'Zoom in' : 'Zoom out'); zb.onclick = () => { z = Math.max(1, Math.min(5, z * f)); apply() }; zoom.append(zb) }
+            box.append(zoom)
+            const legend = document.createElement('small'); legend.className = 'sat-legend'; legend.textContent = 'Drag · pinch to zoom · tap a pin to go'; box.append(legend)
             const at = (x: number, z: number, n: HTMLElement) => { n.style.left = `${((x + m.limit) / (2 * m.limit)) * 100}%`; n.style.top = `${((z + m.limit) / (2 * m.limit)) * 100}%` }
             for (const pin of m.pins) {
               const b = document.createElement('button')
@@ -1093,10 +1121,12 @@ export function mountUi(
               const label = document.createElement('span'); label.textContent = pin.title
               b.append(label)
               b.onclick = () => hooks.travel?.(pin.title, true)
-              at(pin.x, pin.z, b); box.append(b)
+              at(pin.x, pin.z, b); inner.append(b)
             }
-            if (m.me) { const me = document.createElement('i'); me.className = 'sat-me'; at(m.me.x, m.me.z, me); box.append(me) }
-            return [box]
+            if (m.me) { const me = document.createElement('i'); me.className = 'sat-me'; me.title = 'You are here'; at(m.me.x, m.me.z, me); inner.append(me); requestAnimationFrame(() => { z = 1.8; tx = (0.5 - (m.me!.x + m.limit) / (2 * m.limit)) * box.clientWidth * z; ty = (0.5 - (m.me!.z + m.limit) / (2 * m.limit)) * box.clientWidth * z; apply() }) }
+            const toggle = button('Show list of places', 'ghost', () => { const l = box.parentElement?.querySelectorAll<HTMLElement>('.map-entry'); const hide = !(l?.[0]?.hidden); l?.forEach((n) => { n.hidden = hide }); toggle.textContent = hide ? 'Show list of places' : 'Hide list' })
+            requestAnimationFrame(() => box.parentElement?.querySelectorAll<HTMLElement>('.map-entry').forEach((n) => { n.hidden = true }))
+            return [box, toggle]
           })(),
           para('Every door on the street. Tap a pin or a row to go straight there and walk in.'),
           ...GUIDE.map((stop) => {
