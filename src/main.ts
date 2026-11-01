@@ -47,6 +47,8 @@ import { createEstate } from './estate.ts'
 import './style.css'
 import './glass.css'
 import { createPortrait } from './portrait.ts'
+import { watchUpdates } from './update.ts'
+watchUpdates()
 
 const WALK = 2.7
 const RUN = 5.5
@@ -143,7 +145,7 @@ let abandoned = false
 async function main(onReveal: () => void, onFail: (error: unknown) => void = () => {}) {
   const canvas = must<HTMLCanvasElement>('#view')
   const boot = must<HTMLDivElement>('#boot')
-  const bootText = must<HTMLParagraphElement>('#boot-text')
+  must<HTMLParagraphElement>('#boot-text')
   const hint = must<HTMLParagraphElement>('#hint')
   const caption = must<HTMLElement>('#caption')
   const captionTitle = must<HTMLHeadingElement>('#cap-title')
@@ -951,6 +953,7 @@ const apiAgents = createRemoteAgents(scene)
   let cameraReady = false
   let revealed = false
   let failed = false
+  let loopErrors = 0
   let elapsed = 0
   let season = seasonAt()
   let saveAcc = 0
@@ -1399,15 +1402,19 @@ const apiAgents = createRemoteAgents(scene)
         }
       }
     } catch (error) {
-      failed = true
       console.error('[grind] Render loop error.', error)
       if (!revealed) {
+        failed = true
         onFail(error)
         return
       }
-      boot.classList.remove('hidden')
-      boot.removeAttribute('aria-hidden')
-      bootText.textContent = error instanceof Error ? error.message : 'The city could not stay open.'
+      // In game: never dim the screen for a glitch (e.g. a chunk from an older deploy). Keep running;
+      // only after many consecutive failures stop and offer a quiet refresh toast.
+      loopErrors++
+      if (loopErrors < 90) return
+      failed = true
+      void import('./update.ts').then((m) => m.offerRefresh()).catch(() => undefined)
+      return
     }
   }
   requestAnimationFrame(frame)
