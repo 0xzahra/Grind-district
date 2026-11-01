@@ -39,7 +39,7 @@ import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
-import { createSeating, plazaSeats, seatSpot, type Seat } from './seating.ts'
+import { createSeating, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
@@ -939,7 +939,8 @@ const apiAgents = createRemoteAgents(scene)
     target = null
     faceYaw = s.yaw
   }
-  const streetSpots: Hotspot[] = [...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn))]
+  const streetSpots: Hotspot[] = [...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn)),
+    ...workoutSpots().map((s, i) => ({ ...seatSpot(`workout-${i}`, 'Workout spot', s, sitOn), body: 'Do a few squats. Move to stop.', enter: 'Exercise' }))]
   let streetDoor = { x: 0, z: 0 }
   const enterRoom = (doorSpot: Hotspot) => {
     const room = interiors.roomFor(doorSpot.id)
@@ -1386,7 +1387,7 @@ const apiAgents = createRemoteAgents(scene)
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-6 * dt))
       camera.updateProjectionMatrix()
     }
-    net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving })
+    net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving, act: seating.sitting })
     mapAcc += dt
     if (mapAcc > 0.1) { mapAcc = 0; drawMap() } // minimap at 10 Hz is plenty
     saveAcc += dt

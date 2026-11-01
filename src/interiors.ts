@@ -264,7 +264,14 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       use({ id: 'closet', x: -8.0, z: 2.0, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
       use({ id: 'key', x: -8.4, z: -1.0, r: 0.8, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
       // Bedroom (S middle): round bed, side tables, desk with the live CV laptop.
-      use({ id: 'bed', x: 1.0, z: 4.6, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep till morning', run: () => { setTime('day'); hooks.onLook(); hooks.toast('Morning. The district is up.') } })
+      use({ id: 'bed', x: 1.0, z: 4.6, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep', run: () => {
+        hooks.sit({ x: ORIGIN.house.x + 1.0, z: ORIGIN.house.z + 4.6, yaw: 0, y: 0.5, pose: 'lie' })
+        // Soft dim on this screen only, then wake to daylight. Other players just see you lying down.
+        const dim = document.createElement('div')
+        dim.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;transition:opacity 1.2s;pointer-events:none;z-index:40'
+        document.body.append(dim); requestAnimationFrame(() => { dim.style.opacity = '0.55' })
+        window.setTimeout(() => { setTime('day'); hooks.onLook(); dim.style.opacity = '0'; hooks.toast('Morning. You feel rested.'); window.setTimeout(() => dim.remove(), 1300) }, 3500)
+      } })
       const deskWood = std(0x8a6a4c, 0.65)
       box(1.4, 0.04, 0.6, deskWood, -1.4, 2.0, 0.71)
       for (const sx of [-0.66, 0.66]) box(0.05, 0.71, 0.56, deskWood, -1.4 + sx, 2.0, 0, false)

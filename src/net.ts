@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
 import type { BodyId } from './logic.ts'
 import { tagPlayer } from './player.ts'
+import { createSeating, type Seat } from './seating.ts'
 
 /**
  * Proximity text chat and shared positions over Supabase Realtime.
@@ -24,8 +25,8 @@ const BUBBLE_MS = 7000
 const MAX_TEXT = 140
 
 export type Me = { name: string; username: string; body: BodyId; tint: number }
-type Wire = { id: string; name: string; username: string; body: BodyId; tint: number; x: number; z: number; yaw: number; moving: boolean }
-type Peer = Wire & { avatar: Avatar; tx: number; tz: number; seen: number; lastX: number; lastZ: number }
+type Wire = { id: string; name: string; username: string; body: BodyId; tint: number; x: number; z: number; yaw: number; moving: boolean; act?: Seat | null }
+type Peer = Wire & { seating?: ReturnType<typeof createSeating>; actKey?: string; avatar: Avatar; tx: number; tz: number; seen: number; lastX: number; lastZ: number }
 
 export type Net = {
   online: () => boolean
@@ -34,7 +35,7 @@ export type Net = {
   /** Upload a short voice note to Storage and broadcast its URL to nearby players. */
   sayVoice: (blob: Blob, seconds: number) => Promise<void>
   canVoice: () => boolean
-  tick: (dt: number, me: { x: number; z: number; yaw: number; moving: boolean }) => void
+  tick: (dt: number, me: { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null }) => void
   setMe: (me: Me) => void
   /** Peer under a ray (tap), or null. */
   /** Where a player is in the city right now (by username), or null if not in this city. */
@@ -128,7 +129,7 @@ export function createNet(options: {
   const id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const peers = new Map<string, Peer>()
   let me = options.me
-  let pos = { x: 0, z: 0, yaw: 0, moving: false }
+  let pos: { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null } = { x: 0, z: 0, yaw: 0, moving: false }
   let channel: import('@supabase/supabase-js').RealtimeChannel | null = null
   let connected = false
   let storage: import('@supabase/supabase-js').SupabaseClient | null = null
@@ -158,6 +159,10 @@ export function createNet(options: {
     }
     if (peer.tint !== wire.tint) peer.avatar.setStyle(wire.tint, false)
     Object.assign(peer, { name: wire.name, username: wire.username, tint: wire.tint, yaw: wire.yaw, moving: wire.moving })
+    // Synced actions: sit / lie / workout pose on the peer's rig.
+    const act = wire.act && typeof wire.act.x === 'number' ? { x: +wire.act.x, z: +wire.act.z, yaw: +wire.act.yaw || 0, y: Math.min(1.2, Math.max(0, +wire.act.y || 0)), pose: (['sit', 'lie', 'workout'] as const).find((k) => k === wire.act!.pose) ?? 'sit' } : null
+    const key = act ? `${act.x.toFixed(2)},${act.z.toFixed(2)},${act.pose}` : ''
+    if (key !== (peer.actKey ?? '')) { peer.seating ??= createSeating(); peer.seating.stand(); if (act) peer.seating.sit(act, peer.avatar.object); peer.actKey = key }
     peer.tx = wire.x
     peer.tz = wire.z
     peer.seen = performance.now()
@@ -304,6 +309,7 @@ export function createNet(options: {
         const moving = speed > 0.3
         peer.avatar.face(dx, dz, dt, moving)
         peer.avatar.step(dt, moving, speed)
+        peer.seating?.apply(object, dt)
         // Far players stay drawn, but their plate and bubble only show within earshot.
         object.visible = Math.hypot(object.position.x - pos.x, object.position.z - pos.z) < 60
       }

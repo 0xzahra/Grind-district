@@ -4,6 +4,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { CITIZENS, stepCitizens, type CitizenSim } from './citizens.ts'
 import { createDrone, spinDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
+import { createSeating, plazaSeats, workoutSpots, type Seat } from './seating.ts'
 
 type Person = {
   avatar: Avatar
@@ -153,6 +154,22 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     })
   }
 
+  // A few residents sit on the plaza benches or work out in the park; they rotate every ~40 s.
+  const posed: Array<{ p: Person; seat: Seat; seating: ReturnType<typeof createSeating> }> = []
+  const poseSeats: Seat[] = [plazaSeats()[0]!, plazaSeats()[2]!, workoutSpots()[1]!]
+  let poseClock = 0
+  const assignPoses = () => {
+    for (const q of posed) q.seating.stand()
+    posed.length = 0
+    const walkers = people.filter((p) => p.sim.spec.points.length > 1)
+    poseSeats.forEach((seat, k) => {
+      const p = walkers[(k * 5 + Math.floor(poseClock / 40)) % walkers.length]
+      if (!p || posed.some((q) => q.p === p)) return
+      const seating = createSeating(); seating.sit(seat, p.avatar.object)
+      posed.push({ p, seat, seating })
+    })
+  }
+  assignPoses()
   const unit = robot()
   unit.object.position.set(unit.x, 0, unit.z)
   scene.add(unit.object)
@@ -205,7 +222,10 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       // Look at the player only when very close (< 2.2 m) and only briefly (2 s, then 12 s cooldown).
       // Otherwise walkers face where they walk, and paused people face their nearest paused partner (chatting).
       const before = people.map((person) => ({ x: person.sim.x, z: person.sim.z }))
-      stepCitizens(people.map((person) => person.sim), dt)
+      poseClock += dt
+      if (Math.floor(poseClock / 40) !== Math.floor((poseClock - dt) / 40)) assignPoses()
+      stepCitizens(people.filter((person) => !posed.some((q) => q.p === person)).map((person) => person.sim), dt)
+      for (const q of posed) { q.p.sim.x = q.seat.x; q.p.sim.z = q.seat.z }
       people.forEach((person, index) => {
         const prior = before[index]
         const dx = prior ? person.sim.x - prior.x : 0
@@ -226,6 +246,8 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         }
         person.avatar.step(dt, moving, person.sim.spec.speed)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
+        const q = posed.find((o) => o.p === person)
+        if (q) q.seating.apply(person.avatar.object, dt)
         if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)
         obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })
       })

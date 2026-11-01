@@ -3,7 +3,7 @@ import * as THREE from 'three'
 // Sitting: a seat is a spot on the floor plan, the direction the sitter faces, and the seat-top height.
 // The Quaternius pack only ships Idle/Walk/Run, so the sit pose is layered on the rig after the mixer runs:
 // thighs forward, shins down, hands on the lap, and the body lowered until the hips rest on the seat.
-export type Seat = { x: number; z: number; yaw: number; y: number }
+export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' }
 export type SeatSpot = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; use: () => void }
 
 type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hipDrop: number }
@@ -52,6 +52,7 @@ export function createSeating() {
   let blend = 0
   let rootYaw0 = 0
   let lastRoot: THREE.Object3D | null = null
+  let lastPose: Seat['pose'] = 'sit'
   return {
     get sitting() { return seat },
     sit(next: Seat, root: THREE.Object3D) {
@@ -68,7 +69,7 @@ export function createSeating() {
     /** Call after avatar.step() each frame. Cheap: a handful of quaternion multiplies while seated, nothing otherwise. */
     apply(root: THREE.Object3D, dt: number) {
       blend += ((seat ? 1 : 0) - blend) * (1 - Math.exp(-12 * dt))
-      if (blend < 0.002 && !seat) { blend = 0; const b0 = root.userData.person as THREE.Object3D | undefined; if (b0 && b0.position.y !== 0) b0.position.y = 0; return }
+      if (blend < 0.002 && !seat) { blend = 0; const b0 = root.userData.person as THREE.Object3D | undefined; if (b0 && (b0.position.y !== 0 || b0.rotation.x !== 0)) { b0.position.y = 0; b0.rotation.x = 0 } return }
       const b = findBones(root)
       if (!b) return
       if (seat) {
@@ -79,6 +80,25 @@ export function createSeating() {
       b.person.getWorldQuaternion(qPerson)
       axis.set(1, 0, 0).applyQuaternion(qPerson).normalize()
       const t = blend
+      const pose = seat?.pose ?? lastPose
+      if (seat) lastPose = seat.pose ?? 'sit'
+      if (pose === 'lie') {
+        // Lie back on the bed: tip the whole person onto its back at mattress height, arms relaxed.
+        b.person.rotation.x = -Math.PI / 2 * t
+        b.person.position.y = ((seat?.y ?? 0.5) + 0.12) * t / (root.scale.y || 1)
+        for (const a of b.arms) bend(a, -0.15 * t)
+        return
+      }
+      if (b.person.rotation.x !== 0) b.person.rotation.x = 0
+      if (pose === 'workout') {
+        // Squat loop with arms forward: a simple procedural workout on top of the idle clip.
+        const k = (Math.sin(performance.now() / 1000 * 3.2) + 1) / 2 * t
+        for (const l of b.legs) bend(l, -1.0 * k)
+        for (const kn of b.knees) bend(kn, 1.7 * k)
+        for (const a of b.arms) bend(a, -1.45 * t)
+        b.person.position.y = -0.32 * k / (root.scale.y || 1)
+        return
+      }
       for (const l of b.legs) bend(l, -1.45 * t)
       for (const k of b.knees) bend(k, 1.5 * t)
       for (const a of b.arms) bend(a, -0.45 * t)
@@ -105,4 +125,9 @@ export function plazaSeats(): Seat[] {
     out.push({ x: x + Math.sin(yaw) * 0.08, z: z + Math.cos(yaw) * 0.08, yaw, y: 0.51 })
   }
   return out
+}
+
+/** Outdoor workout spots: park lawn by the basin and the forecourt beside the gym. */
+export function workoutSpots(): Seat[] {
+  return [{ x: -32.5, z: 47.5, yaw: Math.PI, y: 0, pose: 'workout' }, { x: -33.8, z: 46.2, yaw: Math.PI, y: 0, pose: 'workout' }, { x: -15.4, z: -18.6, yaw: Math.PI / 2, y: 0, pose: 'workout' }]
 }
