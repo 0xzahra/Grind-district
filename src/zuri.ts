@@ -7,7 +7,7 @@ import { humanArm, humanGait, humanLeg } from './rig.ts'
 
 const SKIN = 0xf6c4aa
 const HAIR = 0x1a100e
-const COAT = 0x2a1422
+const COAT = 0xb98a64 // camel: reads as a coat on dim phone screens, never a black tube
 const FRAME = 0xf0c14a
 
 function mat(color: number, roughness: number, metalness = 0): THREE.MeshStandardMaterial {
@@ -41,8 +41,9 @@ export function createZuri(): ShrimpAvatar {
   hairMat.name = 'hair'
   hairMat.emissive = new THREE.Color(0x4a241c)
   hairMat.emissiveIntensity = 0
-  const coat = mat(COAT, 0.55, 0.05)
+  const coat = mat(COAT, 0.75, 0)
   coat.flatShading = false
+  coat.side = THREE.FrontSide
   const scarf = mat(0xff6f91, 0.4, 0.08)
   scarf.emissive = new THREE.Color(0xff6f91)
   scarf.emissiveIntensity = 0
@@ -65,12 +66,12 @@ export function createZuri(): ShrimpAvatar {
   const bob = new THREE.Group()
   avatar.add(bob)
 
-  const skirt = part(new THREE.CylinderGeometry(0.16, 0.24, 0.36, 7), coat, bob, 0, 0.84, 0)
+  const skirt = part(new THREE.CylinderGeometry(0.17, 0.25, 0.38, 16), coat, bob, 0, 0.84, 0)
   skirt.scale.z = 0.78
-  const neck = part(new THREE.CylinderGeometry(0.045, 0.055, 0.12, 6), skin, bob, 0, 1.5, 0.01)
+  const neck = part(new THREE.CylinderGeometry(0.045, 0.055, 0.12, 10), skin, bob, 0, 1.5, 0.01)
   neck.castShadow = false
 
-  const torso = part(new THREE.CylinderGeometry(0.2, 0.15, 0.44, 7), coat, bob, 0, 1.22, 0)
+  const torso = part(new THREE.CylinderGeometry(0.19, 0.155, 0.44, 16), coat, bob, 0, 1.22, 0)
   torso.scale.z = 0.62
   part(new THREE.BoxGeometry(0.16, 0.28, 0.02), scarf, bob, 0, 1.24, 0.11)
   part(new THREE.BoxGeometry(0.22, 0.05, 0.16), gold, bob, 0, 1.02, 0.02)

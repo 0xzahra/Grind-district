@@ -127,8 +127,8 @@ export const SEASON_TINTS = [
 ] as const
 
 export const ALL_BODIES: { id: BodyId; label: string; blurb: string }[] = [
-  { id: 'player', label: 'Man', blurb: 'Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
-  { id: 'zuri', label: 'Woman', blurb: 'Longer hair, a softer face, lashes, and a fitted coat. Original.' },
+  { id: 'player', label: 'Gentleman', blurb: 'Blonde hair, thin glasses, grey suit, blue shirt. Original. Not a licensed collection.' },
+  { id: 'zuri', label: 'Lady', blurb: 'Long hair, a softer face, lashes, and a fitted dress or coat. Original.' },
   { id: 'shrimp', label: 'Shrimp', blurb: 'The mascot. Free. Rank still starts at shrimp either way.' },
   { id: 'ledger', label: 'Ledger', blurb: 'Original helmet. Not a licensed collection.' },
   { id: 'marina', label: 'Marina', blurb: 'Original buoy. Not a licensed collection.' },

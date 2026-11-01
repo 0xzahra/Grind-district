@@ -167,7 +167,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
   // Real animated people replace the human bodies (player, Zuri, citizens). Masked players keep the procedural body.
   if (body === 'player' || body === 'zuri') {
     const female = body === 'zuri'
-    const model = variant === undefined ? (female ? 'woman2' : 'man4') : female ? WOMEN[variant % WOMEN.length]! : MEN[variant % MEN.length]!
+    const model = variant === undefined ? (female ? 'woman4' : 'man4') : female ? WOMEN[variant % WOMEN.length]! : MEN[variant % MEN.length]!
     const own = variant === undefined
     const mo = getMorph()
     const hair = mo.hair ?? (female ? 0x2a1a12 : 0xd9c08a)
