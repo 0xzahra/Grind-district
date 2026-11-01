@@ -123,7 +123,10 @@ export function openLogin(notice = ''): void {
       const privy = await client()
       const { url } = await privy.auth.oauth.generateURL('google', location.origin + location.pathname)
       location.assign(url)
-    } catch (e) { msg.textContent = (e as Error).message }
+    } catch (e) {
+      const m = (e as Error).message || ''
+      msg.textContent = /not allowed|disallowed/i.test(m) ? 'Google sign-in is not switched on yet. Use an email code for now.' : m
+    }
   }
   const email = el('input'); email.type = 'email'; email.placeholder = 'you@example.com'
   const send = el('button', 'Email me a code', 'ghost')
