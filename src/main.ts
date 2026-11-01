@@ -736,7 +736,12 @@ const apiAgents = createRemoteAgents(scene)
   }
   const onlineChip = document.createElement('button')
   onlineChip.type = 'button'; onlineChip.id = 'online-chip'; onlineChip.className = 'pill'; onlineChip.hidden = true
-  onlineChip.onclick = () => { ui.toast(onlineChip.title || 'Players online') ; travelHook('Plaza', false) }
+  let onlineNow = 1
+  onlineChip.onclick = async () => {
+    // Public stats: online now (live presence) + registered and active today (/api/track?op=stats).
+    const st = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null) as { registered?: number; activeToday?: number; agentsOnline?: number } | null
+    ui.toast(st ? `Online now ${onlineNow} · Active today ${st.activeToday} · Registered ${st.registered}${st.agentsOnline ? ` · Agents ${st.agentsOnline}` : ''}` : (onlineChip.title || 'Players online'))
+  }
   document.querySelector('#hud header')?.append(onlineChip)
   const net = createNet({
     scene,
@@ -775,6 +780,7 @@ const apiAgents = createRemoteAgents(scene)
       onlineChip.hidden = !online
     },
     onCount: (n) => {
+      onlineNow = n
       onlineChip.textContent = `● ${n} online`
       onlineChip.title = n > 1 ? `${n - 1} other player${n > 2 ? 's' : ''} in the city. Real players have a gold ring and a name tag.` : 'Only you right now.'
     },
