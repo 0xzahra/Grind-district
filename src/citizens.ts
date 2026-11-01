@@ -9,6 +9,8 @@ export type CitizenSpec = {
   drone: DroneId | 'none'
   speed: number
   points: { x: number; z: number }[]
+  /** Pause at each waypoint (plaza strollers). */
+  pause?: boolean
 }
 
 export type CitizenSim = {
@@ -16,6 +18,9 @@ export type CitizenSim = {
   x: number
   z: number
   index: number
+  /** Seconds left standing at the current waypoint (idle: chatting, looking around). */
+  wait?: number
+  rested?: boolean
 }
 
 export const CITIZENS: CitizenSpec[] = [
@@ -41,6 +46,20 @@ export const CITIZENS: CitizenSpec[] = [
   { rank: 'Shrimp', body: 'player', tint: 0xff6f61, luxury: false, mask: 'none', drone: 'scout', speed: 0, points: [{ x: -4, z: 12 }] },
 ]
 
+// The once-static plaza people now stroll the Grind Ring in pairs: each pair shares meeting spots
+// (1.3 m apart, so they stop face to face and chat) and pauses there before moving on.
+{
+  const ring = (a: number, r: number) => ({ x: Math.cos(a) * r, z: Math.sin(a) * r })
+  const statics = CITIZENS.filter((c) => c.speed === 0)
+  statics.forEach((c, i) => {
+    const pair = Math.floor(i / 2), side = i % 2 ? 0.65 : -0.65
+    const base = pair * 1.9 + 0.4
+    c.speed = 0.9 + (i % 3) * 0.08
+    c.pause = true
+    c.points = [0, 2.1, 4.2].map((k) => { const p = ring(base + k, 7.5 + (pair % 3) * 2); const t = ring(base + k + Math.PI / 2, side); return { x: p.x + t.x * 1, z: p.z + t.z * 1 } })
+  })
+}
+
 export function bootCitizens(): CitizenSim[] {
   return CITIZENS.map((spec) => {
     const start = spec.points[0] ?? { x: 0, z: 0 }
@@ -56,7 +75,11 @@ export function stepCitizens(people: CitizenSim[], dt: number): void {
     let dx = target.x - person.x
     let dz = target.z - person.z
     let dist = Math.hypot(dx, dz)
+    if ((person.wait ?? 0) > 0) { person.wait! -= dt; continue }
     if (dist < 0.3) {
+      // Plaza strollers pause at each stop (3-9 s) so the square has people chatting, not just marching.
+      if (person.spec.pause && !person.rested) { person.wait = 3 + Math.random() * 6; person.rested = true; continue }
+      person.rested = false
       person.index = (person.index + 1) % person.spec.points.length
       const next = person.spec.points[person.index]
       if (!next) continue

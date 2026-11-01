@@ -246,7 +246,7 @@ export function createNet(options: {
         const c = new THREE.Vector3(o.position.x, 1, o.position.z)
         const d = ray.ray.distanceSqToPoint(c)
         const along = c.clone().sub(ray.ray.origin).dot(ray.ray.direction)
-        if (along > 0 && d < 0.7 * 0.7 && along < bestD) { bestD = along; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), object: o } }
+        if (along > 0 && d < 0.9 * 0.9 && along < bestD) { bestD = along; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), object: o } }
       }
       return best
     },

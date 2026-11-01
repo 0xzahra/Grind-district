@@ -119,7 +119,8 @@ function bubble(text: string): THREE.Sprite {
   return sp
 }
 
-export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean } {
+export type CrowdInfo = { name: string; trait: string; routine: string; doing: string }
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster) => CrowdInfo | null } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury, people.length)
@@ -167,7 +168,27 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: {
   let chatClock = 3, chatLine = 0
   const live: Array<{ sp: THREE.Sprite; host: THREE.Object3D; ttl: number }> = []
   const still = new Set<number>()
+  const gaze: Array<{ t: number; cool: number }> = []
+  const doing = (p: Person, i: number): string => {
+    const tgt = p.sim.spec.points[p.sim.index]
+    if (!still.has(i) && tgt) return `Heading to ${placeName(tgt.x, tgt.z)}`
+    const partner = people.find((o, j) => j !== i && still.has(j) && Math.hypot(o.sim.x - p.sim.x, o.sim.z - p.sim.z) < 2.6)
+    if (partner) return `Chatting with ${PERSONAS[people.indexOf(partner) % PERSONAS.length]!.name}`
+    return `Hanging out at ${placeName(p.sim.x, p.sim.z)}`
+  }
   return {
+    pick(ray) {
+      let best: CrowdInfo | null = null, bestD = Infinity
+      for (const [i, p] of people.entries()) {
+        const c = new THREE.Vector3(p.sim.x, 1, p.sim.z)
+        const along = c.clone().sub(ray.ray.origin).dot(ray.ray.direction)
+        if (along > 0 && along < bestD && ray.ray.distanceSqToPoint(c) < 0.85 * 0.85) {
+          const per = PERSONAS[i % PERSONAS.length]!
+          bestD = along; best = { name: per.name, trait: per.trait, routine: per.routine, doing: doing(p, i) }
+        }
+      }
+      return best
+    },
     nearest(x, z, r) { return people.some((p) => Math.hypot(p.sim.x - x, p.sim.z - z) < r) },
     tick(dt, player) {
       const obstacles: Obstacle[] = []
@@ -181,8 +202,8 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: {
         if (a && live.length < 2) { const per = PERSONAS[people.indexOf(a) % PERSONAS.length]!; const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
         chatLine += 1
       }
-      // Nearest 5 standing people within 7 m turn to face the player.
-      const lookers = player ? people.map((p, i) => ({ i, d: Math.hypot(p.sim.x - player.x, p.sim.z - player.z) })).filter((o) => o.d < 7).sort((a, b) => a.d - b.d).slice(0, 5) : []
+      // Look at the player only when very close (< 2.2 m) and only briefly (2 s, then 12 s cooldown).
+      // Otherwise walkers face where they walk, and paused people face their nearest paused partner (chatting).
       const before = people.map((person) => ({ x: person.sim.x, z: person.sim.z }))
       stepCitizens(people.map((person) => person.sim), dt)
       people.forEach((person, index) => {
@@ -190,8 +211,19 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number, player?: {
         const dx = prior ? person.sim.x - prior.x : 0
         const dz = prior ? person.sim.z - prior.z : 0
         const moving = Math.hypot(dx, dz) > 0.001
-        if (moving) { person.avatar.face(dx, dz, dt, true); still.delete(index) } else still.add(index)
-        if (!moving && player && lookers.some((o) => o.i === index)) person.avatar.face(player.x - person.sim.x, player.z - person.sim.z, dt, true)
+        const g = gaze[index] ?? (gaze[index] = { t: 0, cool: 0 })
+        g.cool = Math.max(0, g.cool - dt)
+        if (moving) { person.avatar.face(dx, dz, dt, true); still.delete(index); g.t = 0 } else still.add(index)
+        if (!moving) {
+          const close = player && Math.hypot(player.x - person.sim.x, player.z - person.sim.z) < 2.2
+          if (close && g.cool <= 0 && g.t < 2) { g.t += dt; person.avatar.face(player!.x - person.sim.x, player!.z - person.sim.z, dt, true); if (g.t >= 2) g.cool = 12 }
+          else {
+            if (!close) g.t = 0
+            let best: Person | null = null, bd = 2.6
+            for (const [j, o] of people.entries()) { if (j === index || !still.has(j)) continue; const d = Math.hypot(o.sim.x - person.sim.x, o.sim.z - person.sim.z); if (d < bd) { bd = d; best = o } }
+            if (best) person.avatar.face(best.sim.x - person.sim.x, best.sim.z - person.sim.z, dt * 0.6, true)
+          }
+        }
         person.avatar.step(dt, moving, person.sim.spec.speed)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
         if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)

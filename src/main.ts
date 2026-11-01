@@ -214,7 +214,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
   let travelHook: (title: string, enter?: boolean) => void = () => {}
-  const crowd = createCrowd(scene)
+  const crowd = createCrowd(scene, (x, z) => districtName(x, z))
   const greetBtn = document.createElement('button')
   greetBtn.type = 'button'; greetBtn.id = 'greet'; greetBtn.className = 'glass-fab greet-fab'; greetBtn.textContent = 'Greet'; greetBtn.hidden = true
   document.body.append(greetBtn)
@@ -791,6 +791,18 @@ const apiAgents = createRemoteAgents(scene)
     return null
   }))
   setPresence({ find: (u) => net.findPeer(u) })
+  // Tapped city resident: a small card (name, persona, what they are doing). Auto-hides; never blocks play.
+  const showNpcCard = (n: { name: string; trait: string; routine: string; doing: string }) => {
+    document.getElementById('npc-card')?.remove()
+    const c = document.createElement('div'); c.id = 'npc-card'; c.setAttribute('role', 'status')
+    c.style.cssText = 'position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;max-width:300px;padding:10px 14px;border-radius:14px;background:#141a17e8;color:#efe9dc;font:14px Outfit,system-ui,sans-serif;box-shadow:0 6px 18px #0007;pointer-events:auto'
+    const h = document.createElement('strong'); h.textContent = `${n.name} · ${n.trait}`
+    const d = document.createElement('div'); d.textContent = n.doing; d.style.cssText = 'color:#d9b26a;margin-top:2px'
+    const r = document.createElement('div'); r.textContent = n.routine; r.style.cssText = 'opacity:.75;font-size:12px;margin-top:2px'
+    c.append(h, d, r); c.onclick = () => c.remove()
+    document.body.append(c)
+    window.setTimeout(() => c.remove(), 6000)
+  }
   // Guests: after the first reward or purchase, offer to save progress to an account (once per session);
   // on leaving with progress, the browser asks to confirm. Signed-in players sync their save every minute.
   {
@@ -1158,7 +1170,9 @@ const apiAgents = createRemoteAgents(scene)
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
       const tapped = interiors.inside ? null : net.pick(raycaster)
+      const npc = !tapped && !interiors.inside ? crowd.pick(raycaster) : null
       if (tapped) void openPeer(tapped)
+      else if (npc) showNpcCard(npc)
       else if (raycaster.ray.intersectPlane(floor, tapPoint)) {
         target = tapPoint.clone()
         const room = interiors.bounds()
