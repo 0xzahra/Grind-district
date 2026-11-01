@@ -25,3 +25,13 @@ Processing: tools/pack-people.mjs (meshopt compression, quantised, only 3 animat
 | Fabric Pattern 07 (PBR) | public/tex/fabric_pattern_07_*.webp | Poly Haven | https://polyhaven.com/a/fabric_pattern_07 | CC0 1.0 |
 
 Poly Haven licence: https://polyhaven.com/license (CC0, commercial use allowed, no attribution required).
+
+## Added Nov 2026 (realism pass 2)
+
+| Asset | Files | Source | Licence |
+|---|---|---|---|
+| Concrete Pavers (PBR) | public/tex/concrete_pavers_*.webp | https://polyhaven.com/a/concrete_pavers | CC0 1.0 |
+| Leafy Grass (PBR) | public/tex/leafy_grass_*.webp | https://polyhaven.com/a/leafy_grass | CC0 1.0 |
+| Metal Plate (PBR) | public/tex/metal_plate_*.webp | https://polyhaven.com/a/metal_plate | CC0 1.0 |
+| Brown Planks 03 (PBR) | public/tex/brown_planks_03_*.webp | https://polyhaven.com/a/brown_planks_03 | CC0 1.0 |
+| Wood Table 001 (PBR) | public/tex/wood_table_001_*.webp | https://polyhaven.com/a/wood_table_001 | CC0 1.0 |
