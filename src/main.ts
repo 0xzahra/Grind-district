@@ -973,7 +973,6 @@ const apiAgents = createRemoteAgents(scene)
 
   // Indoor camera collision: walk the look ray out and stop before the room shell or any wall-thin blocker,
   // so the camera (and its near plane) never sits inside a wall. Cheap 2D test, no raycast.
-  const camProbe = new THREE.Vector3()
   const indoorCamera = (origin: THREE.Vector3, cam: THREE.Vector3) => {
     const room = interiors.bounds()
     if (!room) return
@@ -981,25 +980,27 @@ const apiAgents = createRemoteAgents(scene)
     // Keep the camera under the ceiling: from above, single-sided wall planes read as giant slabs.
     if (cam.y > 2.7) cam.y = 2.7
     const pad = 0.45
-    let good = 0
-    const STEPS = 24
-    for (let i = 1; i <= STEPS; i++) {
-      const t = i / STEPS
-      camProbe.lerpVectors(origin, cam, t)
-      const inShell = Math.abs(camProbe.x - room.x) < room.hw + 0.5 - pad && Math.abs(camProbe.z - room.z) < room.hd + 0.5 - pad
-      let hit = !inShell
-      if (!hit) for (const w of walls) {
-        if (w.kind !== 'box') continue
-        if (Math.abs(camProbe.x - w.x) < w.hx + pad && Math.abs(camProbe.z - w.z) < w.hz + pad) { hit = true; break }
-      }
-      if (hit) break
-      good = t
+    const blocked = (x: number, z: number) => {
+      if (!(Math.abs(x - room.x) < room.hw + 0.5 - pad && Math.abs(z - room.z) < room.hd + 0.5 - pad)) return true
+      for (const w of walls) if (w.kind === 'box' && Math.abs(x - w.x) < w.hx + pad && Math.abs(z - w.z) < w.hz + pad) return true
+      return false
     }
-    if (good < 0.35) {
-      // Backed against a wall: swing the camera to the room side and lift it, instead of jamming it into the head.
-      const dx = room.x - origin.x, dz = room.z - origin.z, len = Math.hypot(dx, dz) || 1
-      const reach = Math.min(1.8, Math.max(0.8, Math.min(room.hw, room.hd) - 0.6))
-      cam.set(origin.x + (dx / len) * reach, 2.55, origin.z + (dz / len) * reach)
+    // Free fraction of the segment origin -> (tx, tz), 12 cheap 2D samples.
+    const free = (tx: number, tz: number) => { let g = 0; for (let i = 1; i <= 12; i++) { const t = i / 12; if (blocked(origin.x + (tx - origin.x) * t, origin.z + (tz - origin.z) * t)) break; g = t } return g }
+    const good = free(cam.x, cam.z)
+    const want = Math.hypot(cam.x - origin.x, cam.z - origin.z)
+    if (good * want < 1.2 && want > 0.5) {
+      // Backed against a wall: try 8 headings around the player, take the one with the most room (cheap, no raycast).
+      let best = good * want, bx = 0, bz = 0
+      const base = Math.atan2(cam.x - origin.x, cam.z - origin.z)
+      for (let k = 1; k < 8; k++) {
+        const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 4)
+        const tx = origin.x + Math.sin(a) * want, tz = origin.z + Math.cos(a) * want
+        const d = free(tx, tz) * want
+        if (d > best + 0.3) { best = d; bx = Math.sin(a); bz = Math.cos(a) }
+      }
+      if (bx || bz) { const r = Math.max(0.6, best - 0.1); cam.set(origin.x + bx * r, Math.min(2.6, origin.y + 0.9), origin.z + bz * r) }
+      else cam.lerpVectors(origin, cam, Math.max(good, 0.2))
       smoothCam.copy(cam)
       camVel.set(0, 0, 0)
     } else if (good < 1) {
