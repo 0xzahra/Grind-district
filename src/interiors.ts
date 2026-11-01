@@ -87,7 +87,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (items.includes('house-plant')) { put(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 10), std(0xd8d2c6, 0.6), -8.6, 0.25, 6.4); for (const [dx, dy, s] of [[0, 1.1, 0.5], [0.15, 1.55, 0.38], [-0.12, 1.35, 0.34]]) put(new THREE.IcosahedronGeometry(s, 0), std(0x3f5a34, 0.85), -8.6 + dx, dy, 6.4) }
     if (items.includes('house-lamp')) { put(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), std(0x4e3626, 0.5), 8.6, 0.75, -6.3); put(new THREE.CylinderGeometry(0.18, 0.28, 0.3, 12, 1, true), std(0xe8dcc4, 0.9), 8.6, 1.55, -6.3); put(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), std(0x4e3626, 0.5), 8.6, 0.02, -6.3) }
 
-    const fUses: Use[] = f.seats.map((st) => { const sp = seatSpot(`house-seat-${st.id}`, st.title, { x: ORIGIN.house.x + st.x, z: ORIGIN.house.z + st.z, yaw: st.yaw, y: st.y }, hooks.sit, 0.7); return { ...sp, run: sp.use } as Use })
+    const fUses: Use[] = f.seats.map((st) => { const sp = seatSpot(`house-seat-${st.id}`, st.title, { x: ORIGIN.house.x + st.x, z: ORIGIN.house.z + st.z, yaw: st.yaw, y: st.y }, hooks.sit, 1.3); return { ...sp, run: sp.use } as Use })
     for (const sc of f.screens) {
       const t = createTvScreen(sc.width)
       t.mesh.position.set(sc.x, sc.y, sc.z)
@@ -168,7 +168,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }) => uses.push({ ...u, x: o.x + u.x, z: o.z + u.z })
     // Seats: room-local position, facing yaw, seat-top height. Tap or E sits; any move stands.
     const seat = (sid: string, title: string, x: number, z: number, yaw: number, y: number) => {
-      const sp = seatSpot(`${id}-seat-${sid}`, title, { x: o.x + x, z: o.z + z, yaw, y }, hooks.sit, 0.7)
+      const sp = seatSpot(`${id}-seat-${sid}`, title, { x: o.x + x, z: o.z + z, yaw, y }, hooks.sit, 1.3)
       uses.push({ ...sp, run: sp.use })
     }
     const tv = (x: number, y: number, z: number, width: number, ry = 0) => {

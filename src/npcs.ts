@@ -216,7 +216,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         chatClock = 5 + (chatLine % 3)
         const near = people.filter((p, i) => still.has(i) && Math.hypot(p.sim.x - player.x, p.sim.z - player.z) < 22)
         const a = near[chatLine % Math.max(1, near.length)]
-        if (a && live.length < 2) { const per = PERSONAS[people.indexOf(a) % PERSONAS.length]!; const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
+        if (a && live.length < 0) { const per = PERSONAS[people.indexOf(a) % PERSONAS.length]!; const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
         chatLine += 1
       }
       // Look at the player only when very close (< 2.2 m) and only briefly (2 s, then 12 s cooldown).
@@ -244,7 +244,8 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
             if (best) person.avatar.face(best.sim.x - person.sim.x, best.sim.z - person.sim.z, dt * 0.6, true)
           }
         }
-        person.avatar.step(dt, moving, person.sim.spec.speed)
+        const seated = posed.some((o) => o.p === person)
+        person.avatar.step(dt, moving && !seated, person.sim.spec.speed)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
         const q = posed.find((o) => o.p === person)
         if (q) q.seating.apply(person.avatar.object, dt)

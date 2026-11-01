@@ -53,6 +53,8 @@ export function createSeating() {
   let rootYaw0 = 0
   let lastRoot: THREE.Object3D | null = null
   let lastPose: Seat['pose'] = 'sit'
+  // Rest pose captured once when seated: each frame starts from it, so bends never pile up and the walk/idle clip can't swing the limbs.
+  const base = new Map<THREE.Object3D, THREE.Quaternion>()
   return {
     get sitting() { return seat },
     sit(next: Seat, root: THREE.Object3D) {
@@ -64,6 +66,7 @@ export function createSeating() {
     stand() {
       if (!seat) return
       seat = null
+      base.clear()
       if (lastRoot) lastRoot.rotation.y = rootYaw0
     },
     /** Call after avatar.step() each frame. Cheap: a handful of quaternion multiplies while seated, nothing otherwise. */
@@ -75,6 +78,11 @@ export function createSeating() {
       if (seat) {
         if (lastRoot !== root) { lastRoot = root; rootYaw0 = root.rotation.y }
         root.rotation.y = seat.yaw - b.person.rotation.y
+      }
+      for (const bone of [b.hips, ...b.legs, ...b.knees, ...b.arms, ...b.fores]) {
+        const q0 = base.get(bone)
+        if (seat && !q0 && blend > 0.95) base.set(bone, bone.quaternion.clone())
+        else if (q0) bone.quaternion.copy(q0)
       }
       root.updateMatrixWorld(true)
       b.person.getWorldQuaternion(qPerson)
@@ -112,7 +120,7 @@ export function createSeating() {
 }
 
 /** A hotspot for one seat. `sit` is wired by the caller to move the player there. */
-export function seatSpot(id: string, title: string, s: Seat, sit: (s: Seat) => void, r = 0.75): SeatSpot {
+export function seatSpot(id: string, title: string, s: Seat, sit: (s: Seat) => void, r = 1.6): SeatSpot {
   return { id, x: s.x, z: s.z, r, title, body: 'Take a seat. Move to stand up.', enter: 'Sit', use: () => sit(s) }
 }
 
