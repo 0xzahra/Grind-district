@@ -1535,3 +1535,5 @@ body.cc-sheet-on #caption, body.sheet-open #caption, body:has(#cc-sheet:not([hid
 .sheet-card *, #cc-sheet-body * { box-sizing: border-box; max-width: 100%; }
 .sheet-card p, .sheet-card h2, .sheet-card h3, .sheet-card li, #cc-sheet-body p, #cc-sheet-body li { overflow-wrap: anywhere; word-break: normal; hyphens: auto; white-space: normal; }
 #cc-sheet-body { padding-left: max(16px, env(safe-area-inset-left)) !important; padding-right: max(16px, env(safe-area-inset-right)) !important; overflow-x: hidden; }
+#cc-sheet-body .cc-balance-head { position: sticky; top: -10px; z-index: 2; margin: -10px -16px 6px !important; padding: 10px 16px 6px; background: rgba(16, 17, 19, 0.96); }
+#cc-sheet-body .cc-balance-head .cc-big { display: block !important; visibility: visible !important; margin: 0 !important; }

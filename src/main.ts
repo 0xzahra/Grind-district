@@ -528,13 +528,20 @@ const apiAgents = createRemoteAgents(scene)
   }
   const openBalance = () => openSheet('Balance', () => {
     const save = getSave()
-    sheetBody.replaceChildren(
-      el('p', `$${save.ledger.toFixed(2)}`, 'cc-big'),
-      el('p', 'In-game virtual balance. Top up with ETH or USDC on Base below.', 'cc-muted'),
-    )
+    // The big balance sits in a sticky head so it stays in view while the top-up form grows below it,
+    // and it re-reads the ledger every second while the sheet is open (credits land asynchronously).
+    const head = el('div', '', 'cc-balance-head')
+    const big = el('p', `$${save.ledger.toFixed(2)}`, 'cc-big')
+    head.append(big)
+    sheetBody.replaceChildren(head, el('p', 'In-game virtual balance. Top up with ETH or USDC on Base below.', 'cc-muted'))
+    const tick = window.setInterval(() => {
+      if (ccSheet.hidden || sheetTitle.textContent !== 'Balance' || !big.isConnected) { clearInterval(tick); return }
+      const v = `$${getSave().ledger.toFixed(2)}`
+      if (big.textContent !== v) big.textContent = v
+    }, 1000)
     const topBtn = el('button', 'Top up', 'topup-go')
     topBtn.type = 'button'
-    const credited = () => { paintStatus(); const big = sheetBody.querySelector('.cc-big'); if (big) big.textContent = `$${getSave().ledger.toFixed(2)}` }
+    const credited = () => { paintStatus(); big.textContent = `$${getSave().ledger.toFixed(2)}` }
     topBtn.onclick = () => {
       topBtn.disabled = true; topBtn.textContent = 'Opening…'
       // The chunk can 404 if the site was redeployed after this tab loaded: say so and offer a reload instead of failing silently.
