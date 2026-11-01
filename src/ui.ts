@@ -1,3 +1,4 @@
+import { itemPic } from './itemPics.ts'
 import { getMorph, setMorph, HAIRS, SKIN_TONES, LIPS, BLUSH, type Style } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
@@ -335,7 +336,7 @@ export function mountUi(
     wrap.append(para(`${streakNote} Reputation ${save.reputation}.`))
     wrap.append(para(`Balance ${money(save.ledger)}`, 'muted'))
     for (const task of todayTasks(save)) {
-      const row = para(`${task.done ? 'Done' : 'Open'} · ${task.label}`, task.done ? 'task done' : 'task')
+      const row = para(`${task.done ? '✓ ' : ''}${task.label}`, task.done ? 'task done' : 'task')
       wrap.append(row)
     }
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
@@ -782,17 +783,31 @@ export function mountUi(
     return frame('Boutique', wrap)
   }
 
+  const shopItem = (v: (typeof VEHICLES)[number], panel: 'gadgets' | 'dealer'): HTMLElement[] => {
+    const owned = (getSave().ownedVehicles ?? []).includes(v.id)
+    return [itemPic(v.id), para(`${v.label} · ${v.blurb}`, 'muted'), button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
+      const outcome = buyVehicle(v.id)
+      hooks.onStyle()
+      finish(outcome.message)
+      open(panel)
+    })]
+  }
+  const renderDealer = (): HTMLElement => {
+    const wrap = stack(para('Cars, jets and air taxis. In-game cash only. Each one lands in Books under liabilities.', 'muted'))
+    for (const v of VEHICLES.filter((x) => x.kind === 'car' || x.kind === 'jet' || x.kind === 'drone')) wrap.append(...shopItem(v, 'dealer'))
+    return frame('Auto dealership', wrap)
+  }
   const renderGadgets = (): HTMLElement => {
     const save = getSave()
     const wrap = stack(
-      para('Drones are gadgets. Buy one with practice funds and it follows you. Pocket it and it stays yours.'),
+      para('Phones, computers, accessories and drones. In-game cash only. A drone follows you; pocket it and it stays yours.'),
       para('They do not carry messages, take photos, or leave the city.', 'muted'),
     )
     for (const drone of DRONES) {
       const owned = save.ownedDrones.includes(drone.id)
       const equipped = save.drone === drone.id
       const label = equipped ? `${drone.label} · flying` : owned ? `Equip ${drone.label}` : `Buy ${drone.label} · ${money(drone.price)}`
-      wrap.append(para(drone.blurb, 'muted'))
+      wrap.append(itemPic(drone.id), para(drone.blurb, 'muted'))
       wrap.append(button(label, equipped ? 'primary' : 'ghost', () => {
         const outcome = buyDrone(drone.id)
         hooks.onStyle()
@@ -807,18 +822,8 @@ export function mountUi(
         open('gadgets')
       }))
     }
-    wrap.append(para('Vehicles', 'kicker'))
-    wrap.append(para('Cars, jets and drones. In-game cash only. Each one lands in Books under liabilities.', 'muted'))
-    for (const v of VEHICLES) {
-      const owned = (save.ownedVehicles ?? []).includes(v.id)
-      wrap.append(para(v.blurb, 'muted'))
-      wrap.append(button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
-        const outcome = buyVehicle(v.id)
-        hooks.onStyle()
-        finish(outcome.message)
-        open('gadgets')
-      }))
-    }
+    wrap.append(para('Phones, computers and accessories', 'kicker'))
+    for (const v of VEHICLES.filter((x) => x.kind === 'phone' || x.kind === 'laptop' || x.kind === 'accessory')) wrap.append(...shopItem(v, 'gadgets'))
     wrap.append(advice())
     return frame('Gadgets', wrap)
   }
@@ -1039,6 +1044,8 @@ export function mountUi(
         return renderBoutique()
       case 'gadgets':
         return renderGadgets()
+      case 'dealer':
+        return renderDealer()
       case 'gym':
         return renderGym()
       case 'church':

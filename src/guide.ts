@@ -12,7 +12,7 @@ export const GUIDE: GuideStop[] = [
   { title: 'Influencer row', where: 'East', text: 'Post a bounty. Practice pay and a portfolio line. One post a day.' },
   { title: 'Trenches', where: 'South', text: 'Practice MEME book. Attention can leave. Rank does not follow it.' },
   { title: 'Boutique', where: 'Northwest of the row', text: 'The man and the woman. Masks wear the collection names in this city’s own shapes.' },
-  { title: 'Gadgets', where: 'South of the plaza', text: 'Drones. Scout, courier, and halo. Buy one and it follows you.' },
+  { title: 'Gadgets', where: 'South of the plaza', text: 'Phones, laptops, accessories and drones. The auto dealership next door sells cars and jets.' },
   { title: 'Gym', where: 'Northwest', text: 'A timing set. One logged set a day.' },
   { title: 'Church', where: 'Southeast', text: 'Rest counts. One visit a day. No donation.' },
   { title: 'Prayer space', where: 'Southwest', text: 'Sit once a day. Focus adds a quarter to the next course you pass.' },

@@ -76,6 +76,7 @@ export type PanelId =
   | 'trench'
   | 'boutique'
   | 'gadgets'
+  | 'dealer'
   | 'gym'
   | 'church'
   | 'prayer'
@@ -151,14 +152,20 @@ export const DRONES: { id: DroneId; label: string; price: number; blurb: string 
   { id: 'halo', label: 'Halo', price: 48, blurb: 'A lit ring. The street can see you coming.' },
 ]
 
-export type VehicleKind = 'car' | 'jet' | 'drone'
-export type VehicleId = 'saloon' | 'tourer' | 'lightjet' | 'longjet' | 'skydrone'
+export type VehicleKind = 'car' | 'jet' | 'drone' | 'phone' | 'laptop' | 'accessory'
+export type VehicleId = 'saloon' | 'tourer' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'laptop' | 'desktop' | 'earbuds' | 'watch'
 /** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
 export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
   { id: 'saloon', kind: 'car', label: 'City saloon', price: 600, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
   { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 900, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
   { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 1200, blurb: 'Six seats, regional range. Hangar fees every month.' },
   { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 1500, blurb: 'Intercontinental range. Crew, hangar and fuel on you.' },
+  { id: 'phone', kind: 'phone', label: 'Smartphone', price: 40, blurb: 'A clean everyday phone. Good camera, all-day battery.' },
+  { id: 'phonepro', kind: 'phone', label: 'Pro phone', price: 90, blurb: 'Titanium frame, triple camera, the one everyone films on.' },
+  { id: 'laptop', kind: 'laptop', label: 'Laptop', price: 120, blurb: 'Thin, light, enough power to code and edit.' },
+  { id: 'desktop', kind: 'laptop', label: 'Desktop PC', price: 160, blurb: 'Tower and monitor for heavy work and games.' },
+  { id: 'earbuds', kind: 'accessory', label: 'Wireless earbuds', price: 15, blurb: 'Noise cancelling. Study anywhere.' },
+  { id: 'watch', kind: 'accessory', label: 'Smartwatch', price: 30, blurb: 'Steps, sleep, and a nudge to keep grinding.' },
   { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
 ]
 const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))
@@ -1022,7 +1029,7 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
   const lux: BookRow[] = []
   if (save.houseClaimed) lux.push({ section: 'Liabilities', label: 'House', value: 'Upkeep' })
   if (save.luxury) lux.push({ section: 'Liabilities', label: 'Gold chain', value: `Resells ${money(RESELL_USD)}` })
-  const kindLabel = { car: 'Car', jet: 'Jet', drone: 'Drone' } as const
+  const kindLabel = { car: 'Car', jet: 'Jet', drone: 'Drone', phone: 'Phone', laptop: 'Computer', accessory: 'Accessory' } as const
   for (const id of save.ownedVehicles ?? []) {
     const v = VEHICLES.find((item) => item.id === id)
     if (v) lux.push({ section: 'Liabilities', label: `${kindLabel[v.kind]} · ${v.label}`, value: 'Upkeep' })

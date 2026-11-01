@@ -48,18 +48,21 @@ export function openLogin(notice = ''): void {
   dlg.setAttribute('aria-label', 'Sign in')
   const logo = el('p', 'Grind District', 'login-wordmark')
   const body = el('div', '', 'wallet-body')
-  const close = el('button', 'Play as guest', 'ghost')
+  const close = el('button', '✕', 'ghost login-x'); close.setAttribute('aria-label', 'Close')
   close.onclick = () => { dlg.remove(); window.dispatchEvent(new Event('gd-login-closed')) }
   // One flow at a time: hide the title-screen account panel while this dialog is up.
   const acct = document.getElementById('menu-account'); const acctWas = acct?.hidden
   if (acct) acct.hidden = true
   window.addEventListener('gd-login-closed', () => { if (acct && acctWas === false && !document.getElementById('login-dlg')) acct.hidden = false }, { once: true })
-  dlg.append(logo, el('h2', 'Sign in'), body, close)
+  dlg.append(close, logo, el('h2', 'Sign in'), body)
+  // Any other sheet or menu opening takes over: drop this dialog so it never sits on top blocking taps.
+  const mo = new MutationObserver(() => { if (document.body.classList.contains('sheet-open')) { mo.disconnect(); close.click() } })
+  mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
   document.body.append(dlg)
   const msg = el('p', notice, 'muted')
 
   if (!APP_ID) {
-    body.append(el('p', 'Sign in is coming soon. You can play now as a guest; your progress stays on this device.', 'muted'))
+    body.append(el('p', 'Sign in is coming soon. Your progress stays on this device.', 'muted'))
     return
   }
 

@@ -884,8 +884,9 @@ export function createWorld(options: {
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Read today\'s market headlines, same as the campus café.', 'cafe', 'Read the room')
   const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.7, door: 'px', title: 'Carbon', subtitle: 'practice pledge', seed: 41 })
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a climate project with in-game cash and log your pledge.', 'climate', 'The desk')
-  const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'cars · jets · drones', windows: true, seed: 47 })
-  spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Buy drones, cars and jets with in-game cash.', 'gadgets', 'Open the case')
+  const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'phones · laptops · drones', windows: true, seed: 47 })
+  spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Phones, laptops, accessories and drones for in-game cash.', 'gadgets', 'Open the case')
+  spot('dealer', gadgets.x + 5, gadgets.z, 2.2, 'Auto dealership', 'Cars, jets and air taxis for in-game cash.', 'dealer', 'Browse')
 
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.

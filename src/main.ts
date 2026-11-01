@@ -488,7 +488,8 @@ const apiAgents = createRemoteAgents(scene)
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
   mountNotifications()
-  notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome', 'place:The Grind Ring')
+  if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome', 'place:The Grind Ring')
+  localStorage.setItem('gd.welcomed', '1')
   onActivity((kind, label, detail) => {
     if (kind === 'tax') notify('Family request', `${label}. ${detail}`, undefined, 'panel:profile')
     else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`, undefined, 'panel:profile')
@@ -591,7 +592,8 @@ const apiAgents = createRemoteAgents(scene)
       const items: Array<[string, string, () => void]> = [
         ['Premium outfits', 'Suits, gowns, watch, pearls · from $90', go(() => ui.open('boutique'))],
         ['House upgrade', 'Furnish your home, next tier', go(() => travelHook('Your house', true))],
-        ['Car or drone', 'Gadgets pavilion · in-game', go(() => ui.open('gadgets'))],
+        ['Gadgets', 'Phones, laptops, drones · in-game', go(() => ui.open('gadgets'))],
+        ['Car or jet', 'Auto dealership · in-game', go(() => ui.open('dealer'))],
         ['Lounge pass', "Members' lounge rooms", go(() => travelHook('Members lounge', true))],
       ]
       const grid = el('div', '', 'cc-spend-grid')
@@ -815,9 +817,9 @@ const apiAgents = createRemoteAgents(scene)
   {
     const st = await import('./state.ts')
     st.onActivity(() => {
+      // Sign-in is offered on the title screen only; never pop it up mid-game.
       if (st.isAccountBound() || sessionStorage.getItem('gd.savePrompted')) return
       sessionStorage.setItem('gd.savePrompted', '1')
-      window.setTimeout(() => void import('./login.ts').then((m) => m.openLogin('Save your progress: sign in with an email code or Google. Your guest progress moves to your account.')), 1500)
     })
     window.addEventListener('beforeunload', (e) => {
       if (st.isAccountBound() || !sessionStorage.getItem('gd.savePrompted')) return
