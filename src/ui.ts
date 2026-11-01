@@ -109,6 +109,8 @@ type Hooks = {
   onPrefs: () => void
   onRank: (label: string) => void
   travel?: (title: string, enter?: boolean) => void
+  /** Baked top-down map (data URL, '' if not baked yet), its half-extent in metres, and pin positions by guide title. */
+  satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number }>; me?: { x: number; z: number } }
   portrait?: () => string | null
 }
 
@@ -1049,7 +1051,27 @@ export function mountUi(
         return renderHouse()
       case 'city':
         return renderSimple('The city', [
-          para('Every door on the street. Tap one to go straight there and walk in.'),
+          ...(() => {
+            const m = hooks.satMap?.()
+            if (!m || !m.url) return []
+            const box = document.createElement('div')
+            box.className = 'sat-map'
+            const img = document.createElement('img')
+            img.src = m.url; img.alt = 'Top-down map of the city'; img.draggable = false
+            box.append(img)
+            const at = (x: number, z: number, n: HTMLElement) => { n.style.left = `${((x + m.limit) / (2 * m.limit)) * 100}%`; n.style.top = `${((z + m.limit) / (2 * m.limit)) * 100}%` }
+            for (const pin of m.pins) {
+              const b = document.createElement('button')
+              b.type = 'button'; b.className = 'sat-pin'; b.setAttribute('aria-label', pin.title); b.title = pin.title
+              const label = document.createElement('span'); label.textContent = pin.title
+              b.append(label)
+              b.onclick = () => hooks.travel?.(pin.title, true)
+              at(pin.x, pin.z, b); box.append(b)
+            }
+            if (m.me) { const me = document.createElement('i'); me.className = 'sat-me'; at(m.me.x, m.me.z, me); box.append(me) }
+            return [box]
+          })(),
+          para('Every door on the street. Tap a pin or a row to go straight there and walk in.'),
           ...GUIDE.map((stop) => {
             const row = document.createElement('div')
             row.className = 'map-entry'

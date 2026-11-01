@@ -19,6 +19,7 @@ import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
+import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
 import { encodeShare } from './logic.ts'
 import { dmUnread, mountMessages, openInbox, openThread } from './messages.ts'
@@ -354,6 +355,16 @@ const apiAgents = createRemoteAgents(scene)
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
     travel: (title, enter) => travelHook(title, enter),
+    satMap: () => { try {
+      if (!satelliteUrl()) { try { bake() } catch { /* vector list only */ } }
+      const alias: Record<string, string> = { Plaza: 'The Grind Ring' }
+      const pins = GUIDE.flatMap((g) => {
+        const want = alias[g.title] ?? g.title
+        const h = world.hotspots.find((s) => s.title === want) ?? world.hotspots.find((s) => want.startsWith(s.title) || s.title.startsWith(want))
+        return h && Math.abs(h.x) < MAP_LIMIT && Math.abs(h.z) < MAP_LIMIT ? [{ title: g.title, x: h.x, z: h.z }] : []
+      })
+      return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
+    } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
     portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
   })
   function hooksTeleport(x: number, z: number) {
