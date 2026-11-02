@@ -282,10 +282,11 @@ export function mountUi(
     wrap.append(verifiedBalance, verifiedNote, button('View Base top-ups', 'ghost', () => open('topup')))
     void hooks.onTopupBalance().then((result) => {
       if (!verifiedValue?.isConnected) return
-      if (result.ok) verifiedValue.textContent = formatUsdcMicros(result.balanceMicros)
-      else {
+      if ('error' in result) {
         verifiedValue.textContent = 'Unavailable'
         verifiedNote.textContent = result.error
+      } else {
+        verifiedValue.textContent = formatUsdcMicros(result.balanceMicros)
       }
     }).catch(() => {
       if (!verifiedValue?.isConnected) return
@@ -335,12 +336,12 @@ export function mountUi(
     const loadBalance = async () => {
       try {
         const result = await hooks.onTopupBalance()
-        if (result.ok) {
-          if (balanceValue) balanceValue.textContent = formatUsdcMicros(result.balanceMicros)
+        if ('error' in result) {
+          if (balanceValue) balanceValue.textContent = 'Unavailable'
+          feedback.textContent = result.error
           return
         }
-        if (balanceValue) balanceValue.textContent = 'Unavailable'
-        feedback.textContent = result.error
+        if (balanceValue) balanceValue.textContent = formatUsdcMicros(result.balanceMicros)
       } catch {
         if (balanceValue) balanceValue.textContent = 'Unavailable'
         feedback.textContent = 'The verified balance could not be loaded.'
@@ -351,8 +352,12 @@ export function mountUi(
       login.disabled = true
       void hooks.onTopupLogin().then((result) => {
         login.disabled = false
-        feedback.textContent = result.ok ? 'Privy login verified.' : result.error
-        if (result.ok) void loadBalance()
+        if ('error' in result) {
+          feedback.textContent = result.error
+        } else {
+          feedback.textContent = 'Privy login verified.'
+          void loadBalance()
+        }
       }).catch(() => {
         login.disabled = false
         feedback.textContent = 'Privy login could not be started.'
@@ -362,9 +367,9 @@ export function mountUi(
       linkWallet.disabled = true
       void hooks.onTopupLinkWallet().then((result) => {
         linkWallet.disabled = false
-        feedback.textContent = result.ok
-          ? 'Finish linking the wallet in Privy, then verify the deposit hash.'
-          : result.error
+        feedback.textContent = 'error' in result
+          ? result.error
+          : 'Finish linking the wallet in Privy, then verify the deposit hash.'
       }).catch(() => {
         linkWallet.disabled = false
         feedback.textContent = 'The Privy wallet link could not be started.'
@@ -387,7 +392,7 @@ export function mountUi(
       feedback.textContent = 'Checking Base receipt and linked-wallet ownership…'
       void hooks.onTopupVerify(value).then((result) => {
         verify.disabled = false
-        if (!result.ok) {
+        if ('error' in result) {
           feedback.textContent = result.error
           return
         }
@@ -502,7 +507,7 @@ export function mountUi(
           result.textContent = 'Already on your CV.'
           return
         }
-        result.textContent = outcome.hints.filter(Boolean).join(' ')
+        if ('hints' in outcome) result.textContent = outcome.hints.filter(Boolean).join(' ')
       })
       submit.disabled = Boolean(passed)
       wrap.append(submit, result, advice())
@@ -745,7 +750,7 @@ export function mountUi(
     display.autocomplete = 'name'
     display.addEventListener('change', () => {
       const outcome = setName(display.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
@@ -760,7 +765,7 @@ export function mountUi(
     handle.spellcheck = false
     handle.addEventListener('change', () => {
       const outcome = setUsername(handle.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
