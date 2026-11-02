@@ -1,0 +1,39 @@
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body.art-lab {
+  background: #211b22;
+  color: #f3e8d8;
+  font-family: Outfit, system-ui, sans-serif;
+}
+#art-view { display: block; width: 100%; height: 100%; touch-action: none; }
+.art-panel {
+  position: fixed;
+  z-index: 2;
+  top: max(18px, env(safe-area-inset-top));
+  left: max(18px, env(safe-area-inset-left));
+  width: min(310px, calc(100vw - 36px));
+  padding: 20px;
+  border: 1px solid rgba(239, 205, 160, 0.22);
+  border-radius: 14px;
+  background: rgba(25, 23, 27, 0.84);
+  box-shadow: 0 16px 48px rgba(16, 11, 12, 0.3);
+  backdrop-filter: blur(12px);
+}
+.art-kicker { margin: 0 0 8px; color: #9ae6ba; font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+.art-panel h1 { margin: 0; color: #fff0dc; font-size: 22px; line-height: 1.15; }
+.art-description { margin: 9px 0 17px; color: #c8bcb1; font-size: 13px; line-height: 1.45; }
+.art-control { display: grid; gap: 7px; margin-top: 13px; color: #d8cabe; font-size: 12px; }
+.art-control select, .art-control input { width: 100%; accent-color: #d18b53; }
+.art-control select { min-height: 38px; padding: 0 10px; border: 1px solid rgba(239, 205, 160, .25); border-radius: 8px; background: #2a2529; color: #fff0dc; font: inherit; }
+.art-control input { margin: 2px 0 0; }
+.art-stats { display: flex; justify-content: space-between; margin: 17px 0 0; color: #9ae6ba; font-size: 12px; font-weight: 600; }
+.art-hint { margin: 10px 0 0; color: #aa9e97; font-size: 11px; }
+.art-tag { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); color: rgba(255, 237, 215, .65); font-size: 10px; font-weight: 600; letter-spacing: .17em; }
+@media (max-width: 600px) {
+  .art-panel { top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); width: min(270px, calc(100vw - 20px)); padding: 14px; }
+  .art-panel h1 { font-size: 19px; }
+  .art-description { margin: 6px 0 12px; font-size: 12px; }
+  .art-control { margin-top: 9px; }
+  .art-stats { margin-top: 12px; }
+  .art-tag { right: 12px; bottom: 12px; font-size: 9px; }
+}

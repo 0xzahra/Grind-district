@@ -224,6 +224,10 @@ export function createPlayer(): ShrimpAvatar {
   const gold = mat(0xf0c14a, 0.28, 0.82)
   gold.emissive = new THREE.Color(0x6a4a10)
   gold.emissiveIntensity = 0.25
+  const pocket = part(new THREE.BoxGeometry(0.12, 0.1, 0.018), suit, bob, 0.16, 1.16, 0.155)
+  pocket.castShadow = false
+  part(new THREE.BoxGeometry(0.12, 0.014, 0.02), shirt, bob, 0.16, 1.205, 0.168).castShadow = false
+  part(new THREE.SphereGeometry(0.022, 8, 6), gold, bob, -0.15, 1.32, 0.165).castShadow = false
   const chain = part(new THREE.TorusGeometry(0.11, 0.012, 6, 14), gold, bob, 0, 1.28, 0.16)
   chain.rotation.x = Math.PI / 2.3
   chain.visible = false

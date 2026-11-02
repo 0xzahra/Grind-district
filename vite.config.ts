@@ -66,5 +66,13 @@ export default defineConfig(({ mode }) => {
       port: 47321,
       strictPort: true,
     },
+    build: {
+      rolldownOptions: {
+        input: {
+          main: 'index.html',
+          'tech-art': 'tech-art.html',
+        },
+      },
+    },
   }
 })
