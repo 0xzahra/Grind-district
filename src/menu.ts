@@ -182,6 +182,10 @@ export function mountMenu(enter: () => void): void {
   must('#account-new').addEventListener('click', showSignup)
   must('#account-back').addEventListener('click', back)
   must('#menu-agents').addEventListener('click', () => show('agents'))
+  must('#menu-how').addEventListener('click', () => show('how'))
+  must('#menu-city').addEventListener('click', () => show('city'))
+  must('#menu-courses').addEventListener('click', () => show('courses'))
+  must('#menu-credits').addEventListener('click', () => show('credits'))
   must('#menu-back').addEventListener('click', back)
   must('#signup-back').addEventListener('click', back)
   form.addEventListener('submit', (event) => {

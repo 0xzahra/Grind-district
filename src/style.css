@@ -436,6 +436,18 @@ body.flat header {
   min-height: 48px;
 }
 
+.menu-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.menu-info button {
+  min-height: 44px;
+  padding-inline: 0.5rem;
+  font-size: 0.95rem;
+}
+
 #menu-page {
   text-align: left;
 }
