@@ -5,7 +5,7 @@ import { createInput } from './input.ts'
 import { drawMinimap } from './minimap.ts'
 import { applyPrefs } from './prefs.ts'
 import type { DroneId, MaskId, PanelId } from './logic.ts'
-import { decodeShare, seasonAt } from './logic.ts'
+import { decodeProfileHash, seasonAt } from './logic.ts'
 import { bindMusic } from './music.ts'
 import { CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { getSave, rememberPlace, setVolume, tickMarket } from './state.ts'
@@ -546,9 +546,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
         revealed = true
         onReady()
         ui.toast('This browser opened the overhead map. Same streets, same doors.')
-        const matched = location.hash.match(/^#profile=([A-Za-z0-9_-]+)/)
-        if (matched?.[1]) {
-          const shared = decodeShare(matched[1])
+        if (/^#(?:p|profile)=/.test(location.hash)) {
+          const shared = decodeProfileHash(location.hash)
           history.replaceState(null, '', `${location.pathname}${location.search}`)
           if (shared) ui.open('shared', { shared })
           else if (!getSave().seenIntro) ui.open('intro')

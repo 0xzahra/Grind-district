@@ -8,7 +8,7 @@ import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { decodeProfileHash, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
@@ -21,6 +21,7 @@ import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import './style.css'
+import './profile.css'
 
 const WALK = 2.7
 const RUN = 5.5
@@ -604,9 +605,8 @@ async function main(onReveal: () => void) {
         onReveal()
         boot.classList.add('hidden')
         boot.setAttribute('aria-hidden', 'true')
-        const matched = location.hash.match(/^#profile=([A-Za-z0-9_-]+)/)
-        if (matched?.[1]) {
-          const shared = decodeShare(matched[1])
+        if (/^#(?:p|profile)=/.test(location.hash)) {
+          const shared = decodeProfileHash(location.hash)
           history.replaceState(null, '', `${location.pathname}${location.search}`)
           if (shared) ui.open('shared', { shared })
           else if (!getSave().seenIntro) ui.open('intro')
