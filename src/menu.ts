@@ -133,12 +133,12 @@ export function mountMenu(enter: () => void): void {
       const outcome = await loginWithPrivy()
       play.disabled = false
       play.textContent = previous
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         note.textContent = outcome.error
         return
       }
       const linked = attachPrivy(outcome.id)
-      if (!linked.ok) {
+      if ('error' in linked) {
         note.textContent = linked.error
         return
       }
@@ -172,7 +172,7 @@ export function mountMenu(enter: () => void): void {
       return
     }
     const outcome = signUp(nameInput.value, userInput.value, body)
-    if (!outcome.ok) {
+    if ('error' in outcome) {
       error.hidden = false
       error.textContent = outcome.error
       return
