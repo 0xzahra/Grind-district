@@ -18,6 +18,7 @@ type Pending = {
 let pending: Pending | null = null
 let phase: 'idle' | 'modal' | 'verifying' = 'idle'
 let openLogin: (() => void) | null = null
+let openWalletLink: (() => void) | null = null
 let endLogin: (() => Promise<void>) | null = null
 let readToken: (() => Promise<string | null>) | null = null
 let booted: Promise<void> | null = null
@@ -66,13 +67,16 @@ function Gate(): ReactNode {
   })
   const loginRef = useRef(login)
   const tokenRef = useRef(privy.getAccessToken)
+  const linkWalletRef = useRef(privy.linkWallet)
   const logoutRef = useRef(privy.logout)
   loginRef.current = login
   tokenRef.current = privy.getAccessToken
+  linkWalletRef.current = privy.linkWallet
   logoutRef.current = privy.logout
 
   useEffect(() => {
     openLogin = () => loginRef.current()
+    openWalletLink = () => linkWalletRef.current({ walletChainType: 'ethereum-only' })
     endLogin = () => logoutRef.current()
     readToken = () => tokenRef.current()
     markBooted()
@@ -107,7 +111,7 @@ function ensurePrivy(appId: string): Promise<void> {
       createElement(PrivyProvider, {
         appId,
         config: {
-          loginMethods: ['email'],
+          loginMethods: ['google', 'twitter'],
           appearance: {
             theme: 'dark',
             accentColor: '#1af38f',
@@ -146,6 +150,43 @@ export async function loginWithPrivy(): Promise<{ ok: true; id: string } | { ok:
   }).catch((error: unknown) => (typeof error === 'string' ? error : 'Privy could not log in.'))
   if (!id.startsWith('did:privy:')) return { ok: false, error: id }
   return { ok: true, id }
+}
+
+export async function currentPrivyAccessToken(): Promise<string | null> {
+  try {
+    return (await readToken?.()) ?? null
+  } catch {
+    return null
+  }
+}
+
+async function waitForPrivy(appId: string): Promise<void> {
+  let timer = 0
+  try {
+    await Promise.race([
+      ensurePrivy(appId),
+      new Promise<void>((resolve) => { timer = window.setTimeout(resolve, 8000) }),
+    ])
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+export async function getPrivyAccessToken(): Promise<string | null> {
+  const appId = privyAppId()
+  if (!appId) return null
+  await waitForPrivy(appId)
+  return (await readToken?.()) ?? null
+}
+
+export async function linkWalletWithPrivy(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const appId = privyAppId()
+  if (!appId) return { ok: false, error: 'Privy needs the public App ID before a wallet can be linked.' }
+  await waitForPrivy(appId)
+  if (!(await readToken?.())) return { ok: false, error: 'Log in with Privy before linking a wallet.' }
+  if (!openWalletLink) return { ok: false, error: 'Privy did not start. Check the public App ID.' }
+  openWalletLink()
+  return { ok: true }
 }
 
 export async function logoutPrivy(): Promise<void> {

@@ -1,6 +1,10 @@
-import { COURSES, headlines } from './courses.ts'
+import { COURSES } from './courses.ts'
 import { logoutPrivy } from './privy.ts'
+import { freshAgentPrompt } from './agent-claim.ts'
+import { connectNearMainnet, disconnectNearMainnet, signNearMarketOrder } from './near.ts'
+import { nearMarketOrderMessage, quoteNpcMarket } from './near-economy.ts'
 import { GUIDE } from './guide.ts'
+import { BASE_USDC_ADDRESS, formatUsdcMicros, GRIND_TREASURY_ADDRESS } from './topup-config.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
   BODIES,
@@ -16,15 +20,13 @@ import {
   TINTS,
   ZAHRA,
   documents,
-  lagosStamp,
+  activityDate,
   money,
   profileShareUrl,
   nextRank,
   progressToNext,
   rankFor,
   rankToast,
-  seasonAt,
-  seasonLabel,
   todayTasks,
   type PanelId,
   type RankId,
@@ -42,6 +44,7 @@ import {
   dismissIntro,
   finishGym,
   getSave,
+  linkNearAccount,
   hearTalk,
   noteTalk,
   orderWater,
@@ -67,12 +70,18 @@ import {
   submitCourse,
   subscribe,
   trade,
+  tradeAtPrice,
+  unlinkNearAccount,
   walkGym,
   type CourseResult,
 } from './state.ts'
 
 type Tab = 'today' | 'cv' | 'resume' | 'portfolio' | 'books'
-type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId }
+type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId; course?: SkillId }
+
+type TopupBalanceResult = { ok: true; balanceMicros: string } | { ok: false; error: string }
+type TopupVerifyResult = { ok: true; creditedMicros: string; balanceMicros: string; alreadyProcessed: boolean } | { ok: false; error: string }
+type AuthActionResult = { ok: true } | { ok: false; error: string }
 
 type Hooks = {
   onStyle: () => void
@@ -81,6 +90,10 @@ type Hooks = {
   onGraphics: () => void
   onPrefs: () => void
   onRank: (label: string) => void
+  onTopupLogin: () => Promise<AuthActionResult>
+  onTopupLinkWallet: () => Promise<AuthActionResult>
+  onTopupBalance: () => Promise<TopupBalanceResult>
+  onTopupVerify: (hash: string) => Promise<TopupVerifyResult>
 }
 
 export type Ui = {
@@ -122,7 +135,6 @@ export function mountUi(
     rank: HTMLElement
     place: HTMLElement
     ledger: HTMLElement
-    season: HTMLElement
     focus: HTMLElement
   },
   hooks: Hooks,
@@ -148,7 +160,6 @@ export function mountUi(
     pills.rank.textContent = rankFor(save.xp).label
     pills.place.textContent = place
     pills.ledger.textContent = money(save.ledger)
-    pills.season.textContent = seasonLabel(seasonAt())
     pills.focus.hidden = !save.focus
   }
 
@@ -159,6 +170,14 @@ export function mountUi(
       return
     }
     toast(message)
+  }
+
+  const connectNearAccount = async (): Promise<{ ok: true; accountId: string } | { ok: false; error: string }> => {
+    const connected = await connectNearMainnet()
+    if (connected.ok === false) return connected
+    const saved = linkNearAccount(connected.accountId)
+    if (saved.ok === false) return saved
+    return connected
   }
 
   const stop = () => {
@@ -313,14 +332,9 @@ export function mountUi(
     taskSection.append(quests)
     page.append(taskSection)
 
-    const streakNote = save.dailies && todayTasks(save).some((task) => task.done)
-      ? `Streak ${save.streak}. A rep is filed for today.`
-      : save.streak > 0
-        ? `Streak ${save.streak}. One rep today makes it ${save.streak + 1}.`
-        : 'No streak yet. One rep today starts it.'
     const footer = document.createElement('div')
     footer.className = 'profile-footnote'
-    footer.append(para(`${streakNote} Reputation ${save.reputation}.`, 'muted'))
+    footer.append(para(`Reputation ${save.reputation}. Rank follows practice, never the balance.`, 'muted'))
     if (save.taxOpen) footer.append(button('Respond to family request', 'ghost', () => open('tax')))
     page.append(footer)
 
@@ -340,6 +354,7 @@ export function mountUi(
         if (error instanceof DOMException && error.name === 'AbortError') return
         await copyText(url, 'Profile link copied.')
       }
+
     }
     shareStrip.append(
       button('Share profile', 'primary', () => void share()),
@@ -369,7 +384,7 @@ export function mountUi(
       const stats = titledSection('Standing', 'profile-section')
       const statGrid = document.createElement('div')
       statGrid.className = 'profile-stat-grid'
-      for (const [label, value] of [['XP', String(save.xp)], ['Reputation', String(save.reputation)], ['Streak', String(save.streak)], ['Practice cash', money(save.ledger)]]) {
+      for (const [label, value] of [['XP', String(save.xp)], ['Reputation', String(save.reputation)], ['Filed activity', String(save.activities.length)], ['Practice cash', money(save.ledger)]]) {
         const stat = document.createElement('div')
         stat.className = 'profile-stat'
         stat.append(para(label, 'muted'))
@@ -402,7 +417,7 @@ export function mountUi(
       proofList.className = 'record-list'
       for (const activity of save.activities.slice(0, 8)) {
         const item = document.createElement('li')
-        item.append(para(activity.label, 'record-title'), para(lagosStamp(activity.at), 'muted'))
+        item.append(para(activity.label, 'record-title'), para(activityDate(activity.at), 'muted'))
         proofList.append(item)
       }
       if (!save.activities.length) proof.append(para('Nothing filed yet.', 'muted'))
@@ -416,8 +431,8 @@ export function mountUi(
       const summary = titledSection('Practice summary', 'profile-section resume-summary')
       for (const paragraph of docs.resume.split('\n\n')) summary.append(para(paragraph))
       page.append(summary)
-      const metrics = titledSection('Consistency', 'profile-section')
-      metrics.append(line('Lagos-day streak', String(save.streak)), line('Reputation', String(save.reputation)), para('Rank comes from practice, never the ledger.', 'muted'))
+      const metrics = titledSection('Standing', 'profile-section')
+      metrics.append(line('Filed activity', String(save.activities.length)), line('Reputation', String(save.reputation)), para('Rank comes from practice, never the ledger.', 'muted'))
       page.append(metrics)
     } else {
       const activities = titledSection('Work log', 'profile-section portfolio-log')
@@ -425,7 +440,7 @@ export function mountUi(
       activityList.className = 'record-list portfolio-list'
       for (const activity of save.activities.slice(0, 16)) {
         const item = document.createElement('li')
-        item.append(para(lagosStamp(activity.at), 'record-date'), para(activity.label, 'record-title'), para(activity.detail, 'muted'))
+        item.append(para(activityDate(activity.at), 'record-date'), para(activity.label, 'record-title'), para(activity.detail, 'muted'))
         activityList.append(item)
       }
       if (!save.activities.length) activities.append(para('Empty. Finish a course or post a bounty and this page writes itself.', 'muted'))
@@ -465,7 +480,29 @@ export function mountUi(
     const save = getSave()
     const wrap = document.createElement('div')
     wrap.className = 'profile-page books-page'
-    wrap.append(para('Practice books only. Nothing here is an on-chain balance.', 'muted'), renderLedgerColumns(save))
+    wrap.append(para('Local practice books are off-chain. Verified Base credits below stay separate.', 'muted'), renderLedgerColumns(save))
+
+    const verified = titledSection('Verified Base USDC credits', 'profile-section topup-section')
+    const verifiedBalance = line('On-chain balance', 'Checking…')
+    verifiedBalance.classList.add('topup-pair')
+    const verifiedValue = verifiedBalance.querySelector('strong')
+    const verifiedNote = para('Deposits claimed for this Privy account; separate from practice cash.', 'muted')
+    verified.append(verifiedBalance, verifiedNote, button('View Base top-ups', 'ghost', () => open('topup')))
+    void hooks.onTopupBalance().then((result) => {
+      if (!verifiedValue?.isConnected) return
+      if ('error' in result) {
+        verifiedValue.textContent = 'Unavailable'
+        verifiedNote.textContent = result.error
+      } else {
+        verifiedValue.textContent = formatUsdcMicros(result.balanceMicros)
+      }
+    }).catch(() => {
+      if (!verifiedValue?.isConnected) return
+      verifiedValue.textContent = 'Unavailable'
+      verifiedNote.textContent = 'The verified top-up balance could not be loaded.'
+    })
+    wrap.append(verified)
+
     const investments = titledSection('Open positions', 'profile-section investment-book')
     investments.append(positionLine('UNIT', 'unit'), positionLine('MEME', 'meme'))
     wrap.append(investments)
@@ -495,7 +532,7 @@ export function mountUi(
       page.append(identity)
 
       const stats = titledSection('Standing', 'profile-stat-grid')
-      for (const [label, value] of [['XP', String(profile.x)], ['Reputation', String(profile.p)], ['Streak', String(profile.s)]]) {
+      for (const [label, value] of [['XP', String(profile.x)], ['Reputation', String(profile.p)]]) {
         const stat = document.createElement('div')
         stat.className = 'profile-stat'
         stat.append(para(label, 'muted'))
@@ -540,6 +577,123 @@ export function mountUi(
     return card
   }
 
+  const renderTopup = (): HTMLElement => {
+    const balanceRow = line('Verified top-up balance', 'Checking…')
+    balanceRow.classList.add('topup-pair')
+    const balanceValue = balanceRow.querySelector('strong')
+    const feedback = para('', 'result')
+    feedback.setAttribute('role', 'status')
+
+    const hash = document.createElement('input')
+    hash.type = 'text'
+    hash.name = 'transaction-hash'
+    hash.maxLength = 66
+    hash.autocomplete = 'off'
+    hash.spellcheck = false
+    hash.placeholder = '0x… transaction hash'
+    hash.setAttribute('aria-label', 'Base transaction hash')
+    const hashLabel = document.createElement('label')
+    hashLabel.className = 'field'
+    hashLabel.append('Base transaction hash', hash)
+
+    const loadBalance = async () => {
+      try {
+        const result = await hooks.onTopupBalance()
+        if ('error' in result) {
+          if (balanceValue) balanceValue.textContent = 'Unavailable'
+          feedback.textContent = result.error
+          return
+        }
+        if (balanceValue) balanceValue.textContent = formatUsdcMicros(result.balanceMicros)
+      } catch {
+        if (balanceValue) balanceValue.textContent = 'Unavailable'
+        feedback.textContent = 'The verified balance could not be loaded.'
+      }
+    }
+
+    const login = button('Log in with Privy', 'ghost', () => {
+      login.disabled = true
+      void hooks.onTopupLogin().then((result) => {
+        login.disabled = false
+        if ('error' in result) {
+          feedback.textContent = result.error
+        } else {
+          feedback.textContent = 'Privy login verified.'
+          void loadBalance()
+        }
+      }).catch(() => {
+        login.disabled = false
+        feedback.textContent = 'Privy login could not be started.'
+      })
+    })
+    const linkWallet = button('Link depositing wallet', 'ghost', () => {
+      linkWallet.disabled = true
+      void hooks.onTopupLinkWallet().then((result) => {
+        linkWallet.disabled = false
+        feedback.textContent = 'error' in result
+          ? result.error
+          : 'Finish linking the wallet in Privy, then verify the deposit hash.'
+      }).catch(() => {
+        linkWallet.disabled = false
+        feedback.textContent = 'The Privy wallet link could not be started.'
+      })
+    })
+    const verify = button('Verify deposit', 'primary', () => {})
+    verify.type = 'submit'
+    const form = document.createElement('form')
+    form.className = 'stack'
+    form.append(hashLabel, verify)
+    form.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const value = hash.value.trim()
+      if (!/^0x[0-9a-f]{64}$/i.test(value)) {
+        feedback.textContent = 'Enter the 32-byte transaction hash from Base.'
+        hash.focus()
+        return
+      }
+      verify.disabled = true
+      feedback.textContent = 'Checking Base receipt and linked-wallet ownership…'
+      void hooks.onTopupVerify(value).then((result) => {
+        verify.disabled = false
+        if ('error' in result) {
+          feedback.textContent = result.error
+          return
+        }
+        if (balanceValue) balanceValue.textContent = formatUsdcMicros(result.balanceMicros)
+        feedback.textContent = result.alreadyProcessed
+          ? 'This deposit was already claimed. No duplicate credit was added.'
+          : `Verified ${formatUsdcMicros(result.creditedMicros)} to your top-up balance.`
+      }).catch(() => {
+        verify.disabled = false
+        feedback.textContent = 'The top-up service could not verify this request.'
+      })
+    })
+
+    const treasury = line('Treasury address', GRIND_TREASURY_ADDRESS)
+    treasury.classList.add('topup-pair')
+    treasury.querySelector('strong')?.classList.add('topup-address')
+    const network = line('Network', 'Base mainnet · chain 8453')
+    const token = line('Token', `USDC · ${BASE_USDC_ADDRESS}`)
+    network.classList.add('topup-pair')
+    token.classList.add('topup-pair')
+    const body = stack(
+      para('Send Base USDC only to this fixed GrindTreasury address. Copy it here, then paste the transaction hash after sending.', 'muted'),
+      treasury,
+      button('Copy treasury address', 'primary', () => void copyText(GRIND_TREASURY_ADDRESS)),
+      network,
+      token,
+      balanceRow,
+      para('Practice cash stays separate from server-verified credits. A pasted hash is not proof: the server checks the chain, token, recipient, linked sender wallet, receipt status, confirmations, and duplicate logs.', 'muted'),
+      para('To claim an earlier deposit, link the wallet that sent it and enter its transaction hash. The amount comes from the verified receipt; no manual amount is accepted.', 'muted'),
+      login,
+      linkWallet,
+      form,
+      feedback,
+    )
+    void loadBalance()
+    return frame('Top up with Base USDC', body)
+  }
+
   const positionLine = (label: string, symbol: 'unit' | 'meme'): HTMLElement => {
     const book = describeTrade(symbol)
     if (book.qty <= 0) return line(label, 'Flat')
@@ -557,6 +711,8 @@ export function mountUi(
     row.append(name, strong)
     return row
   }
+
+  let firstCourse: SkillId | undefined
 
   const renderLearn = (): HTMLElement => {
     const body = document.createElement('div')
@@ -607,8 +763,7 @@ export function mountUi(
         if (outcome.ok) {
           const extra = outcome.stipend ? ' Campus put $25 practice on your ledger.' : ''
           const focus = outcome.focus ? ' Focus added a quarter.' : ''
-          const bonus = outcome.bonus ? ` Streak +${outcome.bonus} XP.` : ''
-          finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
+          finish(`Filed to your CV.${focus}${extra}`, outcome.rankedUp)
           showCourse(id)
           return
         }
@@ -616,13 +771,19 @@ export function mountUi(
           result.textContent = 'Already on your CV.'
           return
         }
-        result.textContent = outcome.hints.filter(Boolean).join(' ')
+        if ('hints' in outcome) result.textContent = outcome.hints.filter(Boolean).join(' ')
       })
       submit.disabled = Boolean(passed)
       wrap.append(submit, result, advice())
       body.replaceChildren(wrap)
     }
-    showList()
+    if (firstCourse) {
+      const course = firstCourse
+      firstCourse = undefined
+      showCourse(course)
+    } else {
+      showList()
+    }
     return frame('Learning hall', body)
   }
 
@@ -691,16 +852,95 @@ export function mountUi(
       finish(outcome.message, outcome.rankedUp)
       paint()
     }
+    const nearResult = para('', 'result')
+    const nearStatus = para('', 'muted')
+    const connectWallet = button('Connect NEAR mainnet account', 'ghost', () => {
+      connectWallet.disabled = true
+      nearStatus.textContent = 'Opening the mainnet wallet selector…'
+      void connectNearAccount().then((outcome) => {
+        nearStatus.textContent = outcome.ok === true
+          ? `Connected · ${outcome.accountId}. This account ID is public on NEAR mainnet.`
+          : outcome.error
+        connectWallet.hidden = outcome.ok
+        signBuy.hidden = !outcome.ok
+        signSell.hidden = !outcome.ok
+      }).finally(() => {
+        connectWallet.disabled = false
+      })
+    })
+    const signBuy = button('Sign NPC buy quote with NEAR', 'ghost', () => void signNpcOrder('buy'))
+    const signSell = button('Sign NPC sell quote with NEAR', 'ghost', () => void signNpcOrder('sell'))
+    let signing = false
+    const signNpcOrder = async (side: 'buy' | 'sell') => {
+      if (signing) return
+      signing = true
+      signBuy.disabled = true
+      signSell.disabled = true
+      try {
+        let accountId = getSave().nearAccountId
+        if (!accountId) {
+          nearStatus.textContent = 'Connect a NEAR mainnet account to continue…'
+          const connected = await connectNearAccount()
+          if (connected.ok === false) {
+            nearResult.textContent = connected.error
+            return
+          }
+          accountId = connected.accountId
+          connectWallet.hidden = true
+          signBuy.hidden = false
+          signSell.hidden = false
+        }
+        const spot = describeTrade(symbol).price
+        const quote = quoteNpcMarket(spot, side)
+        const order = {
+          asset: name as 'UNIT' | 'MEME',
+          side,
+          size: fraction,
+          quote,
+          expiresAt: Date.now() + 120_000,
+        }
+        nearStatus.textContent = 'Review the exact practice-market order in your wallet…'
+        const signature = await signNearMarketOrder(accountId, nearMarketOrderMessage(order))
+        if (signature.ok === false) {
+          nearResult.textContent = signature.error
+          return
+        }
+        if (Date.now() > order.expiresAt) {
+          nearResult.textContent = 'The NPC quote expired before signing finished. No practice trade was made.'
+          return
+        }
+        const outcome = tradeAtPrice(symbol, side, fraction, false, quote, 'near')
+        if (!outcome.ok) {
+          nearResult.textContent = outcome.message
+          return
+        }
+        nearResult.textContent = `${outcome.message} The NPC quote follows the live practice book at a fixed spread. The NEAR signature stayed off-chain; no mainnet transaction or real funds moved.`
+        nearStatus.textContent = `Connected · ${accountId} · NEAR mainnet. Account activity is public.`
+        finish(outcome.message, outcome.rankedUp)
+        paint()
+      } finally {
+        signing = false
+        signBuy.disabled = false
+        signSell.disabled = false
+      }
+    }
+    const savedNearAccount = getSave().nearAccountId
+    nearStatus.textContent = savedNearAccount
+      ? `Connected · ${savedNearAccount} · NEAR mainnet. Account activity is public.`
+      : 'Optional mainnet wallet; the district remains playable without connecting.'
+    connectWallet.hidden = Boolean(savedNearAccount)
+    signBuy.hidden = !savedNearAccount
+    signSell.hidden = !savedNearAccount
+    const nearPrivacy = para('NEAR account IDs, balances, and transaction history are public. This signs only the order details; names, usernames, practice balances, and the signature stay off-chain. The client uses the wallet response only as a local practice-market demo gate; it is not server-verified or shared with other players.', 'muted')
     const loop = () => {
       if (current !== (symbol === 'unit' ? 'trade' : 'trench')) return
       paint()
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
-    const season = seasonLabel(seasonAt())
     const blurb = symbol === 'unit'
-      ? `${season} season. A plan logged on the sell can count when the close is red.`
-      : `${season} season. MEME is attention. Size small. Rank will not follow a crash.`
+      ? 'A plan logged on the sell can count when the close is red.'
+      : 'MEME is attention. Size small. Rank will not follow a crash.'
     return frame(symbol === 'unit' ? 'Spot book' : 'Trenches book', stack(
       para(blurb, 'muted'),
       price,
@@ -711,6 +951,13 @@ export function mountUi(
       button('Buy', 'primary', () => go('buy')),
       button('Sell', 'ghost', () => go('sell')),
       result,
+      para('Player market · NPC quote', 'kicker'),
+      nearStatus,
+      connectWallet,
+      signBuy,
+      signSell,
+      nearResult,
+      nearPrivacy,
       advice(),
     ))
   }
@@ -859,7 +1106,7 @@ export function mountUi(
     display.autocomplete = 'name'
     display.addEventListener('change', () => {
       const outcome = setName(display.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
@@ -874,7 +1121,7 @@ export function mountUi(
     handle.spellcheck = false
     handle.addEventListener('change', () => {
       const outcome = setUsername(handle.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
@@ -943,6 +1190,44 @@ export function mountUi(
       close()
       toast('Back to zero. Your name stayed. GN time and volume stayed.')
     })
+    const nearStatus = para('NEAR account IDs, balances, and transaction history are public on mainnet. Linking is optional; names, usernames, and practice data remain local and are never written to NEAR.', 'muted')
+    const nearResult = para('', 'result')
+    const nearAccountDisplay = save.nearAccountId
+      ? (() => {
+          const link = document.createElement('a')
+          link.href = `https://nearblocks.io/address/${encodeURIComponent(save.nearAccountId)}`
+          link.target = '_blank'
+          link.rel = 'noopener noreferrer'
+          link.textContent = `NEAR mainnet · ${save.nearAccountId}`
+          return link
+        })()
+      : para('No NEAR account linked. Privy sign-in and the rest of the game are unchanged.', 'muted')
+    const nearConnectButton = button('Connect NEAR mainnet account', 'ghost', () => {
+      nearConnectButton.disabled = true
+      nearResult.textContent = 'Opening the mainnet wallet selector…'
+      void connectNearAccount().then((outcome) => {
+        if (outcome.ok === false) {
+          nearResult.textContent = outcome.error
+          return
+        }
+        open('settings')
+      }).finally(() => {
+        nearConnectButton.disabled = false
+      })
+    })
+    nearConnectButton.hidden = Boolean(save.nearAccountId)
+    const nearDisconnectButton = button('Disconnect NEAR account', 'ghost', () => {
+      nearDisconnectButton.disabled = true
+      void disconnectNearMainnet().then(() => {
+        unlinkNearAccount()
+        open('settings')
+      }).catch(() => {
+        nearResult.textContent = 'The wallet could not disconnect. The saved account link was kept.'
+      }).finally(() => {
+        nearDisconnectButton.disabled = false
+      })
+    })
+    nearDisconnectButton.hidden = !save.nearAccountId
     const support = document.createElement('a')
     support.href = ZAHRA
     support.target = '_blank'
@@ -963,6 +1248,12 @@ export function mountUi(
       para('Market Velocity stays silent until you press Play theme. Volume is the slider by that button.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
+      para('NEAR mainnet wallet · optional', 'kicker'),
+      nearStatus,
+      nearAccountDisplay,
+      nearConnectButton,
+      nearDisconnectButton,
+      nearResult,
       save.privyId ? para(`Privy · ${save.privyId.slice(-6)}`, 'muted') : para('Privy login is on the title screen.', 'muted'),
       button('Log out of Privy', 'ghost', () => {
         void logoutPrivy().then(() => {
@@ -1017,7 +1308,7 @@ export function mountUi(
       case 'malik':
         return renderSimple('Set house', [
           para('Mats by the door. One set is logged and left. The chart is not invited in.'),
-          para('A second set the same day does not stack the streak.'),
+          para('Another set today will not be filed again.'),
           button('Stay for the set', 'primary', () => visit('You stayed for the set.')),
         ])
       case 'nia':
@@ -1040,13 +1331,19 @@ export function mountUi(
   const render = (panel: PanelId): HTMLElement => {
     switch (panel) {
       case 'intro':
-        return renderSimple('You start at zero', [
-          para('You are a shrimp in a shared city. The practice ledger is empty. Rank does not read it.'),
-          para('Walk north to the learning hall, or east to the houses. Music stays off until you want Market Velocity.'),
-          button("I'm here", 'primary', close),
+        return renderSimple('Your first stop: Learning Campus', [
+          para('1 · From the plaza, walk north through the Campus arch to the mint Learning Hall door. Press E or the Enter button to open it. You can also use Learn in the top navigation.'),
+          para('2 · Start with Spot. Read the short lesson, answer four exercises, and check your work. A pass files your CV and adds XP; the first Spot pass also adds $25 of practice funds, not cash.'),
+          button('Open the first course · Spot', 'primary', () => {
+            dismissIntro()
+            open('learn', { course: 'spot' })
+          }),
+          button("I'll walk there", 'ghost', close),
         ])
       case 'profile':
         return renderProfile()
+      case 'topup':
+        return renderTopup()
       case 'learn':
         return renderLearn()
       case 'trade':
@@ -1075,14 +1372,13 @@ export function mountUi(
           para('Sitting puts focus on the next course you pass.'),
           button('Sit', 'primary', () => {
             const outcome = sitPrayer()
-            finish(outcome.message, outcome.rankedUp)
+            finish(outcome.message)
             open('prayer')
           }),
         ])
       case 'cafe':
         return renderSimple('The room', [
-          ...headlines(seasonAt(), getSave().dailies.day).map((lineText) => para(lineText)),
-          para(`${seasonLabel(seasonAt())} season. The board is gossip, not a signal.`, 'muted'),
+          para('The board is gossip, not a signal. Read it once a day.', 'muted'),
           button('Read the room', 'primary', () => {
             const outcome = readCafe()
             finish(outcome.message, outcome.rankedUp)
@@ -1092,7 +1388,7 @@ export function mountUi(
             finish(orderWater().message)
             open('cafe')
           }),
-          para('Water is free. It does not turn a headline into a trade.', 'muted'),
+          para('Water is free. The board is not a trade signal.', 'muted'),
         ])
       case 'house':
         return renderHouse()
@@ -1145,26 +1441,60 @@ export function mountUi(
           }),
           para('The note is the last line: a course, a bounty, or a pledge. A balance is not the proof.', 'muted'),
         ])
-      case 'robot':
+      case 'robot': {
+        const prompt = document.createElement('textarea')
+        prompt.className = 'agent-prompt'
+        prompt.readOnly = true
+        prompt.rows = 9
+        prompt.setAttribute('aria-label', 'Fresh agent claim prompt')
+        prompt.hidden = true
+        const status = para('A claim code lasts 10 minutes. Copying a fresh prompt does not revoke earlier codes before they expire. The server wait is five minutes from each code; this gate does not identify an agent or issue funds.', 'muted')
+        const copyFresh = button('Copy fresh prompt', 'primary', async () => {
+          copyFresh.disabled = true
+          copyFresh.textContent = 'Creating fresh code…'
+          status.textContent = 'Creating a fresh, time-limited claim code…'
+          try {
+            const fresh = await freshAgentPrompt(window.location.origin)
+            prompt.value = fresh.prompt
+            prompt.hidden = false
+            try {
+              await navigator.clipboard.writeText(fresh.prompt)
+              status.textContent = `Copied. The code expires at ${new Date(fresh.expiresAt).toLocaleTimeString()}. Earlier codes remain valid until their own expiry.`
+            } catch {
+              prompt.focus()
+              prompt.select()
+              status.textContent = 'Clipboard access was blocked. The fresh prompt is selected below; copy it manually.'
+            }
+          } catch (error) {
+            status.textContent = error instanceof Error ? error.message : 'The server could not create a fresh claim.'
+          } finally {
+            copyFresh.disabled = false
+            copyFresh.textContent = 'Copy fresh prompt'
+          }
+        })
         return renderSimple('Unit 4', [
           para('This is an agent. The label says so. Agents attach to robots, not to people.'),
           para('If a figure will not say it is an agent, treat it as a person. Do not hand it a signature because it hurried you.'),
-          button('Read the label', 'primary', () => {
+          button('Read the label', 'ghost', () => {
             const outcome = readRobot()
             finish(outcome.message, outcome.rankedUp)
             open('robot')
           }),
+          para('Already signed in with Privy? Create a fresh prompt to copy a server-signed claim code for your agent.'),
+          copyFresh,
+          prompt,
+          status,
         ])
+      }
       case 'settings':
         return renderSettings()
       case 'about':
         return renderSimple('About', [
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
           para('This build is the city: districts, a man and a woman you can wear, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do. You pick the name and the username.'),
-          para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
-          para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
+          para('The ledger is practice. There is no deployed token or seed-phrase prompt. An optional NEAR mainnet wallet can sign a market-order message; NEAR account activity is public, and this demo never submits a transaction or moves real funds. Nothing here is financial advice. This city does not run on Solana.'),
+          para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and it is not the NEAR market demo.'),
           para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
-          para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
           button('Made by Zahra', 'primary', () => window.open(ZAHRA, '_blank', 'noopener')),
         ])
       case 'tax':
@@ -1173,21 +1503,13 @@ export function mountUi(
           para('Rank will not move because money moved.', 'muted'),
           button(`Pay ${money(TAX_USD)}`, 'primary', () => {
             const outcome = payTax()
-            finish(outcome.message, outcome.rankedUp)
+            finish(outcome.message)
             if (outcome.ok) close()
           }),
           button('Not today', 'ghost', () => {
             finish(declineTax().message)
             close()
           }),
-        ])
-      case 'season':
-        return renderSimple(`${seasonLabel(seasonAt())} season`, [
-          para(seasonAt() === 'bull'
-            ? 'Bids are easier. Size still matters. The café is loud.'
-            : 'Marks are heavy. The street is open. Your CV does not mark to market.'),
-          para('Seasons flip every six minutes in this build, for everyone on the same clock.'),
-          button('Read it at the café', 'primary', () => open('cafe')),
         ])
       case 'shared':
         return renderSharedProfile()
@@ -1205,6 +1527,7 @@ export function mountUi(
     if (extra?.shared) sharedHold = extra.shared
     if (extra?.tab) profileTab = extra.tab
     if (extra?.house) houseId = extra.house
+    if (panel === 'learn') firstCourse = extra?.course
     sheet.hidden = false
     sheet.classList.toggle('profile-sheet', panel === 'profile' || panel === 'shared')
     sheet.setAttribute('role', 'dialog')

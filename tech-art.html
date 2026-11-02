@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#211b22" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Grind District mobile lighting, material, and shadow test scene." />
+    <title>Grind District · Art Lab</title>
+  </head>
+  <body class="art-lab">
+    <canvas id="art-view" aria-label="Interactive 3D workshop test scene"></canvas>
+    <main class="art-panel">
+      <p class="art-kicker">GRIND DISTRICT · TECH ART</p>
+      <h1>Workshop light test</h1>
+      <p class="art-description">A small furnished room for checking warm practical lighting, stylized materials, shadows and mobile render cost.</p>
+      <label class="art-control">
+        Graphics preset
+        <select id="quality">
+          <option value="low">Low · no shadows</option>
+          <option value="medium" selected>Medium · compact shadows</option>
+          <option value="high">High · full test lighting</option>
+        </select>
+      </label>
+      <label class="art-control">
+        Exposure <span id="exposure-value">1.00</span>
+        <input id="exposure" type="range" min="0.7" max="1.35" step="0.01" value="1" />
+      </label>
+      <p class="art-stats"><span id="fps">— FPS</span><span id="device">WebGL</span></p>
+      <p class="art-hint">Drag to orbit · pinch or scroll to zoom</p>
+    </main>
+    <div class="art-tag">LIGHT · MATERIAL · MOTION</div>
+    <script type="module" src="/src/tech-art.ts"></script>
+  </body>
+</html>

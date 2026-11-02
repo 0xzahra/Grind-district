@@ -2,21 +2,22 @@ import '@fontsource/archivo-black/400.css'
 import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
 import * as THREE from 'three'
-import { createAvatar, type Avatar } from './avatars.ts'
+import { createAvatar, setAvatarGraphics, type Avatar } from './avatars.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeProfileHash, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { decodeProfileHash, rankFor, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyPrefs } from './prefs.ts'
+import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
+import { attachPrivy, getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -25,20 +26,18 @@ import './profile.css'
 
 const WALK = 2.7
 const RUN = 5.5
+const fontsReady = Promise.race([
+  Promise.all([
+    document.fonts.load('72px "Archivo Black"'),
+    document.fonts.load('32px Outfit'),
+  ]),
+  new Promise<void>((resolve) => setTimeout(resolve, 1800)),
+])
 
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
   if (!node) throw new Error(`Missing ${selector}`)
   return node
-}
-
-function isUnder(root: THREE.Object3D, obj: THREE.Object3D): boolean {
-  let current: THREE.Object3D | null = obj
-  while (current) {
-    if (current === root) return true
-    current = current.parent
-  }
-  return false
 }
 
 async function loadTexture(url: string): Promise<THREE.Texture> {
@@ -65,8 +64,9 @@ function glProbe(attributes: WebGLContextAttributes): boolean {
 }
 
 function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
+  const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900
   const tries: WebGLContextAttributes[] = [
-    { antialias: true, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false },
+    { antialias: !mobile, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false },
     { antialias: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false },
     { antialias: false, failIfMajorPerformanceCaveat: false },
   ]
@@ -127,13 +127,8 @@ async function main(onReveal: () => void) {
   )
   hint.textContent = hintCopy()
 
-  await Promise.race([
-    Promise.all([
-      document.fonts.load('72px "Archivo Black"'),
-      document.fonts.load('32px Outfit'),
-    ]),
-    new Promise((resolve) => setTimeout(resolve, 1800)),
-  ])
+  // Start loading these while the title screen is visible, not after Enter is pressed.
+  await fontsReady
 
   const renderer = createRenderer(canvas)
   if (!renderer) {
@@ -198,7 +193,7 @@ async function main(onReveal: () => void) {
 
   const applyLook = () => {
     const time = getSave().timeOfDay
-    world.setLook({ time, season: seasonAt() })
+    world.setLook({ time })
     dayPhase = phaseFor(time)
     world.setDaylight(dayPhase)
     renderer.toneMappingExposure = 1.0
@@ -206,9 +201,13 @@ async function main(onReveal: () => void) {
   const applyGraphics = () => {
     const graphics = getSave().graphics
     const dpr = window.devicePixelRatio || 1
-    const ratio = graphics === 'low' ? 1 : Math.min(dpr, 2)
-    renderer.setPixelRatio(ratio)
+    const mobile = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900
+    const ratioLimit = graphics === 'low' ? 1 : graphics === 'medium' ? (mobile ? 1.25 : 1.5) : (mobile ? 1.5 : 2)
+    renderer.setPixelRatio(Math.min(dpr, ratioLimit))
     const shadows = graphics !== 'low'
+    world.setGraphics(graphics)
+    setAvatarGraphics(avatar, graphics)
+    crowd.setGraphics(graphics)
     renderer.shadowMap.enabled = shadows
     world.sun.castShadow = shadows
     const size = graphics === 'high' ? 2048 : 1024
@@ -223,6 +222,7 @@ async function main(onReveal: () => void) {
     const save = getSave()
     scene.remove(avatar.object)
     avatar = createAvatar(save.body, save.tint, save.luxury)
+    setAvatarGraphics(avatar, save.graphics)
     avatar.object.position.set(pos.x, 0, pos.z)
     avatar.setMask(save.mask)
     if (wearsPlate(save.body)) tagPlayer(avatar.object, save.name, save.username)
@@ -238,7 +238,6 @@ async function main(onReveal: () => void) {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
     ledger: must('#pill-ledger'),
-    season: must('#pill-season'),
     focus: must('#pill-focus'),
   }, {
     onStyle: () => {
@@ -253,16 +252,31 @@ async function main(onReveal: () => void) {
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
+    onTopupLogin: async () => {
+      const outcome = await loginWithPrivy()
+      return outcome.ok ? attachPrivy(outcome.id) : outcome
+    },
+    onTopupLinkWallet: async () => {
+      return linkWalletWithPrivy()
+    },
+    onTopupBalance: async () => {
+      const { getTopupBalance } = await import('./topup.ts')
+      return getTopupBalance()
+    },
+    onTopupVerify: async (hash) => {
+      const { verifyTopup } = await import('./topup.ts')
+      return verifyTopup(hash)
+    },
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
+  must('#nav-topup').addEventListener('click', () => ui.open('topup'))
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   map.addEventListener('click', () => ui.open('city'))
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
-  must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#shot').addEventListener('click', () => {
     renderer.render(scene, camera)
     try {
@@ -354,7 +368,6 @@ async function main(onReveal: () => void) {
   let revealed = false
   let failed = false
   let elapsed = 0
-  let season = seasonAt()
   let saveAcc = 0
   let taxLatch = false
   let crowdObstacles: Obstacle[] = []
@@ -390,14 +403,10 @@ async function main(onReveal: () => void) {
     rayDirection.multiplyScalar(1 / dist)
     raycaster.set(origin, rayDirection)
     raycaster.far = dist
-    const hits = raycaster.intersectObjects(scene.children, true)
-    for (const hit of hits) {
-      if (hit.object.userData.ghost) continue
-      if (isUnder(avatar.object, hit.object)) continue
-      const travel = Math.max(0.7, hit.distance - 0.45)
-      return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
-    }
-    return pulledCam.copy(desired)
+    const hit = raycaster.intersectObjects(world.cameraBlockers, false)[0]
+    if (!hit) return pulledCam.copy(desired)
+    const travel = Math.max(0.7, hit.distance - 0.45)
+    return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
   }
 
   const showSpot = (next: Hotspot | null) => {
@@ -423,14 +432,7 @@ async function main(onReveal: () => void) {
   }
 
   const update = (dt: number) => {
-    const now = Date.now()
-    tickMarket(dt, now)
-    const nextSeason = seasonAt(now)
-    if (nextSeason !== season) {
-      season = nextSeason
-      applyLook()
-      ui.refresh()
-    }
+    tickMarket(dt)
     crowdObstacles = crowd.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
@@ -585,10 +587,7 @@ async function main(onReveal: () => void) {
     }
   }
 
-  await Promise.race([
-    renderer.compileAsync(scene, camera),
-    new Promise((resolve) => setTimeout(resolve, 4000)),
-  ])
+  scene.updateMatrixWorld(true)
   let last = performance.now()
   const frame = (now: number) => {
     requestAnimationFrame(frame)
