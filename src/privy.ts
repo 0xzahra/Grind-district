@@ -111,7 +111,7 @@ function ensurePrivy(appId: string): Promise<void> {
       createElement(PrivyProvider, {
         appId,
         config: {
-          loginMethods: ['google', 'twitter'],
+          loginMethods: ['email'],
           appearance: {
             theme: 'dark',
             accentColor: '#1af38f',

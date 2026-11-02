@@ -21,7 +21,8 @@ if (fresh) {
   const ready = checkFirstEarnClaim(fresh.code, secret, now + FIRST_EARN_WAIT_SECONDS * 1000)
   check(ready.ok && ready.eligible && ready.waitSeconds === 0, 'claim passes after the server wait')
   check(checkFirstEarnClaim(fresh.code, 'different-secret', now).ok === false, 'claim signature is bound to the server secret')
-  const tampered = `${fresh.code.slice(0, -1)}${fresh.code.endsWith('a') ? 'b' : 'a'}`
+  const [encoded = '', signed = ''] = fresh.code.split('.')
+  const tampered = `${encoded[0] === 'a' ? 'b' : 'a'}${encoded.slice(1)}.${signed}`
   check(checkFirstEarnClaim(tampered, secret, now).ok === false, 'tampered claims are rejected')
   check(checkFirstEarnClaim(fresh.code, secret, now + AGENT_CLAIM_TTL_SECONDS * 1000).ok === false, 'expired claims are rejected')
   check(checkFirstEarnClaim(fresh.code, secret, now - 1_000).ok === false, 'future-issued claims are rejected')

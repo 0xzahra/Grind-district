@@ -17,6 +17,7 @@
   <body>
     <div id="app">
       <canvas id="view" aria-label="Grind District. Walk with the keyboard or the on-screen stick."></canvas>
+      <canvas id="menu-preview" aria-hidden="true"></canvas>
       <div id="hud">
         <h1 class="sr-only">Grind District</h1>
         <header>
@@ -65,20 +66,28 @@
       </div>
       <div id="sheet" hidden></div>
       <div id="menu">
-        <div id="menu-home">
-          <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
-          <p class="tag">No tribe. No continent. Just come grind.</p>
-          <nav class="menu-actions" aria-label="Game menu">
-            <button id="privy-login" type="button">Sign in with Google or X</button>
-            <button id="play" type="button" class="primary" autofocus>Enter the district</button>
-            <button id="menu-how" type="button">How to play</button>
-            <button id="menu-city" type="button">The city</button>
-            <button id="menu-courses" type="button">Courses</button>
-            <button id="menu-credits" type="button">Credits</button>
-          </nav>
-          <p id="menu-note">You start as a shrimp. Pick a name and a username, then walk in. The practice ledger is empty. Rank follows the work.</p>
-        </div>
-        <div id="menu-signup" hidden>
+        <div id="menu-panel">
+          <div id="menu-home">
+            <img class="lockup" src="/brand/lockup.png" alt="Grind District" />
+            <p id="menu-intro">A Web3 life-simulation game. Live in one shared 3D city, learn real on-chain skills, and climb from shrimp to whale.</p>
+            <p class="tag">No tribe, no continent, just come and grind.</p>
+            <nav class="menu-actions" aria-label="Game menu">
+              <button id="play" type="button" class="primary" autofocus>Enter the district</button>
+              <button id="menu-agents" type="button">Agents</button>
+            </nav>
+            <p id="menu-note">Welcome back.</p>
+          </div>
+          <div id="menu-account" hidden>
+            <h2>Enter the district</h2>
+            <p>Sign in with an email code to keep your username, rank and CV on any device. Or play as a guest and save later.</p>
+            <p id="account-error" class="menu-error" hidden></p>
+            <nav class="menu-actions" aria-label="Account options">
+              <button id="account-existing" type="button" class="primary">Sign in with email</button>
+              <button id="account-new" type="button">Play as a guest</button>
+              <button id="account-back" type="button">Back</button>
+            </nav>
+          </div>
+          <div id="menu-signup" hidden>
           <h2>Pick a name</h2>
           <p>The city does not assign one. The name goes on your plate. The username is the handle on your profile.</p>
           <form id="signup-form">
@@ -106,10 +115,11 @@
           </form>
           <button id="signup-back" type="button">Back</button>
         </div>
-        <div id="menu-page" hidden>
-          <h2 id="menu-page-title"></h2>
-          <div id="menu-page-body"></div>
-          <button id="menu-back" type="button">Back</button>
+          <div id="menu-page" hidden>
+            <h2 id="menu-page-title"></h2>
+            <div id="menu-page-body"></div>
+            <button id="menu-back" type="button">Back</button>
+          </div>
         </div>
       </div>
       <div id="boot" class="hidden" role="status" aria-hidden="true">

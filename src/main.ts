@@ -15,6 +15,7 @@ import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyPrefs } from './prefs.ts'
 import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
+import { startPreview } from './preview.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { attachPrivy, getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
@@ -448,7 +449,7 @@ async function main(onReveal: () => void) {
     ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()
-    const paused = ui.isOpen()
+    const paused = ui.isOpen() || document.body.classList.contains('menu-open')
     if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
@@ -624,12 +625,38 @@ async function main(onReveal: () => void) {
 }
 
 const menu = must<HTMLElement>('#menu')
+const menuHome = must<HTMLElement>('#menu-home')
+const menuAccount = must<HTMLElement>('#menu-account')
+const menuSignup = must<HTMLElement>('#menu-signup')
+const menuPage = must<HTMLElement>('#menu-page')
+const previewCanvas = must<HTMLCanvasElement>('#menu-preview')
 const play = must<HTMLButtonElement>('#play')
 const menuNote = must<HTMLParagraphElement>('#menu-note')
 let opening = false
+let previewStopped = false
+let stopPreview: (() => void) | null = null
+
+function startMenuPreview() {
+  previewStopped = false
+  previewCanvas.hidden = false
+  void startPreview(previewCanvas).then((stop) => {
+    if (previewStopped) stop()
+    else stopPreview = stop
+  }).catch(() => {
+    previewCanvas.hidden = true
+  })
+}
+
+function stopMenuPreview() {
+  previewStopped = true
+  stopPreview?.()
+  stopPreview = null
+}
 
 function revealCity() {
   menu.hidden = true
+  previewCanvas.hidden = true
+  document.body.classList.remove('menu-open')
   const boot = document.querySelector('#boot')
   if (boot) {
     boot.classList.add('hidden')
@@ -640,7 +667,7 @@ function revealCity() {
 async function begin() {
   if (opening) return
   opening = true
-  prepareAssets()
+  stopMenuPreview()
   play.disabled = true
   play.textContent = 'Opening the district'
   menuNote.textContent = ''
@@ -651,14 +678,20 @@ async function begin() {
     play.disabled = false
     play.textContent = 'Enter the district'
     menu.hidden = false
+    menuHome.hidden = false
+    menuAccount.hidden = true
+    menuSignup.hidden = true
+    menuPage.hidden = true
+    document.body.classList.add('menu-open')
     menuNote.textContent = error instanceof Error ? error.message : 'The city could not open.'
   }
 }
 
+document.body.classList.add('menu-open')
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
-
 mountMenu(() => {
   void begin()
 })
-
 play.focus()
+void prepareAssets()
+startMenuPreview()

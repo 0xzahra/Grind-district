@@ -4,7 +4,7 @@ type ClaimResponse = { code?: string; expiresAt?: string; error?: string }
 
 export async function freshAgentPrompt(origin: string): Promise<{ prompt: string; expiresAt: string }> {
   const token = await currentPrivyAccessToken()
-  if (!token) throw new Error('Sign in with Google or X, then open Unit 4 again to create a claim.')
+  if (!token) throw new Error('Sign in with email through Privy, then open Unit 4 again to create a claim.')
 
   const response = await fetch('/api/agents/claim', {
     method: 'POST',

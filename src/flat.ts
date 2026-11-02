@@ -461,7 +461,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
     tickMarket(dt)
     ui.setPlace(districtName(pos.x, pos.z))
     const frame = input.read()
-    const paused = ui.isOpen()
+    const paused = ui.isOpen() || document.body.classList.contains('menu-open')
     if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
     if (!paused && frame.tap) {
       const scale = viewScale()

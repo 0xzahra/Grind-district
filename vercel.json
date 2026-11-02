@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/**/*.ts": {
-      "includeFiles": "server/**/*.ts"
+      "includeFiles": "{server/**/*.ts,src/topup-config.ts}"
     }
   }
 }
