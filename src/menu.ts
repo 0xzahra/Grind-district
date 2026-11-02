@@ -1,7 +1,7 @@
 import { COURSES } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
-import { privyConfigured } from './privy-config.ts'
+import { loginWithPrivy, privyConfigured } from './privy.ts'
 import { attachPrivy, getSave, signUp } from './state.ts'
 
 type Page = 'how' | 'city' | 'courses' | 'credits'
@@ -67,7 +67,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
         copy('Grind District is made by Zahra.'),
         copy('Signup asks for a name, a username, and a body. The man has blonde hair, glasses, and a grey suit. The woman has longer hair and a fitted coat. Both are original. The boutique can change the body later.'),
         copy('Masks in the boutique use the names CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The shapes are Grind District cuts, not the licensed artwork.'),
-        copy('Login can use Privy email. The city still asks for a name, a username, and a body. The optional top-up page links a depositing wallet through Privy; the city never asks for a seed phrase. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
+        copy('Login can use Privy email. The city still asks for a name, a username, and a body. It does not ask for a wallet or a seed phrase. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
         copy('Market Velocity is the theme. It loops at three minutes and stays paused until you press play.'),
       )
       return { title: 'Credits', body }
@@ -130,7 +130,6 @@ export function mountMenu(enter: () => void): void {
       play.disabled = true
       const previous = play.textContent
       play.textContent = 'Opening Privy'
-      const { loginWithPrivy } = await import('./privy.ts')
       const outcome = await loginWithPrivy()
       play.disabled = false
       play.textContent = previous

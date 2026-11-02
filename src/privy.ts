@@ -1,7 +1,14 @@
 import { createElement, useEffect, useRef, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { PrivyProvider, useLogin, usePrivy } from '@privy-io/react-auth'
-import { privyAppId } from './privy-config.ts'
+
+export function privyAppId(): string {
+  return (import.meta.env.VITE_PRIVY_APP_ID ?? '').trim()
+}
+
+export function privyConfigured(): boolean {
+  return privyAppId().length > 0
+}
 
 type Pending = {
   resolve: (id: string) => void
@@ -122,18 +129,6 @@ function ensurePrivy(appId: string): Promise<void> {
   return booted
 }
 
-async function waitForPrivy(appId: string): Promise<void> {
-  let timer = 0
-  try {
-    await Promise.race([
-      ensurePrivy(appId),
-      new Promise<void>((resolve) => { timer = window.setTimeout(resolve, 8000) }),
-    ])
-  } finally {
-    window.clearTimeout(timer)
-  }
-}
-
 export async function loginWithPrivy(): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const appId = privyAppId()
   if (!appId) {
@@ -155,6 +150,18 @@ export async function loginWithPrivy(): Promise<{ ok: true; id: string } | { ok:
   }).catch((error: unknown) => (typeof error === 'string' ? error : 'Privy could not log in.'))
   if (!id.startsWith('did:privy:')) return { ok: false, error: id }
   return { ok: true, id }
+}
+
+async function waitForPrivy(appId: string): Promise<void> {
+  let timer = 0
+  try {
+    await Promise.race([
+      ensurePrivy(appId),
+      new Promise<void>((resolve) => { timer = window.setTimeout(resolve, 8000) }),
+    ])
+  } finally {
+    window.clearTimeout(timer)
+  }
 }
 
 export async function getPrivyAccessToken(): Promise<string | null> {

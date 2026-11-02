@@ -21,7 +21,6 @@ import {
   sharedText,
 } from './logic.ts'
 import { blocked, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, loadSave, postBounty, readRobot, resetProgress, signUp, submitCourse } from './state.ts'
 
 let failed = 0
 
@@ -125,23 +124,6 @@ const insideVel = { x: 0, z: 0 }
 resolveCollision(inside, insideVel, [{ kind: 'box', x: 0, z: 0, hx: 2, hz: 2 }], 0.4)
 check(Math.abs(inside.x) > 2 || Math.abs(inside.z) > 2, 'a box ejects a player stuck inside')
 check(blocked([{ kind: 'circle', x: 0, z: 0, r: 1 }], 0, 0, 0.4), 'spawn check sees the fountain')
-
-loadSave('low')
-check(signUp('Reef Lane', 'reef_01', 'player').ok && getSave().campusGuidePending, 'signup enables the first-campus guide')
-const spotAnswers = courseById('spot')?.questions.map((question) => question.answer) ?? []
-const firstSpot = submitCourse('spot', spotAnswers)
-check(firstSpot.ok && !getSave().campusGuidePending, 'passing Spot completes the first-campus guide')
-check(getSave().ledger === 25 && getSave().earnings === 1 && getSave().activities.some((item) => item.label === 'Campus stipend'), 'first Spot pass records one practice stipend and activity')
-const repeatSpot = submitCourse('spot', spotAnswers)
-check(!repeatSpot.ok && repeatSpot.already === true && getSave().ledger === 25, 'Spot stipend cannot be earned twice')
-const bounty = postBounty('I documented the exact practice work I completed today.')
-check(!bounty.already && getSave().ledger === 37 && getSave().earnings === 2, 'a bounty records its practice earn')
-const secondBounty = postBounty('I documented another practice task I completed today.')
-check(secondBounty.already && getSave().ledger === 37, 'only one bounty is paid each day')
-const robotRead = readRobot()
-check(!robotRead.already && readRobot().already, 'Unit 4 label lesson records once')
-resetProgress()
-check(getSave().campusGuidePending && getSave().seenIntro, 'reset starts the campus guide without replaying the intro')
 
 if (failed) throw new Error(`${failed} checks failed`)
 console.log('logic checks passed')

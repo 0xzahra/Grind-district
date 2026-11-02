@@ -4,6 +4,7 @@ import { HOUSES, type HouseId } from './houses.ts'
 import { createInput } from './input.ts'
 import { drawMinimap } from './minimap.ts'
 import { applyPrefs } from './prefs.ts'
+import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
 import type { DroneId, MaskId, PanelId } from './logic.ts'
 import { decodeShare, seasonAt } from './logic.ts'
 import { bindMusic } from './music.ts'
@@ -99,7 +100,6 @@ function citySpots(): Spot[] {
     { id: 'net', ...net, r: 2.3, title: 'Internet café', body: 'Same board as campus, closer to the row.', action: 'cafe', enter: 'Read the room' },
     { id: 'climate', ...desk, r: 2.3, title: 'Carbon desk', body: 'Back a project with practice funds. It records the pledge.', action: 'climate', enter: 'The desk' },
     { id: 'gadgets', ...at(blocks.length - 1, 'pz'), r: 2.2, title: 'Gadgets', body: 'Scout, courier, and halo. A drone follows you. Practice funds.', action: 'gadgets', enter: 'Open the case' },
-    { id: 'robot', x: 10, z: 7.6, r: 2.8, title: 'Unit 4 · Agent', body: 'Read the label. This is an educational interaction, not an agent claim.', action: 'robot', enter: 'Read the label' },
     { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Prayer space', body: 'A ring of stones and no questions. Sitting puts focus on your next course.', action: 'prayer', enter: 'Sit' },
     { id: 'ring', x: 0, z: 0, r: 4.4, title: 'The Grind Ring', body: 'Same stone for a shrimp and a whale. No tribe. No continent. Just come grind.' },
     { id: 'ladder', x: -9, z: -8, r: 2.3, title: 'The ladder', body: 'Shrimp, crab, fish, dolphin, shark, whale. Skill and the days you return.' },
@@ -151,8 +151,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
   const map = must<HTMLCanvasElement>('#map')
   const sheet = must<HTMLElement>('#sheet')
   const toast = must<HTMLElement>('#toast')
-  const campusGuide = must<HTMLElement>('#campus-guide')
-  const guideCampusButton = must<HTMLButtonElement>('#guide-campus')
   const context = canvas.getContext('2d')
   if (!context) throw new Error('This browser could not open the city map.')
   document.body.classList.add('flat')
@@ -175,16 +173,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
   let faceX = 0
   let faceZ = -1
   let target: { x: number; z: number } | null = null
-  let targetQueue: { x: number; z: number }[] = []
   let stuck = 0
   let prevDist = Infinity
-  let guidedCourseOpened = !getSave().campusGuidePending
-  const guideToCampus = () => {
-    targetQueue = [{ x: 7.5, z: 8 }, { x: 7.5, z: -39 }, { x: 0, z: -40 }]
-    target = targetQueue.shift() ?? null
-    stuck = 0
-    prevDist = Infinity
-  }
   let traveled = 0
   let activeSpot: string | null = null
   let spot: Spot | null = null
@@ -209,15 +199,11 @@ export async function startFlat(onReady: () => void): Promise<void> {
     onGraphics: () => undefined,
     onPrefs: applyPrefs,
     onRank: () => undefined,
-    onCampusGuide: guideToCampus,
     onTopupLogin: async () => {
-      const { loginWithPrivy } = await import('./privy.ts')
       const outcome = await loginWithPrivy()
-      if (!outcome.ok) return outcome
-      return attachPrivy(outcome.id)
+      return outcome.ok ? attachPrivy(outcome.id) : outcome
     },
     onTopupLinkWallet: async () => {
-      const { linkWalletWithPrivy } = await import('./privy.ts')
       return linkWalletWithPrivy()
     },
     onTopupBalance: async () => {
@@ -229,7 +215,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
       return verifyTopup(hash)
     },
   })
-  guideCampusButton.addEventListener('click', guideToCampus)
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
   must('#nav-topup').addEventListener('click', () => ui.open('topup'))
@@ -458,23 +443,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
     drawPerson(context, scale, worn.body, worn.mask, mark)
     if (worn.drone !== 'none') drawDrone(context, scale, worn.drone)
     context.restore()
-    if (getSave().campusGuidePending) {
-      const campus = project(0, -40)
-      const pulse = document.body.classList.contains('reduce-motion') ? 1 : 0.8 + Math.sin(elapsed * 4) * 0.15
-      context.save()
-      context.translate(campus.x, campus.y)
-      context.scale(pulse, pulse)
-      context.strokeStyle = '#1af38f'
-      context.lineWidth = Math.max(3, scale * 0.2)
-      context.beginPath()
-      context.arc(0, 0, Math.max(12, scale * 0.9), 0, Math.PI * 2)
-      context.stroke()
-      context.fillStyle = '#1af38f'
-      context.font = `700 ${Math.max(12, Math.min(20, scale * 0.38))}px Outfit, sans-serif`
-      context.textAlign = 'center'
-      context.fillText('CAMPUS', 0, -Math.max(16, scale * 1.1))
-      context.restore()
-    }
     for (const citizen of citizens) drawCitizen(context, project, scale, citizen)
   }
 
@@ -501,13 +469,11 @@ export async function startFlat(onReady: () => void): Promise<void> {
       ui.refresh()
     }
     ui.setPlace(districtName(pos.x, pos.z))
-    campusGuide.hidden = !getSave().campusGuidePending
     const frame = input.read()
     const paused = ui.isOpen()
     if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
     if (!paused && frame.tap) {
       const scale = viewScale()
-      targetQueue = []
       target = {
         x: pos.x + frame.tap.nx * (canvas.width / 2) / scale,
         z: pos.z - frame.tap.ny * (canvas.height / 2) / scale,
@@ -520,26 +486,17 @@ export async function startFlat(onReady: () => void): Promise<void> {
     let wishX = 0
     let wishZ = 0
     const directed = !paused && Math.hypot(frame.x, frame.y) > 0.06
-    if (paused) {
-      target = null
-      targetQueue = []
-    } else if (directed) {
+    if (paused) target = null
+    else if (directed) {
       wishX = frame.x
       wishZ = -frame.y
       target = null
-      targetQueue = []
     } else if (target) {
       const dx = target.x - pos.x
       const dz = target.z - pos.z
       const dist = Math.hypot(dx, dz)
-      if (dist < 0.35) {
-        target = targetQueue.shift() ?? null
-        stuck = 0
-        prevDist = Infinity
-      } else if (stuck > 0.7) {
-        target = null
-        targetQueue = []
-      } else {
+      if (dist < 0.35 || stuck > 0.7) target = null
+      else {
         wishX = dx / dist
         wishZ = dz / dist
         if (dist > prevDist - 0.004) stuck += dt
@@ -580,10 +537,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
       }
     }
     showSpot(best)
-    if (!paused && best?.id === 'learn' && getSave().campusGuidePending && !guidedCourseOpened) {
-      guidedCourseOpened = true
-      ui.open('learn', { course: 'spot' })
-    }
     if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true
       ui.open('tax')
