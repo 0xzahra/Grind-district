@@ -111,7 +111,7 @@ function ensurePrivy(appId: string): Promise<void> {
       createElement(PrivyProvider, {
         appId,
         config: {
-          loginMethods: ['email'],
+          loginMethods: ['google', 'twitter'],
           appearance: {
             theme: 'dark',
             accentColor: '#1af38f',
@@ -150,6 +150,14 @@ export async function loginWithPrivy(): Promise<{ ok: true; id: string } | { ok:
   }).catch((error: unknown) => (typeof error === 'string' ? error : 'Privy could not log in.'))
   if (!id.startsWith('did:privy:')) return { ok: false, error: id }
   return { ok: true, id }
+}
+
+export async function currentPrivyAccessToken(): Promise<string | null> {
+  try {
+    return (await readToken?.()) ?? null
+  } catch {
+    return null
+  }
 }
 
 async function waitForPrivy(appId: string): Promise<void> {

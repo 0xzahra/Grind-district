@@ -1,5 +1,6 @@
 import { COURSES } from './courses.ts'
 import { logoutPrivy } from './privy.ts'
+import { freshAgentPrompt } from './agent-claim.ts'
 import { connectNearMainnet, disconnectNearMainnet, signNearMarketOrder } from './near.ts'
 import { nearMarketOrderMessage, quoteNpcMarket } from './near-economy.ts'
 import { GUIDE } from './guide.ts'
@@ -76,7 +77,7 @@ import {
 } from './state.ts'
 
 type Tab = 'today' | 'cv' | 'resume' | 'portfolio' | 'books'
-type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId }
+type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId; course?: SkillId }
 
 type TopupBalanceResult = { ok: true; balanceMicros: string } | { ok: false; error: string }
 type TopupVerifyResult = { ok: true; creditedMicros: string; balanceMicros: string; alreadyProcessed: boolean } | { ok: false; error: string }
@@ -453,6 +454,8 @@ export function mountUi(
     return row
   }
 
+  let firstCourse: SkillId | undefined
+
   const renderLearn = (): HTMLElement => {
     const body = document.createElement('div')
     body.className = 'stack'
@@ -516,7 +519,13 @@ export function mountUi(
       wrap.append(submit, result, advice())
       body.replaceChildren(wrap)
     }
-    showList()
+    if (firstCourse) {
+      const course = firstCourse
+      firstCourse = undefined
+      showCourse(course)
+    } else {
+      showList()
+    }
     return frame('Learning hall', body)
   }
 
@@ -1064,10 +1073,14 @@ export function mountUi(
   const render = (panel: PanelId): HTMLElement => {
     switch (panel) {
       case 'intro':
-        return renderSimple('You start at zero', [
-          para('You are a shrimp in a shared city. The practice ledger is empty. Rank does not read it.'),
-          para('Walk north to the learning hall, or east to the houses. Music stays off until you want Market Velocity.'),
-          button("I'm here", 'primary', close),
+        return renderSimple('Your first stop: Learning Campus', [
+          para('1 · From the plaza, walk north through the Campus arch to the mint Learning Hall door. Press E or the Enter button to open it. You can also use Learn in the top navigation.'),
+          para('2 · Start with Spot. Read the short lesson, answer four exercises, and check your work. A pass files your CV and adds XP; the first Spot pass also adds $25 of practice funds, not cash.'),
+          button('Open the first course · Spot', 'primary', () => {
+            dismissIntro()
+            open('learn', { course: 'spot' })
+          }),
+          button("I'll walk there", 'ghost', close),
         ])
       case 'profile':
         return renderProfile()
@@ -1170,16 +1183,51 @@ export function mountUi(
           }),
           para('The note is the last line: a course, a bounty, or a pledge. A balance is not the proof.', 'muted'),
         ])
-      case 'robot':
+      case 'robot': {
+        const prompt = document.createElement('textarea')
+        prompt.className = 'agent-prompt'
+        prompt.readOnly = true
+        prompt.rows = 9
+        prompt.setAttribute('aria-label', 'Fresh agent claim prompt')
+        prompt.hidden = true
+        const status = para('A claim code lasts 10 minutes. Copying a fresh prompt does not revoke earlier codes before they expire. The server wait is five minutes from each code; this gate does not identify an agent or issue funds.', 'muted')
+        const copyFresh = button('Copy fresh prompt', 'primary', async () => {
+          copyFresh.disabled = true
+          copyFresh.textContent = 'Creating fresh code…'
+          status.textContent = 'Creating a fresh, time-limited claim code…'
+          try {
+            const fresh = await freshAgentPrompt(window.location.origin)
+            prompt.value = fresh.prompt
+            prompt.hidden = false
+            try {
+              await navigator.clipboard.writeText(fresh.prompt)
+              status.textContent = `Copied. The code expires at ${new Date(fresh.expiresAt).toLocaleTimeString()}. Earlier codes remain valid until their own expiry.`
+            } catch {
+              prompt.focus()
+              prompt.select()
+              status.textContent = 'Clipboard access was blocked. The fresh prompt is selected below; copy it manually.'
+            }
+          } catch (error) {
+            status.textContent = error instanceof Error ? error.message : 'The server could not create a fresh claim.'
+          } finally {
+            copyFresh.disabled = false
+            copyFresh.textContent = 'Copy fresh prompt'
+          }
+        })
         return renderSimple('Unit 4', [
           para('This is an agent. The label says so. Agents attach to robots, not to people.'),
           para('If a figure will not say it is an agent, treat it as a person. Do not hand it a signature because it hurried you.'),
-          button('Read the label', 'primary', () => {
+          button('Read the label', 'ghost', () => {
             const outcome = readRobot()
             finish(outcome.message, outcome.rankedUp)
             open('robot')
           }),
+          para('Already signed in with Privy? Create a fresh prompt to copy a server-signed claim code for your agent.'),
+          copyFresh,
+          prompt,
+          status,
         ])
+      }
       case 'settings':
         return renderSettings()
       case 'about':
@@ -1230,6 +1278,7 @@ export function mountUi(
     if (extra?.shared) sharedHold = extra.shared
     if (extra?.tab) profileTab = extra.tab
     if (extra?.house) houseId = extra.house
+    if (panel === 'learn') firstCourse = extra?.course
     sheet.hidden = false
     sheet.setAttribute('role', 'dialog')
     sheet.setAttribute('aria-modal', 'true')
