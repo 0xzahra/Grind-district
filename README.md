@@ -1,6 +1,6 @@
 # Grind District
 
-A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses, reps, and consistency. Balance does not move it.
+A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses and practice actions. Balance does not move it.
 
 The tagline is the door: **No tribe. No continent. Just come grind.**
 
@@ -49,7 +49,7 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 - **Shot** saves a picture of the city.
 - **Play theme** starts Market Velocity (3:00, looping). The city stays silent until you press it. Volume is remembered. Playback starts paused each visit.
 
-The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a streak. Skip a day and the streak starts over. Bull and bear seasons flip every six minutes on a shared clock and change the practice books and the café copy. The street still works when the marks fall.
+Daily action limits follow your local calendar day.
 
 ## The city
 
@@ -63,7 +63,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Gym | A timing set. One logged set a day. |
 | Church | Rest counts. One visit a day. |
 | Prayer space | Focus adds a quarter to the next course you pass. |
-| Cafés | Season headlines. Gossip, not a signal. |
+| Cafés | A daily board. Gossip, not a signal. |
 | Carbon desk | A practice pledge. It does not retire a real credit. |
 | The houses | Your house, plus a notes house, a set house, a grove house, and a vacant room on the east row. |
 | Gadgets | Scout, courier, and halo drones. Practice funds. A drone follows you. |
