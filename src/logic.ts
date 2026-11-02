@@ -54,6 +54,7 @@ export type RankId = 'shrimp' | 'crab' | 'fish' | 'dolphin' | 'shark' | 'whale'
 export type PanelId =
   | 'intro'
   | 'profile'
+  | 'topup'
   | 'learn'
   | 'trade'
   | 'trench'
@@ -195,6 +196,7 @@ export type Save = {
   conferenceNoted: boolean
   conference: boolean
   robotRead: boolean
+  campusGuidePending: boolean
   houseClaimed: boolean
   houseVisits: string[]
   gymBest: number
@@ -397,6 +399,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     conferenceNoted: false,
     conference: false,
     robotRead: false,
+    campusGuidePending: false,
     houseClaimed: false,
     houseVisits: [],
     gymBest: 0,
@@ -575,6 +578,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.conferenceNoted = bool(row.conferenceNoted, false)
   fresh.conference = bool(row.conference, false)
   fresh.robotRead = bool(row.robotRead, false)
+  fresh.campusGuidePending = bool(row.campusGuidePending, false)
   fresh.houseClaimed = bool(row.houseClaimed, false)
   fresh.houseVisits = cleanHouseVisits(row.houseVisits)
   fresh.gymBest = num(row.gymBest, 0, 8, 0)

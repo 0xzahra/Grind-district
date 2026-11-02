@@ -135,6 +135,7 @@ export function signUp(name: string, username: string, body: 'player' | 'zuri'):
   save.username = handle
   save.body = body
   save.signedUp = true
+  save.campusGuidePending = true
   persist()
   emit()
   return { ok: true }
@@ -278,6 +279,7 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   if (focused) save.focus = false
   const gained = Math.round(COURSE_XP * (focused ? 1.25 : 1))
   save.skills[id] = { passed: true, tries }
+  if (id === 'spot') save.campusGuidePending = false
   const rankedUp = gainXp(gained + bonus)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')
@@ -572,6 +574,7 @@ export function resetProgress(): void {
   save.body = body
   save.privyId = privyId
   save.seenIntro = true
+  save.campusGuidePending = true
   persist()
   emit()
 }

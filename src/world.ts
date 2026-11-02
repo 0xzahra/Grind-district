@@ -22,6 +22,7 @@ export type World = {
   tick: (time: number, focus: THREE.Vector3) => void
   setLook: (look: { time: TimeOfDay; season: Season }) => void
   setRank: (label: string) => void
+  setCampusGuide: (visible: boolean) => void
   /** Continuous day clock. 0 is midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset. */
   setDaylight: (phase: number) => void
   /** Sidewalk lanes and stop lines for the ambient city. */
@@ -78,10 +79,11 @@ export function createWorld(options: {
   mark: THREE.Texture
   aspect: number
   reduceMotion: boolean
+  guideCampus: boolean
   rankLabel: string
   getSeries: () => Series
 }): World {
-  const { scene, anisotropy, mark, aspect, reduceMotion, getSeries } = options
+  const { scene, anisotropy, mark, aspect, reduceMotion, guideCampus, getSeries } = options
   const obstacles: Obstacle[] = []
   const hotspots: Hotspot[] = []
   const reserved: Obstacle[] = []
@@ -472,6 +474,27 @@ export function createWorld(options: {
   }
 
   const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Learning hall', subtitle: 'courses file themselves', windows: true, seed: 3 })
+  const campusMarker = new THREE.Group()
+  const campusHalo = new THREE.Mesh(
+    new THREE.RingGeometry(0.46, 0.62, 24),
+    new THREE.MeshBasicMaterial({ color: 0x1af38f, transparent: true, opacity: 0.9, side: THREE.DoubleSide, toneMapped: false }),
+  )
+  campusHalo.rotation.x = -Math.PI / 2
+  campusHalo.userData.ghost = true
+  campusHalo.raycast = () => undefined
+  const campusPin = new THREE.Mesh(
+    new THREE.ConeGeometry(0.25, 0.72, 6),
+    new THREE.MeshBasicMaterial({ color: 0x1af38f, toneMapped: false }),
+  )
+  campusPin.rotation.z = Math.PI
+  campusPin.position.y = -0.5
+  campusPin.userData.ghost = true
+  campusPin.raycast = () => undefined
+  campusMarker.add(campusHalo, campusPin)
+  campusMarker.position.set(0, 7.8, -48)
+  campusMarker.visible = guideCampus
+  campusMarker.userData.ghost = true
+  scene.add(campusMarker)
   spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', 'learn', 'Open the hall')
   const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'ninety seconds', windows: true, seed: 5 })
   spot('conference', conference.x, conference.z, 2.3, 'Conference hall', 'One talk. Proof of work, not a slogan. The chairs are real enough.', 'conference', 'Take a seat')
@@ -515,6 +538,7 @@ export function createWorld(options: {
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a project with practice funds. It records the pledge. It does not retire a real tonne.', 'climate', 'The desk')
   const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'drones', windows: true, seed: 47 })
   spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Scout, courier, and halo. A drone follows you. Practice funds.', 'gadgets', 'Open the case')
+  spot('robot', 10, 7.6, 2.8, 'Unit 4 · Agent', 'Read the label. This is an educational interaction, not an agent claim.', 'robot', 'Read the label')
 
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.
@@ -982,6 +1006,9 @@ export function createWorld(options: {
       ladderMap = paintLadder(label)
       ladderMat.map = ladderMap
     },
+    setCampusGuide(visible) {
+      campusMarker.visible = visible
+    },
     tick(time, focus) {
       sun.position.set(focus.x + sunOffset.x, sunOffset.y, focus.z + sunOffset.z)
       sky.position.set(focus.x, 0, focus.z)
@@ -989,6 +1016,7 @@ export function createWorld(options: {
       sun.target.updateMatrixWorld()
       if (!reduceMotion) {
         trim.emissiveIntensity = trimPulse + Math.sin(time * 1.7) * 0.08
+        campusMarker.position.y = 7.8 + Math.sin(time * 2.2) * 0.12
         emblem.rotation.y = time * 0.35
         for (const ripple of ripples) {
           const t = (time * 0.16 + ripple.offset) % 1

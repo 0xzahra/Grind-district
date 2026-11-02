@@ -4,7 +4,7 @@ A browser life sim inside Web3. You start as a shrimp with a zero practice ledge
 
 The tagline is the door: **No tribe. No continent. Just come grind.**
 
-This build is the playable city. Gameplay stays off-chain. There is no token, no wallet, and no seed phrase. The ledger is practice USD, labeled as such. It is not real funds and it is not financial advice.
+This build is the playable city. Gameplay stays off-chain and there is no in-game token. The practice ledger is browser-only practice USD, not real funds or financial advice. Optional Base USDC deposits can be verified against the treasury, but they are displayed separately from practice cash and are not withdrawable.
 
 The city does not run on Solana. `contracts/src/GrindRecord.sol` is Solidity, which is the language for an EVM record. The `.sol` extension is not a Solana program. That file is not deployed, and the practice ledger is not it.
 
@@ -36,8 +36,8 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 - Google sign-in is already supported.
 - X Login is free for authentication only. The Login with X / OAuth endpoints do not require X API credits. Credits are only needed if the app later reads posts, posts on behalf of users, or makes other API calls.
 - Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
-- All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
-- Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+- All sign-ups and sign-ins should be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
+- Game progress and practice cash remain in localStorage. Verified top-up claims and totals are stored server-side in Supabase when configured.
 
 ## How to play
 
@@ -82,15 +82,21 @@ Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait unti
 
 ## The citizen
 
-Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. The city does not ask for a wallet. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
+Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. Gameplay does not require a wallet; the optional top-up flow links the sending wallet through Privy. The city never asks for a seed phrase. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
 
 Settings also holds the map size, walking hints, and reduced motion, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
 
 The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
 
+## Base USDC top-ups
+
+The Top up screen copies the fixed GrindTreasury address and accepts a Base transaction hash. A server verifies a successful receipt, at least 12 Base confirmations, a Base USDC `Transfer` to that treasury, and a sender wallet linked to the signed-in Privy user. Amounts come from receipt logs, and each `(chain, transaction hash, log index)` can be credited only once. Earlier deposits can be claimed by submitting their hashes; the app does not automatically scan wallet history. The verified total appears separately from the local practice ledger and is not currently used for local purchases.
+
+Before enabling the server-backed balance, apply `supabase/migrations/202606180001_verified_topups.sql` and configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the existing Privy server credentials. `BASE_RPC_URL` is optional; it defaults to the public Base RPC. Keep service-role credentials server-side, never in `VITE_` variables.
+
 ## GrindRecord
 
-`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions and does not ask for a wallet. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
+`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not submit transactions; optional top-ups are user-initiated Base USDC transfers. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
 
 ```bash
 cd contracts

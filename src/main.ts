@@ -16,7 +16,7 @@ import { createTraffic } from './traffic.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
+import { attachPrivy, getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -102,6 +102,8 @@ async function main(onReveal: () => void) {
   const map = must<HTMLCanvasElement>('#map')
   const sheet = must<HTMLElement>('#sheet')
   const toast = must<HTMLElement>('#toast')
+  const campusGuide = must<HTMLElement>('#campus-guide')
+  const guideCampusButton = must<HTMLButtonElement>('#guide-campus')
 
   const prefer: Graphics = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium'
   loadSave(prefer)
@@ -156,6 +158,7 @@ async function main(onReveal: () => void) {
     mark,
     aspect,
     reduceMotion,
+    guideCampus: getSave().campusGuidePending,
     rankLabel: rankFor(getSave().xp).label,
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
@@ -170,6 +173,20 @@ async function main(onReveal: () => void) {
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
   const pos = { x: getSave().posX, z: getSave().posZ }
+  let target: THREE.Vector3 | null = null
+  let targetQueue: THREE.Vector3[] = []
+  let stuck = 0
+  let prevDist = Infinity
+  const guideToCampus = () => {
+    targetQueue = [
+      new THREE.Vector3(7.5, 0, 8),
+      new THREE.Vector3(7.5, 0, -39),
+      new THREE.Vector3(0, 0, -40),
+    ]
+    target = targetQueue.shift() ?? null
+    stuck = 0
+    prevDist = Infinity
+  }
   if (blocked(world.obstacles, pos.x, pos.z, PLAYER_R)) {
     pos.x = 0
     pos.z = 8
@@ -233,6 +250,7 @@ async function main(onReveal: () => void) {
   applyGraphics()
   applyPrefs()
 
+  guideCampusButton.addEventListener('click', guideToCampus)
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
@@ -252,9 +270,29 @@ async function main(onReveal: () => void) {
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
+    onCampusGuide: guideToCampus,
+    onTopupLogin: async () => {
+      const { loginWithPrivy } = await import('./privy.ts')
+      const outcome = await loginWithPrivy()
+      if (!outcome.ok) return outcome
+      return attachPrivy(outcome.id)
+    },
+    onTopupLinkWallet: async () => {
+      const { linkWalletWithPrivy } = await import('./privy.ts')
+      return linkWalletWithPrivy()
+    },
+    onTopupBalance: async () => {
+      const { getTopupBalance } = await import('./topup.ts')
+      return getTopupBalance()
+    },
+    onTopupVerify: async (hash) => {
+      const { verifyTopup } = await import('./topup.ts')
+      return verifyTopup(hash)
+    },
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
+  must('#nav-topup').addEventListener('click', () => ui.open('topup'))
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
@@ -343,12 +381,10 @@ async function main(onReveal: () => void) {
   const camVel = new THREE.Vector3()
   const lookSmooth = new THREE.Vector3()
   const vel = { x: 0, z: 0 }
-  let target: THREE.Vector3 | null = null
-  let stuck = 0
-  let prevDist = Infinity
   let traveled = 0
   let activeSpot: string | null = null
   let spot: Hotspot | null = null
+  let guidedCourseOpened = !getSave().campusGuidePending
   let cameraReady = false
   let revealed = false
   let failed = false
@@ -430,6 +466,9 @@ async function main(onReveal: () => void) {
       applyLook()
       ui.refresh()
     }
+    const campusPending = getSave().campusGuidePending
+    campusGuide.hidden = !campusPending
+    world.setCampusGuide(campusPending)
     crowdObstacles = crowd.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
@@ -458,6 +497,7 @@ async function main(onReveal: () => void) {
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
       if (raycaster.ray.intersectPlane(floor, tapPoint)) {
+        targetQueue = []
         target = tapPoint.clone()
         target.x = THREE.MathUtils.clamp(target.x, -CITY_LIMIT + 1, CITY_LIMIT - 1)
         target.z = THREE.MathUtils.clamp(target.z, -CITY_LIMIT + 1, CITY_LIMIT - 1)
@@ -475,16 +515,24 @@ async function main(onReveal: () => void) {
     let wishZ = 0
     if (paused) {
       target = null
+      targetQueue = []
     } else if (directed) {
       wishX = forwardX * frame.y + rightX * frame.x
       wishZ = forwardZ * frame.y + rightZ * frame.x
       target = null
+      targetQueue = []
     } else if (target) {
       const dx = target.x - pos.x
       const dz = target.z - pos.z
       const dist = Math.hypot(dx, dz)
-      if (dist < 0.35 || stuck > 0.7) target = null
-      else {
+      if (dist < 0.35) {
+        target = targetQueue.shift() ?? null
+        stuck = 0
+        prevDist = Infinity
+      } else if (stuck > 0.7) {
+        target = null
+        targetQueue = []
+      } else {
         wishX = dx / dist
         wishZ = dz / dist
         if (dist > prevDist - 0.004) stuck += dt
@@ -544,6 +592,10 @@ async function main(onReveal: () => void) {
       }
     }
     showSpot(best)
+    if (!paused && best?.id === 'learn' && getSave().campusGuidePending && !guidedCourseOpened) {
+      guidedCourseOpened = true
+      ui.open('learn', { course: 'spot' })
+    }
 
     if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true
@@ -584,10 +636,7 @@ async function main(onReveal: () => void) {
     }
   }
 
-  await Promise.race([
-    renderer.compileAsync(scene, camera),
-    new Promise((resolve) => setTimeout(resolve, 4000)),
-  ])
+  void renderer.compileAsync(scene, camera).catch(() => undefined)
   let last = performance.now()
   const frame = (now: number) => {
     requestAnimationFrame(frame)
