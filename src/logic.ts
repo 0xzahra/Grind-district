@@ -823,6 +823,18 @@ export function decodeShare(param: string): SharedProfile | null {
   }
 }
 
+export function profileShareUrl(save: Save, href: string): string {
+  const url = new URL(href)
+  url.search = ''
+  url.hash = `p=${encodeShare(save)}`
+  return url.toString()
+}
+
+export function decodeProfileHash(hash: string): SharedProfile | null {
+  const match = hash.match(/^#(?:p|profile)=([A-Za-z0-9_-]+)$/)
+  return match ? decodeShare(match[1]) : null
+}
+
 export function sharedText(profile: SharedProfile): string {
   const rank = rankFor(profile.x)
   const skills = profile.k.map((id) => SKILL_META[id].title)

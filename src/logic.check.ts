@@ -3,6 +3,7 @@ import {
   buyHolding,
   applyDay,
   createSave,
+  decodeProfileHash,
   decodeShare,
   documents,
   encodeShare,
@@ -16,6 +17,7 @@ import {
   cleanOwnedDrones,
   cleanUsername,
   quoteDrone,
+  profileShareUrl,
   rankFor,
   sellHolding,
   stepPrices,
@@ -90,8 +92,12 @@ const docs = documents(save)
 check(docs.cv.includes('Not a credential') && docs.cv.includes('Spot trading') && docs.cv.includes('Reef') && docs.resume.includes('@reef_01'), 'documents name the work and the disclaimer')
 check(!docs.cv.includes('<script>'), 'documents stay plain text')
 
-const round = decodeShare(encodeShare(save))
+const encodedShare = encodeShare(save)
+const round = decodeShare(encodedShare)
 check(round?.n === 'Reef' && round.u === 'reef_01' && round.k.includes('spot') && round.x === save.xp, 'share link round-trips')
+const compactLink = profileShareUrl(save, 'https://district.example/game?mode=flat#old')
+check(new URL(compactLink).hash === `#p=${encodedShare}` && new URL(compactLink).search === '' && decodeProfileHash(new URL(compactLink).hash)?.n === 'Reef', 'compact profile link keeps the snapshot payload without query clutter')
+check(decodeProfileHash(`#profile=${encodedShare}`)?.u === 'reef_01', 'legacy profile links still open')
 const walletShare = encodeShare({ ...save, nearAccountId: 'marketuser.near' })
 check(!walletShare.includes('marketuser.near'), 'profile sharing excludes the NEAR account ID')
 check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
