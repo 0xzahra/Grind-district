@@ -10,6 +10,16 @@ npm run dev
 npm run check
 ```
 
+## Sign-in and sign-up
+
+Players sign in and sign up with **Google** or **X**. Both go through Privy.
+
+- Google sign-in is already supported.
+- X Login is free for authentication only. The Login with X / OAuth endpoints do not require X API credits. Credits are only needed if the app later reads posts, posts on behalf of users, or makes other API calls.
+- Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
+- All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
+- Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+
 ## Name and username
 
 A save starts with `name: ''`, `username: ''`, `privyId: ''`, and `signedUp: false`. The title screen can log in with Privy email, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, and the body. Login does not ask for a wallet.
@@ -96,6 +106,7 @@ These are the open pieces. WebGL context, a wallet, a multisig, and deploying Gr
 - The theme mp3 on GitHub. The file API corrupts it. Push audio with git.
 - A fuller nature district. The basin and the carbon desk are the outdoor piece.
 - Cash-fan emote. Do not add it unless someone asks.
+- Database recording of sign-ups (Supabase). Currently localStorage only.
 
 ## What stays off the chain
 
