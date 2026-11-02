@@ -41,6 +41,8 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 
 ## NEAR mainnet wallet and market demo
 
+For the NEAR HACKATHON, the NEAR-specific work is the optional wallet link and signed off-chain NPC practice-order demo; the city and Base top-up flow are separate, non-NEAR systems. Review the implementation in [PR #11](https://github.com/0xzahra/Grind-district/pull/11/files).
+
 NEAR wallet linking is separate from Privy sign-in and optional. In Settings, connect a mainnet account through NEAR Wallet Selector’s MyNearWallet integration; the game save stores only the account ID in this browser. Google/X/Privy login and the existing local practice save remain separate.
 
 On the Spot book or Trenches book, choose a size and sign an NPC market order. The NEP-413 message contains only the asset, side, size, NPC practice quote, and expiry. The client accepts the wallet response as a local demo gate for a practice-book fill, then discards the signature; it does not send it to a server or blockchain. There is no server-side signature verification, public order, or shared market state. No NEAR transaction, contract call, deposit, or real-funds movement is made. NPC quotes follow the live practice-book price with a fixed spread; NPC wallet state is not shared across players.
