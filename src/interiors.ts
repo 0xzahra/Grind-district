@@ -45,7 +45,7 @@ function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
 
 export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[] }>()
-  const lamp = new THREE.PointLight(0xffe3c0, 0, 18, 1.6)
+  const lamp = new THREE.PointLight(0xffd29a, 0, 18, 1.6)
   lamp.position.set(0, -50, 0)
   scene.add(lamp)
   // Indoors always reads clearly: soft room fill independent of the street's time of day.
@@ -644,7 +644,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (scene.fog) { savedFog = scene.fog; scene.fog = null }
       savedEnv = scene.environmentIntensity
       scene.environmentIntensity = Math.min(savedEnv, 0.18)
-      lamp.intensity = id === 'house' ? 6 : 10 + SIZE[id].w * 0.6
+      lamp.intensity = id === 'house' ? 8 : 13 + SIZE[id].w * 0.75
       lamp.distance = Math.max(18, SIZE[id].w * 1.3)
       roomFill.intensity = id === 'house' ? 0.3 : 0.45
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }

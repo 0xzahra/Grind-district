@@ -248,8 +248,23 @@ const apiAgents = createRemoteAgents(scene)
   const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
   phoneFill.visible = matchMedia('(pointer: coarse)').matches
   scene.add(phoneFill)
-  if (phoneFill.visible) scene.add(new THREE.AmbientLight(0xfff4e6, 0.25))
+  scene.add(new THREE.AmbientLight(0xffe2c0, phoneFill.visible ? 0.3 : 0.18)) // warm golden-hour fill everywhere (GDD: warmer lighting)
   let lightAcc = 1
+  // First task (GDD onboarding): until a course is passed, a floating gold marker hangs over the Learning hall door
+  // and a prompt points there; walking up to the door opens the courses.
+  const firstMarker = new THREE.Group()
+  {
+    const gold = new THREE.MeshBasicMaterial({ color: 0xf2c14e, toneMapped: false })
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.4, 4), gold); cone.rotation.x = Math.PI; cone.position.y = 0.7
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.12, 6, 20), gold); ring.rotation.x = Math.PI / 2; ring.position.y = 1.9
+    firstMarker.add(cone, ring); firstMarker.position.set(0, 6.5, -42.2)
+  }
+  const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
+  let firstOpened = false
+  if (needsFirstCourse()) {
+    scene.add(firstMarker)
+    window.setTimeout(() => notify('Your first task', 'Head to the Campus to complete your first course. Follow the gold marker north.', undefined, 'place:Learning hall'), 2500)
+  }
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
@@ -1278,6 +1293,12 @@ const apiAgents = createRemoteAgents(scene)
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     seating.apply(avatar.object, dt)
+    if (firstMarker.parent) {
+      firstMarker.rotation.y += dt * 1.2
+      firstMarker.position.y = 6.5 + Math.sin(performance.now() / 400) * 0.25
+      if (!needsFirstCourse()) scene.remove(firstMarker)
+      else if (!firstOpened && !interiors.inside && Math.hypot(pos.x, pos.z + 42.2) < 3.2) { firstOpened = true; ui.open('learn') }
+    }
     tickTvs(dt, pos.x, pos.z, camera)
     tickWater(dt, camera)
     if (follower) {
