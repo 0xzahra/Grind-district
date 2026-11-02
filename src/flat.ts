@@ -4,11 +4,12 @@ import { HOUSES, type HouseId } from './houses.ts'
 import { createInput } from './input.ts'
 import { drawMinimap } from './minimap.ts'
 import { applyPrefs } from './prefs.ts'
+import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
 import type { DroneId, MaskId, PanelId } from './logic.ts'
 import { decodeShare, seasonAt } from './logic.ts'
 import { bindMusic } from './music.ts'
 import { CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, rememberPlace, setVolume, tickMarket } from './state.ts'
+import { attachPrivy, getSave, rememberPlace, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { districtName } from './world.ts'
 
@@ -198,9 +199,25 @@ export async function startFlat(onReady: () => void): Promise<void> {
     onGraphics: () => undefined,
     onPrefs: applyPrefs,
     onRank: () => undefined,
+    onTopupLogin: async () => {
+      const outcome = await loginWithPrivy()
+      return outcome.ok ? attachPrivy(outcome.id) : outcome
+    },
+    onTopupLinkWallet: async () => {
+      return linkWalletWithPrivy()
+    },
+    onTopupBalance: async () => {
+      const { getTopupBalance } = await import('./topup.ts')
+      return getTopupBalance()
+    },
+    onTopupVerify: async (hash) => {
+      const { verifyTopup } = await import('./topup.ts')
+      return verifyTopup(hash)
+    },
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
+  must('#nav-topup').addEventListener('click', () => ui.open('topup'))
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))

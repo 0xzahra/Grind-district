@@ -14,9 +14,10 @@ import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyPrefs } from './prefs.ts'
+import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
+import { attachPrivy, getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -251,9 +252,25 @@ async function main(onReveal: () => void) {
     onGraphics: applyGraphics,
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
+    onTopupLogin: async () => {
+      const outcome = await loginWithPrivy()
+      return outcome.ok ? attachPrivy(outcome.id) : outcome
+    },
+    onTopupLinkWallet: async () => {
+      return linkWalletWithPrivy()
+    },
+    onTopupBalance: async () => {
+      const { getTopupBalance } = await import('./topup.ts')
+      return getTopupBalance()
+    },
+    onTopupVerify: async (hash) => {
+      const { verifyTopup } = await import('./topup.ts')
+      return verifyTopup(hash)
+    },
   })
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
+  must('#nav-topup').addEventListener('click', () => ui.open('topup'))
   must('#nav-learn').addEventListener('click', () => ui.open('learn'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
