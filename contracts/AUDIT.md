@@ -1,6 +1,6 @@
 # Internal review of GrindRecord
 
-Reviewed 30 October 2026 (Africa/Lagos), in the same session that wrote the contract.
+Reviewed 30 October 2026, in the same session that wrote the contract.
 
 This is an internal review of the source. It is not a sign-off from an outside firm. `GrindRecord` is not deployed. The city does not send transactions to it, does not ask for a wallet, and does not treat the practice USD ledger as an on-chain balance.
 
@@ -47,7 +47,7 @@ These are not defects to "fix" by adding a token or a wallet.
 
 1. The attestor is trusted. The contract does not check that a player passed a course. A filing is permanent for that course id. Deploying this with an externally owned attestor on a public chain would let that key write anyone's record.
 2. The owner can replace the attestor in one transaction and can pause. There is no timelock.
-3. Whale is 1100 XP. The learning hall at the maximum bonus stops at shark (760). Streaks and other reps that reach whale live in the city, not in this contract. Reputation must not be added to XP to close that gap.
+3. Whale is 1100 XP. The learning hall at the maximum bonus stops at shark (760). Other practice actions that reach whale live in the city, not in this contract. Reputation must not be added to XP to close that gap.
 4. `setAttestor` is not two-step. A mistaken address can be corrected by the owner. If the owner key is lost, the attestor cannot be rotated and the contract cannot be paused.
 5. There is no proxy and no upgrade path. A deployed mistake would be permanent. That is why this file stays source.
 

@@ -59,6 +59,23 @@ body {
   pointer-events: auto;
 }
 
+#menu-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+body.menu-open #hud,
+body.menu-open #stick,
+body.menu-open #sheet,
+body.menu-open #chat {
+  visibility: hidden;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -306,37 +323,63 @@ body.flat header {
   display: grid;
   align-content: safe center;
   justify-items: center;
-  gap: 0.85rem;
-  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
-  background:
-    radial-gradient(circle at 50% 42%, rgba(26, 243, 143, 0.16), transparent 28rem),
-    #070a09;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0.18);
   text-align: center;
   pointer-events: auto;
   overflow: auto;
 }
 
+#menu-panel {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  width: min(60rem, 100%);
+  min-height: min(66dvh, 36rem);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(1rem, 3vw, 2.25rem) clamp(1.2rem, 6vw, 5rem);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: clamp(30px, 5vw, 56px);
+  background: linear-gradient(135deg, rgba(39, 68, 45, 0.8), rgba(57, 58, 58, 0.82) 58%, rgba(62, 57, 53, 0.8));
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
 #menu-home,
+#menu-account,
 #menu-page,
 #menu-signup {
   display: grid;
   justify-items: center;
-  gap: 0.85rem;
-  width: min(40rem, 100%);
+  gap: 1rem;
+  width: min(42rem, 100%);
+}
+
+#menu-home {
+  gap: clamp(0.75rem, 2vh, 1.1rem);
+}
+
+#menu-account {
+  width: min(28rem, 100%);
+}
+
+#menu-account h2,
+#menu-signup h2,
+#menu-account p,
+#menu-signup p {
+  margin: 0;
+}
+
+#menu-account h2,
+#menu-signup h2 {
+  text-align: center;
 }
 
 #menu-signup {
   width: min(22rem, 100%);
   text-align: left;
-}
-
-#menu-signup h2,
-#menu-signup p {
-  margin: 0;
-}
-
-#menu-signup h2 {
-  text-align: center;
 }
 
 #signup-form {
@@ -439,24 +482,54 @@ body.flat header {
 }
 
 #menu .lockup {
-  width: min(280px, 72vw);
+  width: min(18rem, 34vw);
+}
+
+#menu-intro {
+  max-width: 42rem;
+  margin: 0;
+  color: #f2f2ed;
+  font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+  line-height: 1.5;
 }
 
 #menu .tag {
-  max-width: 22rem;
-  font-size: 1.05rem;
+  max-width: 32rem;
+  color: #ead9b8;
+  font-size: clamp(1.1rem, 3.4vw, 1.45rem);
+  line-height: 1.45;
 }
 
 #play {
-  min-width: min(18rem, 100%);
-  min-height: 52px;
-  font-size: 1.05rem;
+  width: 100%;
+  min-height: 64px;
+  border: 2px solid #d6b769;
+  border-radius: 999px;
+  background: #f4f3f6;
+  box-shadow: inset 0 0 0 2px rgba(20, 20, 20, 0.55), 0 8px 22px rgba(0, 0, 0, 0.2);
+  color: #111;
+  font-size: clamp(1.1rem, 3.6vw, 1.35rem);
+  font-weight: 600;
+}
+
+#menu-agents {
+  justify-self: center;
+  width: auto;
+  min-height: 56px;
+  padding-inline: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(70, 70, 70, 0.28);
+  color: #f4f3f6;
+  font-size: 1.1rem;
 }
 
 #menu-note {
   margin: 0;
+  min-height: 1.35em;
   max-width: 26rem;
-  color: var(--dim);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1.1rem;
   line-height: 1.45;
 }
 
@@ -850,6 +923,11 @@ textarea {
 textarea {
   min-height: 6.5rem;
   resize: vertical;
+}
+
+.agent-prompt {
+  min-height: 12rem;
+  font-size: 0.86rem;
 }
 
 .chart {

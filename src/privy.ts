@@ -152,6 +152,14 @@ export async function loginWithPrivy(): Promise<{ ok: true; id: string } | { ok:
   return { ok: true, id }
 }
 
+export async function currentPrivyAccessToken(): Promise<string | null> {
+  try {
+    return (await readToken?.()) ?? null
+  } catch {
+    return null
+  }
+}
+
 async function waitForPrivy(appId: string): Promise<void> {
   let timer = 0
   try {

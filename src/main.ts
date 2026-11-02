@@ -8,13 +8,14 @@ import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { decodeProfileHash, rankFor, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
 import { createTraffic } from './traffic.ts'
 import { applyPrefs } from './prefs.ts'
 import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
+import { startPreview } from './preview.ts'
 import { createCrowd } from './npcs.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { attachPrivy, getSave, loadSave, rememberPlace, setVolume, tickMarket } from './state.ts'
@@ -22,6 +23,7 @@ import { mountUi } from './ui.ts'
 import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import './style.css'
+import './profile.css'
 
 const WALK = 2.7
 const RUN = 5.5
@@ -192,7 +194,7 @@ async function main(onReveal: () => void) {
 
   const applyLook = () => {
     const time = getSave().timeOfDay
-    world.setLook({ time, season: seasonAt() })
+    world.setLook({ time })
     dayPhase = phaseFor(time)
     world.setDaylight(dayPhase)
     renderer.toneMappingExposure = 1.0
@@ -237,7 +239,6 @@ async function main(onReveal: () => void) {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
     ledger: must('#pill-ledger'),
-    season: must('#pill-season'),
     focus: must('#pill-focus'),
   }, {
     onStyle: () => {
@@ -277,7 +278,6 @@ async function main(onReveal: () => void) {
   map.addEventListener('click', () => ui.open('city'))
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
-  must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#shot').addEventListener('click', () => {
     renderer.render(scene, camera)
     try {
@@ -369,7 +369,6 @@ async function main(onReveal: () => void) {
   let revealed = false
   let failed = false
   let elapsed = 0
-  let season = seasonAt()
   let saveAcc = 0
   let taxLatch = false
   let crowdObstacles: Obstacle[] = []
@@ -434,14 +433,7 @@ async function main(onReveal: () => void) {
   }
 
   const update = (dt: number) => {
-    const now = Date.now()
-    tickMarket(dt, now)
-    const nextSeason = seasonAt(now)
-    if (nextSeason !== season) {
-      season = nextSeason
-      applyLook()
-      ui.refresh()
-    }
+    tickMarket(dt)
     crowdObstacles = crowd.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
@@ -457,7 +449,7 @@ async function main(onReveal: () => void) {
     ui.setPlace(districtName(pos.x, pos.z))
 
     const frame = input.read()
-    const paused = ui.isOpen()
+    const paused = ui.isOpen() || document.body.classList.contains('menu-open')
     if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
@@ -613,9 +605,8 @@ async function main(onReveal: () => void) {
         onReveal()
         boot.classList.add('hidden')
         boot.setAttribute('aria-hidden', 'true')
-        const matched = location.hash.match(/^#profile=([A-Za-z0-9_-]+)/)
-        if (matched?.[1]) {
-          const shared = decodeShare(matched[1])
+        if (/^#(?:p|profile)=/.test(location.hash)) {
+          const shared = decodeProfileHash(location.hash)
           history.replaceState(null, '', `${location.pathname}${location.search}`)
           if (shared) ui.open('shared', { shared })
           else if (!getSave().seenIntro) ui.open('intro')
@@ -634,12 +625,38 @@ async function main(onReveal: () => void) {
 }
 
 const menu = must<HTMLElement>('#menu')
+const menuHome = must<HTMLElement>('#menu-home')
+const menuAccount = must<HTMLElement>('#menu-account')
+const menuSignup = must<HTMLElement>('#menu-signup')
+const menuPage = must<HTMLElement>('#menu-page')
+const previewCanvas = must<HTMLCanvasElement>('#menu-preview')
 const play = must<HTMLButtonElement>('#play')
 const menuNote = must<HTMLParagraphElement>('#menu-note')
 let opening = false
+let previewStopped = false
+let stopPreview: (() => void) | null = null
+
+function startMenuPreview() {
+  previewStopped = false
+  previewCanvas.hidden = false
+  void startPreview(previewCanvas).then((stop) => {
+    if (previewStopped) stop()
+    else stopPreview = stop
+  }).catch(() => {
+    previewCanvas.hidden = true
+  })
+}
+
+function stopMenuPreview() {
+  previewStopped = true
+  stopPreview?.()
+  stopPreview = null
+}
 
 function revealCity() {
   menu.hidden = true
+  previewCanvas.hidden = true
+  document.body.classList.remove('menu-open')
   const boot = document.querySelector('#boot')
   if (boot) {
     boot.classList.add('hidden')
@@ -650,7 +667,7 @@ function revealCity() {
 async function begin() {
   if (opening) return
   opening = true
-  prepareAssets()
+  stopMenuPreview()
   play.disabled = true
   play.textContent = 'Opening the district'
   menuNote.textContent = ''
@@ -661,14 +678,20 @@ async function begin() {
     play.disabled = false
     play.textContent = 'Enter the district'
     menu.hidden = false
+    menuHome.hidden = false
+    menuAccount.hidden = true
+    menuSignup.hidden = true
+    menuPage.hidden = true
+    document.body.classList.add('menu-open')
     menuNote.textContent = error instanceof Error ? error.message : 'The city could not open.'
   }
 }
 
+document.body.classList.add('menu-open')
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
-
 mountMenu(() => {
   void begin()
 })
-
 play.focus()
+void prepareAssets()
+startMenuPreview()

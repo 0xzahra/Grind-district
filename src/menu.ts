@@ -4,7 +4,7 @@ import { SKILL_META } from './logic.ts'
 import { loginWithPrivy, privyConfigured } from './privy.ts'
 import { attachPrivy, getSave, signUp } from './state.ts'
 
-type Page = 'how' | 'city' | 'courses' | 'credits'
+type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents'
 
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
@@ -67,10 +67,16 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
         copy('Grind District is made by Zahra.'),
         copy('Signup asks for a name, a username, and a body. The man has blonde hair, glasses, and a grey suit. The woman has longer hair and a fitted coat. Both are original. The boutique can change the body later.'),
         copy('Masks in the boutique use the names CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The shapes are Grind District cuts, not the licensed artwork.'),
-        copy('Login can use Privy email. The city still asks for a name, a username, and a body. It does not ask for a wallet or a seed phrase. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
+        copy('Privy email sign-in is available when you want to keep your username, rank, and CV across devices. You can also play as a guest. Wallet linking is optional in Settings. NEAR mainnet account IDs and activity are public, so keep names, usernames, and personal details off-chain. The market demo signs a small order message and fills only the local practice book: it sends no transaction, deploys no contract, and moves no real funds. The city never asks for a seed phrase. A Solidity file in the repository uses the extension .sol; it is an undeployed EVM record, not a Solana program or the NEAR integration.'),
         copy('Market Velocity is the theme. It loops at three minutes and stays paused until you press play.'),
       )
       return { title: 'Credits', body }
+    case 'agents':
+      body.append(
+        copy('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.'),
+        copy('Enter the district, walk to Unit 4 in the plaza, and interact there to create a fresh, time-limited claim prompt for your agent. The prompt does not issue funds.'),
+      )
+      return { title: 'Agents', body }
     default: {
       const neverPage: never = page
       return neverPage
@@ -80,6 +86,9 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
 
 export function mountMenu(enter: () => void): void {
   const home = must<HTMLElement>('#menu-home')
+  const account = must<HTMLElement>('#menu-account')
+  const accountExisting = must<HTMLButtonElement>('#account-existing')
+  const accountError = must<HTMLParagraphElement>('#account-error')
   const page = must<HTMLElement>('#menu-page')
   const signup = must<HTMLElement>('#menu-signup')
   const title = must<HTMLHeadingElement>('#menu-page-title')
@@ -91,26 +100,24 @@ export function mountMenu(enter: () => void): void {
   const error = must<HTMLParagraphElement>('#signup-error')
   const note = must<HTMLParagraphElement>('#menu-note')
   const saved = getSave()
-  if (saved.signedUp && privyConfigured()) {
-    note.textContent = `${saved.name} · @${saved.username}. Log in with Privy to walk in.`
-  } else if (saved.signedUp) {
-    note.textContent = `${saved.name} · @${saved.username}. Rank follows the work you have filed.`
-  } else if (privyConfigured()) {
-    note.textContent = 'Log in with Privy, then pick a name and a username. The practice ledger is empty.'
-  }
+  note.textContent = saved.signedUp ? 'Welcome back.' : ''
 
   const show = (next: Page) => {
     const built = pageBody(next)
     title.textContent = built.title
     slot.replaceChildren(built.body)
     home.hidden = true
+    account.hidden = true
     signup.hidden = true
     page.hidden = false
   }
 
   const back = () => {
     page.hidden = true
+    account.hidden = true
     signup.hidden = true
+    accountError.hidden = true
+    accountError.textContent = ''
     slot.replaceChildren()
     home.hidden = false
     play.focus()
@@ -118,6 +125,7 @@ export function mountMenu(enter: () => void): void {
 
   const showSignup = () => {
     home.hidden = true
+    account.hidden = true
     page.hidden = true
     error.hidden = true
     error.textContent = ''
@@ -125,26 +133,41 @@ export function mountMenu(enter: () => void): void {
     nameInput.focus()
   }
 
-  const start = async (fromPrivy: boolean) => {
-    if (fromPrivy || privyConfigured()) {
-      play.disabled = true
-      const previous = play.textContent
-      play.textContent = 'Opening Privy'
+  const showAccount = () => {
+    home.hidden = true
+    signup.hidden = true
+    page.hidden = true
+    accountError.hidden = true
+    accountError.textContent = ''
+    account.hidden = false
+    accountExisting.focus()
+  }
+
+  const start = async (authenticate: boolean) => {
+    if (authenticate) {
+      accountExisting.disabled = true
+      accountExisting.textContent = 'Opening Privy'
       const outcome = await loginWithPrivy()
-      play.disabled = false
-      play.textContent = previous
+      accountExisting.disabled = false
+      accountExisting.textContent = 'Sign in with email'
       if ('error' in outcome) {
-        note.textContent = outcome.error
+        accountError.hidden = false
+        accountError.textContent = outcome.error
         return
       }
       const linked = attachPrivy(outcome.id)
       if ('error' in linked) {
-        note.textContent = linked.error
+        accountError.hidden = false
+        accountError.textContent = linked.error
         return
       }
     }
     if (getSave().signedUp) {
       enter()
+      return
+    }
+    if (!authenticate && privyConfigured()) {
+      showAccount()
       return
     }
     showSignup()
@@ -153,13 +176,12 @@ export function mountMenu(enter: () => void): void {
   play.addEventListener('click', () => {
     void start(false)
   })
-  must('#privy-login').addEventListener('click', () => {
+  accountExisting.addEventListener('click', () => {
     void start(true)
   })
-  must('#menu-how').addEventListener('click', () => show('how'))
-  must('#menu-city').addEventListener('click', () => show('city'))
-  must('#menu-courses').addEventListener('click', () => show('courses'))
-  must('#menu-credits').addEventListener('click', () => show('credits'))
+  must('#account-new').addEventListener('click', showSignup)
+  must('#account-back').addEventListener('click', back)
+  must('#menu-agents').addEventListener('click', () => show('agents'))
   must('#menu-back').addEventListener('click', back)
   must('#signup-back').addEventListener('click', back)
   form.addEventListener('submit', (event) => {
@@ -183,12 +205,12 @@ export function mountMenu(enter: () => void): void {
   window.addEventListener('keydown', (event) => {
     const menu = document.querySelector('#menu')
     if (!(menu instanceof HTMLElement) || menu.hidden || event.repeat) return
-    if (event.key === 'Escape' && (!page.hidden || !signup.hidden)) {
+    if (event.key === 'Escape' && (!page.hidden || !signup.hidden || !account.hidden)) {
       event.preventDefault()
       back()
       return
     }
-    if (!signup.hidden) return
+    if (!signup.hidden || !account.hidden) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     if (!page.hidden) return
     const target = event.target

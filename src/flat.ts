@@ -6,7 +6,7 @@ import { drawMinimap } from './minimap.ts'
 import { applyPrefs } from './prefs.ts'
 import { linkWalletWithPrivy, loginWithPrivy } from './privy.ts'
 import type { DroneId, MaskId, PanelId } from './logic.ts'
-import { decodeShare, seasonAt } from './logic.ts'
+import { decodeProfileHash } from './logic.ts'
 import { bindMusic } from './music.ts'
 import { CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { attachPrivy, getSave, rememberPlace, setVolume, tickMarket } from './state.ts'
@@ -79,7 +79,7 @@ function citySpots(): Spot[] {
   return [
     { id: 'learn', ...hall, r: 2.5, title: 'Learning hall', body: 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', action: 'learn', enter: 'Open the hall' },
     { id: 'conference', ...conference, r: 2.3, title: 'Conference hall', body: 'One talk. Proof of work, not a slogan.', action: 'conference', enter: 'Take a seat' },
-    { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'Headlines change with the season. They are not a signal to size up.', action: 'cafe', enter: 'Read the room' },
+    { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'The board is gossip, not a signal.', action: 'cafe', enter: 'Read the room' },
     { id: 'booths', x: 0, z: -35.2, r: 2.2, title: 'Campus booths', body: 'Projects pin a one-pager here. None of them can ask for your seed.' },
     { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'A practice book in UNIT. A sized plan can count even when the close is red.', action: 'trade', enter: 'Open the book' },
     { id: 'bounty', ...row, r: 2.6, title: 'Influencer row', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', action: 'bounty', enter: 'Post a bounty' },
@@ -102,7 +102,7 @@ function citySpots(): Spot[] {
     { id: 'gadgets', ...at(blocks.length - 1, 'pz'), r: 2.2, title: 'Gadgets', body: 'Scout, courier, and halo. A drone follows you. Practice funds.', action: 'gadgets', enter: 'Open the case' },
     { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Prayer space', body: 'A ring of stones and no questions. Sitting puts focus on your next course.', action: 'prayer', enter: 'Sit' },
     { id: 'ring', x: 0, z: 0, r: 4.4, title: 'The Grind Ring', body: 'Same stone for a shrimp and a whale. No tribe. No continent. Just come grind.' },
-    { id: 'ladder', x: -9, z: -8, r: 2.3, title: 'The ladder', body: 'Shrimp, crab, fish, dolphin, shark, whale. Skill and the days you return.' },
+    { id: 'ladder', x: -9, z: -8, r: 2.3, title: 'The ladder', body: 'Shrimp, crab, fish, dolphin, shark, whale. Courses and practice move it.' },
     { id: 'water', x: -34, z: 34, r: 2.4, title: 'The basin', body: 'Park water. Climate work has a desk just north of here.' },
     { id: 'north-arch', x: 0, z: -13.4, r: 2.5, title: 'Campus road', body: 'North, to the learning hall.' },
     { id: 'south-arch', x: 0, z: 13.4, r: 2.5, title: 'Trenches road', body: 'South. Attention trades here. Your rank does not.' },
@@ -181,7 +181,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
   let revealed = false
   let failed = false
   let elapsed = 0
-  let season = seasonAt()
   let saveAcc = 0
   let taxLatch = false
   const mapCtx = map.getContext('2d')
@@ -190,7 +189,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
     ledger: must('#pill-ledger'),
-    season: must('#pill-season'),
     focus: must('#pill-focus'),
   }, {
     onStyle: () => undefined,
@@ -225,7 +223,6 @@ export async function startFlat(onReady: () => void): Promise<void> {
   applyPrefs()
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
-  must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#shot').addEventListener('click', () => {
     try {
       const link = document.createElement('a')
@@ -461,16 +458,10 @@ export async function startFlat(onReady: () => void): Promise<void> {
   }
 
   const update = (dt: number) => {
-    const now = Date.now()
-    tickMarket(dt, now)
-    const nextSeason = seasonAt(now)
-    if (nextSeason !== season) {
-      season = nextSeason
-      ui.refresh()
-    }
+    tickMarket(dt)
     ui.setPlace(districtName(pos.x, pos.z))
     const frame = input.read()
-    const paused = ui.isOpen()
+    const paused = ui.isOpen() || document.body.classList.contains('menu-open')
     if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
     if (!paused && frame.tap) {
       const scale = viewScale()
@@ -563,9 +554,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
         revealed = true
         onReady()
         ui.toast('This browser opened the overhead map. Same streets, same doors.')
-        const matched = location.hash.match(/^#profile=([A-Za-z0-9_-]+)/)
-        if (matched?.[1]) {
-          const shared = decodeShare(matched[1])
+        if (/^#(?:p|profile)=/.test(location.hash)) {
+          const shared = decodeProfileHash(location.hash)
           history.replaceState(null, '', `${location.pathname}${location.search}`)
           if (shared) ui.open('shared', { shared })
           else if (!getSave().seenIntro) ui.open('intro')

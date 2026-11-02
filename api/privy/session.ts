@@ -16,7 +16,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
   const session = await verifyPrivySession(bearer(req.headers.authorization))
   const ok = 'id' in session
-  res.statusCode = ok ? 200 : session.error.includes('no Privy') ? 503 : 401
+  res.statusCode = ok ? 200 : session.error.startsWith('The server has no ') ? 503 : 401
   res.setHeader('content-type', 'application/json')
-  res.end(JSON.stringify(session))
+  res.setHeader('cache-control', 'no-store')
+  res.end(JSON.stringify(ok ? { id: session.id } : session))
 }

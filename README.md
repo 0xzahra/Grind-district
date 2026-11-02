@@ -1,10 +1,10 @@
 # Grind District
 
-A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses, reps, and consistency. Balance does not move it.
+A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses and practice actions. Balance does not move it.
 
 The tagline is the door: **No tribe. No continent. Just come grind.**
 
-This build is the playable city. Gameplay stays off-chain and there is no in-game token. The practice ledger is browser-only practice USD, not real funds or financial advice. Optional Base USDC deposits can be verified against the treasury, are displayed separately from practice cash, and are not withdrawable.
+This build is the playable city. The local practice economy stays off-chain and separate from optional user-initiated Base USDC top-ups, which are verified and displayed apart from practice cash. There is no in-game token or seed-phrase prompt. An optional NEAR mainnet wallet link supports an off-chain signed market-order demo; NEAR account IDs and on-chain activity are public, not private. The practice ledger is browser-only practice USD, not real funds or financial advice.
 
 The city does not run on Solana. `contracts/src/GrindRecord.sol` is Solidity, which is the language for an EVM record. The `.sol` extension is not a Solana program. That file is not deployed, and the practice ledger is not it.
 
@@ -18,7 +18,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Privy login uses the public App ID in `VITE_PRIVY_APP_ID`. The app secret belongs in `PRIVY_APP_SECRET` and stays on the server, in `.env`, which is not committed. The browser never receives it. `/api/privy/session` checks the login before the city keeps the account.
+Privy sign-in is configured for Google and X (Twitter), using the public App ID in `VITE_PRIVY_APP_ID`. Enable both login methods and their OAuth settings in the Privy dashboard; this repository cannot verify dashboard configuration. Email one-time-passcode login and any separate email-confirmation step are not part of the app flow. The app secret belongs in `PRIVY_APP_SECRET` and stays on the server, in `.env`, which is not committed. The browser never receives it. `/api/privy/session` checks the login before the city keeps the account.
 
 The dev server listens on port **47321**. Open the local URL Vite prints. The title screen stays up until **Enter the district**. If the browser cannot start WebGL, the same streets open as an overhead map: walk, click a door, press E.
 
@@ -31,13 +31,28 @@ npm run build
 
 ## Sign-in and sign-up
 
-Players sign in and sign up with **Google** or **X**. Both go through Privy.
+The Privy login modal is configured to offer **Google** and **X (Twitter)**. Those providers must be enabled and configured in the Privy dashboard; their live availability is not verifiable from this repository. Email OTP/confirmation is not used by the app. X authentication does not require X API credits; credits are only relevant if the app later reads or posts content through X APIs.
 
-- Google sign-in is already supported.
-- X Login is free for authentication only. The Login with X / OAuth endpoints do not require X API credits. Credits are only needed if the app later reads posts, posts on behalf of users, or makes other API calls.
-- Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
-- All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
-- Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+- Sign-ups and sign-ins are not recorded in a database in this build.
+- Progress and practice earnings remain in localStorage; they are not server-backed account balances.
+
+## Agent claim and first-earn gate
+
+At Unit 4, **Copy fresh prompt** asks the server for a short-lived HMAC-signed claim code after a valid Privy login, then copies instructions for the agent. The code expires after 10 minutes. `POST /api/agents/first-earn` checks the signature and returns HTTP 425 with the remaining wait until five minutes have passed from that code's issue time, then returns `eligible: true`. A newly copied code starts a new wait; earlier codes remain usable until their own expiry because this build has no persistent claim/revocation store. Treat each code as a temporary bearer secret.
+
+This endpoint is a gate check only: it does not prove an agent's identity, make a claim single-use, or issue funds. There is no server-side agent earn endpoint; existing practice earnings are still client-side and are not protected by this gate. Any future agent earn handler must enforce the gate itself before awarding anything.
+
+## NEAR mainnet wallet and market demo
+
+For the NEAR HACKATHON, the NEAR-specific work is the optional wallet link and signed off-chain NPC practice-order demo; the city and Base top-up flow are separate, non-NEAR systems. Review the implementation in [PR #11](https://github.com/0xzahra/Grind-district/pull/11/files).
+
+NEAR wallet linking is separate from Privy sign-in and optional. In Settings, connect a mainnet account through NEAR Wallet Selector’s MyNearWallet integration; the game save stores only the account ID in this browser. Google/X/Privy login and the existing local practice save remain separate.
+
+On the Spot book or Trenches book, choose a size and sign an NPC market order. The NEP-413 message contains only the asset, side, size, NPC practice quote, and expiry. The client accepts the wallet response as a local demo gate for a practice-book fill, then discards the signature; it does not send it to a server or blockchain. There is no server-side signature verification, public order, or shared market state. No NEAR transaction, contract call, deposit, or real-funds movement is made. NPC quotes follow the live practice-book price with a fixed spread; NPC wallet state is not shared across players.
+
+NEAR mainnet account IDs, balances, and transaction history are publicly visible. Do not put names, usernames, email addresses, or other personal data in wallet messages or on-chain. This integration does not provide privacy; it limits the data the game handles. Connecting a wallet is optional, and the city remains playable without one.
+
+The repo contains no deployed NEAR contract or NEAR contract address. `contracts/src/GrindRecord.sol` is an undeployed EVM contract and is not used by this integration. Further shared/on-chain market settlement would require a separately reviewed NEAR contract and explicit deployment approval.
 
 ## How to play
 
@@ -49,7 +64,7 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 - **Shot** saves a picture of the city.
 - **Play theme** starts Market Velocity (3:00, looping). The city stays silent until you press it. Volume is remembered. Playback starts paused each visit.
 
-The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a streak. Skip a day and the streak starts over. Bull and bear seasons flip every six minutes on a shared clock and change the practice books and the café copy. The street still works when the marks fall.
+Daily action limits follow your local calendar day.
 
 ## The city
 
@@ -63,7 +78,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Gym | A timing set. One logged set a day. |
 | Church | Rest counts. One visit a day. |
 | Prayer space | Focus adds a quarter to the next course you pass. |
-| Cafés | Season headlines. Gossip, not a signal. |
+| Cafés | A daily board. Gossip, not a signal. |
 | Carbon desk | A practice pledge. It does not retire a real credit. |
 | The houses | Your house, plus a notes house, a set house, a grove house, and a vacant room on the east row. |
 | Gadgets | Scout, courier, and halo drones. Practice funds. A drone follows you. |
@@ -78,13 +93,13 @@ Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. A 
 
 ## Later, on purpose
 
-Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait until this city is the one people walk. This build does not pretend those exist.
+Proximity voice, messaging, licensed NFT bodies, shared on-chain market state, and settlement wait until this city is the one people walk. The current NEAR feature is an optional mainnet account link and off-chain signed practice-order demo; it does not provide private transactions or a deployed contract.
 
 ## The citizen
 
-Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. Gameplay does not require a wallet; optional top-ups link the sending wallet through Privy. The city never asks for a seed phrase. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
+Signup starts with Google or X (Twitter) through Privy, then asks for a name, a username, and a body before you enter; email OTP and email-confirmation are not part of the app flow. Gameplay does not require a wallet. Optional NEAR linking is separate from signup, and optional Base top-ups associate the sending wallet through Privy. The city never asks for a seed phrase. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
 
-Settings also holds the map size, walking hints, and reduced motion, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
+Settings also holds the map size, walking hints, reduced motion, and optional NEAR mainnet account link, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
 
 The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
 
@@ -96,7 +111,7 @@ Apply `supabase/migrations/202606180001_verified_topups.sql` and configure `SUPA
 
 ## GrindRecord
 
-`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not submit transactions; optional top-ups are user-initiated Base USDC transfers. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
+`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions to it; optional Base USDC top-ups are user-initiated and handled separately. The optional NEAR mainnet wallet is used only for an off-chain signed market-order demo. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
 
 ```bash
 cd contracts

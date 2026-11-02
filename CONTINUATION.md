@@ -12,21 +12,24 @@ npm run check
 
 ## Sign-in and sign-up
 
-Players sign in and sign up with **Google** or **X**. Both go through Privy.
+The Privy login modal is configured for **Google** and **X (Twitter)**. Enable both methods and their OAuth settings in the Privy dashboard; this repository cannot verify that live configuration. Email OTP/confirmation is not part of the app flow. X authentication does not require X API credits; credits matter only if the app later reads or posts content through X APIs.
 
-- Google sign-in is already supported.
-- X Login is free for authentication only. The Login with X / OAuth endpoints do not require X API credits. Credits are only needed if the app later reads posts, posts on behalf of users, or makes other API calls.
-- Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
-- All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
-- Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+- Sign-ups and sign-ins are not recorded in a database in this build.
+- Progress and practice earnings remain in localStorage; they are not server-backed account balances.
 
 ## Name and username
 
-A save starts with `name: ''`, `username: ''`, `privyId: ''`, and `signedUp: false`. The title screen can log in with Privy email, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, and the body. Login does not ask for a wallet.
+A save starts with `name: ''`, `username: ''`, `privyId: ''`, `nearAccountId: ''`, and `signedUp: false`. The title screen signs in with Google or X (Twitter) through Privy, then asks for a display name, a username, and a body before **Enter the district**. Email OTP and email-confirmation are not part of the app flow. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, the optional NEAR account link, and the body. Privy login does not ask for a wallet; optional NEAR linking is in Settings.
 
 The plate (`tagPlayer`) draws the display name in block letters and `@username` under it. The profile, CV, resume, and portfolio use the same pair. Share links put the display name in `n` and the username in `u`. An old link with no `u` still opens.
 
 Do not invent a default name. `Player 8453`, `Shrimp`, and `Zuri` are not identities. An old save that lacks `signedUp: true` is unsigned, even if it still says Player 8453, and the city asks again.
+
+## NEAR mainnet wallet and market demo
+
+`src/near.ts` lazy-loads NEAR Wallet Selector’s MyNearWallet integration with `network: 'mainnet'`; it has no contract ID and exposes only connect, disconnect, and NEP-413 message-signing methods. The wallet signs a short order for the existing UNIT/MEME practice books. `src/near-economy.ts` derives the local NPC quote from the current practice price and Bull/Bear season. The client accepts the wallet response as a local demo gate, fills the practice book, then discards the signature; there is no server-side signature verification, public order, transaction, contract call, or server post. Only the public NEAR account ID is kept in the local save, separate from Privy.
+
+NEAR mainnet account IDs, balances, and transaction history are public. Keep personal data off-chain. The feature is optional and does not provide transaction privacy. The repository contains no NEAR contract or address; `contracts/src/GrindRecord.sol` is an undeployed EVM contract and is not used here. Shared player orders and NPC wallet state remain future work.
 
 ## The man and the woman
 
@@ -75,13 +78,13 @@ The title screen is a menu: Enter the district, How to play, The city, Courses, 
 
 `src/houses.ts` is the east row: your house, the notes house (`adaeze`), the set house (`malik`), the grove house (`nia`), and a vacant room. Keep those ids so old `houseVisits` still match. The signs and sheets do not use personal names. The same list builds the 3D meshes and the overhead map. Claim the room once (+3 reputation). A first visit to each neighbor is +2. Messaging and voice stay out.
 
-`src/courses.ts` holds twelve lessons. Each one is several paragraphs with a source line, plus four exercises. The first eight match the city’s original hall: spot, risk, staking, airdrops, memes, agents, building, carbon. The four added in the city only are custody, stablecoins, liquidity pools, and reading a transfer. `GrindRecord` still has bits for the original eight. Do not add contract bits in a city pass. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
+`src/courses.ts` holds twelve lessons. Each one is several paragraphs with a source line, plus four exercises. The first eight match the city’s original hall: spot, risk, staking, airdrops, memes, agents, building, carbon. The four added in the city only are custody, stablecoins, liquidity pools, and reading a transfer. `GrindRecord` still has bits for the original eight. Do not add contract bits in a city pass. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once. New players get a short plaza-to-Campus route and a direct button to open Spot.
 
-Twelve courses at 70 XP are 840 before streak and focus. Whale stays at 1100, so courses alone still stop short of whale. That split is intentional.
+Twelve courses at 70 XP are 840 before focus. Whale stays at 1100, so courses alone still stop short of whale. Other practice actions and focus can add XP in the city.
 
 Café: read the board, then order water (free, once that day, after the board). Gym: the timing set, plus a line that says what a second set does. Carbon desk: the method is on the sheet before the pledge buttons. Conference hall: sit once, then keep the note. Mint squares on the overhead map are those doors. The corner map is clickable and opens the directory. `#map` sets `pointer-events: auto` because `#hud` ignores pointers.
 
-`tickMarket` uses its clock argument for the season. The Lagos day is always `new Date()`. Do not pass `performance.now()` into that day. A frame timestamp is milliseconds since the page opened, and `new Date` of that value is 1970, which wipes every daily on the next frame. Both loops pass `Date.now()`.
+Daily actions use the player’s local calendar date, obtained from `new Date()` in the state layer. Keep frame timestamps separate from calendar dates: a frame timestamp is milliseconds since the page opened, and using it as a date would incorrectly reset daily actions. The market uses frame delta only.
 
 `districtName` labels the band east of x 30 and south of z 14 as The houses, including the notes-house door, which sits inside the old influencer-row circle.
 
@@ -95,7 +98,7 @@ The gadgets stall is south of the plaza (`x: -16, z: 14`). The boutique sheet we
 
 ## What a later session can still add
 
-These are the open pieces. WebGL context, a wallet, a multisig, and deploying GrindRecord are already called out above. Do not redo those.
+These are the open pieces. WebGL context, shared markets/NPC wallet state, a multisig, and any contract deployment remain open. The optional NEAR mainnet account link and off-chain signed practice-order demo are already implemented above.
 
 - Proximity voice and player-to-player messaging. House copy still says they are later.
 - Other people are scripted citizens in `src/citizens.ts`. There is no networked player.
@@ -108,9 +111,15 @@ These are the open pieces. WebGL context, a wallet, a multisig, and deploying Gr
 - Cash-fan emote. Do not add it unless someone asks.
 - Database recording of sign-ups (Supabase). Currently localStorage only.
 
+## Agent claim and first-earn gate
+
+Unit 4 offers **Copy fresh prompt** after Privy sign-in. The server signs a claim code with the existing `PRIVY_APP_SECRET`; it expires after 10 minutes. `POST /api/agents/first-earn` checks the code and applies a five-minute wait from its issue time (425 until ready). Copying a fresh prompt starts a new wait; earlier codes are not revoked and remain usable until expiry. The check does not prove agent identity, enforce single use, or issue funds. No server agent earn endpoint exists, and browser-local practice earnings are not guarded. Keep that limitation explicit; any future earn endpoint must enforce the check server-side.
+
 ## What stays off the chain
 
-- No wallet button, no seed phrase, no signature prompt.
+- NEAR wallet linking is optional; the game never asks for a seed phrase.
+- NEP-413 market-order signatures stay in the browser and are discarded; the game sends no NEAR transactions.
+- Names, usernames, email, practice balances, positions, and game activity remain local. User-initiated Base top-up transfers and NEAR account activity are public on their respective chains; the NEAR feature does not send profile data and should not be described as private.
 - The practice ledger is local USD. It is labeled as practice. It is not financial advice and it is not `GrindRecord`.
 - Do not deploy `contracts/src/GrindRecord.sol`.
 - Do not point the city at a contract address.
@@ -124,7 +133,7 @@ forge test
 
 `contracts/lib` is gitignored. Install forge-std locally. Do not commit `out/` or `cache/`.
 
-Whale is 1100 XP. Reputation does not add XP. The original eight courses, with focus and a streak, were described as 760 XP. Twelve courses at 70 XP are 840 before those bonuses. Do not retune the ladder to make whale a course reward.
+Whale is 1100 XP. Reputation does not add XP. The original eight courses are 560 XP before focus; twelve courses are 840 before focus. Practice actions and focus can add XP, but do not retune the ladder to make whale a course reward.
 
 ## Theme
 

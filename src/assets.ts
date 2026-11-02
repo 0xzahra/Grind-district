@@ -49,21 +49,31 @@ function parts(prefix: string, count: number): string[] {
   ))
 }
 
-const images: Array<[string, readonly string[], string]> = [
-  ['/brand/lockup.png', parts('lockup', 26), 'image/png'],
-  ['/brand/logo-black.jpg', parts('logo', 17), 'image/jpeg'],
-  ['/brand/shrimp.png', ['/brand/shrimp.b64'], 'image/png'],
+const images: Array<[string, readonly string[], string, number]> = [
+  ['/brand/lockup.png', parts('lockup', 26), 'image/png', 0x89],
+  ['/brand/logo-black.jpg', parts('logo', 17), 'image/jpeg', 0xff],
+  ['/brand/shrimp.png', ['/brand/shrimp.b64'], 'image/png', 0x89],
 ]
+const imageUrls = new Map<string, Promise<string>>()
 
-export function prepareAssets(): void {
+function resolvedImage(path: string, packed: readonly string[], type: string, magic: number): Promise<string> {
+  let pending = imageUrls.get(path)
+  if (!pending) {
+    pending = assetUrl(path, packed, type, magic).catch(() => path)
+    imageUrls.set(path, pending)
+  }
+  return pending
+}
+
+export function prepareAssets(): Promise<void> {
+  const loads: Promise<void>[] = []
   for (const img of document.querySelectorAll('img')) {
     const src = img.getAttribute('src')
     const match = images.find(([path]) => path === src)
-    if (!match) continue
-    img.addEventListener('error', () => {
-      void packedUrl(match[1], match[2]).then((url) => {
-        if (url) img.src = url
-      })
-    })
+    if (!src || !match) continue
+    loads.push(resolvedImage(...match).then((url) => {
+      if (img.isConnected && img.getAttribute('src') === src) img.src = url
+    }))
   }
+  return Promise.all(loads).then(() => undefined)
 }
