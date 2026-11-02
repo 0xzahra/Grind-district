@@ -316,7 +316,7 @@ export const COURSES: Course[] = [
     paragraphs: [
       'A recovery phrase, often twelve or twenty-four words in the BIP-39 pattern, is a backup of the private keys. Anyone who can read it can move what those keys control. Typing it into a website to "verify" the grind hands the keys over. A real wallet does not need that.',
       'An ERC-20 approval lets another contract transfer a token up to a limit you set. An unlimited approval stays until you revoke it. A drain often spends an approval you already signed. It does not need your phrase a second time.',
-      'A signature can be a login, a permit, or a transaction. Read the site, the spender, and the amount before you confirm. Speed is not a reason. This city never asks you to sign.',
+      'A signature can be a login, a permit, or a transaction. Read the site and the exact message before you confirm. The optional NEAR market demo asks only for an off-chain NEP-413 order signature; the game never asks you to approve a transaction or a token spend.',
       'The practice ledger lives in this browser. It is not a wallet. If a sheet, a neighbor, or a link asks for a phrase, stop.',
       'Sources: BIP-39, the mnemonic that backs up a key; ERC-20 approve, the allowance another contract can spend. ethereum.org documents token approvals.',
     ],

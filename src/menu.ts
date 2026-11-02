@@ -67,7 +67,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
         copy('Grind District is made by Zahra.'),
         copy('Signup asks for a name, a username, and a body. The man has blonde hair, glasses, and a grey suit. The woman has longer hair and a fitted coat. Both are original. The boutique can change the body later.'),
         copy('Masks in the boutique use the names CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The shapes are Grind District cuts, not the licensed artwork.'),
-        copy('Login can use Privy email. The city still asks for a name, a username, and a body. It does not ask for a wallet or a seed phrase. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
+        copy('Login can use Privy email. Signup asks for a name, a username, and a body; wallet linking is separate and optional in Settings. NEAR mainnet account IDs and activity are public, so keep names, usernames, and personal details off-chain. The market demo signs a small order message and fills only the local practice book: it sends no transaction, deploys no contract, and moves no real funds. The app never asks for a seed phrase. A Solidity file in the repository uses the extension .sol; it is an undeployed EVM record, not a Solana program or the NEAR integration.'),
         copy('Market Velocity is the theme. It loops at three minutes and stays paused until you press play.'),
       )
       return { title: 'Credits', body }

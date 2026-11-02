@@ -12,6 +12,7 @@ import {
   TAX_USD,
   applyDay,
   cleanDisplayName,
+  cleanNearAccountId,
   cleanPrivyId,
   cleanUsername,
   buyHolding,
@@ -150,6 +151,24 @@ export function attachPrivy(id: string): { ok: true } | { ok: false; error: stri
   persist()
   emit()
   return { ok: true }
+}
+
+export function linkNearAccount(accountId: string): { ok: true } | { ok: false; error: string } {
+  const next = cleanNearAccountId(accountId)
+  if (!next) return { ok: false, error: 'NEAR returned an invalid account ID.' }
+  if (save.nearAccountId && save.nearAccountId !== next) {
+    return { ok: false, error: 'Disconnect the current NEAR account before linking another.' }
+  }
+  save.nearAccountId = next
+  persist()
+  emit()
+  return { ok: true }
+}
+
+export function unlinkNearAccount(): void {
+  save.nearAccountId = ''
+  persist()
+  emit()
 }
 
 export function setName(name: string): { ok: true } | { ok: false; error: string } {
@@ -300,6 +319,18 @@ export type TradeFill = {
 
 export function trade(symbol: 'unit' | 'meme', side: 'buy' | 'sell', fraction: number, plan: boolean): TradeFill {
   const price = symbol === 'unit' ? save.unitPrice : save.memePrice
+  return tradeAtPrice(symbol, side, fraction, plan, price)
+}
+
+export function tradeAtPrice(
+  symbol: 'unit' | 'meme',
+  side: 'buy' | 'sell',
+  fraction: number,
+  plan: boolean,
+  price: number,
+  source: 'practice' | 'near' = 'practice',
+): TradeFill {
+  if (!Number.isFinite(price) || price <= 0) return { ok: false, message: 'No valid market quote is available.' }
   const holding = symbol === 'unit' ? save.unit : save.meme
   const result = side === 'buy' ? buyHolding(save.ledger, holding, price, fraction) : sellHolding(save.ledger, holding, price, fraction)
   if (!result.ok) return { ok: false, message: result.error }
@@ -307,8 +338,9 @@ export function trade(symbol: 'unit' | 'meme', side: 'buy' | 'sell', fraction: n
   if (symbol === 'unit') save.unit = result.holding
   else save.meme = result.holding
   const name = symbol === 'unit' ? 'UNIT' : 'MEME'
+  const orderLabel = source === 'near' ? `NEAR-signed ${side} order · ${name}` : side === 'buy' ? `Bought ${name}` : `Sold ${name}`
   if (side === 'buy') {
-    log('trade', `Bought ${name}`, `Spent ${money(result.cash)} practice at ${money(price)}.`)
+    log('trade', orderLabel, `Spent ${money(result.cash)} practice at ${money(price)}.${source === 'near' ? ' Signature was off-chain and discarded.' : ''}`)
     persist()
     emit()
     return { ok: true, message: `Bought ${name} with ${money(result.cash)} practice. The plan is logged when you sell.` }
@@ -327,7 +359,7 @@ export function trade(symbol: 'unit' | 'meme', side: 'buy' | 'sell', fraction: n
   let extra = 'No plan was checked, so the ladder stays put.'
   if (plan && planXp > 0) extra = 'The plan is on the ladder.'
   else if (plan) extra = 'You already logged a plan on this desk today.'
-  log('trade', `Sold ${name}`, `${tone} ${extra}`)
+  log('trade', orderLabel, `${tone} ${extra}${source === 'near' ? ' NEAR signature was off-chain and discarded.' : ''}`)
   persist()
   emit(rankedUp)
   return { ok: true, message: `${tone} ${extra}`, rankedUp }
@@ -560,6 +592,7 @@ export function resetProgress(): void {
   const signedUp = save.signedUp
   const body = save.body
   const privyId = save.privyId
+  const nearAccountId = save.nearAccountId
   save = createSave(new Date(), { graphics })
   save.volume = volume
   save.timeOfDay = timeOfDay
@@ -571,6 +604,7 @@ export function resetProgress(): void {
   save.signedUp = signedUp
   save.body = body
   save.privyId = privyId
+  save.nearAccountId = nearAccountId
   save.seenIntro = true
   persist()
   emit()

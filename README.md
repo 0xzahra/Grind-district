@@ -4,7 +4,7 @@ A browser life sim inside Web3. You start as a shrimp with a zero practice ledge
 
 The tagline is the door: **No tribe. No continent. Just come grind.**
 
-This build is the playable city. Gameplay stays off-chain. There is no token, no wallet, and no seed phrase. The ledger is practice USD, labeled as such. It is not real funds and it is not financial advice.
+This build is the playable city. The practice economy stays off-chain. There is no deployed token or seed-phrase prompt. An optional NEAR mainnet wallet link supports a signed market-order demo; NEAR account IDs and on-chain activity are public, not private. The local ledger is practice USD, not real funds and not financial advice.
 
 The city does not run on Solana. `contracts/src/GrindRecord.sol` is Solidity, which is the language for an EVM record. The `.sol` extension is not a Solana program. That file is not deployed, and the practice ledger is not it.
 
@@ -38,6 +38,16 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 - Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
 - All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
 - Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+
+## NEAR mainnet wallet and market demo
+
+NEAR wallet linking is separate from Privy sign-in and optional. In Settings, connect a mainnet account through NEAR Wallet Selector’s MyNearWallet integration; the game save stores only the account ID in this browser. Google/X/Privy login and the existing local practice save remain separate.
+
+On the Spot book or Trenches book, choose a size and sign an NPC market order. The NEP-413 message contains only the asset, side, size, NPC practice quote, market season, and expiry. The client accepts the wallet response as a local demo gate for a practice-book fill, then discards the signature; it does not send it to a server or blockchain. There is no server-side signature verification, public order, or shared market state. No NEAR transaction, contract call, deposit, or real-funds movement is made. NPC quotes change with the existing live practice book and six-minute bull/bear season; NPC wallet state is not shared across players.
+
+NEAR mainnet account IDs, balances, and transaction history are publicly visible. Do not put names, usernames, email addresses, or other personal data in wallet messages or on-chain. This integration does not provide privacy; it limits the data the game handles. Connecting a wallet is optional, and the city remains playable without one.
+
+The repo contains no deployed NEAR contract or NEAR contract address. `contracts/src/GrindRecord.sol` is an undeployed EVM contract and is not used by this integration. Further shared/on-chain market settlement would require a separately reviewed NEAR contract and explicit deployment approval.
 
 ## How to play
 
@@ -78,19 +88,19 @@ Graphics (low, medium, high) and GN time (night, dusk, day) live in Settings. A 
 
 ## Later, on purpose
 
-Proximity voice, messaging, licensed NFT bodies, and anything on-chain wait until this city is the one people walk. This build does not pretend those exist.
+Proximity voice, messaging, licensed NFT bodies, shared on-chain market state, and settlement wait until this city is the one people walk. The current NEAR feature is an optional mainnet account link and off-chain signed practice-order demo; it does not provide private transactions or a deployed contract.
 
 ## The citizen
 
-Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. The city does not ask for a wallet. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
+Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. Wallet linking is optional and separate from signup; see the NEAR mainnet section above. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
 
-Settings also holds the map size, walking hints, and reduced motion, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
+Settings also holds the map size, walking hints, reduced motion, and optional NEAR mainnet account link, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
 
 The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
 
 ## GrindRecord
 
-`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions and does not ask for a wallet. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
+`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions to it. The optional NEAR mainnet wallet is used only for an off-chain signed market-order demo. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
 
 ```bash
 cd contracts
