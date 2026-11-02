@@ -8,7 +8,7 @@ import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { decodeShare, rankFor, wearsPlate, type DroneId, type Graphics } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
@@ -197,7 +197,7 @@ async function main(onReveal: () => void) {
 
   const applyLook = () => {
     const time = getSave().timeOfDay
-    world.setLook({ time, season: seasonAt() })
+    world.setLook({ time })
     dayPhase = phaseFor(time)
     world.setDaylight(dayPhase)
     renderer.toneMappingExposure = 1.0
@@ -237,7 +237,6 @@ async function main(onReveal: () => void) {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
     ledger: must('#pill-ledger'),
-    season: must('#pill-season'),
     focus: must('#pill-focus'),
   }, {
     onStyle: () => {
@@ -261,7 +260,6 @@ async function main(onReveal: () => void) {
   map.addEventListener('click', () => ui.open('city'))
   must('#pill-rank').addEventListener('click', () => ui.open('profile'))
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
-  must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#shot').addEventListener('click', () => {
     renderer.render(scene, camera)
     try {
@@ -353,7 +351,6 @@ async function main(onReveal: () => void) {
   let revealed = false
   let failed = false
   let elapsed = 0
-  let season = seasonAt()
   let saveAcc = 0
   let taxLatch = false
   let crowdObstacles: Obstacle[] = []
@@ -422,14 +419,7 @@ async function main(onReveal: () => void) {
   }
 
   const update = (dt: number) => {
-    const now = Date.now()
-    tickMarket(dt, now)
-    const nextSeason = seasonAt(now)
-    if (nextSeason !== season) {
-      season = nextSeason
-      applyLook()
-      ui.refresh()
-    }
+    tickMarket(dt)
     crowdObstacles = crowd.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.

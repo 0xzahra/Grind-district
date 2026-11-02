@@ -1,5 +1,5 @@
 import { HOUSES, type HouseId } from './houses.ts'
-import type { PanelId, Season, TimeOfDay } from './logic.ts'
+import type { PanelId, TimeOfDay } from './logic.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
 
@@ -20,7 +20,7 @@ export type World = {
   hotspots: Hotspot[]
   sun: THREE.DirectionalLight
   tick: (time: number, focus: THREE.Vector3) => void
-  setLook: (look: { time: TimeOfDay; season: Season }) => void
+  setLook: (look: { time: TimeOfDay }) => void
   setRank: (label: string) => void
   /** Continuous day clock. 0 is midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset. */
   setDaylight: (phase: number) => void
@@ -475,8 +475,8 @@ export function createWorld(options: {
   spot('learn', hall.x, hall.z, 2.5, 'Learning hall', 'Twelve short courses. Pass one and it writes your CV, resume, and portfolio.', 'learn', 'Open the hall')
   const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'ninety seconds', windows: true, seed: 5 })
   spot('conference', conference.x, conference.z, 2.3, 'Conference hall', 'One talk. Proof of work, not a slogan. The chairs are real enough.', 'conference', 'Take a seat')
-  const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', windows: true, seed: 8 })
-  spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Headlines change with the season. They are not a signal to size up.', 'cafe', 'Read the room')
+  const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'gossip and posts', windows: true, seed: 8 })
+  spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'The board is gossip, not a signal.', 'cafe', 'Read the room')
   addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 2.5, door: 'pz', title: 'Booth', subtitle: 'no seed asks', seed: 2 })
   addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 2.5, door: 'pz', title: 'Booth', subtitle: 'one-pagers', seed: 4 })
   spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Projects pin a one-pager here. None of them can ask for your seed.')
@@ -707,7 +707,7 @@ export function createWorld(options: {
   totem.add(plinth, pole, board)
   scene.add(totem)
   obstacles.push({ kind: 'circle', x: -9, z: -8, r: 0.7 })
-  spot('ladder', -9, -8, 2.3, 'The ladder', 'Shrimp, crab, fish, dolphin, shark, whale. Skill and the days you return. A bigger balance does not move it.')
+  spot('ladder', -9, -8, 2.3, 'The ladder', 'Shrimp, crab, fish, dolphin, shark, whale. Courses and practice move it. A bigger balance does not move it.')
 
   const addBench = (x: number, z: number) => {
     const group = new THREE.Group()
@@ -889,17 +889,15 @@ export function createWorld(options: {
 
   let nextScreen = 0
   let trimPulse = 1.12
-  const setLook = (look: { time: TimeOfDay; season: Season }) => {
+  const setLook = (look: { time: TimeOfDay }) => {
     const night = look.time === 'night'
     const dusk = look.time === 'dusk'
-    const bear = look.season === 'bear'
-    seasonBear = bear
     background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
     fog.color.copy(background)
     fog.near = night ? 26 : dusk ? 32 : 40
     fog.far = night ? 136 : 160
-    sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xffb27a : 0xfff1d6)
-    sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
+    sun.color.setHex(dusk ? 0xffb27a : 0xfff1d6)
+    sun.intensity = night ? 0.7 : dusk ? 1.2 : 1.7
     hemi.intensity = night ? 0.4 : dusk ? 0.66 : 1.08
     hemi.color.setHex(night ? 0xb7d4ff : 0xfff4e8)
     hemi.groundColor.setHex(night ? 0x1c2e26 : 0x3d4f3a)
@@ -914,7 +912,6 @@ export function createWorld(options: {
     stars.visible = night
   }
 
-  let seasonBear = false
   const nightSky = new THREE.Color(0x02040a)
   const nightLow = new THREE.Color(0x0a1210)
   const duskSky = new THREE.Color(0x2a3a6a)
@@ -945,8 +942,7 @@ export function createWorld(options: {
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
-    if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.6 + day * 1.1 : 0.55) * (seasonBear ? 0.85 : 1)
+    sun.intensity = elev >= 0 ? 0.6 + day * 1.1 : 0.55
     hemi.intensity = 0.4 + day * 0.68
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(0x1c2e26).lerp(tmpA.setHex(0x3d4f3a), day)

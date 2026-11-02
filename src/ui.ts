@@ -1,4 +1,4 @@
-import { COURSES, headlines } from './courses.ts'
+import { COURSES } from './courses.ts'
 import { logoutPrivy } from './privy.ts'
 import { GUIDE } from './guide.ts'
 import { HOUSES, type HouseId } from './houses.ts'
@@ -22,8 +22,6 @@ import {
   progressToNext,
   rankFor,
   rankToast,
-  seasonAt,
-  seasonLabel,
   sharedText,
   todayTasks,
   type PanelId,
@@ -122,7 +120,6 @@ export function mountUi(
     rank: HTMLElement
     place: HTMLElement
     ledger: HTMLElement
-    season: HTMLElement
     focus: HTMLElement
   },
   hooks: Hooks,
@@ -148,7 +145,6 @@ export function mountUi(
     pills.rank.textContent = rankFor(save.xp).label
     pills.place.textContent = place
     pills.ledger.textContent = money(save.ledger)
-    pills.season.textContent = seasonLabel(seasonAt())
     pills.focus.hidden = !save.focus
   }
 
@@ -232,12 +228,7 @@ export function mountUi(
     fill.style.width = `${Math.round(progressToNext(save.xp) * 100)}%`
     track.append(fill)
     wrap.append(track, para('Balance does not move this bar.', 'muted'))
-    const streakNote = save.dailies && todayTasks(save).some((task) => task.done)
-      ? `Streak ${save.streak}. You already logged a rep today.`
-      : save.streak > 0
-        ? `Streak ${save.streak}. One rep today makes it ${save.streak + 1}.`
-        : 'No streak yet. One rep today starts it.'
-    wrap.append(para(`${streakNote} Reputation ${save.reputation}.`))
+    wrap.append(para(`Reputation ${save.reputation}.`))
     wrap.append(para(`Practice ledger ${money(save.ledger)}. Not real funds.`, 'muted'))
     for (const task of todayTasks(save)) {
       const row = para(`${task.done ? 'Done' : 'Open'} · ${task.label}`, task.done ? 'task done' : 'task')
@@ -354,8 +345,7 @@ export function mountUi(
         if (outcome.ok) {
           const extra = outcome.stipend ? ' Campus put $25 practice on your ledger.' : ''
           const focus = outcome.focus ? ' Focus added a quarter.' : ''
-          const bonus = outcome.bonus ? ` Streak +${outcome.bonus} XP.` : ''
-          finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
+          finish(`Filed to your CV.${focus}${extra}`, outcome.rankedUp)
           showCourse(id)
           return
         }
@@ -444,10 +434,9 @@ export function mountUi(
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
-    const season = seasonLabel(seasonAt())
     const blurb = symbol === 'unit'
-      ? `${season} season. A plan logged on the sell can count when the close is red.`
-      : `${season} season. MEME is attention. Size small. Rank will not follow a crash.`
+      ? 'A plan logged on the sell can count when the close is red.'
+      : 'MEME is attention. Size small. Rank will not follow a crash.'
     return frame(symbol === 'unit' ? 'Spot book' : 'Trenches book', stack(
       para(blurb, 'muted'),
       price,
@@ -764,7 +753,7 @@ export function mountUi(
       case 'malik':
         return renderSimple('Set house', [
           para('Mats by the door. One set is logged and left. The chart is not invited in.'),
-          para('A second set the same day does not stack the streak.'),
+          para('Another set today will not be filed again.'),
           button('Stay for the set', 'primary', () => visit('You stayed for the set.')),
         ])
       case 'nia':
@@ -822,14 +811,13 @@ export function mountUi(
           para('Sitting puts focus on the next course you pass.'),
           button('Sit', 'primary', () => {
             const outcome = sitPrayer()
-            finish(outcome.message, outcome.rankedUp)
+            finish(outcome.message)
             open('prayer')
           }),
         ])
       case 'cafe':
         return renderSimple('The room', [
-          ...headlines(seasonAt(), getSave().dailies.day).map((lineText) => para(lineText)),
-          para(`${seasonLabel(seasonAt())} season. The board is gossip, not a signal.`, 'muted'),
+          para('The board is gossip, not a signal. Read it once a day.', 'muted'),
           button('Read the room', 'primary', () => {
             const outcome = readCafe()
             finish(outcome.message, outcome.rankedUp)
@@ -839,7 +827,7 @@ export function mountUi(
             finish(orderWater().message)
             open('cafe')
           }),
-          para('Water is free. It does not turn a headline into a trade.', 'muted'),
+          para('Water is free. The board is not a trade signal.', 'muted'),
         ])
       case 'house':
         return renderHouse()
@@ -911,7 +899,6 @@ export function mountUi(
           para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
           para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
           para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
-          para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
           button('Made by Zahra', 'primary', () => window.open(ZAHRA, '_blank', 'noopener')),
         ])
       case 'tax':
@@ -920,21 +907,13 @@ export function mountUi(
           para('Rank will not move because money moved.', 'muted'),
           button(`Pay ${money(TAX_USD)}`, 'primary', () => {
             const outcome = payTax()
-            finish(outcome.message, outcome.rankedUp)
+            finish(outcome.message)
             if (outcome.ok) close()
           }),
           button('Not today', 'ghost', () => {
             finish(declineTax().message)
             close()
           }),
-        ])
-      case 'season':
-        return renderSimple(`${seasonLabel(seasonAt())} season`, [
-          para(seasonAt() === 'bull'
-            ? 'Bids are easier. Size still matters. The café is loud.'
-            : 'Marks are heavy. The street is open. Your CV does not mark to market.'),
-          para('Seasons flip every six minutes in this build, for everyone on the same clock.'),
-          button('Read it at the café', 'primary', () => open('cafe')),
         ])
       case 'shared':
         return renderSimple('Shared profile', [
