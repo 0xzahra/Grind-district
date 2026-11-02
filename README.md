@@ -29,6 +29,16 @@ npm run build
 
 `check` runs the game-rule assertions. `build` typechecks, runs those assertions, then writes `dist/`.
 
+## Sign-in and sign-up
+
+Players sign in and sign up with **Google** or **X**. Both go through Privy.
+
+- Google sign-in is already supported.
+- X Login is free for authentication only. The Login with X / OAuth endpoints do not require X API credits. Credits are only needed if the app later reads posts, posts on behalf of users, or makes other API calls.
+- Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
+- All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
+- Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+
 ## How to play
 
 - WASD or the arrow keys walk. Shift runs. On a phone, use the stick.
