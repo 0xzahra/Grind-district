@@ -205,7 +205,7 @@ export function buyDrone(id: DroneId): { ok: boolean; message: string } {
   const item = DRONES.find((drone) => drone.id === id)
   if (!item) return { ok: false, message: 'That drone is not on the wall.' }
   const quote = quoteDrone(save.ledger, save.ownedDrones, id)
-  if (!quote.ok) return { ok: false, message: quote.error }
+  if ('error' in quote) return { ok: false, message: quote.error }
   if (!quote.already) {
     save.ledger = quote.ledger
     save.ownedDrones = [...save.ownedDrones, id]
@@ -333,7 +333,7 @@ export function tradeAtPrice(
   if (!Number.isFinite(price) || price <= 0) return { ok: false, message: 'No valid market quote is available.' }
   const holding = symbol === 'unit' ? save.unit : save.meme
   const result = side === 'buy' ? buyHolding(save.ledger, holding, price, fraction) : sellHolding(save.ledger, holding, price, fraction)
-  if (!result.ok) return { ok: false, message: result.error }
+  if ('error' in result) return { ok: false, message: result.error }
   save.ledger = result.ledger
   if (symbol === 'unit') save.unit = result.holding
   else save.meme = result.holding

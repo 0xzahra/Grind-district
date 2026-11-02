@@ -4,7 +4,7 @@ A browser life sim inside Web3. You start as a shrimp with a zero practice ledge
 
 The tagline is the door: **No tribe. No continent. Just come grind.**
 
-This build is the playable city. The practice economy stays off-chain. There is no deployed token or seed-phrase prompt. An optional NEAR mainnet wallet link supports a signed market-order demo; NEAR account IDs and on-chain activity are public, not private. The local ledger is practice USD, not real funds and not financial advice.
+This build is the playable city. The local practice economy stays off-chain and separate from optional user-initiated Base USDC top-ups, which are verified and displayed apart from practice cash. There is no in-game token or seed-phrase prompt. An optional NEAR mainnet wallet link supports an off-chain signed market-order demo; NEAR account IDs and on-chain activity are public, not private. The practice ledger is browser-only practice USD, not real funds or financial advice.
 
 The city does not run on Solana. `contracts/src/GrindRecord.sol` is Solidity, which is the language for an EVM record. The `.sol` extension is not a Solana program. That file is not deployed, and the practice ledger is not it.
 
@@ -92,15 +92,21 @@ Proximity voice, messaging, licensed NFT bodies, shared on-chain market state, a
 
 ## The citizen
 
-Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. Wallet linking is optional and separate from signup; see the NEAR mainnet section above. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
+Signup can start with Privy email login, then asks for a name, a username, and a body before you enter. Gameplay does not require a wallet. Optional NEAR linking is separate from signup; optional Base top-ups associate the sending wallet through Privy. The city never asks for a seed phrase. The plate and the profile use the name and `@username`. The man has blonde swept hair, thin glasses, a grey suit, and a blue shirt. The woman has longer hair, a softer face, and a fitted coat. Rank still starts at shrimp. The shrimp mascot, Ledger, Marina, and Signal stay free in the boutique, and the body can be changed there later. People already on the street are not given names. Their plates show rank.
 
 Settings also holds the map size, walking hints, reduced motion, and optional NEAR mainnet account link, next to GN time and graphics. The corner map opens the city directory. On the overhead map, mint squares are doors.
 
 The boutique masks are named CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The meshes are original Grind District cuts. They are not the licensed artwork. Gadgets sells three drones.
 
+## Base USDC top-ups
+
+The Top up screen copies the fixed GrindTreasury address and accepts a Base transaction hash. The server verifies a successful Base mainnet receipt with at least 12 confirmations, a USDC transfer to the treasury, and a sender wallet linked to the authenticated Privy account. Credits come from receipt logs and each transfer log can only be credited once. Earlier deposits can be claimed by submitting their hash; wallet history is not scanned automatically. Verified credits appear separately from practice cash and are not used for local purchases.
+
+Apply `supabase/migrations/202606180001_verified_topups.sql` and configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the existing server-only Privy credentials before enabling credited balances. `BASE_RPC_URL` is optional and defaults to Base mainnet. Never expose the service-role key in a `VITE_` variable.
+
 ## GrindRecord
 
-`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions to it. The optional NEAR mainnet wallet is used only for an off-chain signed market-order demo. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
+`contracts/src/GrindRecord.sol` is the proof-of-work record. It is not deployed. The city does not send transactions to it; optional Base USDC top-ups are user-initiated and handled separately. The optional NEAR mainnet wallet is used only for an off-chain signed market-order demo. The contract refuses ether. XP follows the same rank cuts as the city, a course can be filed once, and reputation does not move rank.
 
 ```bash
 cd contracts

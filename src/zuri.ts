@@ -73,6 +73,9 @@ export function createZuri(): ShrimpAvatar {
   const torso = part(new THREE.CylinderGeometry(0.2, 0.15, 0.44, 7), coat, bob, 0, 1.22, 0)
   torso.scale.z = 0.62
   part(new THREE.BoxGeometry(0.16, 0.28, 0.02), scarf, bob, 0, 1.24, 0.11)
+  part(new THREE.BoxGeometry(0.018, 0.2, 0.012), gold, bob, -0.13, 1.22, 0.105).castShadow = false
+  part(new THREE.SphereGeometry(0.025, 8, 6), gold, bob, 0.13, 1.31, 0.12).castShadow = false
+  part(new THREE.SphereGeometry(0.025, 8, 6), gold, bob, 0.13, 1.18, 0.12).castShadow = false
   part(new THREE.BoxGeometry(0.22, 0.05, 0.16), gold, bob, 0, 1.02, 0.02)
   const chain = part(new THREE.TorusGeometry(0.09, 0.01, 6, 14), gold, bob, 0, 1.32, 0.12)
   chain.rotation.x = Math.PI / 2.4

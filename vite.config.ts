@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite'
 import { verifyPrivySession } from './server/verify-session.ts'
+import { handleTopupBalance, handleTopupVerify } from './server/topup-api.ts'
 
 function bearer(header: string | string[] | undefined): string {
   const value = Array.isArray(header) ? header[0] : header
@@ -31,11 +32,19 @@ function privySession(): Plugin {
   const attach = (middlewares: Connect.Server) => {
     middlewares.use(async (req, res, next) => {
       const path = (req.url ?? '').split('?')[0]
-      if (path !== '/api/privy/session') {
-        next()
+      if (path === '/api/privy/session') {
+        await handleSession(req, res)
         return
       }
-      await handleSession(req, res)
+      if (path === '/api/topup/balance') {
+        await handleTopupBalance(req, res)
+        return
+      }
+      if (path === '/api/topup/verify') {
+        await handleTopupVerify(req, res)
+        return
+      }
+      next()
     })
   }
   return {
@@ -51,9 +60,12 @@ function privySession(): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  process.env.PRIVY_APP_SECRET = env.PRIVY_APP_SECRET
-  process.env.PRIVY_APP_ID = env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID
-  process.env.VITE_PRIVY_APP_ID = env.VITE_PRIVY_APP_ID
+  if (env.PRIVY_APP_SECRET) process.env.PRIVY_APP_SECRET = env.PRIVY_APP_SECRET
+  if (env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID) process.env.PRIVY_APP_ID = env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID
+  if (env.VITE_PRIVY_APP_ID) process.env.VITE_PRIVY_APP_ID = env.VITE_PRIVY_APP_ID
+  if (env.SUPABASE_URL || env.VITE_SUPABASE_URL) process.env.SUPABASE_URL = env.SUPABASE_URL || env.VITE_SUPABASE_URL
+  if (env.SUPABASE_SERVICE_ROLE_KEY) process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
+  if (env.BASE_RPC_URL) process.env.BASE_RPC_URL = env.BASE_RPC_URL
   return {
     plugins: [privySession()],
     server: {
@@ -65,6 +77,14 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 47321,
       strictPort: true,
+    },
+    build: {
+      rolldownOptions: {
+        input: {
+          main: 'index.html',
+          'tech-art': 'tech-art.html',
+        },
+      },
     },
   }
 })

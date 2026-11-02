@@ -3,6 +3,7 @@ import { logoutPrivy } from './privy.ts'
 import { connectNearMainnet, disconnectNearMainnet, signNearMarketOrder } from './near.ts'
 import { nearMarketOrderMessage, quoteNpcMarket } from './near-economy.ts'
 import { GUIDE } from './guide.ts'
+import { BASE_USDC_ADDRESS, formatUsdcMicros, GRIND_TREASURY_ADDRESS } from './topup-config.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
   BODIES,
@@ -79,6 +80,10 @@ import {
 type Tab = 'today' | 'cv' | 'resume' | 'portfolio' | 'books'
 type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId }
 
+type TopupBalanceResult = { ok: true; balanceMicros: string } | { ok: false; error: string }
+type TopupVerifyResult = { ok: true; creditedMicros: string; balanceMicros: string; alreadyProcessed: boolean } | { ok: false; error: string }
+type AuthActionResult = { ok: true } | { ok: false; error: string }
+
 type Hooks = {
   onStyle: () => void
   onBody: () => void
@@ -86,6 +91,10 @@ type Hooks = {
   onGraphics: () => void
   onPrefs: () => void
   onRank: (label: string) => void
+  onTopupLogin: () => Promise<AuthActionResult>
+  onTopupLinkWallet: () => Promise<AuthActionResult>
+  onTopupBalance: () => Promise<TopupBalanceResult>
+  onTopupVerify: (hash: string) => Promise<TopupVerifyResult>
 }
 
 export type Ui = {
@@ -168,9 +177,10 @@ export function mountUi(
 
   const connectNearAccount = async (): Promise<{ ok: true; accountId: string } | { ok: false; error: string }> => {
     const connected = await connectNearMainnet()
-    if (!connected.ok) return connected
+    if (connected.ok === false) return connected
     const saved = linkNearAccount(connected.accountId)
-    return saved.ok ? connected : saved
+    if (saved.ok === false) return saved
+    return connected
   }
 
   const stop = () => {
@@ -278,6 +288,24 @@ export function mountUi(
     const wrap = stack(para('Assets, wants, and open positions. Marks are practice.', 'muted'))
     wrap.append(para('Assets', 'kicker'))
     wrap.append(line('Practice cash', money(save.ledger)))
+    const verifiedBalance = line('Verified Base USDC credits', 'Checking…')
+    verifiedBalance.classList.add('topup-pair')
+    const verifiedValue = verifiedBalance.querySelector('strong')
+    const verifiedNote = para('Deposits claimed for this Privy account; separate from practice cash.', 'muted')
+    wrap.append(verifiedBalance, verifiedNote, button('View Base top-ups', 'ghost', () => open('topup')))
+    void hooks.onTopupBalance().then((result) => {
+      if (!verifiedValue?.isConnected) return
+      if ('error' in result) {
+        verifiedValue.textContent = 'Unavailable'
+        verifiedNote.textContent = result.error
+      } else {
+        verifiedValue.textContent = formatUsdcMicros(result.balanceMicros)
+      }
+    }).catch(() => {
+      if (!verifiedValue?.isConnected) return
+      verifiedValue.textContent = 'Unavailable'
+      verifiedNote.textContent = 'The verified top-up balance could not be loaded.'
+    })
     if (Object.values(save.skills).some((skill) => skill?.passed)) wrap.append(line('Campus pass', 'On you'))
     if (save.luxury) wrap.append(line('Gold chain', `Resell ${money(RESELL_USD)}`))
     if (save.carbon.length === 0) wrap.append(line('Carbon notes', 'None'))
@@ -297,6 +325,123 @@ export function mountUi(
     }))
     if (save.taxOpen) wrap.append(button('Respond to the request', 'primary', () => open('tax')))
     return wrap
+  }
+
+  const renderTopup = (): HTMLElement => {
+    const balanceRow = line('Verified top-up balance', 'Checking…')
+    balanceRow.classList.add('topup-pair')
+    const balanceValue = balanceRow.querySelector('strong')
+    const feedback = para('', 'result')
+    feedback.setAttribute('role', 'status')
+
+    const hash = document.createElement('input')
+    hash.type = 'text'
+    hash.name = 'transaction-hash'
+    hash.maxLength = 66
+    hash.autocomplete = 'off'
+    hash.spellcheck = false
+    hash.placeholder = '0x… transaction hash'
+    hash.setAttribute('aria-label', 'Base transaction hash')
+    const hashLabel = document.createElement('label')
+    hashLabel.className = 'field'
+    hashLabel.append('Base transaction hash', hash)
+
+    const loadBalance = async () => {
+      try {
+        const result = await hooks.onTopupBalance()
+        if ('error' in result) {
+          if (balanceValue) balanceValue.textContent = 'Unavailable'
+          feedback.textContent = result.error
+          return
+        }
+        if (balanceValue) balanceValue.textContent = formatUsdcMicros(result.balanceMicros)
+      } catch {
+        if (balanceValue) balanceValue.textContent = 'Unavailable'
+        feedback.textContent = 'The verified balance could not be loaded.'
+      }
+    }
+
+    const login = button('Log in with Privy', 'ghost', () => {
+      login.disabled = true
+      void hooks.onTopupLogin().then((result) => {
+        login.disabled = false
+        if ('error' in result) {
+          feedback.textContent = result.error
+        } else {
+          feedback.textContent = 'Privy login verified.'
+          void loadBalance()
+        }
+      }).catch(() => {
+        login.disabled = false
+        feedback.textContent = 'Privy login could not be started.'
+      })
+    })
+    const linkWallet = button('Link depositing wallet', 'ghost', () => {
+      linkWallet.disabled = true
+      void hooks.onTopupLinkWallet().then((result) => {
+        linkWallet.disabled = false
+        feedback.textContent = 'error' in result
+          ? result.error
+          : 'Finish linking the wallet in Privy, then verify the deposit hash.'
+      }).catch(() => {
+        linkWallet.disabled = false
+        feedback.textContent = 'The Privy wallet link could not be started.'
+      })
+    })
+    const verify = button('Verify deposit', 'primary', () => {})
+    verify.type = 'submit'
+    const form = document.createElement('form')
+    form.className = 'stack'
+    form.append(hashLabel, verify)
+    form.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const value = hash.value.trim()
+      if (!/^0x[0-9a-f]{64}$/i.test(value)) {
+        feedback.textContent = 'Enter the 32-byte transaction hash from Base.'
+        hash.focus()
+        return
+      }
+      verify.disabled = true
+      feedback.textContent = 'Checking Base receipt and linked-wallet ownership…'
+      void hooks.onTopupVerify(value).then((result) => {
+        verify.disabled = false
+        if ('error' in result) {
+          feedback.textContent = result.error
+          return
+        }
+        if (balanceValue) balanceValue.textContent = formatUsdcMicros(result.balanceMicros)
+        feedback.textContent = result.alreadyProcessed
+          ? 'This deposit was already claimed. No duplicate credit was added.'
+          : `Verified ${formatUsdcMicros(result.creditedMicros)} to your top-up balance.`
+      }).catch(() => {
+        verify.disabled = false
+        feedback.textContent = 'The top-up service could not verify this request.'
+      })
+    })
+
+    const treasury = line('Treasury address', GRIND_TREASURY_ADDRESS)
+    treasury.classList.add('topup-pair')
+    treasury.querySelector('strong')?.classList.add('topup-address')
+    const network = line('Network', 'Base mainnet · chain 8453')
+    const token = line('Token', `USDC · ${BASE_USDC_ADDRESS}`)
+    network.classList.add('topup-pair')
+    token.classList.add('topup-pair')
+    const body = stack(
+      para('Send Base USDC only to this fixed GrindTreasury address. Copy it here, then paste the transaction hash after sending.', 'muted'),
+      treasury,
+      button('Copy treasury address', 'primary', () => void copyText(GRIND_TREASURY_ADDRESS)),
+      network,
+      token,
+      balanceRow,
+      para('Practice cash stays separate from server-verified credits. A pasted hash is not proof: the server checks the chain, token, recipient, linked sender wallet, receipt status, confirmations, and duplicate logs.', 'muted'),
+      para('To claim an earlier deposit, link the wallet that sent it and enter its transaction hash. The amount comes from the verified receipt; no manual amount is accepted.', 'muted'),
+      login,
+      linkWallet,
+      form,
+      feedback,
+    )
+    void loadBalance()
+    return frame('Top up with Base USDC', body)
   }
 
   const positionLine = (label: string, symbol: 'unit' | 'meme'): HTMLElement => {
@@ -375,7 +520,7 @@ export function mountUi(
           result.textContent = 'Already on your CV.'
           return
         }
-        result.textContent = outcome.hints.filter(Boolean).join(' ')
+        if ('hints' in outcome) result.textContent = outcome.hints.filter(Boolean).join(' ')
       })
       submit.disabled = Boolean(passed)
       wrap.append(submit, result, advice())
@@ -456,7 +601,7 @@ export function mountUi(
       connectWallet.disabled = true
       nearStatus.textContent = 'Opening the mainnet wallet selector…'
       void connectNearAccount().then((outcome) => {
-        nearStatus.textContent = outcome.ok
+        nearStatus.textContent = outcome.ok === true
           ? `Connected · ${outcome.accountId}. This account ID is public on NEAR mainnet.`
           : outcome.error
         connectWallet.hidden = outcome.ok
@@ -479,7 +624,7 @@ export function mountUi(
         if (!accountId) {
           nearStatus.textContent = 'Connect a NEAR mainnet account to continue…'
           const connected = await connectNearAccount()
-          if (!connected.ok) {
+          if (connected.ok === false) {
             nearResult.textContent = connected.error
             return
           }
@@ -501,7 +646,7 @@ export function mountUi(
         }
         nearStatus.textContent = 'Review the exact practice-market order in your wallet…'
         const signature = await signNearMarketOrder(accountId, nearMarketOrderMessage(order))
-        if (!signature.ok) {
+        if (signature.ok === false) {
           nearResult.textContent = signature.error
           return
         }
@@ -707,7 +852,7 @@ export function mountUi(
     display.autocomplete = 'name'
     display.addEventListener('change', () => {
       const outcome = setName(display.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
@@ -722,7 +867,7 @@ export function mountUi(
     handle.spellcheck = false
     handle.addEventListener('change', () => {
       const outcome = setUsername(handle.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
@@ -807,7 +952,7 @@ export function mountUi(
       nearConnectButton.disabled = true
       nearResult.textContent = 'Opening the mainnet wallet selector…'
       void connectNearAccount().then((outcome) => {
-        if (!outcome.ok) {
+        if (outcome.ok === false) {
           nearResult.textContent = outcome.error
           return
         }
@@ -939,6 +1084,8 @@ export function mountUi(
         ])
       case 'profile':
         return renderProfile()
+      case 'topup':
+        return renderTopup()
       case 'learn':
         return renderLearn()
       case 'trade':

@@ -118,7 +118,7 @@ These are the open pieces. WebGL context, shared markets/NPC wallet state, a mul
 
 - NEAR wallet linking is optional; the game never asks for a seed phrase.
 - NEP-413 market-order signatures stay in the browser and are discarded; the game sends no NEAR transactions.
-- Names, usernames, email, practice balances, positions, and activity remain local. NEAR account IDs and any wallet activity are public on mainnet; do not describe them as private.
+- Names, usernames, email, practice balances, positions, and game activity remain local. User-initiated Base top-up transfers and NEAR account activity are public on their respective chains; the NEAR feature does not send profile data and should not be described as private.
 - The practice ledger is local USD. It is labeled as practice. It is not financial advice and it is not `GrindRecord`.
 - Do not deploy `contracts/src/GrindRecord.sol`.
 - Do not point the city at a contract address.
