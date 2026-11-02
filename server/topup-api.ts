@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { PrivyClient } from '@privy-io/node'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { verifyPrivySession } from './verify-session.ts'
@@ -7,6 +7,31 @@ import { TopupVerificationError, verifyBaseTransfers, type RpcCall } from './top
 
 const BASE_RPC_DEFAULT = 'https://mainnet.base.org'
 const MAX_BODY_BYTES = 2048
+
+type TopupDatabase = {
+  public: {
+    Tables: Record<never, never>
+    Views: Record<never, never>
+    Functions: {
+      claim_verified_topup: {
+        Args: {
+          p_chain_id: number
+          p_tx_hash: string
+          p_log_index: string
+          p_privy_user_id: string
+          p_wallet_address: string
+          p_amount_micros: string
+          p_block_number: string
+        }
+        Returns: { claimed: boolean; balance_micros: string }[]
+      }
+      verified_topup_balance: {
+        Args: { p_privy_user_id: string }
+        Returns: string
+      }
+    }
+  }
+}
 
 type BodyRequest = IncomingMessage & { body?: unknown }
 type PrivyWalletRecord = { type?: unknown; chain_type?: unknown; address?: unknown }
@@ -31,9 +56,9 @@ function createStore(): TopupClaimStore | null {
   const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim()
   const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
   if (!url || !key) return null
-  let client: ReturnType<typeof createClient>
+  let client: SupabaseClient<TopupDatabase>
   try {
-    client = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+    client = createClient<TopupDatabase>(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
   } catch {
     return null
   }
