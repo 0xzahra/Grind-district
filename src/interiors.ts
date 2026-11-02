@@ -626,6 +626,28 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     return entry
   }
 
+  // Filled rooms: potted plants in the corners, framed art on the back wall, warm pendant shades. Shared geometry,
+  // basic emissive shades (no extra lights), built once per room on first entry.
+  const propMat = { pot: new THREE.MeshStandardMaterial({ color: 0x8a5a3c, roughness: 0.8 }), leaf: new THREE.MeshStandardMaterial({ color: 0x3f7a45, roughness: 0.7 }),
+    frame: new THREE.MeshStandardMaterial({ color: 0x2b2118, roughness: 0.6 }), shade: new THREE.MeshBasicMaterial({ color: 0xffd9a0 }) }
+  const art = [0xd9b26a, 0x3d7bd9, 0xc8553d, 0x17a673].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }))
+  const propGeo = { pot: new THREE.CylinderGeometry(0.28, 0.22, 0.45, 10), leaf: new THREE.IcosahedronGeometry(0.45, 0), frame: new THREE.BoxGeometry(1.3, 0.9, 0.05), canvas: new THREE.PlaneGeometry(1.15, 0.75), shade: new THREE.ConeGeometry(0.3, 0.3, 12, 1, true) }
+  const addProps = (group: THREE.Group, id: RoomId) => {
+    const o = ORIGIN[id], s = SIZE[id]
+    group.updateMatrixWorld(true)
+    const at = (m: THREE.Object3D, x: number, y: number, z: number) => { m.position.copy(group.worldToLocal(new THREE.Vector3(o.x + x, y, o.z + z))); group.add(m) }
+    const hw = s.w / 2 - 0.7, hd = s.d / 2 - 0.7
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      at(new THREE.Mesh(propGeo.pot, propMat.pot), sx * hw, 0.22, sz * hd)
+      const leaf = new THREE.Mesh(propGeo.leaf, propMat.leaf); leaf.scale.set(1, 1.4, 1); at(leaf, sx * hw, 0.95, sz * hd)
+    }
+    for (let i = 0; i < 3; i += 1) {
+      const x = (i - 1) * s.w * 0.25
+      at(new THREE.Mesh(propGeo.frame, propMat.frame), x, 1.9, -s.d / 2 + 0.08)
+      at(new THREE.Mesh(propGeo.canvas, art[(i + s.w) % art.length]!), x, 1.9, -s.d / 2 + 0.115)
+      at(new THREE.Mesh(propGeo.shade, propMat.shade), x, 2.75, 0)
+    }
+  }
   return {
     get inside() { return inside },
     roomFor(spotId: string): RoomId | null {
@@ -634,6 +656,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     },
     enter(id: RoomId): { x: number; z: number; yaw: number } {
       const room = built.get(id) ?? build(id)
+      if (!room.group.userData.props && id !== 'house' && id !== 'mosque') { room.group.userData.props = true; addProps(room.group, id) }
       room.group.visible = true
       inside = id
       const o = ORIGIN[id]

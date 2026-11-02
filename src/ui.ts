@@ -103,7 +103,7 @@ import {
 
 type Tab = 'today' | 'cv' | 'resume' | 'portfolio' | 'books'
 type PeerView = { shot: string | null; partial: boolean; onMessage: () => void }
-type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId; peer?: PeerView }
+type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId; peer?: PeerView; course?: SkillId }
 
 type Hooks = {
   onStyle: () => void
@@ -236,6 +236,7 @@ export function mountUi(
 
   let open!: (panel: PanelId, extra?: OpenExtra) => void
   let houseId: HouseId = 'yours'
+  let courseHold: SkillId | null = null
 
   sheet.addEventListener('pointerdown', (event) => { if (event.target === sheet) close() })
   const close = () => {
@@ -264,6 +265,12 @@ export function mountUi(
 
   const advice = () => para('Practice only. Not financial, legal, or investment advice.', 'muted')
 
+  const strip = (...btns: HTMLElement[]): HTMLElement => {
+    const s = document.createElement('div'); s.className = 'share-strip'
+    const labels = ['Share on X', 'Share profile link', 'Copy invite link']
+    btns.forEach((b, i) => { b.setAttribute('aria-label', labels[i] ?? ''); b.title = labels[i] ?? '' })
+    s.append(...btns); return s
+  }
   const renderProfile = (): HTMLElement => {
     const save = getSave()
     const hero = document.createElement('div')
@@ -287,7 +294,7 @@ export function mountUi(
     glass.className = 'glass'
     const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
     const docs = documents(save)
-    const doc = (text: string) => { const pre = document.createElement('pre'); pre.className = 'doc'; pre.textContent = text; return pre }
+    const doc = (text: string) => { const pre = document.createElement('pre'); pre.className = 'doc doc-card'; pre.textContent = text; return pre }
     glass.append(
       renderLuxury(),
       head('CV'), doc(docs.cv), document.createElement('hr'),
@@ -302,9 +309,11 @@ export function mountUi(
     const joined = para('', 'muted')
     share.append(
       head('Invite and share'),
-      button('Share on X', 'primary', () => shareToX(save.username, rankFor(getSave().xp).label)),
-      button('Share profile link', 'ghost', () => void publishProfile().then(() => shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' }))),
-      button('Copy invite link', 'ghost', () => void copyText(link('invite')).then(() => { status.textContent = 'Invite link copied.' })),
+      strip(
+      button('𝕏', 'ghost', () => shareToX(save.username, rankFor(getSave().xp).label)),
+      button('🔗', 'ghost', () => void publishProfile().then(() => shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' }))),
+      button('✉︎', 'ghost', () => void copyText(link('invite')).then(() => { status.textContent = 'Invite link copied.' })),
+      ),
       status, joined,
     )
     if (save.username) void fetch(`/api/referrals?u=${encodeURIComponent(save.username)}`).then((r) => r.json()).then((j: { joined?: string[] }) => {
@@ -334,10 +343,20 @@ export function mountUi(
         ? `Streak ${save.streak}. One rep today makes it ${save.streak + 1}.`
         : 'No streak yet. One rep today starts it.'
     wrap.append(para(`${streakNote} Reputation ${save.reputation}.`))
-    wrap.append(para(`Balance ${money(save.ledger)}`, 'muted'))
-    for (const task of todayTasks(save)) {
-      const row = para(`${task.done ? '✓ ' : ''}${task.label}`, task.done ? 'task done' : 'task')
-      wrap.append(row)
+    const bal = document.createElement('div'); bal.className = 'bal-card'
+    bal.append(para('Balance', 'kicker'), para(money(save.ledger), 'bal-num'), para('In-game dollars. Cannot be withdrawn.', 'muted'))
+    wrap.prepend(bal)
+    const tasks = todayTasks(save)
+    wrap.append(para(`Daily quests · ${tasks.filter((t) => t.done).length}/${tasks.length}`, 'kicker'))
+    const GO: Record<string, string> = { 'Pass a course': 'Learning hall', 'Log a sized trade': 'Trading floor', 'Gym set': 'Gym', 'Read the café': 'Campus café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
+    for (const task of tasks) {
+      const q = document.createElement('div'); q.className = `quest${task.done ? ' done' : ''}`
+      const bar = document.createElement('div'); bar.className = 'bar'; const f = document.createElement('div'); f.className = 'bar-fill'; f.style.width = task.done ? '100%' : '0%'; bar.append(f)
+      const t = document.createElement('div'); t.className = 'quest-main'; t.append(para(task.label, 'quest-title'), bar)
+      q.append(t)
+      if (!task.done && GO[task.label]) q.append(button('Go ›', 'ghost', () => { close(); hooks.travel?.(GO[task.label]!, true) }))
+      else if (task.done) q.append(para('✓', 'quest-tick'))
+      wrap.append(q)
     }
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
     wrap.append(button('Copy share link', 'ghost', () => {
@@ -356,9 +375,14 @@ export function mountUi(
   }
 
   const renderBookRows = (rows: BookRow[]): HTMLElement => {
-    const wrap = stack()
+    const cols = document.createElement('div'); cols.className = 'book-cols'
+    const col = (sec: string) => { const c = stack(para(sec, 'kicker')); for (const r of rows.filter((x) => x.section === sec)) c.append(line(r.label + (sec === 'Liabilities' && r.value.includes('spent') ? ' · want' : ''), r.value)); return c }
+    cols.append(col('Assets'), col('Liabilities'))
+    const rest = rows.filter((r) => r.section !== 'Assets' && r.section !== 'Liabilities')
+    const wrap = stack(cols)
+    if (!rest.length) return wrap
     let section = ''
-    for (const r of rows) {
+    for (const r of rest) {
       if (r.section !== section) { section = r.section; wrap.append(para(section, 'kicker')) }
       wrap.append(line(r.label, r.value))
     }
@@ -513,7 +537,7 @@ export function mountUi(
       }
       showLesson()
     }
-    showList()
+    if (courseHold) { const c = courseHold; courseHold = null; showCourse(c) } else showList()
     return frame('Learning hall', body)
   }
 
@@ -1296,6 +1320,7 @@ export function mountUi(
     if (extra?.shared) sharedHold = extra.shared
     if (extra?.shared) peerHold = extra.peer ?? null
     if (extra?.house) houseId = extra.house
+    courseHold = extra?.course ?? null
     sheet.hidden = false
     sheet.setAttribute('role', 'dialog')
     sheet.setAttribute('aria-modal', 'true')

@@ -1592,3 +1592,12 @@ body.sheet-open #online-chip, body.cc-sheet-on #online-chip { display: none !imp
 .login-x{position:absolute;top:8px;right:8px;width:36px;height:36px;padding:0;border-radius:50%;font-size:16px;line-height:1}
 .login-dlg{position:fixed}
 .shop-pic{width:100%;height:96px;border-radius:10px;background:#0d1512;display:block}
+
+.bal-card{padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#1c2a22,#0f1714);border:1px solid rgba(242,193,78,.35)}
+.bal-num{font-size:28px;font-weight:700;color:#f2c14e;margin:2px 0}
+.quest{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.quest.done{opacity:.7}.quest-main{flex:1;display:grid;gap:6px}.quest-title{margin:0;font-weight:600}.quest-tick{margin:0;color:#17f790;font-weight:700}
+.quest button{width:auto;padding:6px 12px}
+.doc-card{border-radius:18px;padding:14px;background:#0b1210;border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 0 0 4px #1a2420;white-space:pre-wrap;font-size:13px;line-height:1.5}
+.book-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.book-cols .pair{flex-wrap:wrap;font-size:13px}
+.share-strip{display:flex;gap:10px;justify-content:center}.share-strip button{width:48px;height:48px;border-radius:50%;padding:0;font-size:20px}

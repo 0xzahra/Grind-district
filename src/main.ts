@@ -1,3 +1,4 @@
+import { SKILL_ORDER } from './logic.ts'
 import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
@@ -317,7 +318,7 @@ const apiAgents = createRemoteAgents(scene)
     const dpr = window.devicePixelRatio || 1
     const coarseDev = matchMedia('(pointer: coarse)').matches
     // Phones: never above 1.5x (a 2.6x DPR screen is ~3x the pixels for no visible gain at arm's length).
-    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' || coarseDev ? 1.5 : 2)
+    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? 1.5 : coarseDev ? 1.25 : 2)
     renderer.setPixelRatio(ratio)
     // Shadows only on high: the biggest single cost on mid-range Android.
     const shadows = graphics !== 'low' && !matchMedia('(pointer: coarse)').matches
@@ -1297,7 +1298,7 @@ const apiAgents = createRemoteAgents(scene)
       firstMarker.rotation.y += dt * 1.2
       firstMarker.position.y = 6.5 + Math.sin(performance.now() / 400) * 0.25
       if (!needsFirstCourse()) scene.remove(firstMarker)
-      else if (!firstOpened && !interiors.inside && Math.hypot(pos.x, pos.z + 42.2) < 3.2) { firstOpened = true; ui.open('learn') }
+      else if (!firstOpened && !interiors.inside && Math.hypot(pos.x, pos.z + 42.2) < 3.2) { firstOpened = true; ui.open('learn', { course: SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0] }) }
     }
     tickTvs(dt, pos.x, pos.z, camera)
     tickWater(dt, camera)
