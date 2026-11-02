@@ -157,6 +157,7 @@ export type Save = {
   username: string
   signedUp: boolean
   privyId: string
+  nearAccountId: string
   body: BodyId
   tint: number
   luxury: boolean
@@ -330,6 +331,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     username: '',
     signedUp: false,
     privyId: '',
+    nearAccountId: '',
     body: 'player',
     tint: TINTS[0].hex,
     luxury: false,
@@ -388,6 +390,13 @@ export function cleanPrivyId(value: unknown): string {
   if (typeof value !== 'string') return ''
   const id = value.trim()
   if (!/^did:privy:[A-Za-z0-9_-]{8,80}$/.test(id)) return ''
+  return id
+}
+
+export function cleanNearAccountId(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const id = value.trim().toLowerCase()
+  if (id.length < 2 || id.length > 64 || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(id)) return ''
   return id
 }
 
@@ -511,6 +520,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
     fresh.signedUp = false
   }
   fresh.privyId = cleanPrivyId(row.privyId)
+  fresh.nearAccountId = cleanNearAccountId(row.nearAccountId)
   fresh.body = cleanBody(row.body)
   fresh.tint = cleanTint(row.tint)
   fresh.luxury = bool(row.luxury, false)

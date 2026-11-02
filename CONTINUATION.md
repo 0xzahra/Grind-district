@@ -22,11 +22,17 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 
 ## Name and username
 
-A save starts with `name: ''`, `username: ''`, `privyId: ''`, and `signedUp: false`. The title screen can log in with Privy email, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, and the body. Login does not ask for a wallet.
+A save starts with `name: ''`, `username: ''`, `privyId: ''`, `nearAccountId: ''`, and `signedUp: false`. The title screen can log in with Privy email, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, the NEAR account link, and the body. Privy login/signup does not ask for a wallet; optional NEAR linking is in Settings.
 
 The plate (`tagPlayer`) draws the display name in block letters and `@username` under it. The profile, CV, resume, and portfolio use the same pair. Share links put the display name in `n` and the username in `u`. An old link with no `u` still opens.
 
 Do not invent a default name. `Player 8453`, `Shrimp`, and `Zuri` are not identities. An old save that lacks `signedUp: true` is unsigned, even if it still says Player 8453, and the city asks again.
+
+## NEAR mainnet wallet and market demo
+
+`src/near.ts` lazy-loads NEAR Wallet Selector’s MyNearWallet integration with `network: 'mainnet'`; it has no contract ID and exposes only connect, disconnect, and NEP-413 message-signing methods. The wallet signs a short order for the existing UNIT/MEME practice books. `src/near-economy.ts` derives the local NPC quote from the current practice price and Bull/Bear season. The client accepts the wallet response as a local demo gate, fills the practice book, then discards the signature; there is no server-side signature verification, public order, transaction, contract call, or server post. Only the public NEAR account ID is kept in the local save, separate from Privy.
+
+NEAR mainnet account IDs, balances, and transaction history are public. Keep personal data off-chain. The feature is optional and does not provide transaction privacy. The repository contains no NEAR contract or address; `contracts/src/GrindRecord.sol` is an undeployed EVM contract and is not used here. Shared player orders and NPC wallet state remain future work.
 
 ## The man and the woman
 
@@ -95,7 +101,7 @@ The gadgets stall is south of the plaza (`x: -16, z: 14`). The boutique sheet we
 
 ## What a later session can still add
 
-These are the open pieces. WebGL context, a wallet, a multisig, and deploying GrindRecord are already called out above. Do not redo those.
+These are the open pieces. WebGL context, shared markets/NPC wallet state, a multisig, and any contract deployment remain open. The optional NEAR mainnet account link and off-chain signed practice-order demo are already implemented above.
 
 - Proximity voice and player-to-player messaging. House copy still says they are later.
 - Other people are scripted citizens in `src/citizens.ts`. There is no networked player.
@@ -110,7 +116,9 @@ These are the open pieces. WebGL context, a wallet, a multisig, and deploying Gr
 
 ## What stays off the chain
 
-- No wallet button, no seed phrase, no signature prompt.
+- NEAR wallet linking is optional; the game never asks for a seed phrase.
+- NEP-413 market-order signatures stay in the browser and are discarded; the game sends no NEAR transactions.
+- Names, usernames, email, practice balances, positions, and game activity remain local. User-initiated Base top-up transfers and NEAR account activity are public on their respective chains; the NEAR feature does not send profile data and should not be described as private.
 - The practice ledger is local USD. It is labeled as practice. It is not financial advice and it is not `GrindRecord`.
 - Do not deploy `contracts/src/GrindRecord.sol`.
 - Do not point the city at a contract address.

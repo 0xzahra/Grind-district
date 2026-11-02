@@ -10,6 +10,7 @@ import {
   localDay,
   markDaily,
   cleanDisplayName,
+  cleanNearAccountId,
   cleanDrone,
   cleanMask,
   cleanOwnedDrones,
@@ -21,6 +22,7 @@ import {
   sharedText,
 } from './logic.ts'
 import { blocked, resolveCollision, type Obstacle } from './physics.ts'
+import { nearMarketOrderMessage, quoteNpcMarket } from './near-economy.ts'
 
 let failed = 0
 
@@ -59,6 +61,9 @@ const red = sellHolding(0, { qty: 4, avg: 2 }, 1, 1)
 check(red.ok && red.pnl === -4, 'a red close stays a red close')
 
 check(localDay(new Date(2026, 9, 30, 23, 30)) === '2026-10-30', 'daily keys use the local calendar date')
+check(quoteNpcMarket(1, 'buy') === 1.01 && quoteNpcMarket(1, 'sell') === 0.99, 'NPC quotes use a fixed spread around the live practice price')
+const orderMessage = nearMarketOrderMessage({ asset: 'UNIT', side: 'buy', size: 0.5, quote: 1.01, expiresAt: Date.UTC(2026, 0, 1) })
+check(orderMessage.includes('BUY 50% UNIT') && orderMessage.includes('local practice book only') && !orderMessage.includes('alice.near'), 'NEP-413 order copy is scoped to the market action and omits account identity')
 
 const save = createSave(new Date(2026, 9, 30, 12))
 const first = markDaily(save, '2026-10-30', 'lesson')
@@ -87,6 +92,8 @@ check(!docs.cv.includes('<script>'), 'documents stay plain text')
 
 const round = decodeShare(encodeShare(save))
 check(round?.n === 'Reef' && round.u === 'reef_01' && round.k.includes('spot') && round.x === save.xp, 'share link round-trips')
+const walletShare = encodeShare({ ...save, nearAccountId: 'marketuser.near' })
+check(!walletShare.includes('marketuser.near'), 'profile sharing excludes the NEAR account ID')
 check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
 check(decodeShare('nope') === null, 'bad share links are ignored')
 
@@ -103,6 +110,9 @@ const signed = hydrate({ v: 1, signedUp: true, name: 'Reef', username: 'Reef_01'
 check(signed.signedUp && signed.name === 'Reef' && signed.username === 'reef_01', 'signup keeps the name and the handle')
 check(hydrate({ v: 1, signedUp: true, name: '', username: 'reef' }).signedUp === false, 'signup needs both a name and a username')
 check(hydrate({ v: 1, privyId: 'did:privy:cldistrict01' }).privyId === 'did:privy:cldistrict01', 'a save keeps a privy id')
+const linkedSave = hydrate({ v: 1, nearAccountId: 'MarketUser.near', ledger: 37.5 })
+check(linkedSave.nearAccountId === 'marketuser.near' && linkedSave.ledger === 37.5, 'a NEAR link is normalized without changing an existing practice balance')
+check(cleanNearAccountId('too..many') === '' && cleanNearAccountId('fake account') === '', 'NEAR account IDs reject malformed input')
 check(hydrate({ v: 1, privyId: 'privy_app_secret_nope' }).privyId === '', 'a save ignores anything that is not a privy id')
 check(hydrate({ v: 2 }).username === '' && hydrate({ v: 2 }).signedUp === false, 'unknown save versions start unsigned')
 check(hydrate({ v: 2 }).body === 'player', 'a fresh city starts in the low-poly suit')
