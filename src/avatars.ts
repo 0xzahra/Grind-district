@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { BodyId, MaskId } from './logic.ts'
+import type { BodyId, Graphics, MaskId } from './logic.ts'
 import { mountMask } from './masks.ts'
 import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
@@ -7,6 +7,16 @@ import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
 
 export type Avatar = ShrimpAvatar
+
+export function setAvatarGraphics(avatar: Avatar, graphics: Graphics): void {
+  const intensity = graphics === 'low' ? 0 : graphics === 'medium' ? 0.65 : 1
+  avatar.object.traverse((object) => {
+    if (!(object instanceof THREE.PointLight)) return
+    if (typeof object.userData.baseIntensity !== 'number') object.userData.baseIntensity = object.intensity
+    object.intensity = Number(object.userData.baseIntensity) * intensity
+    object.visible = intensity > 0
+  })
+}
 
 function mesh(geometry: THREE.BufferGeometry, material: THREE.Material, cast = true): THREE.Mesh {
   const item = new THREE.Mesh(geometry, material)

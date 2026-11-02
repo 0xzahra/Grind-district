@@ -353,7 +353,7 @@ export function mountUi(
           result.textContent = 'Already on your CV.'
           return
         }
-        result.textContent = outcome.hints.filter(Boolean).join(' ')
+        if ('hints' in outcome) result.textContent = outcome.hints.filter(Boolean).join(' ')
       })
       submit.disabled = Boolean(passed)
       wrap.append(submit, result, advice())
@@ -595,7 +595,7 @@ export function mountUi(
     display.autocomplete = 'name'
     display.addEventListener('change', () => {
       const outcome = setName(display.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }
@@ -610,7 +610,7 @@ export function mountUi(
     handle.spellcheck = false
     handle.addEventListener('change', () => {
       const outcome = setUsername(handle.value)
-      if (!outcome.ok) {
+      if ('error' in outcome) {
         nameError.textContent = outcome.error
         return
       }

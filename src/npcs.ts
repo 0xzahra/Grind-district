@@ -1,8 +1,9 @@
 import * as THREE from 'three'
-import { createAvatar, type Avatar } from './avatars.ts'
+import { createAvatar, setAvatarGraphics, type Avatar } from './avatars.ts'
 import { CITIZENS, stepCitizens, type CitizenSim } from './citizens.ts'
 import { createDrone, spinDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
+import type { Graphics } from './logic.ts'
 
 type Person = {
   avatar: Avatar
@@ -64,15 +65,43 @@ function robot(): { object: THREE.Group; x: number; z: number } {
   head.castShadow = true
   const eye = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.08), mint)
   eye.position.set(0, 1.22, 0.15)
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.08, 8), shell)
+  neck.position.y = 1.08
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.025), new THREE.MeshStandardMaterial({
+    color: 0x263b34,
+    roughness: 0.4,
+    metalness: 0.5,
+  }))
+  chest.position.set(0, 0.82, 0.17)
+  const chestMark = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.045, 0.018), mint)
+  chestMark.position.set(0, 0.82, 0.19)
+  const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), shell)
+  const shoulderR = shoulderL.clone()
+  shoulderL.position.set(-0.28, 0.98, 0)
+  shoulderR.position.set(0.28, 0.98, 0)
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.32, 0.12), shell)
+  const armR = armL.clone()
+  armL.position.set(-0.31, 0.76, 0)
+  armR.position.set(0.31, 0.76, 0)
+  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), mint)
+  const handR = handL.clone()
+  handL.position.set(-0.31, 0.57, 0.01)
+  handR.position.set(0.31, 0.57, 0.01)
+  const wheelL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 10), shell)
+  const wheelR = wheelL.clone()
+  wheelL.rotation.z = Math.PI / 2
+  wheelR.rotation.z = Math.PI / 2
+  wheelL.position.set(-0.14, 0.25, 0)
+  wheelR.position.set(0.14, 0.25, 0)
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.28, 6), shell)
   antenna.position.y = 1.48
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), mint)
   tip.position.y = 1.64
-  root.add(body, head, eye, antenna, tip, label('Unit 4', 'Agent'))
+  root.add(body, head, eye, neck, chest, chestMark, shoulderL, shoulderR, armL, armR, handL, handR, wheelL, wheelR, antenna, tip, label('Unit 4', 'Agent'))
   return { object: root, x: 10, z: 6 }
 }
 
-export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacle[] } {
+export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacle[]; setGraphics: (graphics: Graphics) => void } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury)
@@ -109,6 +138,9 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
   let robotZ = robotEnds[0]?.z ?? 6
 
   return {
+    setGraphics(graphics) {
+      for (const person of people) setAvatarGraphics(person.avatar, graphics)
+    },
     tick(dt) {
       const obstacles: Obstacle[] = []
       const before = people.map((person) => ({ x: person.sim.x, z: person.sim.z }))
