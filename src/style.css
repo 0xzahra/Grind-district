@@ -832,6 +832,11 @@ textarea {
   resize: vertical;
 }
 
+.agent-prompt {
+  min-height: 12rem;
+  font-size: 0.86rem;
+}
+
 .chart {
   width: 100%;
   height: auto;

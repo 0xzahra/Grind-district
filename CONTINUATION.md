@@ -12,17 +12,14 @@ npm run check
 
 ## Sign-in and sign-up
 
-Players sign in and sign up with **Google** or **X**. Both go through Privy.
+The Privy login modal is configured for **Google** and **X (Twitter)**. Enable both methods and their OAuth settings in the Privy dashboard; this repository cannot verify that live configuration. Email OTP/confirmation is not part of the app flow. X authentication does not require X API credits; credits matter only if the app later reads or posts content through X APIs.
 
-- Google sign-in is already supported.
-- X Login is free for authentication only. The Login with X / OAuth endpoints do not require X API credits. Credits are only needed if the app later reads posts, posts on behalf of users, or makes other API calls.
-- Set a $0 spend cap in the X Developer Console to block any accidental paid calls.
-- All sign-ups and sign-ins must be recorded in the database (Supabase). Store username, display name, sign-in method, timestamp, and linked wallet if created.
-- Current build stores progress in localStorage only. Database recording is the next non-WebGL item.
+- Sign-ups and sign-ins are not recorded in a database in this build.
+- Progress and practice earnings remain in localStorage; they are not server-backed account balances.
 
 ## Name and username
 
-A save starts with `name: ''`, `username: ''`, `privyId: ''`, and `signedUp: false`. The title screen can log in with Privy email, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, and the body. Login does not ask for a wallet.
+A save starts with `name: ''`, `username: ''`, `privyId: ''`, and `signedUp: false`. The title screen signs in with Google or X through Privy, then asks for a display name, a username, and a body before **Enter the district**. `signUp` in `src/state.ts` stores the display name (1–24, spaces kept), the username (3–16, `[a-z0-9_]`, stored lowercase), and the body (`player` for the man, `zuri` for the woman). `attachPrivy` stores `did:privy:…` after `/api/privy/session` verifies the access token. The browser uses `VITE_PRIVY_APP_ID` only. `PRIVY_APP_SECRET` stays in `.env` and in the server check in `server/verify-session.ts`. Do not commit the secret, and do not put it in client code. Settings can edit the name and username later. The boutique can change the body. Reset progress keeps the name, the username, the Privy id, and the body. Login does not ask for a wallet.
 
 The plate (`tagPlayer`) draws the display name in block letters and `@username` under it. The profile, CV, resume, and portfolio use the same pair. Share links put the display name in `n` and the username in `u`. An old link with no `u` still opens.
 
@@ -75,7 +72,7 @@ The title screen is a menu: Enter the district, How to play, The city, Courses, 
 
 `src/houses.ts` is the east row: your house, the notes house (`adaeze`), the set house (`malik`), the grove house (`nia`), and a vacant room. Keep those ids so old `houseVisits` still match. The signs and sheets do not use personal names. The same list builds the 3D meshes and the overhead map. Claim the room once (+3 reputation). A first visit to each neighbor is +2. Messaging and voice stay out.
 
-`src/courses.ts` holds twelve lessons. Each one is several paragraphs with a source line, plus four exercises. The first eight match the city’s original hall: spot, risk, staking, airdrops, memes, agents, building, carbon. The four added in the city only are custody, stablecoins, liquidity pools, and reading a transfer. `GrindRecord` still has bits for the original eight. Do not add contract bits in a city pass. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
+`src/courses.ts` holds twelve lessons. Each one is several paragraphs with a source line, plus four exercises. The first eight match the city’s original hall: spot, risk, staking, airdrops, memes, agents, building, carbon. The four added in the city only are custody, stablecoins, liquidity pools, and reading a transfer. `GrindRecord` still has bits for the original eight. Do not add contract bits in a city pass. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once. New players get a short plaza-to-Campus route and a direct button to open Spot.
 
 Twelve courses at 70 XP are 840 before streak and focus. Whale stays at 1100, so courses alone still stop short of whale. That split is intentional.
 
@@ -107,6 +104,10 @@ These are the open pieces. WebGL context, a wallet, a multisig, and deploying Gr
 - A fuller nature district. The basin and the carbon desk are the outdoor piece.
 - Cash-fan emote. Do not add it unless someone asks.
 - Database recording of sign-ups (Supabase). Currently localStorage only.
+
+## Agent claim and first-earn gate
+
+Unit 4 offers **Copy fresh prompt** after Privy sign-in. The server signs a claim code with the existing `PRIVY_APP_SECRET`; it expires after 10 minutes. `POST /api/agents/first-earn` checks the code and applies a five-minute wait from its issue time (425 until ready). Copying a fresh prompt starts a new wait; earlier codes are not revoked and remain usable until expiry. The check does not prove agent identity, enforce single use, or issue funds. No server agent earn endpoint exists, and browser-local practice earnings are not guarded. Keep that limitation explicit; any future earn endpoint must enforce the check server-side.
 
 ## What stays off the chain
 
