@@ -48,7 +48,6 @@ export type MaskId = 'none' | 'punk' | 'ape' | 'pudgy' | 'azuki' | 'nodemonke' |
 export type DroneId = 'scout' | 'courier' | 'halo'
 export type TimeOfDay = 'night' | 'dusk' | 'day'
 export type Graphics = 'low' | 'medium' | 'high'
-export type Season = 'bull' | 'bear'
 export type RankId = 'shrimp' | 'crab' | 'fish' | 'dolphin' | 'shark' | 'whale'
 
 export type PanelId =
@@ -73,7 +72,6 @@ export type PanelId =
   | 'settings'
   | 'about'
   | 'tax'
-  | 'season'
   | 'shared'
 
 export const RANKS: { id: RankId; label: string; xp: number }[] = [
@@ -186,7 +184,6 @@ export type Save = {
   taxResolvedDay: string
   earnings: number
   dailies: Daily
-  streak: number
   timeOfDay: TimeOfDay
   graphics: Graphics
   volume: number
@@ -214,44 +211,23 @@ export type SharedProfile = {
   u: string
   x: number
   p: number
-  s: number
   k: SkillId[]
   a: string[]
 }
 
-const SEASON_MS = 6 * 60 * 1000
-
-export function seasonAt(now = Date.now()): Season {
-  return Math.floor(now / SEASON_MS) % 2 === 0 ? 'bull' : 'bear'
+export function localDay(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
-export function seasonLabel(season: Season): string {
-  return season === 'bull' ? 'Bull' : 'Bear'
-}
-
-export function lagosDay(now: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Lagos',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now)
-}
-
-export function lagosStamp(ts: number): string {
-  const date = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Lagos',
+export function activityDate(ts: number): string {
+  return new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(new Date(ts))
-  return `${date} Lagos`
-}
-
-export function dayDiff(earlier: string, later: string): number {
-  const from = Date.parse(`${earlier}T00:00:00Z`)
-  const to = Date.parse(`${later}T00:00:00Z`)
-  return Math.round((to - from) / 86_400_000)
 }
 
 export function cents(value: number): number {
@@ -345,17 +321,10 @@ export function blankDaily(day: string): Daily {
   }
 }
 
-export function hadAny(daily: Daily): boolean {
-  return REP_FLAGS.some((flag) => daily[flag])
-}
-
 export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Save {
   const rand = mulberry32(19)
-  const season = seasonAt(now.getTime())
-  const unitDrift = season === 'bull' ? 0.004 : -0.004
-  const memeDrift = season === 'bull' ? 0.01 : -0.02
-  const unitHist = walkPrice(1, unitDrift, 0.03, 0.2, 5, 42, rand)
-  const memeHist = walkPrice(0.4, memeDrift, 0.12, 0.02, 12, 42, rand)
+  const unitHist = walkPrice(1, 0, 0.03, 0.2, 5, 42, rand)
+  const memeHist = walkPrice(0.4, 0, 0.12, 0.02, 12, 42, rand)
   return {
     v: 1,
     name: '',
@@ -388,8 +357,7 @@ export function createSave(now = new Date(), opts?: { graphics?: Graphics }): Sa
     taxDeclined: 0,
     taxResolvedDay: '',
     earnings: 0,
-    dailies: blankDaily(lagosDay(now)),
-    streak: 0,
+    dailies: blankDaily(localDay(now)),
     timeOfDay: 'night',
     graphics: opts?.graphics ?? 'medium',
     volume: 70,
@@ -575,7 +543,6 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.taxDeclined = num(row.taxDeclined, 0, 99, 0)
   fresh.taxResolvedDay = typeof row.taxResolvedDay === 'string' ? row.taxResolvedDay : ''
   fresh.earnings = num(row.earnings, 0, 1_000_000, 0)
-  fresh.streak = num(row.streak, 0, 9999, 0)
   fresh.timeOfDay = cleanTime(row.timeOfDay)
   fresh.graphics = cleanGraphics(row.graphics)
   fresh.volume = num(row.volume, 0, 100, 70)
@@ -654,20 +621,12 @@ export function hydrate(raw: unknown, now = new Date()): Save {
 }
 
 export function applyDay(save: Save, today: string): void {
-  if (save.dailies.day === today) return
-  const previous = save.dailies
-  const continued = previous.day !== '' && dayDiff(previous.day, today) === 1 && hadAny(previous)
-  if (!continued) save.streak = 0
-  save.dailies = blankDaily(today)
+  if (save.dailies.day !== today) save.dailies = blankDaily(today)
 }
 
-export function markDaily(save: Save, today: string, flag: RepFlag): number {
+export function markDaily(save: Save, today: string, flag: RepFlag): void {
   applyDay(save, today)
-  const first = !hadAny(save.dailies)
   save.dailies[flag] = true
-  if (!first) return 0
-  save.streak += 1
-  return Math.min(25, save.streak * 5)
 }
 
 export function todayTasks(save: Save): { label: string; done: boolean }[] {
@@ -706,14 +665,12 @@ export function sellHolding(ledger: number, holding: Holding, price: number, fra
   return { ok: true, ledger: cents(ledger + proceeds), holding: next, cash: proceeds, pnl }
 }
 
-export function stepPrices(save: Save, dt: number, season: Season, rand: () => number = Math.random): void {
+export function stepPrices(save: Save, dt: number, rand: () => number = Math.random): void {
   const step = Math.min(0.1, Math.max(0, dt))
-  const unitDrift = (season === 'bull' ? 0.0009 : -0.0009) * step
-  const memeDrift = (season === 'bull' ? 0.0012 : -0.0016) * step
   const unitNoise = (rand() - 0.5) * 0.015 * Math.sqrt(step)
   const memeNoise = (rand() - 0.5) * 0.08 * Math.sqrt(step)
-  save.unitPrice = roundPx(clampPrice(save.unitPrice * Math.exp(unitDrift + unitNoise), 0.2, 5))
-  save.memePrice = roundPx(clampPrice(save.memePrice * Math.exp(memeDrift + memeNoise), 0.02, 12))
+  save.unitPrice = roundPx(clampPrice(save.unitPrice * Math.exp(unitNoise), 0.2, 5))
+  save.memePrice = roundPx(clampPrice(save.memePrice * Math.exp(memeNoise), 0.02, 12))
 }
 
 export function pushHist(hist: number[], value: number): void {
@@ -737,12 +694,11 @@ function skillLines(save: Save): string[] {
   return SKILL_ORDER.flatMap((id) => (save.skills[id]?.passed ? [SKILL_META[id].cv] : []))
 }
 
-export function documents(save: Save, now = new Date()): { cv: string; resume: string; portfolio: string } {
+export function documents(save: Save): { cv: string; resume: string; portfolio: string } {
   const rank = rankFor(save.xp)
   const next = nextRank(save.xp)
   const skills = skillLines(save)
   const proof = save.activities.slice(0, 8)
-  const season = seasonLabel(seasonAt(now.getTime()))
   const header = [
     'GRIND DISTRICT',
     'Practice profile. Not a credential. Not a wallet. Not financial advice.',
@@ -751,8 +707,6 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     `Username: @${save.username}`,
     `Rank: ${rank.label} (${save.xp} XP${next ? `, next ${next.label} at ${next.xp}` : ', top of an open ladder'})`,
     `Reputation: ${save.reputation} (this does not move the ladder)`,
-    `Streak: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with a rep`,
-    `Season at copy: ${season}`,
     `Practice ledger: ${money(save.ledger)}`,
     'Real funds in this build: none',
   ]
@@ -764,7 +718,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     '',
     'Recent proof',
     ...(proof.length
-      ? proof.map((item) => `- ${item.label} (${lagosStamp(item.at)})`)
+      ? proof.map((item) => `- ${item.label} (${activityDate(item.at)})`)
       : ['- Nothing filed yet.']),
     '',
     'Investments (practice marks)',
@@ -785,7 +739,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
       ? `Latest proof: ${proof.map((item) => item.label).join('; ')}.`
       : 'No proof is filed yet. A passed course, a bounty, or a pledge will land here on its own.',
     '',
-    `Consistency: ${save.streak} Lagos day${save.streak === 1 ? '' : 's'} with at least one rep. Reputation is ${save.reputation}. Rank does not read the practice ledger.`,
+    `Reputation is ${save.reputation}. Rank does not read the practice ledger.`,
   ].join('\n')
 
   const portfolio = [
@@ -793,7 +747,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     'Generated from the city. Share the link. Do not send a seed phrase to anyone who asks to "verify" it.',
     '',
     ...(save.activities.length
-      ? save.activities.slice(0, 16).map((item) => `- ${lagosStamp(item.at)} — ${item.label}. ${item.detail}`)
+      ? save.activities.slice(0, 16).map((item) => `- ${activityDate(item.at)} — ${item.label}. ${item.detail}`)
       : ['- Empty. Finish a course or post a bounty and this page writes itself.']),
     '',
     save.carbon.length
@@ -840,7 +794,6 @@ export function encodeShare(save: Save): string {
     u: save.username,
     x: save.xp,
     p: save.reputation,
-    s: save.streak,
     k: SKILL_ORDER.filter((id) => save.skills[id]?.passed),
     a: save.activities.slice(0, 6).map((item) => item.label.slice(0, 80)),
   }
@@ -862,7 +815,6 @@ export function decodeShare(param: string): SharedProfile | null {
       u: cleanUsername(row.u),
       x: num(row.x, 0, 1_000_000, 0),
       p: num(row.p, 0, 1_000_000, 0),
-      s: num(row.s, 0, 9999, 0),
       k: skills,
       a: proof,
     }
@@ -877,7 +829,7 @@ export function sharedText(profile: SharedProfile): string {
   return [
     `${profile.n}${profile.u ? ` · @${profile.u}` : ''} · ${rank.label}`,
     'Grind District practice profile',
-    `XP ${profile.x} · reputation ${profile.p} · streak ${profile.s}`,
+    `XP ${profile.x} · reputation ${profile.p}`,
     skills.length ? `Skills: ${skills.join(', ')}` : 'Skills: none filed',
     'Proof:',
     ...(profile.a.length ? profile.a.map((line) => `- ${line}`) : ['- none attached']),

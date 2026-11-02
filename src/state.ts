@@ -20,7 +20,7 @@ import {
   createSave,
   hydrate,
   quoteDrone,
-  lagosDay,
+  localDay,
   makeId,
   markDaily,
   maybeOpenTax,
@@ -28,7 +28,6 @@ import {
   positionPnl,
   pushHist,
   rankFor,
-  seasonAt,
   sellHolding,
   stepPrices,
   type Activity,
@@ -50,7 +49,7 @@ let sample = 0
 let sinceSave = 0
 
 function today(): string {
-  const day = lagosDay(new Date())
+  const day = localDay(new Date())
   applyDay(save, day)
   return day
 }
@@ -95,7 +94,7 @@ export function loadSave(prefer: Graphics): Save {
   } catch {
     save = createSave(new Date(), { graphics: prefer })
   }
-  applyDay(save, lagosDay(new Date()))
+  applyDay(save, localDay(new Date()))
   if (!save.signedUp && save.body === 'shrimp') {
     save.body = 'player'
     if (save.tint === 0x1af38f) save.tint = 0x1a4cff
@@ -111,9 +110,9 @@ export function rememberPlace(x: number, z: number): void {
   persist()
 }
 
-export function tickMarket(dt: number, now = Date.now()): void {
-  applyDay(save, lagosDay(new Date()))
-  stepPrices(save, dt, seasonAt(now))
+export function tickMarket(dt: number): void {
+  applyDay(save, localDay(new Date()))
+  stepPrices(save, dt)
   sample += dt
   if (sample >= 0.8) {
     sample = 0
@@ -274,7 +273,7 @@ export function dismissIntro(): void {
 }
 
 export type CourseResult =
-  | { ok: true; already?: false; rankedUp?: RankId; stipend: boolean; focus: boolean; bonus: number }
+  | { ok: true; already?: false; rankedUp?: RankId; stipend: boolean; focus: boolean }
   | { ok: false; already: true }
   | { ok: false; already?: false; hints: string[]; tries: number }
 
@@ -292,12 +291,12 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
     return { ok: false, hints: graded.hints, tries }
   }
   const day = today()
-  const bonus = markDaily(save, day, 'lesson')
+  markDaily(save, day, 'lesson')
   const focused = save.focus
   if (focused) save.focus = false
   const gained = Math.round(COURSE_XP * (focused ? 1.25 : 1))
   save.skills[id] = { passed: true, tries }
-  const rankedUp = gainXp(gained + bonus)
+  const rankedUp = gainXp(gained)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')
   if (stipend) {
@@ -308,7 +307,7 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   }
   persist()
   emit(rankedUp)
-  return { ok: true, rankedUp, stipend, focus: focused, bonus }
+  return { ok: true, rankedUp, stipend, focus: focused }
 }
 
 export type TradeFill = {
@@ -347,13 +346,12 @@ export function tradeAtPrice(
   }
   const day = today()
   const flag: RepFlag = symbol === 'unit' ? 'spotPlan' : 'trenchPlan'
-  let bonus = 0
   let planXp = 0
   if (plan && !save.dailies[flag]) {
-    bonus = markDaily(save, day, flag)
+    markDaily(save, day, flag)
     planXp = 12
   }
-  const rankedUp = planXp + bonus > 0 ? gainXp(planXp + bonus) : undefined
+  const rankedUp = planXp > 0 ? gainXp(planXp) : undefined
   const pnl = result.pnl ?? 0
   const tone = pnl >= 0 ? `Closed in the green by ${money(pnl)} on the practice book.` : `Closed in the red by ${money(pnl)}. Rank does not mark to market.`
   let extra = 'No plan was checked, so the ladder stays put.'
@@ -368,7 +366,7 @@ export function tradeAtPrice(
 export function walkGym(): { message: string } {
   today()
   if (!save.dailies.gym) return { message: 'The set is the rep. Hit the marker in the mint band. A walk does not file the day.' }
-  return { message: `Best filed set is ${save.gymBest}/8. Another set today does not stack the streak.` }
+  return { message: `Best filed set is ${save.gymBest}/8. Another set today does not count.` }
 }
 
 export function finishGym(hits: number, swings: number): { message: string; rankedUp?: RankId; already: boolean } {
@@ -378,38 +376,37 @@ export function finishGym(hits: number, swings: number): { message: string; rank
     persist()
     return { already: true, message: `Practice set: ${hits}/${swings}. Today's gym is already on the ladder. Best is ${save.gymBest}.` }
   }
-  const bonus = markDaily(save, day, 'gym')
-  const rankedUp = gainXp(hits * 5 + bonus)
-  log('skill', `Gym ${hits}/${swings}`, 'Consistency rep. Balance was not involved.')
+  markDaily(save, day, 'gym')
+  const rankedUp = gainXp(hits * 5)
+  log('skill', `Gym ${hits}/${swings}`, 'The timing set. Balance was not involved.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: `${hits}/${swings} logged. +${hits * 5} XP${bonus ? `, plus ${bonus} for showing up` : ''}.` }
+  return { already: false, rankedUp, message: `${hits}/${swings} logged. +${hits * 5} XP.` }
 }
 
 export function attendChurch(): { message: string; rankedUp?: RankId; already: boolean } {
   today()
   if (save.dailies.church) return { already: true, message: 'You were here today. The room stays open.' }
-  const bonus = markDaily(save, today(), 'church')
+  markDaily(save, today(), 'church')
   save.reputation += 8
-  const rankedUp = gainXp(10 + bonus)
+  const rankedUp = gainXp(10)
   log('social', 'Sat in the church', 'Rest is part of the grind. Charts stayed outside.')
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: 'You sat. Reputation +8. The chart did not get a vote.' }
 }
 
-export function sitPrayer(): { message: string; rankedUp?: RankId; already: boolean } {
+export function sitPrayer(): { message: string; already: boolean } {
   today()
   if (save.dailies.prayer) {
     return { already: true, message: save.focus ? 'Focus is still on the next course.' : 'You already sat today.' }
   }
-  const bonus = markDaily(save, today(), 'prayer')
+  markDaily(save, today(), 'prayer')
   save.focus = true
-  const rankedUp = bonus > 0 ? gainXp(bonus) : undefined
   log('social', 'Sat in the prayer space', 'No one asked what you believe. Next course counts a quarter more.')
   persist()
-  emit(rankedUp)
-  return { already: false, rankedUp, message: 'Focus is on. The next course you pass counts a quarter more.' }
+  emit()
+  return { already: false, message: 'Focus is on. The next course you pass counts a quarter more.' }
 }
 
 export function orderWater(): { message: string } {
@@ -421,18 +418,18 @@ export function orderWater(): { message: string } {
   log('social', 'Ordered water', 'Free. The board is still gossip, not a signal.')
   persist()
   emit()
-  return { message: 'Water is free. Reputation +1. The headlines did not become a trade.' }
+  return { message: 'Water is free. Reputation +1. The board did not become a trade.' }
 }
 
 export function readCafe(): { message: string; rankedUp?: RankId; already: boolean } {
   today()
   if (save.dailies.cafe) return { already: true, message: 'You already read the room today. The board stays up.' }
-  const bonus = markDaily(save, today(), 'cafe')
-  const rankedUp = gainXp(8 + bonus)
-  log('social', 'Read the café board', 'Gossip is the season, not a trade signal.')
+  markDaily(save, today(), 'cafe')
+  const rankedUp = gainXp(8)
+  log('social', 'Read the café board', 'Gossip, not a trade signal.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: 'Filed. The headlines are not a signal to size up.' }
+  return { already: false, rankedUp, message: 'Filed. The board is not a signal to size up.' }
 }
 
 export function postBounty(text: string): { message: string; rankedUp?: RankId; already: boolean } {
@@ -441,10 +438,10 @@ export function postBounty(text: string): { message: string; rankedUp?: RankId; 
   const day = today()
   if (save.dailies.bounty) return { already: true, message: 'One bounty a day. The row will still be here tomorrow.' }
   save.ledger = cents(save.ledger + BOUNTY_USD)
-  const bonus = markDaily(save, day, 'bounty')
+  markDaily(save, day, 'bounty')
   save.earnings += 1
   save.reputation += 4
-  const rankedUp = gainXp(14 + bonus)
+  const rankedUp = gainXp(14)
   log('gig', 'Posted a bounty', body.slice(0, 160))
   maybeOpenTax(save, day)
   persist()
@@ -458,11 +455,11 @@ export function pledge(projectName: string): { message: string; rankedUp?: RankI
   if (save.ledger < CLIMATE_USD) {
     return { already: false, message: `The desk asks ${money(CLIMATE_USD)} practice. Pass Spot for a stipend, or post on the row.` }
   }
-  const bonus = markDaily(save, day, 'climate')
+  markDaily(save, day, 'climate')
   save.ledger = cents(save.ledger - CLIMATE_USD)
   save.reputation += 10
   save.carbon.unshift({ id: makeId(), name: projectName, usd: CLIMATE_USD, at: Date.now() })
-  const rankedUp = gainXp(8 + bonus)
+  const rankedUp = gainXp(8)
   log('climate', `Pledged to ${projectName}`, 'Practice only. This does not retire a real tonne.')
   persist()
   emit(rankedUp)
@@ -483,8 +480,8 @@ export function noteTalk(): { message: string; already: boolean } {
 export function hearTalk(): { message: string; rankedUp?: RankId; already: boolean } {
   if (save.conference) return { already: true, message: 'You already sat through it. The hall keeps the chairs.' }
   save.conference = true
-  const bonus = markDaily(save, today(), 'visit')
-  const rankedUp = gainXp(18 + bonus)
+  markDaily(save, today(), 'visit')
+  const rankedUp = gainXp(18)
   log('skill', 'Sat through the campus talk', 'Proof of work, not a slogan. Ninety seconds, then back outside.')
   persist()
   emit(rankedUp)
@@ -494,8 +491,8 @@ export function hearTalk(): { message: string; rankedUp?: RankId; already: boole
 export function readRobot(): { message: string; rankedUp?: RankId; already: boolean } {
   if (save.robotRead) return { already: true, message: 'Unit 4 stays labeled. That was the whole lesson.' }
   save.robotRead = true
-  const bonus = markDaily(save, today(), 'visit')
-  const rankedUp = gainXp(8 + bonus)
+  markDaily(save, today(), 'visit')
+  const rankedUp = gainXp(8)
   log('skill', 'Read Unit 4’s label', 'Agents attach to robots and say so.')
   persist()
   emit(rankedUp)
@@ -530,7 +527,7 @@ export function markHouseVisit(id: string): { already: boolean } {
   return { already: false }
 }
 
-export function payTax(): { message: string; ok: boolean; rankedUp?: RankId } {
+export function payTax(): { message: string; ok: boolean } {
   if (!save.taxOpen) return { ok: false, message: 'No open request.' }
   if (save.ledger < TAX_USD) return { ok: false, message: `The practice ledger does not cover ${money(TAX_USD)}.` }
   save.ledger = cents(save.ledger - TAX_USD)
@@ -539,12 +536,11 @@ export function payTax(): { message: string; ok: boolean; rankedUp?: RankId } {
   const day = today()
   save.taxResolvedDay = day
   save.reputation += 12
-  const bonus = markDaily(save, day, 'visit')
-  const rankedUp = bonus > 0 ? gainXp(bonus) : undefined
+  markDaily(save, day, 'visit')
   log('tax', 'Paid the family request', `${money(TAX_USD)} practice for transport. Reputation, not rank.`)
   persist()
-  emit(rankedUp)
-  return { ok: true, rankedUp, message: `Paid ${money(TAX_USD)}. Reputation +12. Rank did not move for the money.` }
+  emit()
+  return { ok: true, message: `Paid ${money(TAX_USD)}. Reputation +12. Rank did not move for the money.` }
 }
 
 export function declineTax(): { message: string } {

@@ -1,13 +1,13 @@
 import { COURSES, everySkillHasCourse, grade, courseById } from './courses.ts'
 import {
   buyHolding,
+  applyDay,
   createSave,
-  dayDiff,
   decodeShare,
   documents,
   encodeShare,
   hydrate,
-  lagosDay,
+  localDay,
   markDaily,
   cleanDisplayName,
   cleanNearAccountId,
@@ -17,8 +17,8 @@ import {
   cleanUsername,
   quoteDrone,
   rankFor,
-  seasonAt,
   sellHolding,
+  stepPrices,
   sharedText,
 } from './logic.ts'
 import { blocked, resolveCollision, type Obstacle } from './physics.ts'
@@ -60,30 +60,33 @@ check(!buyHolding(0.4, { qty: 0, avg: 0 }, 1, 1).ok, 'cannot buy without a dolla
 const red = sellHolding(0, { qty: 4, avg: 2 }, 1, 1)
 check(red.ok && red.pnl === -4, 'a red close stays a red close')
 
-check(dayDiff('2026-10-30', '2026-10-31') === 1, 'next calendar day')
-check(dayDiff('2026-10-30', '2026-11-01') === 2, 'across the month')
-check(lagosDay(new Date('2026-10-29T23:30:00Z')) === '2026-10-30', 'Lagos is ahead of that UTC instant')
-check(seasonAt(0) === 'bull' && seasonAt(360000) === 'bear', 'seasons alternate every six minutes')
-check(quoteNpcMarket(1, 'buy', 'bull') === 1.015 && quoteNpcMarket(1, 'buy', 'bear') === 1.005, 'NPC asks shift with the market season')
-check(quoteNpcMarket(1, 'sell', 'bull') === 0.995 && quoteNpcMarket(1, 'sell', 'bear') === 0.985, 'NPC bids shift with the market season')
-const orderMessage = nearMarketOrderMessage({ asset: 'UNIT', side: 'buy', size: 0.5, quote: 1.015, season: 'bull', expiresAt: Date.UTC(2026, 0, 1) })
+check(localDay(new Date(2026, 9, 30, 23, 30)) === '2026-10-30', 'daily keys use the local calendar date')
+check(quoteNpcMarket(1, 'buy') === 1.01 && quoteNpcMarket(1, 'sell') === 0.99, 'NPC quotes use a fixed spread around the live practice price')
+const orderMessage = nearMarketOrderMessage({ asset: 'UNIT', side: 'buy', size: 0.5, quote: 1.01, expiresAt: Date.UTC(2026, 0, 1) })
 check(orderMessage.includes('BUY 50% UNIT') && orderMessage.includes('local practice book only') && !orderMessage.includes('alice.near'), 'NEP-413 order copy is scoped to the market action and omits account identity')
 
-const save = createSave(new Date('2026-10-30T12:00:00Z'))
+const save = createSave(new Date(2026, 9, 30, 12))
 const first = markDaily(save, '2026-10-30', 'lesson')
-check(first === 5 && save.streak === 1, 'first rep starts a streak and pays 5')
-const second = markDaily(save, '2026-10-30', 'gym')
-check(second === 0 && save.streak === 1 && save.dailies.gym, 'second rep the same day does not restack the streak')
-const next = markDaily(save, '2026-10-31', 'cafe')
-check(next === 10 && save.streak === 2, 'the next Lagos day extends the streak')
-const skipped = markDaily(save, '2026-11-02', 'bounty')
-check(skipped === 5 && save.streak === 1, 'a missed day starts the streak over')
+check(first === undefined && save.dailies.lesson && save.xp === 0, 'filing a daily flag does not add a first-action reward')
+markDaily(save, '2026-10-30', 'gym')
+check(save.dailies.lesson && save.dailies.gym, 'multiple daily flags can be filed on one date')
+applyDay(save, '2026-11-02')
+check(save.dailies.day === '2026-11-02' && !save.dailies.lesson && !save.dailies.gym, 'daily flags reset when the local date changes')
+
+const marketA = createSave(new Date(0))
+const marketB = createSave(new Date(360000))
+check(JSON.stringify(marketA.unitHist) === JSON.stringify(marketB.unitHist) && JSON.stringify(marketA.memeHist) === JSON.stringify(marketB.memeHist), 'initial practice books do not depend on the wall clock')
+const stableMarket = createSave()
+const stableUnit = stableMarket.unitPrice
+const stableMeme = stableMarket.memePrice
+stepPrices(stableMarket, 1, () => 0.5)
+check(stableMarket.unitPrice === stableUnit && stableMarket.memePrice === stableMeme, 'neutral market input leaves practice prices unchanged')
 
 save.skills.spot = { passed: true, tries: 1 }
 save.name = 'Reef'
 save.username = 'reef_01'
 save.signedUp = true
-const docs = documents(save, new Date('2026-10-30T12:00:00Z'))
+const docs = documents(save)
 check(docs.cv.includes('Not a credential') && docs.cv.includes('Spot trading') && docs.cv.includes('Reef') && docs.resume.includes('@reef_01'), 'documents name the work and the disclaimer')
 check(!docs.cv.includes('<script>'), 'documents stay plain text')
 
@@ -91,7 +94,7 @@ const round = decodeShare(encodeShare(save))
 check(round?.n === 'Reef' && round.u === 'reef_01' && round.k.includes('spot') && round.x === save.xp, 'share link round-trips')
 const walletShare = encodeShare({ ...save, nearAccountId: 'marketuser.near' })
 check(!walletShare.includes('marketuser.near'), 'profile sharing excludes the NEAR account ID')
-check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, s: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
+check(sharedText(round ?? { n: 'Reef', u: '', x: 0, p: 0, k: [], a: [] }).includes('Not a credential'), 'shared text carries the disclaimer')
 check(decodeShare('nope') === null, 'bad share links are ignored')
 
 const fresh = createSave()

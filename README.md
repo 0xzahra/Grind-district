@@ -1,6 +1,6 @@
 # Grind District
 
-A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses, reps, and consistency. Balance does not move it.
+A browser life sim inside Web3. You start as a shrimp with a zero practice ledger and walk one shared city. Rank moves by courses and practice actions. Balance does not move it.
 
 The tagline is the door: **No tribe. No continent. Just come grind.**
 
@@ -43,7 +43,7 @@ Players sign in and sign up with **Google** or **X**. Both go through Privy.
 
 NEAR wallet linking is separate from Privy sign-in and optional. In Settings, connect a mainnet account through NEAR Wallet Selector’s MyNearWallet integration; the game save stores only the account ID in this browser. Google/X/Privy login and the existing local practice save remain separate.
 
-On the Spot book or Trenches book, choose a size and sign an NPC market order. The NEP-413 message contains only the asset, side, size, NPC practice quote, market season, and expiry. The client accepts the wallet response as a local demo gate for a practice-book fill, then discards the signature; it does not send it to a server or blockchain. There is no server-side signature verification, public order, or shared market state. No NEAR transaction, contract call, deposit, or real-funds movement is made. NPC quotes change with the existing live practice book and six-minute bull/bear season; NPC wallet state is not shared across players.
+On the Spot book or Trenches book, choose a size and sign an NPC market order. The NEP-413 message contains only the asset, side, size, NPC practice quote, and expiry. The client accepts the wallet response as a local demo gate for a practice-book fill, then discards the signature; it does not send it to a server or blockchain. There is no server-side signature verification, public order, or shared market state. No NEAR transaction, contract call, deposit, or real-funds movement is made. NPC quotes follow the live practice-book price with a fixed spread; NPC wallet state is not shared across players.
 
 NEAR mainnet account IDs, balances, and transaction history are publicly visible. Do not put names, usernames, email addresses, or other personal data in wallet messages or on-chain. This integration does not provide privacy; it limits the data the game handles. Connecting a wallet is optional, and the city remains playable without one.
 
@@ -59,7 +59,7 @@ The repo contains no deployed NEAR contract or NEAR contract address. `contracts
 - **Shot** saves a picture of the city.
 - **Play theme** starts Market Velocity (3:00, looping). The city stays silent until you press it. Volume is remembered. Playback starts paused each visit.
 
-The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a streak. Skip a day and the streak starts over. Bull and bear seasons flip every six minutes on a shared clock and change the practice books and the café copy. The street still works when the marks fall.
+Daily action limits follow your local calendar day.
 
 ## The city
 
@@ -73,7 +73,7 @@ The in-game day follows Africa/Lagos. The first rep of a Lagos day extends a str
 | Gym | A timing set. One logged set a day. |
 | Church | Rest counts. One visit a day. |
 | Prayer space | Focus adds a quarter to the next course you pass. |
-| Cafés | Season headlines. Gossip, not a signal. |
+| Cafés | A daily board. Gossip, not a signal. |
 | Carbon desk | A practice pledge. It does not retire a real credit. |
 | The houses | Your house, plus a notes house, a set house, a grove house, and a vacant room on the east row. |
 | Gadgets | Scout, courier, and halo drones. Practice funds. A drone follows you. |

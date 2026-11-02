@@ -83,11 +83,11 @@ The title screen is a menu: Enter the district, How to play, The city, Courses, 
 
 `src/courses.ts` holds twelve lessons. Each one is several paragraphs with a source line, plus four exercises. The first eight match the city’s original hall: spot, risk, staking, airdrops, memes, agents, building, carbon. The four added in the city only are custody, stablecoins, liquidity pools, and reading a transfer. `GrindRecord` still has bits for the original eight. Do not add contract bits in a city pass. The learning hall grades every answer. Spot’s first pass still drops the $25 practice stipend once.
 
-Twelve courses at 70 XP are 840 before streak and focus. Whale stays at 1100, so courses alone still stop short of whale. That split is intentional.
+Twelve courses at 70 XP are 840 before focus. Whale stays at 1100, so courses alone still stop short of whale. Other practice actions and focus can add XP in the city.
 
 Café: read the board, then order water (free, once that day, after the board). Gym: the timing set, plus a line that says what a second set does. Carbon desk: the method is on the sheet before the pledge buttons. Conference hall: sit once, then keep the note. Mint squares on the overhead map are those doors. The corner map is clickable and opens the directory. `#map` sets `pointer-events: auto` because `#hud` ignores pointers.
 
-`tickMarket` uses its clock argument for the season. The Lagos day is always `new Date()`. Do not pass `performance.now()` into that day. A frame timestamp is milliseconds since the page opened, and `new Date` of that value is 1970, which wipes every daily on the next frame. Both loops pass `Date.now()`.
+Daily actions use the player’s local calendar date, obtained from `new Date()` in the state layer. Keep frame timestamps separate from calendar dates: a frame timestamp is milliseconds since the page opened, and using it as a date would incorrectly reset daily actions. The market uses frame delta only.
 
 `districtName` labels the band east of x 30 and south of z 14 as The houses, including the notes-house door, which sits inside the old influencer-row circle.
 
@@ -132,7 +132,7 @@ forge test
 
 `contracts/lib` is gitignored. Install forge-std locally. Do not commit `out/` or `cache/`.
 
-Whale is 1100 XP. Reputation does not add XP. The original eight courses, with focus and a streak, were described as 760 XP. Twelve courses at 70 XP are 840 before those bonuses. Do not retune the ladder to make whale a course reward.
+Whale is 1100 XP. Reputation does not add XP. The original eight courses are 560 XP before focus; twelve courses are 840 before focus. Practice actions and focus can add XP, but do not retune the ladder to make whale a course reward.
 
 ## Theme
 
