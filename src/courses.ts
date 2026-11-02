@@ -1,4 +1,4 @@
-import { SKILL_ORDER, type Season, type SkillId } from './logic.ts'
+import { SKILL_ORDER, type SkillId } from './logic.ts'
 
 export type Question = {
   prompt: string
@@ -181,7 +181,7 @@ export const COURSES: Course[] = [
       },
       {
         prompt: 'The price goes to nearly zero. What happens to your rank?',
-        choices: ['It is wiped, because balance is rank', 'Nothing by itself. Rank comes from skill and consistency, not from the mark', 'You are removed from the city', 'Your CV is deleted'],
+        choices: ['It is wiped, because balance is rank', 'Nothing by itself. Rank comes from skills and practice actions, not the mark', 'You are removed from the city', 'Your CV is deleted'],
         answer: 1,
         hint: 'The ladder does not read the practice mark.',
       },
@@ -224,7 +224,7 @@ export const COURSES: Course[] = [
       },
       {
         prompt: 'An agent can move value when:',
-        choices: ['It feels early', 'A person has granted that permission', 'The season is bull', 'The café says so'],
+        choices: ['It feels early', 'A person has granted that permission', 'The market looks quiet', 'The café says so'],
         answer: 1,
         hint: 'Tools and value move only with a grant. The grant is the risk.',
       },
@@ -316,7 +316,7 @@ export const COURSES: Course[] = [
     paragraphs: [
       'A recovery phrase, often twelve or twenty-four words in the BIP-39 pattern, is a backup of the private keys. Anyone who can read it can move what those keys control. Typing it into a website to "verify" the grind hands the keys over. A real wallet does not need that.',
       'An ERC-20 approval lets another contract transfer a token up to a limit you set. An unlimited approval stays until you revoke it. A drain often spends an approval you already signed. It does not need your phrase a second time.',
-      'A signature can be a login, a permit, or a transaction. Read the site, the spender, and the amount before you confirm. Speed is not a reason. This city never asks you to sign.',
+      'A signature can be a login, a permit, or a transaction. Read the site and the exact message before you confirm. The optional NEAR market demo asks only for an off-chain NEP-413 order signature; the game never asks you to approve a transaction or a token spend.',
       'The practice ledger lives in this browser. It is not a wallet. If a sheet, a neighbor, or a link asks for a phrase, stop.',
       'Sources: BIP-39, the mnemonic that backs up a key; ERC-20 approve, the allowance another contract can spend. ethereum.org documents token approvals.',
     ],
@@ -366,9 +366,9 @@ export const COURSES: Course[] = [
       },
       {
         prompt: 'A fiat-backed stablecoin depends on:',
-        choices: ['The gym set', 'An issuer, the reserves, and someone checking them', 'The café headlines', 'Prayer focus'],
+        choices: ['The gym set', 'An issuer, the reserves, and someone checking them', 'The café board', 'Prayer focus'],
         answer: 1,
-        hint: 'Reserves and the issuer. Not a headline and not a set.',
+        hint: 'Reserves and the issuer. Not the café board or a gym set.',
       },
       {
         prompt: 'An under-reserved algorithmic peg:',
@@ -460,30 +460,8 @@ export const COURSES: Course[] = [
   },
 ]
 
-const BULL = [
-  'Floor is bidding the open. Size still matters.',
-  'Campus stipend posts are up. Read the course before you size up.',
-  'Influencer Row is loud. A bounty is not a thesis.',
-  'The mangrove desk has a line. Practice pledges only.',
-  'The house row is lit. Knock before you size up.',
-]
-
-const BEAR = [
-  'Green candles left. The street is still open.',
-  'Trenches get louder when it hurts. You can walk past them.',
-  'Nobody here gets paid for panic. The gym is staffed.',
-  'Your CV does not mark to market.',
-  'The houses stay open when the marks fall.',
-]
-
 export function courseById(id: SkillId): Course | undefined {
   return COURSES.find((course) => course.id === id)
-}
-
-export function headlines(season: Season, day: string): string[] {
-  const pool = season === 'bull' ? BULL : BEAR
-  const start = [...day].reduce((sum, char) => sum + char.charCodeAt(0), 0) % pool.length
-  return [0, 1, 2].map((offset) => pool[(start + offset) % pool.length] ?? pool[0])
 }
 
 export function grade(course: Course, picks: number[]): { ok: boolean; hints: string[] } {
