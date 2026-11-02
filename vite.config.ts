@@ -2,12 +2,16 @@ import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite'
 import agentClaim from './api/agents/claim.ts'
 import agentFirstEarn from './api/agents/first-earn.ts'
 import privySession from './api/privy/session.ts'
+import topupBalance from './api/topup/balance.ts'
+import topupVerify from './api/topup/verify.ts'
 
 function apiRoutes(): Plugin {
   const routes: Record<string, typeof privySession> = {
     '/api/privy/session': privySession,
     '/api/agents/claim': agentClaim,
     '/api/agents/first-earn': agentFirstEarn,
+    '/api/topup/balance': topupBalance,
+    '/api/topup/verify': topupVerify,
   }
   const attach = (middlewares: Connect.Server) => {
     middlewares.use(async (req, res, next) => {
@@ -17,7 +21,7 @@ function apiRoutes(): Plugin {
         next()
         return
       }
-      void handler(req, res)
+      await handler(req, res)
     })
   }
   return {
@@ -33,9 +37,12 @@ function apiRoutes(): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  process.env.PRIVY_APP_SECRET = env.PRIVY_APP_SECRET
-  process.env.PRIVY_APP_ID = env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID
-  process.env.VITE_PRIVY_APP_ID = env.VITE_PRIVY_APP_ID
+  if (env.PRIVY_APP_SECRET) process.env.PRIVY_APP_SECRET = env.PRIVY_APP_SECRET
+  if (env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID) process.env.PRIVY_APP_ID = env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID
+  if (env.VITE_PRIVY_APP_ID) process.env.VITE_PRIVY_APP_ID = env.VITE_PRIVY_APP_ID
+  if (env.SUPABASE_URL || env.VITE_SUPABASE_URL) process.env.SUPABASE_URL = env.SUPABASE_URL || env.VITE_SUPABASE_URL
+  if (env.SUPABASE_SERVICE_ROLE_KEY) process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY
+  if (env.BASE_RPC_URL) process.env.BASE_RPC_URL = env.BASE_RPC_URL
   return {
     plugins: [apiRoutes()],
     server: {
@@ -47,6 +54,14 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 47321,
       strictPort: true,
+    },
+    build: {
+      rolldownOptions: {
+        input: {
+          main: 'index.html',
+          'tech-art': 'tech-art.html',
+        },
+      },
     },
   }
 })

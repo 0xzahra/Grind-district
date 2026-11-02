@@ -1,6 +1,7 @@
 import { HOUSES, type HouseId } from './houses.ts'
-import type { PanelId, Season, TimeOfDay } from './logic.ts'
+import type { Graphics, PanelId, Season, TimeOfDay } from './logic.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
+import { createDrone } from './drones.ts'
 import * as THREE from 'three'
 
 export type Hotspot = {
@@ -17,8 +18,10 @@ export type Hotspot = {
 
 export type World = {
   obstacles: Obstacle[]
+  cameraBlockers: THREE.Object3D[]
   hotspots: Hotspot[]
   sun: THREE.DirectionalLight
+  setGraphics: (graphics: Graphics) => void
   tick: (time: number, focus: THREE.Vector3) => void
   setLook: (look: { time: TimeOfDay; season: Season }) => void
   setRank: (label: string) => void
@@ -83,11 +86,18 @@ export function createWorld(options: {
 }): World {
   const { scene, anisotropy, mark, aspect, reduceMotion, getSeries } = options
   const obstacles: Obstacle[] = []
+  const cameraBlockers: THREE.Object3D[] = []
   const hotspots: Hotspot[] = []
   const reserved: Obstacle[] = []
   const facades: THREE.MeshStandardMaterial[] = []
   const ripples: { mesh: THREE.Mesh; offset: number }[] = []
   const glow: THREE.PointLight[] = []
+  let graphics: Graphics = 'high'
+  let glowNight = 0
+  const updateGlow = () => {
+    const quality = graphics === 'low' ? 0 : graphics === 'medium' ? 0.65 : 1
+    for (const light of glow) light.intensity = Number(light.userData.night) * glowNight * quality
+  }
   const doors: { x: number; z: number; own: Obstacle }[] = []
   const paths: Rect[] = []
 
@@ -138,6 +148,28 @@ export function createWorld(options: {
     draw(context)
     return finalize(new THREE.CanvasTexture(canvas))
   }
+
+  const doorMap = paint(256, 512, (g) => {
+    g.fillStyle = '#33231d'
+    g.fillRect(0, 0, 256, 512)
+    g.fillStyle = '#704831'
+    g.fillRect(18, 18, 220, 476)
+    g.strokeStyle = '#d6a56d'
+    g.lineWidth = 12
+    g.strokeRect(18, 18, 220, 476)
+    g.strokeStyle = '#38261d'
+    g.lineWidth = 8
+    g.strokeRect(42, 42, 172, 190)
+    g.strokeRect(42, 250, 172, 220)
+    g.fillStyle = '#e7c07a'
+    g.beginPath()
+    g.arc(194, 266, 9, 0, Math.PI * 2)
+    g.fill()
+    g.fillStyle = '#f4ca85'
+    g.fillRect(106, 2, 44, 12)
+  })
+  const doorGeometry = new THREE.PlaneGeometry(1.12, 1.42)
+  const doorMaterial = new THREE.MeshBasicMaterial({ map: doorMap, toneMapped: false })
 
   const paintSign = (title: string, subtitle: string) =>
     paint(1024, 448, (g) => {
@@ -203,8 +235,21 @@ export function createWorld(options: {
         for (let col = 14; col < 118; col += 22) {
           if (rand() > 0.72) continue
           const lit = rand()
-          g.fillStyle = lit > 0.86 ? '#1af38f' : lit > 0.45 ? '#f0d7b0' : '#121a17'
+          g.fillStyle = '#111a16'
+          g.fillRect(col - 1, row - 1, 12, 18)
+          g.fillStyle = lit > 0.86 ? '#3e8f68' : lit > 0.45 ? '#d69a5e' : '#121a17'
           g.fillRect(col, row, 10, 16)
+          if (lit > 0.45) {
+            g.fillStyle = lit > 0.86 ? '#b2edbd' : '#f6d69c'
+            g.fillRect(col + 1, row + 2, 1, 6)
+            g.fillStyle = '#6a4a38'
+            g.fillRect(col + 1, row + 10, 8, 2)
+            g.fillRect(col + 2, row + 12, 2, 3)
+            g.fillRect(col + 6, row + 12, 2, 3)
+          }
+          g.strokeStyle = '#25332c'
+          g.lineWidth = 1
+          g.strokeRect(col - 1, row - 1, 12, 18)
         }
       }
     })
@@ -327,6 +372,7 @@ export function createWorld(options: {
     const height = 1.3
     const wall = solid(new THREE.BoxGeometry(w, height, d), stoneDark)
     wall.position.set(x, height / 2, z)
+    cameraBlockers.push(wall)
     const lip = solid(new THREE.BoxGeometry(w, 0.06, d), trim, false)
     lip.position.set(x, height + 0.02, z)
     scene.add(wall, lip)
@@ -363,6 +409,7 @@ export function createWorld(options: {
     sign.position.set(0, 2.15, 0.36)
     sign.userData.ghost = true
     group.add(left, right, beam, strip, sign)
+    cameraBlockers.push(left, right, beam)
     scene.add(group)
   }
   addArch('Campus', 'learning hall', 0, -16.5, 0)
@@ -413,6 +460,7 @@ export function createWorld(options: {
     if (spec.windows && material instanceof THREE.MeshStandardMaterial) facades.push(material)
     const block = solid(new THREE.BoxGeometry(spec.w, spec.h, spec.d), material)
     block.position.y = spec.h / 2
+    cameraBlockers.push(block)
     group.add(block)
     if (spec.steeple) {
       const tower = solid(new THREE.BoxGeometry(1.4, 3.2, 1.4), stoneDark)
@@ -437,9 +485,13 @@ export function createWorld(options: {
       new THREE.PlaneGeometry(signWidth, signWidth * 0.42),
       new THREE.MeshBasicMaterial({ map: paintSign(spec.title, spec.subtitle), toneMapped: false }),
     )
-    sign.position.set(face.x, Math.min(face.y, spec.h - 0.7), face.z)
+    sign.position.set(face.x, Math.min(Math.max(face.y + 0.25, 2), spec.h - 0.4), face.z)
     sign.rotation.y = face.rot
     sign.userData.ghost = true
+    const door = new THREE.Mesh(doorGeometry, doorMaterial)
+    door.position.set(face.x, 0.72, face.z)
+    door.rotation.y = face.rot
+    door.userData.ghost = true
     const awningShift: Record<Door, [number, number]> = {
       pz: [0, 0.7],
       nz: [0, -0.7],
@@ -450,7 +502,7 @@ export function createWorld(options: {
     const awning = solid(new THREE.BoxGeometry(spec.door === 'px' || spec.door === 'nx' ? 1.3 : spec.w * 0.7, 0.08, spec.door === 'pz' || spec.door === 'nz' ? 1.3 : spec.d * 0.7), stoneDark, false)
     awning.position.set(face.x + shift[0], spec.h - 0.08, face.z + shift[1])
     awning.userData.ghost = true
-    group.add(sign, awning)
+    group.add(sign, awning, door)
     group.position.set(spec.x, 0, spec.z)
     scene.add(group)
     obstacles.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2, hz: spec.d / 2 })
@@ -515,6 +567,34 @@ export function createWorld(options: {
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a project with practice funds. It records the pledge. It does not retire a real tonne.', 'climate', 'The desk')
   const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'drones', windows: true, seed: 47 })
   spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Scout, courier, and halo. A drone follows you. Practice funds.', 'gadgets', 'Open the case')
+  const droneCase = new THREE.Group()
+  droneCase.position.set(gadgets.x - 1.72, 0, gadgets.z + 2.34)
+  const displayBase = solid(new THREE.BoxGeometry(1.52, 0.12, 0.48), stoneDark, false)
+  displayBase.position.y = 0.06
+  const displayBack = solid(new THREE.BoxGeometry(1.4, 1.1, 0.06), stoneDark, false)
+  displayBack.position.set(0, 0.72, -0.2)
+  const displayPosts = [-0.71, 0.71].map((x) => {
+    const post = solid(new THREE.BoxGeometry(0.08, 1.42, 0.12), stoneDark, false)
+    post.position.set(x, 0.73, 0)
+    return post
+  })
+  const displayShelf = solid(new THREE.BoxGeometry(1.38, 0.08, 0.42), stoneDark, false)
+  displayShelf.position.set(0, 0.48, 0)
+  const displayHeader = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.18, 0.3),
+    new THREE.MeshBasicMaterial({ map: paintSign('Gadgets', 'SCOUT · COURIER · HALO'), toneMapped: false }),
+  )
+  displayHeader.position.set(0, 1.55, 0.07)
+  displayHeader.userData.ghost = true
+  droneCase.add(displayBase, displayBack, ...displayPosts, displayShelf, displayHeader)
+  for (const [index, id] of (['scout', 'courier', 'halo'] as const).entries()) {
+    const displayDrone = createDrone(id)
+    displayDrone.position.set((index - 1) * 0.45, 0.72, 0.08)
+    displayDrone.scale.setScalar(1.35)
+    droneCase.add(displayDrone)
+  }
+  scene.add(droneCase)
+  obstacles.push({ kind: 'circle', x: droneCase.position.x, z: droneCase.position.z + 0.25, r: 0.75 })
 
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.
@@ -894,7 +974,7 @@ export function createWorld(options: {
     const dusk = look.time === 'dusk'
     const bear = look.season === 'bear'
     seasonBear = bear
-    background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
+    background.setHex(night ? 0x070a09 : dusk ? 0x33201b : 0xc5ddd2)
     fog.color.copy(background)
     fog.near = night ? 26 : dusk ? 32 : 40
     fog.far = night ? 136 : 160
@@ -909,7 +989,8 @@ export function createWorld(options: {
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = night ? 0.5 : 0.12
     for (const facade of facades) facade.emissiveIntensity = night ? 0.32 : dusk ? 0.16 : 0.05
-    for (const light of glow) light.intensity = night ? Number(light.userData.night) : dusk ? Number(light.userData.night) * 0.35 : 0
+    glowNight = night ? 1 : dusk ? 0.35 : 0
+    updateGlow()
     moon.visible = night || dusk
     stars.visible = night
   }
@@ -917,14 +998,14 @@ export function createWorld(options: {
   let seasonBear = false
   const nightSky = new THREE.Color(0x02040a)
   const nightLow = new THREE.Color(0x0a1210)
-  const duskSky = new THREE.Color(0x2a3a6a)
-  const duskLow = new THREE.Color(0xff9a5a)
+  const duskSky = new THREE.Color(0x59466b)
+  const duskLow = new THREE.Color(0xffad73)
   const daySky = new THREE.Color(0x3d8fe0)
   const dayLow = new THREE.Color(0xcfe6f0)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
   const sunDay = new THREE.Color(0xfff1d6)
-  const sunDusk = new THREE.Color(0xffb27a)
+  const sunDusk = new THREE.Color(0xffa66d)
   const moonLight = new THREE.Color(0x9fb4ff)
   const setDaylight = (phase: number) => {
     const angle = (phase - 0.25) * Math.PI * 2
@@ -956,7 +1037,8 @@ export function createWorld(options: {
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.12 + night * 0.38
     for (const facade of facades) facade.emissiveIntensity = 0.05 + night * 0.4
-    for (const light of glow) light.intensity = Number(light.userData.night) * Math.max(0, night - 0.1)
+    glowNight = Math.max(0, night - 0.1)
+    updateGlow()
     moon.visible = night > 0.25
     moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)
     stars.visible = night > 0.6
@@ -972,10 +1054,15 @@ export function createWorld(options: {
 
   return {
     obstacles,
+    cameraBlockers,
     hotspots,
     sun,
     setLook,
     setDaylight,
+    setGraphics(level) {
+      graphics = level
+      updateGlow()
+    },
     lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: 18, outer: 39 },
     setRank(label: string) {
       ladderMap.dispose()

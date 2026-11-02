@@ -54,6 +54,7 @@ export type RankId = 'shrimp' | 'crab' | 'fish' | 'dolphin' | 'shark' | 'whale'
 export type PanelId =
   | 'intro'
   | 'profile'
+  | 'topup'
   | 'learn'
   | 'trade'
   | 'trench'
