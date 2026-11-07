@@ -224,6 +224,29 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       group.add(im)
       return im
     }
+    // Furniture kit: desks and office chairs from a few instanced parts (one draw call per part type),
+    // so rooms read as furniture instead of solid blocks. Spots are room-local [x, z, yaw].
+    type Spot = [number, number, number?]
+    const turn = (x: number, z: number, ry: number): [number, number] => [x * Math.cos(ry) + z * Math.sin(ry), -x * Math.sin(ry) + z * Math.cos(ry)]
+    const deskKit = (spots: Spot[], dw: number, dd: number, dh: number, top: THREE.Material, frame: THREE.Material, blockHalf?: [number, number]) => {
+      inst(new THREE.BoxGeometry(dw, 0.05, dd), top, spots.map(([x, z, ry = 0]) => [x, dh - 0.025, z, ry]), blockHalf)
+      const legs: Array<[number, number, number, number?]> = []
+      const panels: Array<[number, number, number, number?]> = []
+      for (const [x, z, ry = 0] of spots) {
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const [ox, oz] = turn(sx * (dw / 2 - 0.06), sz * (dd / 2 - 0.06), ry); legs.push([x + ox, (dh - 0.05) / 2, z + oz, ry]) }
+        const [px, pz] = turn(0, -(dd / 2 - 0.09), ry)
+        panels.push([x + px, dh * 0.62, z + pz, ry])
+      }
+      inst(new THREE.BoxGeometry(0.05, dh - 0.05, 0.05), frame, legs)
+      inst(new THREE.BoxGeometry(dw - 0.2, dh * 0.42, 0.025), top, panels)
+    }
+    const officeChairs = (spots: Spot[], pad: THREE.Material, frame: THREE.Material) => {
+      const backs: Array<[number, number, number, number?]> = spots.map(([x, z, ry = 0]) => { const [ox, oz] = turn(0, 0.22, ry); return [x + ox, 0.74, z + oz, ry] })
+      inst(new THREE.BoxGeometry(0.48, 0.07, 0.46), pad, spots.map(([x, z, ry = 0]) => [x, 0.45, z, ry]))
+      inst(new THREE.BoxGeometry(0.46, 0.48, 0.05), pad, backs)
+      inst(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8), frame, spots.map(([x, z]) => [x, 0.22, z]))
+      inst(new THREE.CylinderGeometry(0.27, 0.27, 0.035, 10), frame, spots.map(([x, z]) => [x, 0.03, z]))
+    }
 
     if (id === 'house') {
       // Large family house (Lagos Life cutaway reference): garage, living room, kitchen + stairs,
@@ -447,14 +470,20 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const blackMat = std(0x15171a, 0.4, 0.4)
       const desks: Array<[number, number, number, number?]> = []
       for (const x of [-3.5, 0.5, 4.5]) for (const z of [-2.4, 2.0]) desks.push([x, 0.75 / 2, z])
-      inst(new THREE.BoxGeometry(2.6, 0.75, 1.0), deskMat, desks, [1.35, 0.55])
+      // Desk top on four legs with a modesty panel; same footprint and collider as the old solid block.
+      deskKit(desks.map(([x, , z]) => [x, z] as Spot), 2.6, 1.0, 0.75, deskMat, blackMat, [1.35, 0.55])
       const screens: Array<[number, number, number, number?]> = []
-      const chairs: Array<[number, number, number, number?]> = []
-      for (const [x, , z] of desks) { screens.push([x - 0.5, 1.12, z - 0.3], [x + 0.5, 1.12, z - 0.3]); chairs.push([x, 0.25, z + 0.85]) }
+      const chairs: Spot[] = []
+      for (const [x, , z] of desks) { screens.push([x - 0.5, 1.12, z - 0.3], [x + 0.5, 1.12, z - 0.3]); chairs.push([x, z + 0.85]) }
       inst(new THREE.BoxGeometry(0.85, 0.5, 0.04), blackMat, screens)
       inst(new THREE.PlaneGeometry(0.8, 0.45), screenMat, screens.map(([x, y, z]) => [x, y, z + 0.025]))
-      inst(new THREE.BoxGeometry(0.55, 0.5, 0.55), std(0x22262b, 0.6), chairs)
-      chairs.forEach(([x, , z], i) => seat(`desk${i}`, 'Desk chair', x, z, Math.PI, 0.5))
+      // Monitor necks and feet so the screens stand on the desk instead of floating.
+      inst(new THREE.BoxGeometry(0.05, 0.14, 0.04), blackMat, screens.map(([x, , z]) => [x, 0.82, z - 0.02]))
+      inst(new THREE.BoxGeometry(0.26, 0.02, 0.18), blackMat, screens.map(([x, , z]) => [x, 0.76, z]))
+      officeChairs(chairs, std(0x22262b, 0.6), blackMat)
+      const keys: Array<[number, number, number, number?]> = desks.map(([x, , z]) => [x, 0.765, z + 0.12])
+      inst(new THREE.BoxGeometry(0.45, 0.02, 0.15), std(0x2a2d31, 0.5), keys)
+      chairs.forEach(([x, z], i) => seat(`desk${i}`, 'Desk chair', x, z, Math.PI, 0.5))
       // Ticker wall on the north wall.
       const tickerTex = canvasTex(1024, 128, (g) => {
         g.fillStyle = '#121418'; g.fillRect(0, 0, 1024, 128)
@@ -485,8 +514,15 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         benches.push([x, 0.72 / 2, z])
         seats.push([x, 0.22, z + 0.6])
       }
-      inst(new THREE.BoxGeometry(4.2, 0.72, 0.5), wood, benches, [2.15, 0.3])
-      inst(new THREE.BoxGeometry(4.0, 0.44, 0.4), std(0x3c2c20, 0.7), seats)
+      // Writing desk (top on end panels, modesty panel facing the board) and a slatted bench with a backrest.
+      // Same footprint and collider as the old solid rows.
+      const dark = std(0x3c2c20, 0.7)
+      inst(new THREE.BoxGeometry(4.2, 0.05, 0.5), wood, benches.map(([x, , z]) => [x, 0.695, z]), [2.15, 0.3])
+      inst(new THREE.BoxGeometry(0.05, 0.67, 0.48), dark, benches.flatMap(([x, , z]) => [[x - 2.07, 0.335, z], [x + 2.07, 0.335, z]] as Array<[number, number, number]>))
+      inst(new THREE.BoxGeometry(4.1, 0.32, 0.025), wood, benches.map(([x, , z]) => [x, 0.5, z - 0.23]))
+      inst(new THREE.BoxGeometry(4.0, 0.05, 0.36), dark, seats.map(([x, , z]) => [x, 0.43, z]))
+      inst(new THREE.BoxGeometry(4.0, 0.3, 0.04), dark, seats.map(([x, , z]) => [x, 0.68, z + 0.18]))
+      inst(new THREE.BoxGeometry(0.05, 0.41, 0.34), dark, seats.flatMap(([x, , z]) => [[x - 1.9, 0.205, z], [x, 0.205, z], [x + 1.9, 0.205, z]] as Array<[number, number, number]>))
       // Lecture seats face the board (north, -z): two places per bench.
       seats.forEach(([x, , z], i) => { seat(`row${i}a`, 'Lecture seat', x - 1.0, z, Math.PI, 0.44); seat(`row${i}b`, 'Lecture seat', x + 1.0, z, Math.PI, 0.44) })
       const board = canvasTex(512, 256, (g) => {
@@ -538,6 +574,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Lounge sofa and a framed wall of covers.
       box(2.8, 0.45, 0.9, std(0x3d4a3f, 0.95), 3.6, d / 2 - 0.9)
       box(2.8, 0.5, 0.2, std(0x3d4a3f, 0.95), 3.6, d / 2 - 0.4, 0.45, false)
+      for (const x of [3.6 - 1.42, 3.6 + 1.42]) box(0.16, 0.64, 0.9, std(0x34403a, 0.95), x, d / 2 - 0.9, 0, false)
+      box(0.015, 0.02, 0.7, std(0x1f2622, 0.9), 3.6, d / 2 - 0.95, 0.45, false)
       seat('lounge-l', 'Sofa', 2.9, d / 2 - 0.95, Math.PI, 0.45); seat('lounge-r', 'Sofa', 4.3, d / 2 - 0.95, Math.PI, 0.45)
       // Monitor wall TV beside the set.
       box(0.06, 1.0, 1.7, std(0x0d0f12, 0.2, 0.5), w / 2 - 0.06, -1.0, 1.4, false)
@@ -566,8 +604,11 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         { sid: 'suite', title: 'Mentor suite', rank: 4, x: -5.5, z: 3.5, text: 'Jobs and duties for senior members.', go: () => hooks.openCareer?.('jobs') },
       ]
       const RN = ['Shrimp', 'Crab', 'Fish', 'Dolphin', 'Shark', 'Whale']
+      // Writing desks on brass legs with a drawer pedestal; colliders match the old solid blocks.
+      deskKit(STATIONS.map((st) => [st.x, st.z] as Spot), 1.6, 0.8, 0.75, walnut, brass, [0.85, 0.45])
+      inst(new THREE.BoxGeometry(0.45, 0.6, 0.66), walnut, STATIONS.map((st) => [st.x - 0.5, 0.33, st.z]))
+      inst(new THREE.BoxGeometry(0.3, 0.025, 0.02), brass, STATIONS.flatMap((st) => [[st.x - 0.5, 0.5, st.z + 0.335], [st.x - 0.5, 0.25, st.z + 0.335]] as Array<[number, number, number]>))
       for (const st of STATIONS) {
-        box(1.6, 0.75, 0.8, walnut, st.x, st.z)
         box(0.12, 0.35, 0.12, brass, st.x + 0.55, st.z, 0.75, false)
         use({ id: `lounge-${st.sid}`, x: st.x, z: st.z + 1, r: 1.2, title: st.title, body: st.rank ? `${RN[st.rank]}+ · ${st.text}` : st.text, enter: 'Open', run: () => {
           const lvl = hooks.rankIndex?.() ?? 0
@@ -577,7 +618,11 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       }
       // Trophy wall: brass frames on the north wall behind the trophy station.
       for (let k = 0; k < 4; k++) box(0.55, 0.42, 0.05, brass, 1.0 + k * 0.55, -d / 2 + 0.06, 1.5, false)
-      for (const [x, z, ry] of [[-2, 1.5, 0], [2, 1.5, 0], [0, 3.2, Math.PI]] as Array<[number, number, number]>) { box(1.8, 0.45, 0.8, leather, x, z, 0, true, ry); box(1.8, 0.5, 0.18, leather, x, z + (ry ? -0.35 : 0.35), 0.45, false, ry) }
+      const sofas = [[-2, 1.5, 0], [2, 1.5, 0], [0, 3.2, Math.PI]] as Array<[number, number, number]>
+      for (const [x, z, ry] of sofas) { box(1.8, 0.45, 0.8, leather, x, z, 0, true, ry); box(1.8, 0.5, 0.18, leather, x, z + (ry ? -0.35 : 0.35), 0.45, false, ry) }
+      // Rolled arms and a seam between the two seat cushions so the blocks read as sofas.
+      inst(new THREE.BoxGeometry(0.16, 0.66, 0.8), leather, sofas.flatMap(([x, z, ry]) => [[x - 0.92, 0.33, z, ry], [x + 0.92, 0.33, z, ry]] as Array<[number, number, number, number]>))
+      inst(new THREE.BoxGeometry(0.015, 0.02, 0.6), std(0x22180f, 0.8), sofas.map(([x, z, ry]) => [x, 0.455, z + (ry ? 0.05 : -0.05), ry]))
       box(1.2, 0.4, 0.7, walnut, 0, 2.4)
     }
     if (id === 'conference') {
