@@ -344,7 +344,7 @@ export const isAccountBound = () => !!localStorage.getItem('gd.privy.userId') &&
 export function setUsername(name: string): { ok: true } | { ok: false; error: string } {
   // Usernames are owned by the Privy account (claimed server-side); they cannot be changed locally.
   if (isAccountBound()) return { ok: false, error: 'Your username is tied to your account.' }
-  return { ok: false, error: 'Sign in (email or Google) to claim a username.' }
+  return { ok: false, error: 'Sign in with email to claim a username.' }
   const handle = cleanUsername(name)
   if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
   save.username = handle

@@ -69,7 +69,8 @@ export function agentJoinForm(): HTMLElement {
     status.textContent = 'Prompt ready with your one-time claim code (valid 30 min). Waiting for your agent to register…'
     const until = Date.now() + 30 * 60_000
     const tick = async () => {
-      if (!wrap.isConnected || Date.now() > until) return
+      if (!wrap.isConnected) return
+      if (Date.now() > until) { status.textContent = 'This claim code expired after 30 minutes. Close and reopen Agents for a fresh prompt.'; return }
       const pr = await fetch(`/api/messages?op=profile&u=${encodeURIComponent(j.username ?? '')}`, { headers: { authorization: `Bearer ${await (await import('./login.ts')).accessToken().catch(() => '')}` } }).catch(() => null)
       const pj = pr && pr.ok ? await pr.json().catch(() => null) as { profile?: { agent?: string | null } } | null : null
       if (pj?.profile?.agent) { setAgent({ label: pj.profile.agent }); status.textContent = `Agent joined: ${pj.profile.agent}. Your profile now shows the Agent label.`; return }

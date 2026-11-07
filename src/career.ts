@@ -84,7 +84,7 @@ function onAct(kind: string, label: string): void {
       addReputation(1 + Math.floor(lvl / 3), `Job duty: ${d.text}`, `${job.title} · reputation for showing up.`)
       if (jobLevel() > lvl) { post(`Promoted to ${JOB_LEVELS[jobLevel()]} ${job.title}.`); toast(`Promoted: ${JOB_LEVELS[jobLevel()]} ${job.title}`) }
     } }
-  if (got.k === 'course' && got.course) post(`Passed ${SKILL_META[got.course].title}.`, 'place:Learning hall')
+  if (got.k === 'course' && got.course) post(`Passed ${SKILL_META[got.course].title}.`, 'place:Campus')
   store()
 }
 function grantRewards(): void { for (const r of SEASON) if (c.seasonPts === r.at) { post(`Unlocked ${r.label} on the free season track.`); if (r.kind === 'house') c.houseItems.push(r.id) } }
@@ -103,7 +103,7 @@ export function initCareer(opts: { toast: (m: string) => void; rankUp: (label: s
 // Live city moments: a deterministic rotation (every 3 hours, 45 minutes long). Show up nearby for $15 in-game (once per moment).
 const MOMENTS = [
   { id: 'market', title: 'Pop-up market on the plaza', place: 'Plaza', go: 'place:The Grind Ring', x: 0, z: 0 },
-  { id: 'lecture', title: 'Guest lecturer at the Learning hall', place: 'Learning hall', go: 'place:Learning hall', x: 0, z: -44 },
+  { id: 'lecture', title: 'Guest lecturer at the Campus', place: 'Campus', go: 'place:Campus', x: 0, z: -44 },
   { id: 'cars', title: 'Car show outside Gadgets', place: 'Gadgets', go: 'place:Gadgets', x: -16, z: 18 },
 ]
 export function currentMoment(now = Date.now()) {
@@ -141,7 +141,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
     body.append(el('h3', 'Progress'), bar('Learning · courses passed', passed.length, SKILL_ORDER.length), bar('Trading practice · sized trades', c.trades, 25), bar(`Jobs · ${c.job ? JOB_LEVELS[jobLevel()] : 'no job yet'}`, jobLevel() + (c.job ? 1 : 0), 10))
     body.append(el('h3', 'Pinned certificates'), el('p', 'Pin up to 3. They show on your /cv page and share card.', 'cc-muted'))
-    if (!passed.length) body.append(el('p', 'Pass a course in the Learning hall to earn a certificate.', 'cc-muted'))
+    if (!passed.length) body.append(el('p', 'Pass a course in the Campus to earn a certificate.', 'cc-muted'))
     const list = el('div', '', 'cr-pins')
     for (const id of passed) {
       const on = c.pins.includes(id)

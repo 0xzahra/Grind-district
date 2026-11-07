@@ -43,7 +43,7 @@ function door(x: number, z: number, w: number, d: number, side: 'px' | 'nx' | 'p
 }
 
 const blocks: Block[] = [
-  { x: 0, z: -48, w: 16, d: 11, label: 'Learning hall' },
+  { x: 0, z: -48, w: 16, d: 11, label: 'Campus' },
   { x: 16, z: -54, w: 8, d: 7, label: 'Conference' },
   { x: -16, z: -54, w: 8, d: 7, label: 'Café' },
   { x: -12, z: -36, w: 3.2, d: 2.2, label: 'Booth' },
@@ -75,7 +75,7 @@ function citySpots(): Spot[] {
   const net = at(11 + HOUSES.length, 'pz')
   const desk = at(12 + HOUSES.length, 'px')
   return [
-    { id: 'learn', ...hall, r: 2.5, title: 'Learning hall', body: 'Take short courses. Each one you pass is added to your CV.', action: 'learn', enter: 'Open the hall' },
+    { id: 'learn', ...hall, r: 2.5, title: 'Campus', body: 'Take short courses. Each one you pass is added to your CV.', action: 'learn', enter: 'Open the hall' },
     { id: 'conference', ...conference, r: 2.3, title: 'Conference centre', body: 'Web3 events: AMAs, talks, demo days. Join for in-game cash.', action: 'conference', enter: 'Go inside' },
     { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'Grab a coffee and read today\'s market headlines.', action: 'cafe', enter: 'Read the room' },
     { id: 'booths', x: 0, z: -35.2, r: 2.2, title: 'Campus booths', body: 'Project stands. Browse what teams are building.' },

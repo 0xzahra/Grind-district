@@ -147,7 +147,9 @@ export function openLogin(notice = ''): void {
       await afterLogin(privy)
     } catch (e) { msg.textContent = (e as Error).message }
   }
-  body.append(google, el('p', 'or', 'muted'), email, send, code, verify, msg)
+  send.className = 'primary'
+  body.append(el('p', 'Sign in with a one-time code sent to your email.', 'muted'), email, send, code, verify, msg)
+  void google
   void client().then(async (p) => { if (await p.getAccessToken()) await afterLogin(p) }).catch(() => {})
 }
 
@@ -168,4 +170,14 @@ export async function syncProgress(token?: string | null): Promise<void> {
   if (!t) return
   const { getSave } = await import('./state.ts')
   await fetch('/api/profile?op=progress', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify({ save: getSave() }) }).catch(() => null)
+}
+
+/** Sign out: push progress first, end the Privy session, unbind this device and return to a fresh guest view.
+ *  The account's save stays in its own slot (and on the server); the shared legacy key is cleared so the
+ *  next person on this device never sees the account's progress. */
+export async function signOut(): Promise<void> {
+  try { await syncProgress() } catch { /* best effort */ }
+  if (APP_ID) { try { await (await client()).auth.logout() } catch { /* already signed out */ } }
+  for (const k of [CLAIMED_KEY, 'gd.privy.userId', 'grind-district-save-v1']) { try { localStorage.removeItem(k) } catch { /* ignore */ } }
+  location.reload()
 }

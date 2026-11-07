@@ -5,7 +5,7 @@ export type GameEvent = { id: string; kind: 'AMA' | 'Spaces talk' | 'Demo day' |
 const WEEK: Array<Omit<GameEvent, 'id'>[]> = [
   [{ kind: 'Spaces talk', title: 'Shipping on Base: what actually onboarded users', host: 'Campus builders', hour: 18, xp: 20, rep: 1 }],
   [{ kind: 'AMA', title: 'Ask the treasury: how the Safe is run', host: 'Grind District team', hour: 19, xp: 20, rep: 1 }],
-  [{ kind: 'Workshop', title: 'Self-custody in 20 minutes', host: 'Learning hall', hour: 17, xp: 18, rep: 1 }],
+  [{ kind: 'Workshop', title: 'Self-custody in 20 minutes', host: 'Campus', hour: 17, xp: 18, rep: 1 }],
   [{ kind: 'Panel', title: 'Bounties that paid: three teams, three receipts', host: 'Studio row', hour: 19, xp: 22, rep: 1 }],
   [{ kind: 'AMA', title: 'Founders AMA: building through a bear market', host: 'Campus booths', hour: 20, xp: 20, rep: 1 }],
   [{ kind: 'Demo day', title: 'Hackathon demo day: five-minute demos, no slides', host: 'District hackers', hour: 16, xp: 30, rep: 2 }],

@@ -106,7 +106,7 @@ const PERSONAS = [
   { name: 'Noah', trait: 'Calm saver', routine: 'Morning run, budget review', lines: ['Testnet points are a score, not a promise.', 'Slow money is still money.', 'Same time at the gym tomorrow?'] },
 ]
 
-const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Learning hall.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
+const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Campus.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
 function bubble(text: string): THREE.Sprite {
   const c = document.createElement('canvas'); c.width = 512; c.height = 96
   const g = c.getContext('2d')!

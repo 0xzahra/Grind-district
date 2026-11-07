@@ -348,7 +348,7 @@ export function mountUi(
     wrap.prepend(bal)
     const tasks = todayTasks(save)
     wrap.append(para(`Daily quests · ${tasks.filter((t) => t.done).length}/${tasks.length}`, 'kicker'))
-    const GO: Record<string, string> = { 'Pass a course': 'Learning hall', 'Log a sized trade': 'Trading floor', 'Gym set': 'Gym', 'Read the café': 'Campus café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
+    const GO: Record<string, string> = { 'Pass a course': 'Campus', 'Log a sized trade': 'Trading floor', 'Gym set': 'Gym', 'Read the café': 'Campus café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
     for (const task of tasks) {
       const q = document.createElement('div'); q.className = `quest${task.done ? ' done' : ''}`
       const bar = document.createElement('div'); bar.className = 'bar'; const f = document.createElement('div'); f.className = 'bar-fill'; f.style.width = task.done ? '100%' : '0%'; bar.append(f)
@@ -546,7 +546,7 @@ export function mountUi(
       showLesson()
     }
     if (courseHold) { const c = courseHold; courseHold = null; showCourse(c) } else showList()
-    return frame('Learning hall', body)
+    return frame('Campus', body)
   }
 
   let marketCat: CoinCategory = 'big'
@@ -968,6 +968,22 @@ export function mountUi(
     support.rel = 'noopener noreferrer'
     support.className = 'help-link'
     support.textContent = 'Get help'
+    const soundRow = document.createElement('div')
+    soundRow.className = 'tabs'
+    const slider = (value: number, label: string, set: (v: number) => void) => { const r = document.createElement('input'); r.type = 'range'; r.min = '0'; r.max = '100'; r.value = String(value); r.setAttribute('aria-label', label); r.oninput = () => set(Number(r.value)); return r }
+    void import('./music.ts').then((m) => import('./ambient-audio.ts').then((a) => {
+      soundRow.append(
+        button(m.musicOn() ? 'Music on' : 'Music off', m.musicOn() ? 'primary' : 'ghost', () => { void m.setMusic(!m.musicOn()).then((ok) => { if (!ok) toast('This browser blocked the music. Tap again.'); open('settings') }) }),
+        slider(m.musicVolume(), 'Music volume', m.setMusicVolume),
+        button(a.ambientState().wanted ? 'City sound on' : 'City sound off', a.ambientState().wanted ? 'primary' : 'ghost', () => { void a.setAmbientEnabled(!a.ambientState().wanted).then(() => open('settings')) }),
+        slider(a.ambientState().volume, 'City sound volume', a.setAmbientVolume),
+      )
+    }))
+    const signedIn = !!localStorage.getItem('gd.privy.userId')
+    const accountRow = document.createElement('div')
+    accountRow.className = 'tabs'
+    if (signedIn) accountRow.append(button('Sign out', 'ghost', () => { void import('./login.ts').then((l) => l.signOut()) }))
+    else accountRow.append(button('Sign in with email', 'ghost', () => { close(); void import('./login.ts').then((l) => l.openLogin()) }))
     const settingsCard = (body: HTMLElement) => { const c = frame('Settings', body); c.classList.add('glass-sheet', 'settings-glass'); return c }
     return settingsCard(stack(
       nameLabel,
@@ -987,10 +1003,14 @@ export function mountUi(
       maps,
       para('Comfort', 'kicker'),
       comfort,
-      para('The theme stays silent until you turn Music on. Volume is the slider by that button. With reduced motion on, it never resumes by itself.', 'muted'),
+      para('Sound', 'kicker'),
+      soundRow,
+      para('Music and city sound stay silent until you turn them on here.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Notifications', 'kicker'),
       notifyRow,
+      para('Account', 'kicker'),
+      accountRow,
       para('Grind is in-game currency only. Nothing on-chain moves here.', 'muted'),
       para('Support', 'kicker'),
       support,

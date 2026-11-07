@@ -3,6 +3,7 @@ import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
+import { resumeMusicOnFirstTap } from './music.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -221,7 +222,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   document.body.append(greetBtn)
   greetBtn.addEventListener('click', () => {
     const next = schedule(new Date(), 2)[0]
-    const tips = next ? [`Hi! ${next.kind} "${next.title}" is ${next.label}${next.open ? ', doors are open' : ''} at the Conference centre.`, `Morning. ${next.host} hosts ${next.kind.toLowerCase()} ${next.label}. Pays in-game cash.`] : ['Hi! The Learning hall has twenty courses. Start with Spot trading.']
+    const tips = next ? [`Hi! ${next.kind} "${next.title}" is ${next.label}${next.open ? ', doors are open' : ''} at the Conference centre.`, `Morning. ${next.host} hosts ${next.kind.toLowerCase()} ${next.label}. Pays in-game cash.`] : ['Hi! The Campus has twenty courses. Start with Spot trading.']
     greetToast(tips[Math.floor(Date.now() / 60000) % tips.length]!)
   })
   let greetToast: (m: string) => void = () => {}
@@ -251,7 +252,7 @@ const apiAgents = createRemoteAgents(scene)
   scene.add(phoneFill)
   scene.add(new THREE.AmbientLight(0xffe2c0, phoneFill.visible ? 0.3 : 0.18)) // warm golden-hour fill everywhere (GDD: warmer lighting)
   let lightAcc = 1
-  // First task (GDD onboarding): until a course is passed, a floating gold marker hangs over the Learning hall door
+  // First task (GDD onboarding): until a course is passed, a floating gold marker hangs over the Campus door
   // and a prompt points there; walking up to the door opens the courses.
   const firstMarker = new THREE.Group()
   {
@@ -260,11 +261,12 @@ const apiAgents = createRemoteAgents(scene)
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.12, 6, 20), gold); ring.rotation.x = Math.PI / 2; ring.position.y = 1.9
     firstMarker.add(cone, ring); firstMarker.position.set(0, 6.5, -42.2)
   }
+  resumeMusicOnFirstTap()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
   let firstOpened = false
   if (needsFirstCourse()) {
     scene.add(firstMarker)
-    window.setTimeout(() => notify('Your first task', 'Head to the Campus to complete your first course. Follow the gold marker north.', undefined, 'place:Learning hall'), 2500)
+    window.setTimeout(() => notify('Your first task', 'Walk to Campus, the building under the gold marker to the north, and finish one short course. It goes straight onto your CV.', undefined, 'place:Campus'), 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
 

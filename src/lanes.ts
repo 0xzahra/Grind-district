@@ -15,7 +15,7 @@ export const ARMS = [
 export type Footprint = { x: number; z: number; w: number; d: number; label: string }
 // Every building shell (centre, width in x, depth in z). Keep in sync with world.ts / houses.ts.
 export const FOOTPRINTS: Footprint[] = [
-  { x: 0, z: -48, w: 16, d: 11, label: 'Learning hall' },
+  { x: 0, z: -48, w: 16, d: 11, label: 'Campus' },
   { x: 16, z: -54, w: 8, d: 7, label: 'Conference' },
   { x: -16, z: -54, w: 8, d: 7, label: 'Campus café' },
   { x: -12, z: -36, w: 3.2, d: 2.2, label: 'Booth' },
