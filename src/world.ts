@@ -19,6 +19,8 @@ export type World = {
   obstacles: Obstacle[]
   hotspots: Hotspot[]
   sun: THREE.DirectionalLight
+  glow: THREE.PointLight[]
+  decor: THREE.Object3D[]
   tick: (time: number, focus: THREE.Vector3) => void
   setLook: (look: { time: TimeOfDay; season: Season }) => void
   setRank: (label: string) => void
@@ -88,6 +90,7 @@ export function createWorld(options: {
   const facades: THREE.MeshStandardMaterial[] = []
   const ripples: { mesh: THREE.Mesh; offset: number }[] = []
   const glow: THREE.PointLight[] = []
+  const decor: THREE.Object3D[] = []
   const doors: { x: number; z: number; own: Obstacle }[] = []
   const paths: Rect[] = []
 
@@ -270,6 +273,7 @@ export function createWorld(options: {
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
   ground.name = 'ground'
+  ground.userData.tapGround = true
   scene.add(ground)
 
   const hemi = new THREE.HemisphereLight(0xb7d4ff, 0x1c2e26, 0.45)
@@ -467,6 +471,8 @@ export function createWorld(options: {
     const mat = solid(new THREE.BoxGeometry(1.5, 0.04, 1.5), trim, false)
     mat.position.set(at.x, 0.03, at.z)
     mat.userData.ghost = true
+    mat.userData.tapDoor = at
+    sign.userData.tapDoor = at
     scene.add(mat)
     return at
   }
@@ -817,24 +823,27 @@ export function createWorld(options: {
   scene.add(basinWater)
   obstacles.push({ kind: 'circle', x: -40, z: 40, r: 6 })
   spot('water', -34, 34, 2.4, 'The basin', 'Park water. Climate work has a desk just north of here. Swimming is not the pledge.')
-  addGlow(-40, 1.2, 40, 0x7dffe0, 6)
   addGlow(hall.x, 2.2, hall.z, 0xffe2b8, 8)
+  addGlow(-40, 1.2, 40, 0x7dffe0, 6)
   addGlow(floor.x, 2.2, floor.z, 0x9fd4ff, 8)
   addGlow(row.x, 2.2, row.z, 0xffb089, 8)
   addGlow(trench.x, 2.2, trench.z, 0xff8fbf, 7)
 
   const skyRand = mulberry32(4)
+  const skylineMaterial = new THREE.MeshStandardMaterial({ color: 0x1c2824, roughness: 0.9 })
   for (let i = 0; i < 16; i += 1) {
     const angle = (i / 16) * Math.PI * 2
     const dist = 72 + skyRand() * 6
     const height = 7 + skyRand() * 10
     const box = new THREE.Mesh(
       new THREE.BoxGeometry(3 + skyRand() * 2, height, 3 + skyRand() * 2),
-      new THREE.MeshStandardMaterial({ color: 0x1c2824, roughness: 0.9 }),
+      skylineMaterial,
     )
     box.position.set(Math.cos(angle) * dist, height / 2, Math.sin(angle) * dist)
     box.userData.ghost = true
     box.castShadow = false
+    box.userData.decorative = true
+    decor.push(box)
     scene.add(box)
   }
 
@@ -971,6 +980,8 @@ export function createWorld(options: {
   }
 
   return {
+    glow,
+    decor,
     obstacles,
     hotspots,
     sun,

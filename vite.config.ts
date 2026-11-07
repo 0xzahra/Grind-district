@@ -53,7 +53,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   process.env.PRIVY_APP_SECRET = env.PRIVY_APP_SECRET
   process.env.PRIVY_APP_ID = env.PRIVY_APP_ID || env.VITE_PRIVY_APP_ID
-  process.env.VITE_PRIVY_APP_ID = env.VITE_PRIVY_APP_ID
+  // Do not turn an absent value into the literal string "undefined".
+  // Leave an existing deployment value intact when the env file is empty.
+  if (env.VITE_PRIVY_APP_ID?.trim()) {
+    process.env.VITE_PRIVY_APP_ID = env.VITE_PRIVY_APP_ID.trim()
+  }
   return {
     plugins: [privySession()],
     server: {

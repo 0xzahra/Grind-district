@@ -1,3 +1,7 @@
+import { QUALITY, applyDecorTier, applyLightTier, LocalPerformanceMetrics } from './quality.ts'
+import { buildRoom, RoomSession, ROOM_TYPES, type RoomKind } from './room-adapter.ts'
+import { chooseTap, tapIntersections, type TapHit } from './tap-target.ts'
+import { SceneGate } from './scene-gate.ts'
 import '@fontsource/archivo-black/400.css'
 import '@fontsource/outfit/400.css'
 import '@fontsource/outfit/500.css'
@@ -86,6 +90,8 @@ function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
 }
 
 async function main(onReveal: () => void) {
+  const metrics = new LocalPerformanceMetrics(new URLSearchParams(location.search).has('debugMetrics'), performance.now())
+  metrics.phase('main_started', performance.now())
   const canvas = must<HTMLCanvasElement>('#view')
   const boot = must<HTMLDivElement>('#boot')
   const bootText = must<HTMLParagraphElement>('#boot-text')
@@ -134,7 +140,9 @@ async function main(onReveal: () => void) {
     new Promise((resolve) => setTimeout(resolve, 1800)),
   ])
 
+  metrics.phase('fonts_ready_or_timeout', performance.now())
   const renderer = createRenderer(canvas)
+  metrics.phase('renderer_created', performance.now())
   if (!renderer) {
     await startFlat(onReveal)
     return
@@ -147,6 +155,7 @@ async function main(onReveal: () => void) {
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 260)
   const mark = await loadTexture('/brand/shrimp.png')
+  metrics.phase('mascot_loaded', performance.now())
   const image = mark.image as { width?: number; height?: number }
   const aspect = image.width && image.height ? image.height / image.width : 0.86
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -159,6 +168,7 @@ async function main(onReveal: () => void) {
     rankLabel: rankFor(getSave().xp).label,
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
+  metrics.phase('world_created', performance.now())
   const crowd = createCrowd(scene)
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   // ~10 real minutes per in-game day. GN time in Settings picks where the clock starts.
@@ -202,21 +212,30 @@ async function main(onReveal: () => void) {
     world.setDaylight(dayPhase)
     renderer.toneMappingExposure = 1.0
   }
-  const applyGraphics = () => {
+  const roomSession = new RoomSession()
+  const roomCache = new Map<string, ReturnType<typeof buildRoom>>()
+  let streetCamera: { yaw: number; pitch: number; distance: number } | null = null
+  const sceneGate = new SceneGate()
+  const applyGraphics = () => sceneGate.requestGraphics()
+  const commitGraphics = () => {
     const graphics = getSave().graphics
+    const quality = QUALITY[graphics]
     const dpr = window.devicePixelRatio || 1
-    const ratio = graphics === 'low' ? 1 : Math.min(dpr, 2)
-    renderer.setPixelRatio(ratio)
-    const shadows = graphics !== 'low'
+    const ratio = Math.min(dpr, quality.pixelRatioCap)
+    if (renderer.getPixelRatio() !== ratio) renderer.setPixelRatio(ratio)
+    const shadows = quality.shadows
     renderer.shadowMap.enabled = shadows
     world.sun.castShadow = shadows
-    const size = graphics === 'high' ? 2048 : 1024
+    applyLightTier(world.glow, graphics)
+    applyDecorTier(world.decor, graphics)
+    for (const room of roomCache.values()) applyDecorTier(room.decor, graphics)
+    const size = quality.shadowSize
     if (world.sun.shadow.mapSize.x !== size) {
       world.sun.shadow.mapSize.set(size, size)
       world.sun.shadow.map?.dispose()
       world.sun.shadow.map = null
     }
-    renderer.setSize(window.innerWidth, window.innerHeight, false)
+    renderer.setSize(sceneGate.width, sceneGate.height, false)
   }
   const applyBody = () => {
     const save = getSave()
@@ -360,9 +379,8 @@ async function main(onReveal: () => void) {
   const blockers: Obstacle[] = []
 
   const raycaster = new THREE.Raycaster()
-  const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
   const pointer = new THREE.Vector2()
-  const tapPoint = new THREE.Vector3()
+  let pendingDoor: string | null = null
   const lookTarget = new THREE.Vector3()
   const desiredCam = new THREE.Vector3()
   const smoothCam = new THREE.Vector3()
@@ -371,16 +389,16 @@ async function main(onReveal: () => void) {
   const focus = new THREE.Vector3()
   const mapCtx = map.getContext('2d')
 
-  const resize = () => {
-    const width = window.innerWidth
-    const height = window.innerHeight
-    camera.aspect = width / Math.max(1, height)
+  const resize = (width: number, height: number) => {
+    camera.aspect = width / height
     camera.fov = width < 800 ? 62 : 52
     camera.updateProjectionMatrix()
-    applyGraphics()
   }
-  resize()
-  window.addEventListener('resize', resize)
+  const queueResize = () => sceneGate.requestResize(window.innerWidth, window.innerHeight)
+  queueResize()
+  sceneGate.flush(false, resize, commitGraphics)
+  window.addEventListener('resize', queueResize)
+
 
   const pullCamera = (origin: THREE.Vector3, desired: THREE.Vector3) => {
     rayDirection.subVectors(desired, origin)
@@ -391,12 +409,50 @@ async function main(onReveal: () => void) {
     raycaster.far = dist
     const hits = raycaster.intersectObjects(scene.children, true)
     for (const hit of hits) {
+      let hidden = false
+      for (let object: THREE.Object3D | null = hit.object; object; object = object.parent) hidden ||= !object.visible
+      if (hidden) continue // Cached rooms must never become invisible camera blockers.
       if (hit.object.userData.ghost) continue
       if (isUnder(avatar.object, hit.object)) continue
+      if (follower && isUnder(follower, hit.object)) continue
       const travel = Math.max(0.7, hit.distance - 0.45)
       return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
     }
     return pulledCam.copy(desired)
+  }
+
+  const activateSpot = (next: Hotspot) => {
+    if (roomSession.room) {
+      if (next.id === 'room-exit') {
+        roomSession.room.group.visible = false
+        const out = roomSession.exit()
+        if (out) { pos.x = out.x; pos.z = out.z }
+        if (streetCamera) { camYaw = streetCamera.yaw; camPitch = streetCamera.pitch; camDist = streetCamera.distance }
+        streetCamera = null
+        cameraReady = false
+        camVel.set(0, 0, 0)
+      } else if (next.action) ui.open(next.action, next.house ? { house: next.house } : undefined)
+    } else {
+      const kind = ROOM_TYPES[next.id as keyof typeof ROOM_TYPES] as RoomKind | undefined
+      if (kind) {
+        let room = roomCache.get(next.id)
+        if (!room) { room = buildRoom(kind, next); scene.add(room.group); roomCache.set(next.id, room) }
+        applyDecorTier(room.decor, getSave().graphics)
+        room.group.visible = true
+        streetCamera = { yaw: camYaw, pitch: camPitch, distance: camDist }
+        const spawn = roomSession.enter(room, pos)
+        pos.x = spawn.x; pos.z = spawn.z
+        camYaw = 0; camPitch = 0.6; camDist = 4.2
+        cameraReady = false
+        camVel.set(0, 0, 0)
+      } else if (next.action) ui.open(next.action, next.house ? { house: next.house } : undefined)
+    }
+    target = null
+    pendingDoor = null
+    vel.x = vel.z = 0
+    avatar.object.position.set(pos.x, 0, pos.z)
+    if (follower) follower.visible = !roomSession.room
+    input.discard()
   }
 
   const showSpot = (next: Hotspot | null) => {
@@ -418,9 +474,11 @@ async function main(onReveal: () => void) {
 
   const drawMap = () => {
     if (!mapCtx) return
-    drawMinimap(mapCtx, map.width, map.height, pos, net.peers())
+    drawMinimap(mapCtx, map.width, map.height, roomSession.cityPosition(pos), net.peers())
   }
 
+  let lastPlace = ''
+  let mapAccumulator = 0
   const update = (dt: number) => {
     const now = Date.now()
     tickMarket(dt, now)
@@ -441,26 +499,77 @@ async function main(onReveal: () => void) {
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
       renderer.toneMappingExposure = 0.96 + THREE.MathUtils.clamp(sunUp, 0, 1) * 0.1
     }
-    world.tick(elapsed, focus.set(pos.x, 0, pos.z))
-    ui.setPlace(districtName(pos.x, pos.z))
+    const cityPos = roomSession.cityPosition(pos)
+    world.tick(elapsed, focus.set(cityPos.x, 0, cityPos.z))
+    const nextPlace = roomSession.room ? 'Indoors' : districtName(pos.x, pos.z)
+    if (nextPlace !== lastPlace) { lastPlace = nextPlace; ui.setPlace(nextPlace) }
 
     const frame = input.read()
-    const paused = ui.isOpen()
+    let paused = ui.isOpen()
+    const roomBeforeInput = roomSession.room
+    if (!paused && frame.interact && spot?.action) {
+      activateSpot(spot)
+      paused = ui.isOpen()
+    }
+    if (roomBeforeInput !== roomSession.room) { frame.tap = null; frame.lookX = frame.lookY = frame.zoom = frame.x = frame.y = 0 }
+    if (paused) input.discard()
+    sceneGate.flush(paused, resize, commitGraphics)
+    sceneGate.advance(paused, () => {
     if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 4.6, 16)
-
-    if (!paused && frame.interact && spot?.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
+    })
 
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
-      raycaster.setFromCamera(pointer, camera)
-      if (raycaster.ray.intersectPlane(floor, tapPoint)) {
-        target = tapPoint.clone()
-        target.x = THREE.MathUtils.clamp(target.x, -CITY_LIMIT + 1, CITY_LIMIT - 1)
-        target.z = THREE.MathUtils.clamp(target.z, -CITY_LIMIT + 1, CITY_LIMIT - 1)
+      const hits: TapHit[] = tapIntersections(raycaster, camera, pointer, scene).map((hit) => {
+        let ghost = false
+        let invisible = false
+        let npc: string | undefined
+        let door: { x: number; z: number } | undefined
+        let ground = false
+        let use: string | undefined
+        for (let object: THREE.Object3D | null = hit.object; object; object = object.parent) {
+          ghost ||= Boolean(object.userData.ghost)
+          invisible ||= !object.visible
+          npc ??= object.userData.tapNpc as string | undefined
+          door ??= object.userData.tapDoor as typeof door
+          ground ||= object.userData.tapGround === true
+          use ??= object.userData.tapUse as string | undefined
+        }
+        const point = { x: hit.point.x, z: hit.point.z }
+        if (invisible || isUnder(avatar.object, hit.object) || (follower && isUnder(follower, hit.object))) return { kind: 'ignore', ...point }
+        // Explicit door markers/signs may be decorative for camera collision, but remain tappable.
+        if (door) {
+          const hotspot = world.hotspots.find((item) => item.action && Math.hypot(item.x - door.x, item.z - door.z) < 0.1)
+          return hotspot ? { kind: 'door', x: door.x, z: door.z, id: hotspot.id } : { kind: 'blocker', ...point }
+        }
+        if (use) {
+          const hotspot = roomSession.room?.uses.find((item) => item.id === use)
+          if (hotspot) return { kind: 'door', x: hotspot.x, z: hotspot.z, id: hotspot.id }
+        }
+        if (ghost) return { kind: 'ignore', ...point }
+        if (npc) return { kind: 'npc', ...point, id: npc }
+        return { kind: ground ? 'ground' : 'blocker', ...point }
+      })
+      const room = roomSession.room
+      const offsetX = room?.origin.x ?? 0
+      const offsetZ = room?.origin.z ?? 0
+      const normalized = hits.map((hit) => ({ ...hit, x: hit.x - offsetX, z: hit.z - offsetZ }))
+      const picked = chooseTap(normalized, room ? Math.max(room.w, room.d) / 2 : CITY_LIMIT - 1, (x, z) => {
+        if (room && (Math.abs(x) > room.w / 2 - PLAYER_R || Math.abs(z) > room.d / 2 - PLAYER_R)) return true
+        return blocked(room?.obstacles ?? world.obstacles, x + offsetX, z + offsetZ, PLAYER_R, Boolean(room))
+      })
+      if (picked) { picked.x += offsetX; picked.z += offsetZ }
+      if (picked?.kind === 'npc') {
+        target = null
+        pendingDoor = null
+        ui.toast(`${picked.id}. Tip: finish a course at the Learning hall to update your CV.`)
+      } else if (picked) {
+        target = new THREE.Vector3(picked.x, 0, picked.z)
+        pendingDoor = picked.kind === 'door' ? picked.id ?? null : null
         stuck = 0
         prevDist = Infinity
       }
@@ -474,8 +583,10 @@ async function main(onReveal: () => void) {
     let wishX = 0
     let wishZ = 0
     if (paused) {
+      pendingDoor = null
       target = null
     } else if (directed) {
+      pendingDoor = null
       wishX = forwardX * frame.y + rightX * frame.x
       wishZ = forwardZ * frame.y + rightZ * frame.x
       target = null
@@ -509,12 +620,14 @@ async function main(onReveal: () => void) {
     pos.x += vel.x * dt
     pos.z += vel.z * dt
     blockers.length = 0
-    blockers.push(...world.obstacles, ...crowdObstacles)
-    resolveCollision(pos, vel, blockers, PLAYER_R)
+    blockers.push(...(roomSession.room?.obstacles ?? [...world.obstacles, ...crowdObstacles]))
+    if (!paused) resolveCollision(pos, vel, blockers, PLAYER_R, Boolean(roomSession.room))
     avatar.object.position.set(pos.x, 0, pos.z)
     const moving = Math.hypot(vel.x, vel.z) > 0.22
-    avatar.face(dirX, dirZ, dt, wishLen > 0.05)
-    avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
+    sceneGate.advance(paused, () => {
+      avatar.face(dirX, dirZ, dt, wishLen > 0.05)
+      avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
+    })
     if (follower) {
       const goalX = pos.x + 0.85
       const goalZ = pos.z + 0.45
@@ -536,7 +649,7 @@ async function main(onReveal: () => void) {
 
     let best: Hotspot | null = null
     let bestDist = Infinity
-    for (const candidate of world.hotspots) {
+    for (const candidate of roomSession.room?.uses ?? world.hotspots) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
       if (dist < candidate.r && dist < bestDist) {
         best = candidate
@@ -544,10 +657,21 @@ async function main(onReveal: () => void) {
       }
     }
     showSpot(best)
+    if (pendingDoor && !paused && spot?.id === pendingDoor && spot.action) {
+      pendingDoor = null
+      target = null
+      vel.x = vel.z = 0
+      activateSpot(spot)
+      paused = ui.isOpen()
+      input.discard()
+    }
+    if (!target) pendingDoor = null
 
-    if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
+    if (!roomSession.room && !taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true
       ui.open('tax')
+      paused = true
+      input.discard()
     }
 
     // After a moment without manual look, ease the camera behind the walking direction.
@@ -556,6 +680,7 @@ async function main(onReveal: () => void) {
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
       camYaw += delta * (1 - Math.exp(-1.2 * dt))
     }
+    sceneGate.advance(paused || ui.isOpen(), () => {
     if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
     lookSmooth.lerp(lookTarget.set(pos.x, 1.15, pos.z), 1 - Math.exp(-14 * dt))
     lookTarget.copy(lookSmooth)
@@ -572,15 +697,37 @@ async function main(onReveal: () => void) {
       smoothCam.addScaledVector(camVel, dt)
     }
     const safe = pullCamera(lookTarget, smoothCam)
+    if (roomSession.room) {
+      const room = roomSession.room
+      safe.x = THREE.MathUtils.clamp(safe.x, room.origin.x - room.w / 2 + 0.5, room.origin.x + room.w / 2 - 0.5)
+      safe.z = THREE.MathUtils.clamp(safe.z, room.origin.z - room.d / 2 + 0.5, room.origin.z + room.d / 2 - 0.5)
+      safe.y = Math.min(safe.y, 2.8)
+    }
     if (safe.y < 0.4) safe.y = 0.4
     camera.position.copy(safe)
     camera.lookAt(lookTarget)
-    net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving })
-    drawMap()
+    })
+    // Opt-in local instrumentation only; contains scene state, never account data.
+    if (new URLSearchParams(location.search).has('debugScene')) {
+      (window as unknown as { __grindSceneDebug: unknown }).__grindSceneDebug = {
+        paused: ui.isOpen(), resizeCount: sceneGate.resizeCount,
+        skippedResizes: sceneGate.skippedResizes,
+        viewport: [sceneGate.width, sceneGate.height], aspect: camera.aspect,
+        camera: camera.position.toArray(), orientation: camera.quaternion.toArray(),
+        target: lookTarget.toArray(), spring: camVel.toArray(),
+        yaw: camYaw, pitch: camPitch, distance: camDist,
+        character: avatar.object.position.toArray(), characterRotation: avatar.object.quaternion.toArray(),
+      }
+    }
+    const networkPos = roomSession.cityPosition(pos)
+    net.tick(dt, { x: networkPos.x, z: networkPos.z, yaw: 0, moving: !roomSession.room && moving })
+    mapAccumulator += dt
+    if (mapAccumulator >= 0.1) { drawMap(); mapAccumulator %= 0.1 }
     saveAcc += dt
     if (saveAcc > 2) {
       saveAcc = 0
-      rememberPlace(pos.x, pos.z)
+      const remembered = roomSession.cityPosition(pos)
+      rememberPlace(remembered.x, remembered.z)
     }
   }
 
@@ -588,17 +735,39 @@ async function main(onReveal: () => void) {
     renderer.compileAsync(scene, camera),
     new Promise((resolve) => setTimeout(resolve, 4000)),
   ])
+  metrics.phase('compile_ready_or_timeout', performance.now())
+  let metricFrames = 0
   let last = performance.now()
   const frame = (now: number) => {
     requestAnimationFrame(frame)
     if (failed) return
-    const dt = Math.min(0.1, (now - last) / 1000)
+    const rawFrameMs = now - last
+    const dt = Math.min(0.1, rawFrameMs / 1000)
     last = now
     if (document.hidden && revealed) return
     elapsed += dt
     try {
       update(dt)
       renderer.render(scene, camera)
+      if (!revealed) metrics.phase('first_render_walkable', performance.now())
+      if (metrics.enabled) {
+        metrics.frame(rawFrameMs)
+        if (++metricFrames % 30 === 0 || !revealed) {
+          const tier = getSave().graphics
+          const quality = QUALITY[tier]
+          const rooms = [...roomCache.values()].filter((room) => room.group.visible)
+          const diagnostics = {
+            ...metrics.snapshot(), tier, pixelRatio: renderer.getPixelRatio(), pixelRatioCap: quality.pixelRatioCap,
+            shadows: renderer.shadowMap.enabled, shadowSize: world.sun.shadow.mapSize.x,
+            pointLights: world.glow.filter((light) => light.visible).length,
+            outdoorDecor: { visible: world.decor.filter((item) => item.visible).length, total: world.decor.length },
+            roomDecor: { visible: rooms.flatMap((room) => room.decor).filter((item) => item.visible).length, total: rooms.flatMap((room) => room.decor).length },
+            renderCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
+            programs: renderer.info.programs?.length ?? 0, paused: ui.isOpen(), indoors: Boolean(roomSession.room),
+          }
+          ;(window as unknown as { __grindPerformance: unknown }).__grindPerformance = diagnostics
+        }
+      }
       if (!revealed) {
         revealed = true
         onReveal()

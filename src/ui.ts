@@ -65,6 +65,7 @@ import {
   setUsername,
   sitPrayer,
   submitCourse,
+  startCourse,
   subscribe,
   trade,
   walkGym,
@@ -321,6 +322,7 @@ export function mountUi(
     const showCourse = (id: SkillId) => {
       const course = COURSES.find((item) => item.id === id)
       if (!course) return
+      startCourse(id)
       const save = getSave()
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
@@ -366,10 +368,13 @@ export function mountUi(
         result.textContent = outcome.hints.filter(Boolean).join(' ')
       })
       submit.disabled = Boolean(passed)
-      wrap.append(submit, result, advice())
+      wrap.append(submit, result)
+      if (passed) wrap.append(button('View updated CV', 'primary', () => open('profile', { tab: 'cv' })))
+      wrap.append(advice())
       body.replaceChildren(wrap)
     }
-    showList()
+    if (!Object.values(getSave().skills).some((skill) => skill?.passed)) showCourse(COURSES[0]!.id)
+    else showList()
     return frame('Learning hall', body)
   }
 
@@ -969,7 +974,7 @@ export function mountUi(
     sheet.replaceChildren(render(panel))
     if (previous !== panel) {
       const closeButton = sheet.querySelector('button')
-      if (closeButton instanceof HTMLElement) closeButton.focus()
+      if (closeButton instanceof HTMLElement) closeButton.focus({ preventScroll: true })
     }
     sheet.scrollTop = 0
   }

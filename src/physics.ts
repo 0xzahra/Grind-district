@@ -75,18 +75,18 @@ function pushBox(pos: Vec, vel: Vec, box: Box, radius: number): void {
   }
 }
 
-export function resolveCollision(pos: Vec, vel: Vec, obstacles: readonly Obstacle[], radius: number): void {
-  if (pos.x > CITY_LIMIT) {
+export function resolveCollision(pos: Vec, vel: Vec, obstacles: readonly Obstacle[], radius: number, unbounded = false): void {
+  if (!unbounded && pos.x > CITY_LIMIT) {
     pos.x = CITY_LIMIT
     if (vel.x > 0) vel.x = 0
-  } else if (pos.x < -CITY_LIMIT) {
+  } else if (!unbounded && pos.x < -CITY_LIMIT) {
     pos.x = -CITY_LIMIT
     if (vel.x < 0) vel.x = 0
   }
-  if (pos.z > CITY_LIMIT) {
+  if (!unbounded && pos.z > CITY_LIMIT) {
     pos.z = CITY_LIMIT
     if (vel.z > 0) vel.z = 0
-  } else if (pos.z < -CITY_LIMIT) {
+  } else if (!unbounded && pos.z < -CITY_LIMIT) {
     pos.z = -CITY_LIMIT
     if (vel.z < 0) vel.z = 0
   }
@@ -98,8 +98,8 @@ export function resolveCollision(pos: Vec, vel: Vec, obstacles: readonly Obstacl
   }
 }
 
-export function blocked(obstacles: readonly Obstacle[], x: number, z: number, radius: number): boolean {
-  if (Math.abs(x) > CITY_LIMIT - 0.2 || Math.abs(z) > CITY_LIMIT - 0.2) return true
+export function blocked(obstacles: readonly Obstacle[], x: number, z: number, radius: number, unbounded = false): boolean {
+  if (!unbounded && (Math.abs(x) > CITY_LIMIT - 0.2 || Math.abs(z) > CITY_LIMIT - 0.2)) return true
   for (const obstacle of obstacles) {
     if (obstacle.kind === 'circle') {
       const dx = x - obstacle.x

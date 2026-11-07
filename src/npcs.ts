@@ -87,6 +87,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
       drone.position.set(0.55, 2.15, 0.2)
       avatar.object.add(drone)
     }
+    avatar.object.userData.tapNpc = `${spec.rank} resident`
     scene.add(avatar.object)
     people.push({
       avatar,
@@ -98,6 +99,7 @@ export function createCrowd(scene: THREE.Scene): { tick: (dt: number) => Obstacl
 
   const unit = robot()
   unit.object.position.set(unit.x, 0, unit.z)
+  unit.object.userData.tapNpc = 'Unit 4 · Agent'
   scene.add(unit.object)
   let robotLeg = 0
   const robotEnds = [

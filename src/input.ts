@@ -21,6 +21,7 @@ function isTyping(target: EventTarget | null): boolean {
 export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: HTMLElement): {
   read: () => FrameInput
   requestInteract: () => void
+  discard: () => void
 } {
   const down = new Set<string>()
   let joyX = 0
@@ -115,7 +116,7 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
 
   const endLook = (event: PointerEvent) => {
     if (event.pointerId !== lookId) return
-    if (!dragged && event.button === 0) {
+    if (!dragged && event.button === 0 && document.elementFromPoint(event.clientX, event.clientY) === canvas) {
       const rect = canvas.getBoundingClientRect()
       pendingTap = {
         nx: ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -160,6 +161,16 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   })
 
   return {
+    discard() {
+      if (lookId !== null && canvas.hasPointerCapture(lookId)) canvas.releasePointerCapture(lookId)
+      if (stickId !== null && stick.hasPointerCapture(stickId)) stick.releasePointerCapture(stickId)
+      lookId = stickId = null
+      down.clear()
+      joyX = joyY = lookX = lookY = zoom = 0
+      pendingTap = null
+      interactQueued = false
+      placeNub(0, 0)
+    },
     requestInteract() {
       interactQueued = true
     },

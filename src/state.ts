@@ -1,3 +1,4 @@
+import { recordCourseEvent } from './course-events.ts'
 import { grade, courseById } from './courses.ts'
 import {
   BOUNTY_USD,
@@ -259,11 +260,20 @@ export type CourseResult =
   | { ok: false; already: true }
   | { ok: false; already?: false; hints: string[]; tries: number }
 
+export function startCourse(id: SkillId): void {
+  if (!courseById(id) || save.skills[id]?.passed) return
+  if (!Object.values(save.skills).some((skill) => skill?.passed)) {
+    recordCourseEvent('first_course_started', id)
+  }
+}
+
 export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   const course = courseById(id)
   if (!course) return { ok: false, hints: ['That course is not on the board.'], tries: 0 }
   const prev = save.skills[id] ?? { passed: false, tries: 0 }
   if (prev.passed) return { ok: false, already: true }
+  startCourse(id)
+  const firstCompletion = !Object.values(save.skills).some((skill) => skill?.passed)
   const graded = grade(course, picks)
   const tries = prev.tries + 1
   if (!graded.ok) {
@@ -288,6 +298,8 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
     maybeOpenTax(save, day)
   }
   persist()
+  if (firstCompletion) recordCourseEvent('first_course_finished', id)
+  recordCourseEvent('cv_updated', id)
   emit(rankedUp)
   return { ok: true, rankedUp, stipend, focus: focused, bonus }
 }
