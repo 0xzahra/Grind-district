@@ -667,7 +667,7 @@ const apiAgents = createRemoteAgents(scene)
     isOpen: (title) => !ccSheet.hidden && sheetTitle.textContent === title,
   })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
-  const openCareer = (tab?: unknown) => openSheet('Career & Courses', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'overview'))
+  const openCareer = (tab?: unknown) => openSheet('Career & Courses', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses'))
   const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
   window.addEventListener('gd:career', (e) => { setCC(true); openCareer((e as CustomEvent).detail) })
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
@@ -1174,7 +1174,7 @@ const apiAgents = createRemoteAgents(scene)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
       scene.environmentIntensity = 0.75 * (1 - nightLevel) + 0.18 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(1.18, 1.05, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.96, 1.0, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }

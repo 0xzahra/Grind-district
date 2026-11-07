@@ -129,21 +129,32 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') 
 const bar = (label: string, v: number, max: number) => { const w = el('div', '', 'cr-bar'); const l = el('div', '', 'cr-bar-head'); l.append(el('span', label), el('span', `${Math.min(v, max)}/${max}`)); const t = el('div', '', 'cr-track'); const f = el('i'); f.style.width = `${Math.min(100, (v / max) * 100)}%`; t.append(f); w.append(l, t); return w }
 const btn = (text: string, on: () => void, cls = 'cr-btn') => { const b = el('button', text, cls); b.type = 'button'; b.onclick = on; return b }
 
+
+/** One lesson row: title, status, and a Start/Review button that opens that exact course. */
+function lessonRow(id: SkillId, passed: boolean, next: boolean): HTMLElement {
+  const row = el('div', '', 'cr-lesson' + (passed ? ' done' : next ? ' next' : ''))
+  const info = el('div', '', 'cr-lesson-info')
+  info.append(el('strong', SKILL_META[id].title), el('small', passed ? 'Passed · on your CV' : next ? 'Up next' : 'Not started'))
+  row.append(info, btn(passed ? 'Review' : 'Start', () => window.dispatchEvent(new CustomEvent('gd:course', { detail: id })), passed ? 'cr-btn' : 'cr-btn primary'))
+  return row
+}
 export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins: () => void, tab = 'overview'): void {
   rollWeek()
   const s = getSave()
   const tabs = el('div', '', 'cr-tabs')
   const body = el('div', '', 'cr-body')
-  const T: Array<[string, string]> = [['overview', 'Progress'], ['courses', 'Courses'], ['paths', 'Earn Paths'], ['weekly', 'Weekly'], ['jobs', 'Jobs']]
+  const T: Array<[string, string]> = [['courses', 'Lessons'], ['paths', 'Careers'], ['overview', 'Progress'], ['history', 'History'], ['weekly', 'Weekly'], ['jobs', 'Jobs']]
   for (const [id, label] of T) { const b = btn(label, () => renderCareer(root, go, onPins, id), 'cr-tab' + (id === tab ? ' on' : '')); tabs.append(b) }
   root.replaceChildren(tabs, body)
   if (tab === 'courses') {
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed).length
     body.append(el('h3', 'Courses on Campus'), bar('Courses passed', passed, SKILL_ORDER.length), el('p', 'Each pass is filed to your CV, resume and portfolio with a certificate.', 'cc-muted'),
-      btn('Open courses', () => { (document.getElementById('nav-courses') as HTMLButtonElement | null)?.click() }, 'cr-btn primary'),
-      btn('Walk to Campus', () => go('place:Campus')))
+      btn('Walk to Campus to study in person', () => go('place:Campus')))
+    const firstOpen = SKILL_ORDER.find((id) => !s.skills[id]?.passed)
+    for (const id of SKILL_ORDER) body.append(lessonRow(id, !!s.skills[id]?.passed, id === firstOpen))
     return
   }
+  if (tab === 'history') { renderFeed(body, go); return }
   if (tab === 'overview') {
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
     body.append(el('h3', 'Progress'), bar('Learning · courses passed', passed.length, SKILL_ORDER.length), bar('Trading practice · sized trades', c.trades, 25), bar(`Jobs · ${c.job ? JOB_LEVELS[jobLevel()] : 'no job yet'}`, jobLevel() + (c.job ? 1 : 0), 10))
@@ -162,14 +173,19 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     body.append(el('p', DISCLAIMER, 'cc-muted'))
     for (const t of TRACKS) {
       const n = c.track[t.id] ?? 0; const r = rankIdx(n)
-      const card = el('details', '', 'cr-card')
+      const card = el('details', '', 'cr-card'); if (t === TRACKS[0]) card.open = true
       const sum = el('summary'); sum.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]} · ${t.topics}`, 'cr-sub')); card.append(sum)
       card.append(el('p', t.lesson), el('p', `Risk: ${t.risk}`, 'cr-risk'))
       const ladder = el('ol', '', 'cr-ladder'); RANKS_LADDER.forEach((name, i) => ladder.append(el('li', `${name} · ${RANK_STEPS[i]}`, i <= r ? 'on' : ''))); card.append(ladder)
       const done = c.trackDay[t.id] === day()
       card.append(el('p', `Practice ${done ? '(done today)' : '(once a day)'}: ${t.task.text}`, 'cr-task'))
       if (t.place) card.append(btn(`Go to ${t.place} ›`, () => go(`place:${t.place}`)))
-      if (t.courses.length) card.append(el('p', `Related courses: ${t.courses.map((id) => SKILL_META[id].title + (s.skills[id]?.passed ? ' ✓' : '')).join(' · ')}`, 'cc-muted'))
+      if (t.courses.length) {
+        const nextId = t.courses.find((id) => !s.skills[id]?.passed)
+        const doneN = t.courses.filter((id) => s.skills[id]?.passed).length
+        card.append(el('h4', `Lessons for this career · ${doneN}/${t.courses.length} passed`))
+        for (const id of t.courses) card.append(lessonRow(id, !!s.skills[id]?.passed, id === nextId))
+      }
       body.append(card)
     }
   } else if (tab === 'weekly') {

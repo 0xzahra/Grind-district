@@ -150,6 +150,31 @@ function stack(...nodes: Array<Node | string>): HTMLDivElement {
   return node
 }
 
+/** Small original clothing silhouette in the piece's own colour, so the boutique shows clothes, not labels. */
+function garment(slot: string, label: string, c: string): string {
+  const L = label.toLowerCase()
+  const svg = (b: string) => `<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">${b}</svg>`
+  const st = 'stroke="rgba(0,0,0,.35)" stroke-width="1"'
+  if (slot === 'top') {
+    if (/dress|gown|kaftan|boubou/.test(L)) return svg(`<path d="M15 4h10l2 8-3 3 8 21H8l8-21-3-3z" fill="${c}" ${st}/>`)
+    if (/suit|blazer|jacket|coat/.test(L)) return svg(`<path d="M13 5l7 6 7-6 8 5-3 9-4-2v19H12V17l-4 2-3-9z" fill="${c}" ${st}/><path d="M20 11v25M20 11l-4 10M20 11l4 10" stroke="rgba(0,0,0,.4)" fill="none"/>`)
+    return svg(`<path d="M14 5c2 3 10 3 12 0l9 5-3 8-4-2v20H12V16l-4 2-3-8z" fill="${c}" ${st}/>`)
+  }
+  if (slot === 'bottom') {
+    if (/skirt/.test(L)) return svg(`<path d="M13 5h14l6 30H7z" fill="${c}" ${st}/>`)
+    return svg(`<path d="M12 4h16l2 32h-7l-3-22-3 22h-7z" fill="${c}" ${st}/>`)
+  }
+  if (slot === 'shoes') {
+    if (/heel|pump/.test(L)) return svg(`<path d="M6 26c6 0 12-10 18-10 4 0 9 4 10 10H24l-2 4h-2l1-4z" fill="${c}" ${st}/>`)
+    return svg(`<path d="M5 22c4 0 7-6 12-6 3 4 9 6 14 6 3 0 4 3 4 6H5z" fill="${c}" ${st}/><path d="M5 28h30" stroke="#eee" stroke-width="2"/>`)
+  }
+  if (/bag|tote/.test(L)) return svg(`<path d="M14 14a6 6 0 0 1 12 0" fill="none" stroke="${c}" stroke-width="3"/><rect x="8" y="14" width="24" height="20" rx="3" fill="${c}" ${st}/>`)
+  if (/hat|cap/.test(L)) return svg(`<path d="M8 26c0-10 24-10 24 0z" fill="${c}" ${st}/><path d="M4 26h32" stroke="${c}" stroke-width="4"/>`)
+  if (/glass|shade/.test(L)) return svg(`<circle cx="12" cy="20" r="7" fill="${c}" ${st}/><circle cx="28" cy="20" r="7" fill="${c}" ${st}/><path d="M19 20h2" stroke="${c}" stroke-width="2"/>`)
+  if (/watch/.test(L)) return svg(`<rect x="16" y="4" width="8" height="32" rx="3" fill="#444"/><circle cx="20" cy="20" r="8" fill="${c}" ${st}/>`)
+  return svg(`<circle cx="20" cy="20" r="11" fill="${c}" ${st}/>`)
+}
+
 export function mountUi(
   sheet: HTMLElement,
   toastNode: HTMLElement,
@@ -697,7 +722,11 @@ export function mountUi(
   let boutiqueStyle: Style = 'all'
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Original bodies, free: the gentleman and the lady. Colours recolour your top; pieces below are priced in in-game dollars.', 'muted'))
+    const wrap = stack(para('Clothes for your character. Tap a piece to try it on; owned pieces swap for free. Prices are in-game dollars.', 'muted'))
+    { // Live outfit preview: a fresh portrait of your own avatar after every change.
+      const shot = hooks.portrait?.() ?? null
+      if (shot) { const img = document.createElement('img'); img.src = shot; img.alt = 'Your current outfit'; img.className = 'outfit-preview'; wrap.append(img) }
+    }
     const bodies = document.createElement('div')
     bodies.className = 'tabs'
     for (const body of BODIES) {
@@ -718,15 +747,17 @@ export function mountUi(
     const tints = document.createElement('div')
     tints.className = 'tabs'
     for (const tint of TINTS.filter((t) => boutiqueStyle === 'all' || (TINT_STYLE[t.id] ?? []).includes(boutiqueStyle))) {
-      const node = button(tint.label, save.tint === tint.hex ? 'primary' : 'ghost', () => {
+      const node = button('', save.tint === tint.hex ? 'primary' : 'ghost', () => {
         setTint(tint.hex)
         { const w = worn(); if (w.top) { const cur = PIECES.find((x) => x.id === w.top); if (cur) wear(cur) } } // colour wins over a worn top so the change is visible
         hooks.onBody()
         hooks.onStyle()
         open('boutique')
       })
+      node.style.setProperty('background', `#${tint.hex.toString(16).padStart(6, '0')}`, 'important'); node.title = tint.label; node.setAttribute('aria-label', `Colour ${tint.label}`)
       tints.append(node)
     }
+    tints.classList.add('swatches')
     wrap.append(para('Colour · recolours your top', 'kicker'), tints)
     // Wardrobe: real pieces with in-game prices. Buying wears it; tapping an owned piece wears / removes it.
     const lady = save.body === 'zuri'
@@ -742,7 +773,7 @@ export function mountUi(
           hooks.onBody()
           open('boutique')
         })
-        const sw = document.createElement('i'); sw.style.background = `#${pc.hex.toString(16).padStart(6, '0')}`
+        const sw = document.createElement('i'); sw.innerHTML = garment(slot, pc.label, `#${pc.hex.toString(16).padStart(6, '0')}`)
         const nm = document.createElement('b'); nm.textContent = pc.label
         const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? 'Owned · tap to wear' : pc.usd ? money(pc.usd) : 'Free'
         card.append(sw, nm, pr)
@@ -758,18 +789,24 @@ export function mountUi(
       r.oninput = () => { setMorph({ [key]: Number(r.value) }); hooks.onStyle(); saveLookSoon() }
       row.append(t, r); return row
     }
-    wrap.append(para('Body', 'kicker'), slider('Height', 'h', 0.92, 1.08), slider('Build', 'b', 0.9, 1.15))
+    const looks = document.createElement('details'); looks.className = 'looks-more'
+    const lsum = document.createElement('summary'); lsum.textContent = 'Body, hair & makeup'; looks.append(lsum)
+    const realAppend = wrap.append.bind(wrap)
+    wrap.append(looks)
+    const intoLooks = (...n: Array<Node | string>) => looks.append(...n)
+    intoLooks(para('Body', 'kicker'), slider('Height', 'h', 0.92, 1.08), slider('Build', 'b', 0.9, 1.15))
     const hairs = document.createElement('div'); hairs.className = 'tabs'
     for (const hc of HAIRS) hairs.append(button(hc.label, mo.hair === hc.hex ? 'primary' : 'ghost', () => { setMorph({ hair: hc.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }))
-    wrap.append(para('Hair', 'kicker'), hairs)
+    intoLooks(para('Hair', 'kicker'), hairs)
     const tones = document.createElement('div'); tones.className = 'tabs skin-tones'
-    for (const st of SKIN_TONES) { const b = button('', mo.skin === st.hex ? 'primary' : 'ghost', () => { setMorph({ skin: st.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }); b.style.background = `#${st.hex.toString(16).padStart(6, '0')}`; b.title = st.label; b.setAttribute('aria-label', `Skin tone ${st.label}`); tones.append(b) }
-    wrap.append(para('Skin tone', 'kicker'), tones)
+    for (const st of SKIN_TONES) { const b = button('', mo.skin === st.hex ? 'primary' : 'ghost', () => { setMorph({ skin: st.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }); b.style.setProperty('background', `#${st.hex.toString(16).padStart(6, '0')}`, 'important'); b.title = st.label; b.setAttribute('aria-label', `Skin tone ${st.label}`); tones.append(b) }
+    intoLooks(para('Skin tone', 'kicker'), tones)
     const mkRow = (label: string, list: ReadonlyArray<{ label: string; hex: number | null }>, key: 'lip' | 'blush') => {
       const r = document.createElement('div'); r.className = 'tabs'
       for (const it of list) r.append(button(it.label, (mo[key] ?? null) === it.hex ? 'primary' : 'ghost', () => { setMorph({ [key]: it.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }))
-      wrap.append(para(label, 'kicker'), r)
+      intoLooks(para(label, 'kicker'), r)
     }
+    void realAppend
     mkRow('Makeup · lips', LIPS, 'lip')
     mkRow('Makeup · blush', BLUSH, 'blush')
     wrap.append(para(`Gold chain · ${money(CHAIN_USD)} practice. A want, not a need. Resells for ${money(RESELL_USD)}.`, 'muted'))
@@ -1388,6 +1425,8 @@ export function mountUi(
 
   // Courses tab in the Control Centre: opens the same learn panel as the hall, so progress is shared.
   document.querySelector('#nav-courses')?.addEventListener('click', () => open('learn'))
+  // Career > Lessons rows open that exact course.
+  window.addEventListener('gd:course', (e) => open('learn', { course: (e as CustomEvent).detail }))
   return {
     isOpen: () => current !== null,
     open,
