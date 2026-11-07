@@ -18,6 +18,7 @@ import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
 import { courseArt } from './courseArt.ts'
+import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Slot } from './wardrobe.ts'
@@ -507,6 +508,7 @@ export function mountUi(
         const wrap = stack(button('← Your path', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'), para(`${total} exercises. A miss names the idea to reread.`, 'muted'))
         if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
         if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
+        if (passed && nearPassportOn()) wrap.append(nearPassportPanel(id, passed))
         for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
         wrap.append(button(passed ? 'Review the exercises' : `Start exercises · ${total}`, 'primary', () => showExercise(0)), advice())
         body.replaceChildren(wrap)

@@ -1,0 +1,85 @@
+{
+  "owner_id": "OWNER_ACCOUNT.testnet",
+  "courses": [
+    {
+      "course_id": "spot",
+      "version": 1
+    },
+    {
+      "course_id": "risk",
+      "version": 1
+    },
+    {
+      "course_id": "staking",
+      "version": 1
+    },
+    {
+      "course_id": "airdrops",
+      "version": 1
+    },
+    {
+      "course_id": "memes",
+      "version": 1
+    },
+    {
+      "course_id": "agents",
+      "version": 1
+    },
+    {
+      "course_id": "building",
+      "version": 1
+    },
+    {
+      "course_id": "carbon",
+      "version": 1
+    },
+    {
+      "course_id": "custody",
+      "version": 1
+    },
+    {
+      "course_id": "stables",
+      "version": 1
+    },
+    {
+      "course_id": "liquidity",
+      "version": 1
+    },
+    {
+      "course_id": "records",
+      "version": 1
+    },
+    {
+      "course_id": "wallets",
+      "version": 1
+    },
+    {
+      "course_id": "explorer",
+      "version": 1
+    },
+    {
+      "course_id": "scams",
+      "version": 1
+    },
+    {
+      "course_id": "community",
+      "version": 1
+    },
+    {
+      "course_id": "content",
+      "version": 1
+    },
+    {
+      "course_id": "defi",
+      "version": 1
+    },
+    {
+      "course_id": "nfts",
+      "version": 1
+    },
+    {
+      "course_id": "daos",
+      "version": 1
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-// Privy sign-in (Google, email OTP fallback). Lazy-loaded. Without VITE_PRIVY_APP_ID it shows "coming soon".
+// Privy sign-in (Google, email OTP fallback). Lazy-loaded. Without VITE_PRIVY_APP_ID it says sign-in is not set up and offers guest play.
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,16}$/
 export const CLAIMED_KEY = 'gd.privy.username'
@@ -62,7 +62,7 @@ export function openLogin(notice = ''): void {
   const msg = el('p', notice, 'muted')
 
   if (!APP_ID) {
-    body.append(el('p', 'Sign in is coming soon. Your progress stays on this device.', 'muted'))
+    body.append(el('p', 'Email sign-in is not set up on this build. You can play as a guest; your progress stays on this device.', 'muted'))
     return
   }
 

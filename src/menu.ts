@@ -4,8 +4,10 @@ import { SKILL_META } from './logic.ts'
 import { getSave, signUp } from './state.ts'
 import { agentJoinForm } from './agent.ts'
 import { AGENT_EXPLAINER } from './agentPrompt.ts'
+import { SKILL_ORDER } from './logic.ts'
+import { nearPassportOn, nearPassportPage } from './nearPassport.ts'
 
-type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents'
+type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents' | 'near'
 
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
@@ -74,6 +76,11 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
       body.append(copy(AGENT_EXPLAINER))
       body.append(agentJoinForm())
       return { title: 'Agents', body }
+    }
+    case 'near': {
+      const save = getSave()
+      body.append(nearPassportPage(SKILL_ORDER.filter((id) => save.skills[id]?.passed), (id) => SKILL_META[id].title))
+      return { title: 'Skill Passport (NEAR testnet)', body }
     }
     default: {
       const neverPage: never = page
@@ -147,6 +154,8 @@ export function mountMenu(enter: () => void): void {
 
   play.addEventListener('click', start)
   must('#menu-agents').addEventListener('click', () => show('agents'))
+  const nearBtn = document.querySelector<HTMLButtonElement>('#menu-near')
+  if (nearBtn) { nearBtn.hidden = !nearPassportOn(); nearBtn.addEventListener('click', () => show('near')) }
   must('#account-new').addEventListener('click', showSignup)
   must('#account-existing').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
   must('#account-back').addEventListener('click', back)
