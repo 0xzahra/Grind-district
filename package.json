@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "check": "node --experimental-strip-types src/logic.check.ts && node --experimental-strip-types src/course.check.ts && node --experimental-strip-types src/scene-gate.check.ts && node --experimental-strip-types src/tap-target.check.ts && node --experimental-strip-types src/room-adapter.check.ts && node --experimental-strip-types src/quality.check.ts && node --experimental-strip-types src/entry-view.check.ts && node src/branding.check.mjs",
+    "check": "node --experimental-strip-types src/logic.check.ts && node --experimental-strip-types src/course.check.ts && node --experimental-strip-types src/scene-gate.check.ts && node --experimental-strip-types src/tap-target.check.ts && node --experimental-strip-types src/room-adapter.check.ts && node --experimental-strip-types src/quality.check.ts && node --experimental-strip-types src/entry-view.check.ts && node src/branding.check.mjs && node src/dom-contract.check.mjs && node --experimental-strip-types src/net-startup.check.ts",
     "build": "tsc && npm run check && vite build",
     "preview": "vite preview"
   },

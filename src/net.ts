@@ -8,7 +8,8 @@ import { tagPlayer } from './player.ts'
  *
  * Config (build-time, both public-safe): VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
  * Without them, or when the socket cannot open, the city stays single-player and
- * chat bubbles only show above your own head. Nothing is stored server-side: the
+ * optional chat stays local. Chat requires an explicit UI capability; the current
+ * game does not enable it. Nothing is stored server-side: the
  * channel uses broadcast and presence only, so no table or migration is needed.
  *
  * TODO(voice): proximity voice can reuse this channel for WebRTC signaling
@@ -104,12 +105,14 @@ export function clean(text: string): string {
 export function createNet(options: {
   scene: THREE.Scene
   me: Me
-  getSelf: () => THREE.Object3D
-  onLine: (line: { from: string; text: string; self: boolean }) => void
-  onStatus: (online: boolean) => void
+  chat?: {
+    getSelf: () => THREE.Object3D
+    onLine: (line: { from: string; text: string; self: boolean }) => void
+  }
+  onStatus?: (online: boolean) => void
 }): Net {
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  const url = import.meta.env?.VITE_SUPABASE_URL as string | undefined
+  const key = import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined
   const id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const peers = new Map<string, Peer>()
   let me = options.me
@@ -153,28 +156,28 @@ export function createNet(options: {
       .then(({ createClient }) => {
         const client = createClient(url, key, { realtime: { params: { eventsPerSecond: 10 } } })
         const room = client.channel('grind-district:city', { config: { broadcast: { self: false }, presence: { key: id } } })
-        room
-          .on('broadcast', { event: 'pos' }, ({ payload }) => upsert(payload as Wire))
-          .on('broadcast', { event: 'chat' }, ({ payload }) => {
+        room.on('broadcast', { event: 'pos' }, ({ payload }) => upsert(payload as Wire))
+        const chat = options.chat
+        if (chat) room.on('broadcast', { event: 'chat' }, ({ payload }) => {
             const message = payload as { id: string; text: string; x: number; z: number; name: string }
             if (!near(message.x, message.z)) return
             const text = clean(String(message.text ?? ''))
             if (!text) return
             const peer = peers.get(message.id)
             if (peer) showBubble(peer.avatar.object, text)
-            options.onLine({ from: clean(String(message.name ?? '')) || 'Someone', text, self: false })
+            chat.onLine({ from: clean(String(message.name ?? '')) || 'Someone', text, self: false })
           })
-          .on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
+        room.on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
           .subscribe((status) => {
             connected = status === 'SUBSCRIBED'
-            options.onStatus(connected)
+            options.onStatus?.(connected)
             if (connected) void room.track({ id, at: Date.now() })
           })
         channel = room
       })
-      .catch(() => options.onStatus(false))
+      .catch(() => options.onStatus?.(false))
   } else {
-    queueMicrotask(() => options.onStatus(false))
+    queueMicrotask(() => options.onStatus?.(false))
   }
 
   return {
@@ -184,10 +187,12 @@ export function createNet(options: {
       me = next
     },
     say(raw) {
+      const chat = options.chat
+      if (!chat) return // No public chat UI/capability: do not render or broadcast conversations.
       const text = clean(raw)
       if (!text) return
-      showBubble(options.getSelf(), text)
-      options.onLine({ from: me.name || 'You', text, self: true })
+      showBubble(chat.getSelf(), text)
+      chat.onLine({ from: me.name || 'You', text, self: true })
       if (connected && channel) void channel.send({ type: 'broadcast', event: 'chat', payload: { id, text, x: pos.x, z: pos.z, name: me.name } })
     },
     tick(dt, self) {
