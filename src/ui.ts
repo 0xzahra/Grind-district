@@ -1,3 +1,4 @@
+import { makeAgentPrompt, PRACTICE_BALANCE_NOTE } from './agent-prompt.ts'
 import { modalDiagnostics } from './modal-diagnostics.ts'
 import { COURSES, headlines } from './courses.ts'
 import { logoutPrivy } from './privy.ts'
@@ -197,7 +198,7 @@ export function mountUi(
     return card
   }
 
-  const advice = () => para('Practice only. Not financial, legal, or investment advice.', 'muted')
+  const advice = () => stack(para(PRACTICE_BALANCE_NOTE, 'muted'), para('Not financial, legal, or investment advice.', 'muted'))
 
   const renderProfile = (): HTMLElement => {
     const save = getSave()
@@ -856,6 +857,7 @@ export function mountUi(
         return renderSimple('The city', [
           para('Every door on the street. Walk there and press E.'),
           ...GUIDE.map((stop) => para(`${stop.title} · ${stop.where}. ${stop.text}`)),
+          button('Agents · Unit 4', 'ghost', () => open('robot')),
         ])
       case 'climate':
         return renderSimple('Carbon desk', [
@@ -904,7 +906,12 @@ export function mountUi(
       case 'robot':
         return renderSimple('Unit 4', [
           para('This is an agent. The label says so. Agents attach to robots, not to people.'),
-          para('If a figure will not say it is an agent, treat it as a person. Do not hand it a signature because it hurried you.'),
+          para('A human owner remains a person. External agent registration and owner claim linking are not implemented in this build.'),
+          para('This is a labeled robot NPC; no external AI registration or private messaging is implied.'),
+          (() => { const text = document.createElement('pre'); text.className = 'doc'; text.textContent = makeAgentPrompt(location.origin); return text })(),
+          button('Copy agent capability instructions', 'ghost', () => { void copyText(makeAgentPrompt(location.origin)) }),
+          para('This text does not register an agent. There is no join watcher or automatic claim code in this build.', 'muted'),
+          para(PRACTICE_BALANCE_NOTE, 'muted'),
           button('Read the label', 'primary', () => {
             const outcome = readRobot()
             finish(outcome.message, outcome.rankedUp)
@@ -915,6 +922,7 @@ export function mountUi(
         return renderSettings()
       case 'about':
         return renderSimple('About', [
+          para(PRACTICE_BALANCE_NOTE, 'muted'),
           para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
           para('This build is the city: districts, a man and a woman you can wear, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do. You pick the name and the username.'),
           para('The ledger is practice. There is no deployed token, no wallet prompt, and no seed phrase. Nothing here is financial advice. This city does not run on Solana.'),

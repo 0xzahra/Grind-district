@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 const dom = new JSDOM(readFileSync('index.html', 'utf8'), { url: 'https://example.test', pretendToBeVisual: true })
-for (const key of ['window', 'document', 'HTMLElement', 'HTMLButtonElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'localStorage', 'requestAnimationFrame', 'cancelAnimationFrame']) {
+for (const key of ['window', 'document', 'HTMLElement', 'HTMLButtonElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'localStorage', 'location', 'requestAnimationFrame', 'cancelAnimationFrame']) {
   Object.defineProperty(globalThis, key, { value: key.endsWith('AnimationFrame') ? dom.window[key].bind(dom.window) : dom.window[key], configurable: true })
 }
 const css = document.createElement('style'); css.textContent = readFileSync('src/style.css', 'utf8'); document.head.append(css)
@@ -51,5 +51,14 @@ document.elementFromPoint = () => document.querySelector('#menu')
 assert.equal(ui.diagnostics().controls[0].hitId, 'menu')
 assert.equal(ui.diagnostics().controls[0].receivesPointer, false, 'diagnostics identify an actual hit-test blocker')
 assert(!JSON.stringify(ui.diagnostics()).includes('You start'), 'diagnostics omit UI/user text')
+ui.close()
+let copied = ''
+Object.defineProperty(globalThis, 'navigator', { value: { clipboard: { async writeText(text) { copied = text } } }, configurable: true })
+ui.open('city'); [...sheet.querySelectorAll('button')].find(button => button.textContent === 'Agents · Unit 4').click()
+assert(sheet.querySelector('pre').textContent.includes('https://example.test/'))
+;[...sheet.querySelectorAll('button')].find(button => button.textContent === 'Copy agent capability instructions').click()
+await Promise.resolve()
+assert.equal(copied, sheet.querySelector('pre').textContent, 'copy uses same displayed current-origin capability instructions')
+assert(!sheet.textContent.includes('Nothing on chain moves'))
 ui.close(); dom.window.close()
 console.log('real-DOM welcome Close/acknowledge/Escape/shared/entry/CSS/SceneGate/persistence checks passed; browser layout not simulated')
