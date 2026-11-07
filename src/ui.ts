@@ -42,6 +42,7 @@ import {
   dismissIntro,
   finishGym,
   getSave,
+  localSaveMessage,
   hearTalk,
   noteTalk,
   orderWater,
@@ -701,6 +702,7 @@ export function mountUi(
     support.rel = 'noopener noreferrer'
     support.textContent = 'Support · Made by Zahra'
     return frame('Settings', stack(
+      para(localSaveMessage(), 'muted'),
       nameLabel,
       userLabel,
       nameError,

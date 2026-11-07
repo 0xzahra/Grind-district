@@ -13,7 +13,7 @@ import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId } from './logic.ts'
 import { drawMinimap } from './minimap.ts'
 import { bindMusic } from './music.ts'
 import { createNet } from './net.ts'
@@ -110,8 +110,8 @@ async function main(onReveal: () => void) {
   const sheet = must<HTMLElement>('#sheet')
   const toast = must<HTMLElement>('#toast')
 
-  const prefer: Graphics = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium'
-  loadSave(prefer)
+  // Boot already hydrated before onboarding. Re-reading here would discard
+  // freshly entered identity/progress if storage refused its write.
   volume.value = String(getSave().volume)
 
   const touchQuery = window.matchMedia('(pointer: coarse)')

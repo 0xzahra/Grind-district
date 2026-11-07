@@ -15,6 +15,7 @@ for (const name of readdirSync('src').filter(name => name.endsWith('.ts') && !na
 }
 assert.deepEqual(missing("must<HTMLFormElement>('#chat'); must('#chat-input'); must('#chat-log'); must('#chat-status')", available), ['chat', 'chat-input', 'chat-log', 'chat-status'], 'audit reproduces all four former orphan chat selectors, not just first failure')
 const main = readFileSync('src/main.ts', 'utf8')
+assert.equal([...main.matchAll(/\bloadSave\(/g)].length, 1, 'hydrate once before onboarding; never discard unsaved session identity on game entry')
 assert(main.includes('createNet({ scene, me: identity() })'), 'startup activates presence only, not chat UI')
 assert(!main.includes("'#chat"), 'no orphaned public-chat DOM contract')
 console.log(`DOM startup contract checks passed (${count} literal required selectors across source, including flat fallback/menu)`)

@@ -48,6 +48,14 @@ let save = createSave()
 const listeners = new Set<Listener>()
 let sample = 0
 let sinceSave = 0
+let writesPaused = false
+let localSaveStatus: 'saved' | 'unavailable' | 'protected' = 'unavailable'
+
+export function localSaveMessage(): string {
+  if (localSaveStatus === 'protected') return 'Browser save could not be read or is unsupported. Writes are paused to protect it. This session is not saved; resolve storage/reload before continuing.'
+  if (localSaveStatus === 'unavailable') return 'Browser storage refused the last save. Progress is in memory only until a write succeeds. No cloud backup.'
+  return 'Saved on this browser only. No cloud or cross-device backup. Clearing site data removes this save.'
+}
 
 function today(): string {
   const day = lagosDay(new Date())
@@ -56,10 +64,13 @@ function today(): string {
 }
 
 function persist(): void {
+  if (writesPaused) return
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(save))
+    localSaveStatus = 'saved'
   } catch {
-    // Private mode can refuse the write. The session still plays.
+    // Private mode/quota can refuse writes. Keep in-memory progress for a retry.
+    localSaveStatus = 'unavailable'
   }
 }
 
@@ -89,10 +100,23 @@ export function getSave(): Save {
 }
 
 export function loadSave(prefer: Graphics): Save {
+  writesPaused = false
+  sample = 0
+  sinceSave = 0
   try {
     const raw = localStorage.getItem(SAVE_KEY)
-    save = raw ? hydrate(JSON.parse(raw) as unknown) : createSave(new Date(), { graphics: prefer })
+    if (raw !== null) {
+      const parsed: unknown = JSON.parse(raw)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || (parsed as { v?: unknown }).v !== 1) {
+        throw new Error('Unsupported browser save')
+      }
+      save = hydrate(parsed)
+    } else save = createSave(new Date(), { graphics: prefer })
   } catch {
+    // Never replace unreadable/corrupt/future-version data with a blank save,
+    // including later autosaves in this session. No implicit schema migration.
+    writesPaused = true
+    localSaveStatus = 'protected'
     save = createSave(new Date(), { graphics: prefer })
   }
   applyDay(save, lagosDay(new Date()))
