@@ -1,3 +1,4 @@
+import { modalDiagnostics } from './modal-diagnostics.ts'
 import { COURSES, headlines } from './courses.ts'
 import { logoutPrivy } from './privy.ts'
 import { GUIDE } from './guide.ts'
@@ -86,6 +87,7 @@ type Hooks = {
 }
 
 export type Ui = {
+  diagnostics: () => ReturnType<typeof modalDiagnostics>
   isOpen: () => boolean
   open: (panel: PanelId, extra?: OpenExtra) => void
   close: () => void
@@ -1001,6 +1003,7 @@ export function mountUi(
   refresh()
 
   return {
+    diagnostics: () => modalDiagnostics(sheet, current),
     isOpen: () => current !== null,
     open,
     close,

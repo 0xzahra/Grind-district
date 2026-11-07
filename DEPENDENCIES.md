@@ -11,3 +11,6 @@ The repository already declares TypeScript ~7.0.2, while Kit 5 declares optional
 No audit/security-clean claim is made. Install reported upstream deprecations.
 
 Privy also pulls @stripe/crypto, whose peer @stripe/stripe-js ^1.46.0 must be installed explicitly with legacy peer mode. Added that compatible peer rather than externalizing/stubbing its imports.
+
+## Welcome DOM regression environment
+Pinned dev-only jsdom31.0.0 provides a real DOM/event/CSS unit environment without running a browser. Supports Node ^22.22.2 / ^24.15.0 / >=26; current box Node24.22.1. Thirty new development dependency entries; no existing lockfile resolved versions changed. Tests explicitly do not claim geometry, GPU layout, trusted pointer events or browser hit testing. Existing npm ci configuration remains unchanged.

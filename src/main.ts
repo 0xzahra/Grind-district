@@ -727,6 +727,7 @@ async function main(onReveal: () => void) {
             outdoorDecor: { visible: world.decor.filter((item) => item.visible).length, total: world.decor.length },
             roomDecor: { visible: rooms.flatMap((room) => room.decor).filter((item) => item.visible).length, total: rooms.flatMap((room) => room.decor).length },
             renderCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
+            modal: ui.diagnostics(),
             programs: renderer.info.programs?.length ?? 0, paused: ui.isOpen(), indoors: Boolean(roomSession.room),
           }
           ;(window as unknown as { __grindPerformance: unknown }).__grindPerformance = diagnostics
