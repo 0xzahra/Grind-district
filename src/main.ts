@@ -1422,6 +1422,16 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 4000, () => undefined, 'Shader warm-up')
+  // While the full-screen menu is open the city holds still: no movement, no camera drift, no redraw.
+  // The blurred backdrop keeps showing the last frame, so nothing behind the menu can shake or zoom,
+  // and phones stop paying for a full 3D frame plus the blur on every tick. Dragging a zoom/look
+  // slider (cc-peek) draws live again so the change is visible.
+  let holdRedraw = 0
+  window.addEventListener('resize', () => { holdRedraw = 2 })
+  const menuHold = () => {
+    const cls = document.body.classList
+    return !cls.contains('rail-shut') && !cls.contains('cc-peek')
+  }
   let last = performance.now()
   const frame = (now: number) => {
     if (abandoned) return
@@ -1431,6 +1441,12 @@ const apiAgents = createRemoteAgents(scene)
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
     last = now
     if (document.hidden && revealed) return
+    if (revealed && menuHold()) {
+      if (holdRedraw <= 0) return
+      holdRedraw -= 1
+      try { post.render() } catch { /* keep the last frame */ }
+      return
+    }
     elapsed += dt
     try {
       update(dt)
