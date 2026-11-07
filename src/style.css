@@ -1156,6 +1156,8 @@ body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
 #menu-panel .lockup { display: none; }
 #menu .menu-title { margin: 0; font: 700 clamp(26px, 4vw, 34px)/1.05 'Archivo Black', Inter, sans-serif; letter-spacing: -0.01em; color: #f5f5f7; }
 #menu .title-desc { margin: 6px 0 4px; color: rgba(245, 245, 247, 0.82); font-size: 14px; line-height: 1.5; }
+/* Front door rule: the first line says what the player walks out with, in the largest type on the card. */
+#menu .title-headline { margin: 4px auto 0; max-width: 20em; font-weight: 700; font-size: clamp(22px, 6.2vw, 30px); line-height: 1.12; letter-spacing: -0.01em; color: #f5f5f7; text-wrap: balance; }
 .menu-logo { position: absolute; z-index: 2; top: max(18px, env(safe-area-inset-top)); left: max(20px, env(safe-area-inset-left)); height: 40px; width: auto; filter: drop-shadow(0 2px 10px rgba(0,0,0,.4)); }
 .menu-profile { position: absolute; z-index: 2; top: max(16px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right));
   display: flex; align-items: center; gap: 8px; height: 44px; min-width: 44px; padding: 0 12px; border-radius: 999px; cursor: pointer;
