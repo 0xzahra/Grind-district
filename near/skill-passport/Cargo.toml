@@ -4,6 +4,7 @@ description = "Grind District Skill Passport: account-bound, self-attested cours
 version = "0.1.0"
 edition = "2021"
 publish = false
+license = "MIT"
 repository = "https://github.com/0xzahra/Grind-district"
 
 [lib]

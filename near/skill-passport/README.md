@@ -114,3 +114,7 @@ deployer account, deploying and signing are separate steps that need the owner's
 - Catalogue: only the owner can change it, versions only go up, old records survive a bump.
 - Bounds: the 65th record for one account is refused with "Passport is full"; the catalogue
   stops at 64 courses.
+
+## Licence
+
+The code in this `near/skill-passport` directory is MIT licensed (see `LICENSE`). That licence does not extend to the rest of the Grind District repository.
