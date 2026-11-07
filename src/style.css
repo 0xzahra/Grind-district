@@ -1304,6 +1304,12 @@ html body #nav.cc { position: fixed !important; inset: 0 !important; top: 0 !imp
   -webkit-backdrop-filter: blur(28px) saturate(150%) !important; backdrop-filter: blur(28px) saturate(150%) !important;
   opacity: 1; transition: opacity .18s ease; }
 html body.rail-shut #nav.cc { opacity: 0 !important; pointer-events: none !important; transform: none !important; }
+/* A shut menu must not catch taps. Its buttons computed pointer-events: auto, so the invisible Home
+   button in the middle of the screen sent players home on any tap there. visibility removes the whole
+   panel from hit-testing once the fade-out ends; the child rule covers the fade itself. */
+html body #nav.cc { visibility: visible; transition: opacity .18s ease, visibility 0s linear 0s; }
+html body.rail-shut #nav.cc { visibility: hidden; transition: opacity .18s ease, visibility 0s linear .18s; }
+html body.rail-shut #nav.cc * { pointer-events: none !important; }
 .cc-grid { width: min(360px, 100%); display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
 .cc-card { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.10); border-radius: 28px; }
 .cc-quad { grid-column: 1 / span 2; grid-row: span 2; aspect-ratio: 1; display: grid; grid-template-columns: 1fr 1fr; place-items: center; padding: 12px; gap: 8px; }

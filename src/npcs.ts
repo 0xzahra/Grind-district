@@ -121,7 +121,24 @@ function bubble(text: string): THREE.Sprite {
 }
 
 export type CrowdInfo = { name: string; trait: string; routine: string; doing: string }
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster) => CrowdInfo | null } {
+// Residents further than this from the camera are too small on screen to be a deliberate tap.
+const PICK_RANGE = 30
+const segA = new THREE.Vector3()
+const segB = new THREE.Vector3()
+const onRay = new THREE.Vector3()
+
+/** Distance along the ray to a standing body (a 0.45 m capsule from the feet to 1.8 m), or null on a miss.
+ *  The old test (0.85 m around the chest) covered a third of the screen when someone stood next to the
+ *  camera, so taps on open street kept opening that person's card. */
+export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): number | null {
+  segA.set(x, 0, z)
+  segB.set(x, 1.8, z)
+  if (ray.distanceSqToSegment(segA, segB, onRay) > radius * radius) return null
+  const along = onRay.sub(ray.origin).dot(ray.direction)
+  return along > 0 ? along : null
+}
+
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury, people.length)
@@ -194,12 +211,14 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     return `Hanging out at ${placeName(p.sim.x, p.sim.z)}`
   }
   return {
-    pick(ray) {
-      let best: CrowdInfo | null = null, bestD = Infinity
+    // maxAlong: how far down the ray the tap can reach (the ground hit). Without it a tap on empty
+    // street picked any resident anywhere along the infinite ray, so taps opened cards instead of walking.
+    pick(ray, maxAlong = Infinity) {
+      let best: CrowdInfo | null = null, bestD = Math.min(maxAlong, PICK_RANGE)
       for (const [i, p] of people.entries()) {
-        const c = new THREE.Vector3(p.sim.x, 1, p.sim.z)
-        const along = c.clone().sub(ray.ray.origin).dot(ray.ray.direction)
-        if (along > 0 && along < bestD && ray.ray.distanceSqToPoint(c) < 0.85 * 0.85) {
+        if (!p.avatar.object.visible) continue
+        const along = bodyHit(ray.ray, p.sim.x, p.sim.z)
+        if (along !== null && along < bestD) {
           const per = PERSONAS[i % PERSONAS.length]!
           bestD = along; best = { name: per.name, trait: per.trait, routine: per.routine, doing: doing(p, i) }
         }

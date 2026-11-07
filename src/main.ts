@@ -530,9 +530,11 @@ const apiAgents = createRemoteAgents(scene)
     must('#cc-balance').textContent = `$${getSave().ledger.toFixed(2)}`
     must('#cc-rank').textContent = `${rankFor(getSave().xp).label} · in-game balance · tap for history`
   }
+  nav.inert = true
   const closeSheet = () => { ccSheet.hidden = true; document.body.classList.remove('cc-sheet-on'); sheetBody.replaceChildren() }
   const setCC = (open: boolean) => {
     document.body.classList.toggle('rail-shut', !open)
+    nav.inert = !open // keyboard and screen readers skip the shut menu too
     railToggle.setAttribute('aria-expanded', String(open))
     if (open) paintStatus()
     else closeSheet()
@@ -1195,11 +1197,14 @@ const apiAgents = createRemoteAgents(scene)
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
-      const tapped = interiors.inside ? null : net.pick(raycaster)
-      const npc = !tapped && !interiors.inside ? crowd.pick(raycaster) : null
+      // A person only counts if they stand in front of where the tap meets the ground (plus a body's depth).
+      const groundHit = raycaster.ray.intersectPlane(floor, tapPoint) !== null
+      const reach = groundHit ? tapPoint.distanceTo(raycaster.ray.origin) + 0.9 : Infinity
+      const tapped = interiors.inside ? null : net.pick(raycaster, reach)
+      const npc = !tapped && !interiors.inside ? crowd.pick(raycaster, reach) : null
       if (tapped) void openPeer(tapped)
       else if (npc) showNpcCard(npc)
-      else if (raycaster.ray.intersectPlane(floor, tapPoint)) {
+      else if (groundHit) {
         target = tapPoint.clone()
         const room = interiors.bounds()
         if (room) {

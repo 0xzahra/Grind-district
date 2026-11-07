@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { bodyHit } from './npcs.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
 import type { BodyId } from './logic.ts'
 import { tagPlayer } from './player.ts'
@@ -40,7 +41,7 @@ export type Net = {
   /** Peer under a ray (tap), or null. */
   /** Where a player is in the city right now (by username), or null if not in this city. */
   findPeer: (username: string) => { x: number; z: number } | null
-  pick: (ray: THREE.Raycaster) => { id: string; name: string; username: string; object: THREE.Object3D } | null
+  pick: (ray: THREE.Raycaster, maxAlong?: number) => { id: string; name: string; username: string; object: THREE.Object3D } | null
   /** Ask a peer for their public profile (encodeShare payload). Resolves null after 4 s. */
   requestProfile: (peerId: string) => Promise<string | null>
 }
@@ -241,17 +242,15 @@ export function createNet(options: {
       for (const peer of peers.values()) if (clean(peer.username).toLowerCase() === want) return { x: peer.avatar.object.position.x, z: peer.avatar.object.position.z }
       return null
     },
-    pick(ray) {
+    pick(ray, maxAlong = Infinity) {
       let best: { id: string; name: string; username: string; object: THREE.Object3D } | null = null
-      let bestD = Infinity
+      let bestD = maxAlong // only players in front of where the tap meets the ground
       for (const [peerId, peer] of peers) {
         const o = peer.avatar.object
         if (!o.visible) continue
-        // Cheap capsule test: distance from the ray to the body's axis at chest height.
-        const c = new THREE.Vector3(o.position.x, 1, o.position.z)
-        const d = ray.ray.distanceSqToPoint(c)
-        const along = c.clone().sub(ray.ray.origin).dot(ray.ray.direction)
-        if (along > 0 && d < 0.9 * 0.9 && along < bestD) { bestD = along; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), object: o } }
+        // Capsule test around the standing body (slightly wider than residents: players are worth a tap).
+        const along = bodyHit(ray.ray, o.position.x, o.position.z, 0.55)
+        if (along !== null && along < bestD) { bestD = along; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), object: o } }
       }
       return best
     },
