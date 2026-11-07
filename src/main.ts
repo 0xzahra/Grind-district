@@ -313,6 +313,7 @@ const apiAgents = createRemoteAgents(scene)
   applyEnvironment(renderer, scene)
   const post = createPost(renderer, scene, camera)
   const probe = createProbe(() => getSave().graphics, (g) => { setGraphics(g); applyGraphics() })
+  let appliedQuality = ''
   const applyGraphics = () => {
     const graphics = getSave().graphics
     const dpr = window.devicePixelRatio || 1
@@ -323,7 +324,13 @@ const apiAgents = createRemoteAgents(scene)
     // Shadows only on high: the biggest single cost on mid-range Android.
     const shadows = graphics !== 'low' && !matchMedia('(pointer: coarse)').matches
     renderer.shadowMap.enabled = shadows
-    world.sun.castShadow = shadows
+    // Light budget and sun shadows change the shader light hash: apply them only when the decision changes
+    // (startup, Settings, the fps probe), never on resize and never per frame.
+    const quality = `${graphics}:${shadows}`
+    if (quality !== appliedQuality) {
+      appliedQuality = quality
+      world.setQuality(graphics, shadows)
+    }
     const size = graphics === 'high' ? 2048 : 1024
     if (world.sun.shadow.mapSize.x !== size) {
       world.sun.shadow.mapSize.set(size, size)
@@ -1017,16 +1024,24 @@ const apiAgents = createRemoteAgents(scene)
   const focus = new THREE.Vector3()
   const mapCtx = map.getContext('2d')
 
+  let sizeW = 0
+  let sizeH = 0
+  let resizeQueued = false
   const resize = () => {
+    resizeQueued = false
     const width = window.innerWidth
     const height = window.innerHeight
+    if (width === sizeW && height === sizeH) return
+    sizeW = width
+    sizeH = height
     camera.aspect = width / Math.max(1, height)
     camera.fov = width < 800 ? 57 : 50
     camera.updateProjectionMatrix()
     applyGraphics()
   }
   resize()
-  window.addEventListener('resize', resize)
+  // Mobile URL bars and keyboards fire resize in bursts; each applyGraphics reallocates the buffers.
+  window.addEventListener('resize', () => { if (!resizeQueued) { resizeQueued = true; requestAnimationFrame(resize) } })
 
   const pullCamera = (origin: THREE.Vector3, desired: THREE.Vector3) => {
     rayDirection.subVectors(desired, origin)
@@ -1039,6 +1054,8 @@ const apiAgents = createRemoteAgents(scene)
     for (const hit of hits) {
       if (hit.object.userData.ghost) continue
       if (isUnder(avatar.object, hit.object)) continue
+      // Characters (residents, players, agents) are skinned: a passer-by must not yank the camera in and out.
+      if ((hit.object as THREE.SkinnedMesh).isSkinnedMesh) continue
       const travel = Math.max(0.7, hit.distance - 0.45)
       return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
     }
@@ -1139,6 +1156,7 @@ const apiAgents = createRemoteAgents(scene)
     drawMinimap(mapCtx, map.width, map.height, pos, net.peers())
   }
 
+  const cityCovered = () => ui.isOpen() || !document.body.classList.contains('rail-shut') || Boolean(document.getElementById('login-dlg'))
   const update = (dt: number) => {
     const now = Date.now()
     tickMarket(dt, now)
@@ -1168,6 +1186,7 @@ const apiAgents = createRemoteAgents(scene)
       scene.environmentIntensity = 0.75 * (1 - nightLevel) + 0.18 * nightLevel
       renderer.toneMappingExposure = THREE.MathUtils.lerp(1.18, 1.05, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
       physSky.sky.visible = nightLevel < 0.85
+      renderer.shadowMap.autoUpdate = nightLevel < 0.9
   phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
@@ -1176,9 +1195,14 @@ const apiAgents = createRemoteAgents(scene)
     ambient.tick(elapsed, focus, nightLevel)
     if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
 
+    // Anything covering the city (a panel, the Control Centre, the sign-in dialog) freezes play: gestures are drained
+    // and pointer captures released, the player stops, the camera's automatic swings wait, and the render scale holds.
+    // Control Centre sliders and buttons still move the camera on purpose.
+    const paused = cityCovered()
+    if (paused) input.drain()
+    post.hold(paused)
     const frame = input.read()
-    const paused = ui.isOpen()
-    if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
+    if (frame.lookX !== 0 || frame.lookY !== 0 || paused) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
@@ -1421,6 +1445,15 @@ const apiAgents = createRemoteAgents(scene)
     }
   }
 
+  if (new URLSearchParams(location.search).has('e2e')) {
+    // Read-only probe for automated preview checks. Exposes nothing that is not already on screen.
+    const lights = () => { let point = 0, visible = 0; scene.traverse((o) => { if ((o as THREE.PointLight).isPointLight) { point++; let v = true; for (let c: THREE.Object3D | null = o; c; c = c.parent) if (!c.visible) v = false; if (v) visible++ } }); return { point, visible } }
+    Object.assign(window, { __gdE2E: {
+      cam: () => camera.position.toArray(), pos: () => ({ x: pos.x, z: pos.z }), covered: () => cityCovered(), inside: () => interiors.inside,
+      lights, sunShadow: () => world.sun.castShadow, programs: () => renderer.info.programs?.length ?? 0, quality: () => appliedQuality,
+      target: () => (target ? { x: target.x, z: target.z } : null),
+    } })
+  }
   await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 4000, () => undefined, 'Shader warm-up')
   let last = performance.now()
   const frame = (now: number) => {

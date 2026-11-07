@@ -23,6 +23,8 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   requestInteract: () => void
   nudgeZoom: (amount: number) => void
   nudgeLook: (dx: number) => void
+  /** Drop gestures in flight and release captures (a menu or panel just covered the city). Nudges survive. */
+  drain: () => void
 } {
   const down = new Set<string>()
   let joyX = 0
@@ -43,6 +45,10 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   let zoom = 0
   let pendingTap: { nx: number; ny: number } | null = null
   let interactQueued = false
+  // Button nudges (Control Centre Turn, zoom buttons) are deliberate and kept apart from gestures, so draining
+  // a half-finished drag never eats a tap on a menu button.
+  let nudgeX = 0
+  let nudgeZ = 0
 
   const placeNub = (dx: number, dy: number) => {
     nub.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`
@@ -195,10 +201,26 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
 
   return {
     nudgeZoom(amount: number) {
-      zoom += amount
+      nudgeZ += amount
     },
     nudgeLook(dx: number) {
-      lookX += dx
+      nudgeX += dx
+    },
+    drain() {
+      lookX = 0
+      lookY = 0
+      zoom = 0
+      pendingTap = null
+      interactQueued = false
+      if (lookId !== null) { try { canvas.releasePointerCapture(lookId) } catch { /* already gone */ } }
+      lookId = null
+      dragged = false
+      touches.clear()
+      if (stickId !== null) { try { stick.releasePointerCapture(stickId) } catch { /* already gone */ } }
+      stickId = null
+      joyX = 0
+      joyY = 0
+      placeNub(0, 0)
     },
     requestInteract() {
       interactQueued = true
@@ -216,15 +238,17 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
         y: clamp(keyY + joyY, -1, 1),
         stick: Math.min(1, Math.hypot(joyX, joyY)),
         run: down.has('ShiftLeft') || down.has('ShiftRight'),
-        lookX,
+        lookX: lookX + nudgeX,
         lookY,
-        zoom,
+        zoom: zoom + nudgeZ,
         tap: pendingTap,
         interact: interactQueued,
       }
       lookX = 0
       lookY = 0
       zoom = 0
+      nudgeX = 0
+      nudgeZ = 0
       pendingTap = null
       interactQueued = false
       return frame

@@ -70,6 +70,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let base = 1
   let avg = 1 / 60
   let cool = 3
+  let held = false
   let w = 1
   let h = 1
   const build = () => {
@@ -136,10 +137,20 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         bloom.strength = 0.012 + night * 0.018 // warm pass: even lower glow
       }
     },
+    /**
+     * Hold the render scale while a menu or panel covers the city. Blurred glass panels slow frames down,
+     * and a scale step under an open menu reallocates every target: a visible pop. Release restarts the
+     * frame-time average so the slower menu frames never trigger a drop right after closing.
+     */
+    hold(on: boolean) {
+      if (held === on) return
+      held = on
+      if (!on) { avg = 1 / 60; cool = 2 }
+    },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */
     frame(dt: number, t: number) {
       if (grade) grade.uniforms.time.value = t % 100
-      if (level === 'low' || !composer) return
+      if (level === 'low' || !composer || held) return
       if (!Number.isFinite(dt) || dt <= 0) return
       // Smoothed frame time with hysteresis + cooldown: resizing reallocates every render target,
       // so the old per-few-frames up/down oscillation caused visible hitches on phones.

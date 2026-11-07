@@ -36,8 +36,11 @@ export type World = {
   setDaylight: (phase: number) => void
   /** Sidewalk lanes and stop lines for the ambient city. */
   lanes: { roadHalf: number; walk: number; inner: number; outer: number }
-  /** Real-time light budget per graphics tier (lookPalette.ts). Call on tier change only. */
-  setQuality: (graphics: Graphics) => void
+  /**
+   * Real-time light budget per graphics tier (lookPalette.ts) and whether the sun may cast shadows.
+   * Call on tier change only: both change the shader light hash (one recompile).
+   */
+  setQuality: (graphics: Graphics, shadows?: boolean) => void
 }
 
 type Door = 'px' | 'nx' | 'pz' | 'nz'
@@ -446,6 +449,9 @@ export function createWorld(options: {
     pool.push(l)
   }
   let poolNight = 0
+  // Owned by setQuality (tier + device), never by the day clock: flipping castShadow at dawn and dusk changed the
+  // light hash and recompiled every material twice per in-game day. The clock fades shadow.intensity instead.
+  let shadowsAllowed = true
   let poolAcc = 1
   const decalTex = (() => {
     const c = document.createElement('canvas'); c.width = c.height = 128
@@ -1451,7 +1457,8 @@ export function createWorld(options: {
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
     sun.intensity = (elev >= 0 ? 0.3 + day * 1.45 : 0.12) * (seasonBear ? 0.85 : 1)
-    sun.castShadow = day > 0.15
+    if (sun.castShadow !== shadowsAllowed) sun.castShadow = shadowsAllowed
+    sun.shadow.intensity = THREE.MathUtils.smoothstep(day, 0.1, 0.3)
     hemi.intensity = 0.22 + day * 0.7
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
@@ -1491,8 +1498,10 @@ export function createWorld(options: {
     setLook,
     setDaylight,
     lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: LANE_INNER, outer: LANE_OUTER },
-    setQuality(graphics: Graphics) {
+    setQuality(graphics: Graphics, shadows = graphics !== 'low') {
       // Constant per tier: changing visibility changes the shader light count (one recompile).
+      shadowsAllowed = shadows
+      sun.castShadow = shadows
       const budget = lightBudget(graphics)
       pool.forEach((l, i) => { l.visible = i < budget.pool })
       for (const light of glow) light.visible = budget.glow
