@@ -478,9 +478,11 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   const focused = save.focus
   if (focused) save.focus = false
   const gained = Math.round(COURSE_XP * (focused ? 1.25 : 1))
+  // first: this is the player's first ever pass, so the funnel can count new players who finish a course.
+  const first = !Object.values(save.skills).some((skill) => skill?.passed)
   save.skills[id] = { passed: true, tries }
   save.reputation += COURSE_REP
-  track('course_complete', { course: id, tries })
+  track('course_complete', { course: id, tries, first, cv: true })
   const rankedUp = gainXp(gained + bonus)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')

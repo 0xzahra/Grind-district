@@ -466,7 +466,15 @@ export function mountUi(
       const save = getSave()
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
-      if (!passed) track('course_start', { course: id })
+      if (!passed) {
+        // first: the player has never passed a course and has not opened one before on this device.
+        let fresh = !Object.values(save.skills).some((skill) => skill?.passed)
+        try {
+          if (localStorage.getItem('gd.firstCourseStarted')) fresh = false
+          else if (fresh) localStorage.setItem('gd.firstCourseStarted', '1')
+        } catch { /* private mode: still log the start */ }
+        track('course_start', { course: id, first: fresh })
+      }
       const total = course.questions.length
       // Each view replaces the whole body and scrolls the sheet to the top, so an exercise never sits on top of lesson text.
       const toTop = () => { let n: HTMLElement | null = body; while (n) { if (n.scrollHeight > n.clientHeight + 1) n.scrollTop = 0; n = n.parentElement } }
