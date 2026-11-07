@@ -1,3 +1,4 @@
+import { createEntryView } from './entry-view.ts'
 import { QUALITY, applyDecorTier, applyLightTier, LocalPerformanceMetrics } from './quality.ts'
 import { buildRoom, RoomSession, ROOM_TYPES, type RoomKind } from './room-adapter.ts'
 import { chooseTap, tapIntersections, type TapHit } from './tap-target.ts'
@@ -798,18 +799,13 @@ const play = must<HTMLButtonElement>('#play')
 const menuNote = must<HTMLParagraphElement>('#menu-note')
 let opening = false
 
-function revealCity() {
-  menu.hidden = true
-  const boot = document.querySelector('#boot')
-  if (boot) {
-    boot.classList.add('hidden')
-    boot.setAttribute('aria-hidden', 'true')
-  }
-}
+const entryView = createEntryView(menu, must<HTMLDivElement>('#boot'), must<HTMLParagraphElement>('#boot-text'), menuNote)
+function revealCity() { entryView.reveal() }
 
 async function begin() {
   if (opening) return
   opening = true
+  entryView.begin()
   prepareAssets()
   play.disabled = true
   play.textContent = 'Opening the district'
@@ -820,8 +816,7 @@ async function begin() {
     opening = false
     play.disabled = false
     play.textContent = 'Enter the district'
-    menu.hidden = false
-    menuNote.textContent = error instanceof Error ? error.message : 'The city could not open.'
+    entryView.fail(error instanceof Error ? error.message : 'The city could not open.')
   }
 }
 

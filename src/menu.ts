@@ -1,3 +1,4 @@
+import { showEntryHome } from './entry-view.ts'
 import { COURSES } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
@@ -144,6 +145,7 @@ export function mountMenu(enter: () => void): void {
       }
     }
     if (getSave().signedUp) {
+      showEntryHome(home, signup, page)
       enter()
       return
     }
@@ -177,6 +179,7 @@ export function mountMenu(enter: () => void): void {
       error.textContent = outcome.error
       return
     }
+    showEntryHome(home, signup, page)
     enter()
   })
 
