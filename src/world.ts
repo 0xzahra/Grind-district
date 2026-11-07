@@ -1,6 +1,7 @@
 import { ESTATE_ZONES } from './estate.ts'
 import { HOUSES, type HouseId } from './houses.ts'
-import type { PanelId, Season, TimeOfDay } from './logic.ts'
+import type { Graphics, PanelId, Season, TimeOfDay } from './logic.ts'
+import { LOOK, lightBudget } from './lookPalette.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
 import { LANE_INNER, LANE_OUTER, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
@@ -35,6 +36,8 @@ export type World = {
   setDaylight: (phase: number) => void
   /** Sidewalk lanes and stop lines for the ambient city. */
   lanes: { roadHalf: number; walk: number; inner: number; outer: number }
+  /** Real-time light budget per graphics tier (lookPalette.ts). Call on tier change only. */
+  setQuality: (graphics: Graphics) => void
 }
 
 type Door = 'px' | 'nx' | 'pz' | 'nz'
@@ -1404,7 +1407,7 @@ export function createWorld(options: {
     sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
     hemi.intensity = night ? 0.4 : dusk ? 0.66 : 1.08
     hemi.color.setHex(night ? 0xb7d4ff : 0xfff4e8)
-    hemi.groundColor.setHex(night ? 0x1c2e26 : 0x3d4f3a)
+    hemi.groundColor.setHex(night ? LOOK.lookBounceNight : LOOK.lookBounceDay)
     fill.intensity = night ? 0.22 : 0.35
     lampMat.emissiveIntensity = night ? 0.7 : dusk ? 0.32 : 0.05
     trimPulse = night ? 1.12 : dusk ? 0.7 : 0.35
@@ -1451,7 +1454,7 @@ export function createWorld(options: {
     sun.castShadow = day > 0.15
     hemi.intensity = 0.22 + day * 0.7
     hemi.color.copy(moonLight).lerp(sunDay, day)
-    hemi.groundColor.setHex(0x07090c).lerp(tmpA.setHex(0x3d4f3a), day)
+    hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
     fill.intensity = 0.02 + day * 0.1
     lampMat.emissiveIntensity = 0.08 + night * 1.6
     trimPulse = 0.15 + night * 0.2
@@ -1488,6 +1491,12 @@ export function createWorld(options: {
     setLook,
     setDaylight,
     lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: LANE_INNER, outer: LANE_OUTER },
+    setQuality(graphics: Graphics) {
+      // Constant per tier: changing visibility changes the shader light count (one recompile).
+      const budget = lightBudget(graphics)
+      pool.forEach((l, i) => { l.visible = i < budget.pool })
+      for (const light of glow) light.visible = budget.glow
+    },
     setRank(label: string) {
       ladderMap.dispose()
       ladderMap = paintLadder(label)

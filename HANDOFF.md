@@ -9,3 +9,11 @@ This branch is a mechanical checkpoint of the richer live-world source; there is
 - Not ported yet: the fixes from fix/gdd-six-preview (tour, audio controls, start screen, chat fix). Financial, auth, stats and persistence changes are on hold.
 - Do NOT promote to production or change aliases or env from this branch.
 - Baseline: `npm ci && npm run build` (tsc, logic and lanes checks, vite build) passes.
+
+## Checkpoint 2: look pass (graphics only)
+- Claude's look-pass patch was audited independently in a separate worktree, then applied as is.
+- Changes: warm hemisphere bounce colours replace the moss-green bounce (`?look=base` brings back the old colours). Furniture metal is now dark bronze. Furniture has small added details (footboard, sheet edge, chair stretchers, table aprons, nightstand drawer front, a third book row and a shelf plant, fuller plants, and the dresser changes). Adds `src/lookPalette.ts` and the `src/look.check.ts` checks.
+- Unchanged, and asserted by the checks: colliders, seats, TV screens, per-piece and outer bounds, and draw calls. Triangles grow at most 8%.
+- `world.setQuality()` (the light budget) is defined but NOT called yet, so it has no effect until main.ts wires it to the graphics tier.
+- No changes to auth, wallet, saves or stats.
+- Not verified yet: how it looks in a browser, and performance on phones.
