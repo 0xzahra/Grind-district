@@ -1425,8 +1425,6 @@ export function mountUi(
 
   // Courses tab in the Control Centre: opens the same learn panel as the hall, so progress is shared.
   document.querySelector('#nav-courses')?.addEventListener('click', () => open('learn'))
-  // Career > Lessons rows open that exact course.
-  window.addEventListener('gd:course', (e) => open('learn', { course: (e as CustomEvent).detail }))
   return {
     isOpen: () => current !== null,
     open,

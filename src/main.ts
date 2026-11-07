@@ -19,7 +19,7 @@ import { tagPlayer } from './player.ts'
 import { assetUrl, prepareAssets } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics } from './logic.ts'
+import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics, type SkillId } from './logic.ts'
 import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
 import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
@@ -250,7 +250,7 @@ const apiAgents = createRemoteAgents(scene)
   const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
   phoneFill.visible = matchMedia('(pointer: coarse)').matches
   scene.add(phoneFill)
-  scene.add(new THREE.AmbientLight(0xffe2c0, phoneFill.visible ? 0.3 : 0.18)) // warm golden-hour fill everywhere (GDD: warmer lighting)
+  scene.add(new THREE.AmbientLight(0xffe2c0, 0.18)) // warm golden-hour fill everywhere (GDD: warmer lighting)
   let lightAcc = 1
   // First task (GDD onboarding): until a course is passed, a floating gold marker hangs over the Campus door
   // and a prompt points there; walking up to the door opens the courses.
@@ -670,6 +670,13 @@ const apiAgents = createRemoteAgents(scene)
   const openCareer = (tab?: unknown) => openSheet('Career & Courses', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses'))
   const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
   window.addEventListener('gd:career', (e) => { setCC(true); openCareer((e as CustomEvent).detail) })
+  // Career > Lessons: close the control centre first (same order as every other menu item), then open that exact
+  // course in the lesson sheet on the next tick, so the menu's own close can never swallow the course sheet.
+  window.addEventListener('gd:course', (e) => {
+    const course = (e as CustomEvent).detail as SkillId
+    setCC(false)
+    window.setTimeout(() => ui.open('learn', { course }), 0)
+  })
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
@@ -1173,10 +1180,10 @@ const apiAgents = createRemoteAgents(scene)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
-      scene.environmentIntensity = 0.75 * (1 - nightLevel) + 0.18 * nightLevel
+      scene.environmentIntensity = 0.45 * (1 - nightLevel) + 0.18 * nightLevel
       renderer.toneMappingExposure = THREE.MathUtils.lerp(0.96, 1.0, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
       physSky.sky.visible = nightLevel < 0.85
-  phoneFill.intensity = phoneFill.visible ? 0.4 * (1 - nightLevel) + 0.06 : 0
+  phoneFill.intensity = phoneFill.visible ? 0.15 * (1 - nightLevel) + 0.06 : 0
     }
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
