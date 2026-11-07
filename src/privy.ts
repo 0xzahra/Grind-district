@@ -1,9 +1,10 @@
+import { loginMethods } from './login-config.ts'
 import { createElement, useEffect, useRef, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { PrivyProvider, useLogin, usePrivy } from '@privy-io/react-auth'
 
 export function privyAppId(): string {
-  return (import.meta.env.VITE_PRIVY_APP_ID ?? '').trim()
+  return (import.meta.env?.VITE_PRIVY_APP_ID ?? '').trim()
 }
 
 export function privyConfigured(): boolean {
@@ -107,7 +108,7 @@ function ensurePrivy(appId: string): Promise<void> {
       createElement(PrivyProvider, {
         appId,
         config: {
-          loginMethods: ['email'],
+          loginMethods: loginMethods(import.meta.env?.VITE_PRIVY_LOGIN_METHODS),
           appearance: {
             theme: 'dark',
             accentColor: '#1af38f',
@@ -128,7 +129,7 @@ function ensurePrivy(appId: string): Promise<void> {
 export async function loginWithPrivy(): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const appId = privyAppId()
   if (!appId) {
-    return { ok: false, error: 'Privy needs the public App ID from the dashboard. The secret stays on the server.' }
+    return { ok: false, error: 'Account sign-in is not configured for this preview. You can play as a guest; progress stays on this browser.' }
   }
   await Promise.race([
     ensurePrivy(appId),

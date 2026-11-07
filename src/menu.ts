@@ -68,7 +68,7 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
         copy('Grind District is made by Zahra.'),
         copy('Signup asks for a name, a username, and a body. The man has blonde hair, glasses, and a grey suit. The woman has longer hair and a fitted coat. Both are original. The boutique can change the body later.'),
         copy('Masks in the boutique use the names CryptoPunks, Bored Apes, Pudgy Penguins, Azuki, Nodemonkes, and DeGods. The shapes are Grind District cuts, not the licensed artwork.'),
-        copy('Login can use Privy email. The city still asks for a name, a username, and a body. It does not ask for a wallet or a seed phrase. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
+        copy('Account sign-in uses email by default; Google or X appears only after the owner configures that provider. First successful sign-in can create an account. The city still asks for a name, a username, and a body. It does not ask for a wallet or a seed phrase. A Solidity file in the repository uses the extension .sol. That extension means Solidity, an EVM record. It is not a Solana program, it is not deployed, and the practice ledger is not it.'),
         copy('Market Velocity is the theme. It loops at three minutes and stays paused until you press play.'),
       )
       return { title: 'Credits', body }
@@ -91,14 +91,19 @@ export function mountMenu(enter: () => void): void {
   const userInput = must<HTMLInputElement>('#signup-user')
   const error = must<HTMLParagraphElement>('#signup-error')
   const note = must<HTMLParagraphElement>('#menu-note')
+  const accountButton = must<HTMLButtonElement>('#privy-login')
+  accountButton.disabled = !privyConfigured()
+  accountButton.title = privyConfigured() ? 'Sign in or create an account. Your guest progress stays on this browser.' : 'Account sign-in is not configured for this preview. Play as a guest; browser progress is not cloud backed.'
   const saved = getSave()
   if (saved.signedUp && privyConfigured()) {
-    note.textContent = `${saved.name} · @${saved.username}. Log in with Privy to walk in.`
+    note.textContent = `${saved.name} · @${saved.username}. Sign in to continue.`
   } else if (saved.signedUp) {
     note.textContent = `${saved.name} · @${saved.username}. Rank follows the work you have filed.`
   } else if (privyConfigured()) {
-    note.textContent = 'Log in with Privy, then pick a name and a username. The practice ledger is empty.'
+    note.textContent = 'Sign in or create an account, then pick a name and a username. The practice ledger is empty.'
   }
+
+  if (!privyConfigured()) note.textContent = `${note.textContent ?? ''} Account sign-in is unavailable on this preview. Play as a guest; progress stays on this browser only.`
 
   const show = (next: Page) => {
     const built = pageBody(next)
@@ -130,7 +135,7 @@ export function mountMenu(enter: () => void): void {
     if (fromPrivy || privyConfigured()) {
       play.disabled = true
       const previous = play.textContent
-      play.textContent = 'Opening Privy'
+      play.textContent = 'Opening account sign-in'
       const outcome = await loginWithPrivy()
       play.disabled = false
       play.textContent = previous

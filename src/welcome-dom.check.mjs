@@ -28,7 +28,10 @@ for (const path of ['Close', "I'm here", 'Escape', 'programmatic']) {
   assert.equal(sceneSteps, 0, 'open welcome keeps scene frozen')
   if (path === 'Escape') window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
   else if (path === 'programmatic') ui.close()
-  else [...sheet.querySelectorAll('button')].find(button => button.textContent === path).click()
+  else {
+    if (path === "I'm here") for (let i = 0; i < 4; i++) { [...sheet.querySelectorAll('button')].find(button => button.textContent === 'Next').click(); assert(ui.isOpen() && !getSave().seenIntro, 'tour steps stay paused and do not prematurely complete') }
+    ;[...sheet.querySelectorAll('button')].find(button => button.textContent === path).click()
+  }
   assert(!ui.isOpen() && sheet.hidden && !document.body.classList.contains('sheet-open'), path + ' dismisses actual mounted DOM')
   assert.equal(sheet.children.length, 0, 'removed controls cannot keep intercepting')
   assert(getSave().seenIntro, path + ' saves welcome dismissal')
@@ -36,6 +39,9 @@ for (const path of ['Close', "I'm here", 'Escape', 'programmatic']) {
   assert.equal(sceneSteps, 1, 'dismissal releases SceneGate')
   loadSave('low'); assert(getSave().seenIntro, 'dismissal survives reload')
 }
+ui.open('intro'); [...sheet.querySelectorAll('button')].find(button => button.textContent === 'Skip tour').click(); assert(getSave().seenIntro && !ui.isOpen(), 'skip persists without resetting returning-player progress')
+ui.open('settings'); [...sheet.querySelectorAll('button')].find(button => button.textContent === 'Replay getting-started tour').click(); assert(sheet.textContent.includes('Tour 1 of 5') && getSave().seenIntro, 'replay starts from step one without resetting completion')
+ui.close()
 // Shared profile close deliberately transitions to welcome exactly once for new players.
 localStorage.clear(); loadSave('low'); ui.open('shared'); ui.close()
 assert(ui.isOpen() && document.querySelector('#sheet-title').textContent === 'You start at zero')

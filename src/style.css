@@ -1009,3 +1009,12 @@ body.touch #chat {
 body.sheet-open #chat {
   display: none;
 }
+
+/* Keep sound controls compact on phones; ambient controls live in Settings. */
+@media (max-width: 800px) {
+  .tools { max-width: 8rem; }
+  .tools .song { display: none; }
+  .tools .vol { flex-direction: column; align-items: end; gap: 0.2rem; }
+  .tools .vol input { width: 7rem; }
+  #music-note { max-width: 18ch; overflow-wrap: anywhere; }
+}

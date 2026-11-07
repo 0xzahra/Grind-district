@@ -1,3 +1,5 @@
+import { ambientState, setAmbientEnabled, setAmbientVolume } from './ambient-audio.ts'
+import { TOUR_STEPS } from './tour.ts'
 import { makeAgentPrompt, PRACTICE_BALANCE_NOTE } from './agent-prompt.ts'
 import { modalDiagnostics } from './modal-diagnostics.ts'
 import { COURSES, headlines } from './courses.ts'
@@ -173,6 +175,7 @@ export function mountUi(
 
   let open!: (panel: PanelId, extra?: OpenExtra) => void
   let houseId: HouseId = 'yours'
+  let tourStep = 0
 
   const close = () => {
     const was = current
@@ -607,6 +610,11 @@ export function mountUi(
 
   const renderSettings = (): HTMLElement => {
     const save = getSave()
+    const ambient = ambientState()
+    const ambientLevel = document.createElement('input')
+    ambientLevel.type = 'range'; ambientLevel.min = '0'; ambientLevel.max = '100'; ambientLevel.value = String(ambient.volume)
+    ambientLevel.setAttribute('aria-label', 'Ambient volume')
+    ambientLevel.addEventListener('input', () => setAmbientVolume(Number(ambientLevel.value)))
     const nameError = para('', 'result')
     const display = document.createElement('input')
     display.type = 'text'
@@ -717,16 +725,20 @@ export function mountUi(
       maps,
       para('Comfort', 'kicker'),
       comfort,
-      para('Market Velocity stays silent until you press Play theme. Volume is the slider by that button.', 'muted'),
+      para('Theme and ambient sound start only after your tap. Theme volume is the HUD slider; zero mutes it without changing ambient.', 'muted'),
+      button(ambient.active ? 'Turn ambient off' : 'Enable / Retry ambient', 'ghost', () => { void setAmbientEnabled(!ambient.active).then(() => { if (current === 'settings') open('settings') }) }),
+      ambientLevel,
+      para(ambient.message, 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Agents are labeled and attach to robots. Unit 4 in the plaza is one. A person is not an agent.', 'muted'),
-      save.privyId ? para(`Privy · ${save.privyId.slice(-6)}`, 'muted') : para('Privy login is on the title screen.', 'muted'),
-      button('Log out of Privy', 'ghost', () => {
+      save.privyId ? para(`Privy · ${save.privyId.slice(-6)}`, 'muted') : para('Account sign-in is on the title screen.', 'muted'),
+      button('Sign out of account', 'ghost', () => {
         void logoutPrivy().then(() => {
-          finish('Privy login ended. The district save stayed.')
+          finish('Signed out. The browser save stayed; it is not cloud backed.')
         })
       }),
       support,
+      button('Replay getting-started tour', 'ghost', () => open('intro')),
       button('About this city', 'ghost', () => open('about')),
       reset,
     ))
@@ -796,12 +808,21 @@ export function mountUi(
 
   const render = (panel: PanelId): HTMLElement => {
     switch (panel) {
-      case 'intro':
-        return renderSimple('You start at zero', [
-          para('You are a shrimp in a shared city. The practice ledger is empty. Rank does not read it.'),
-          para('Walk north to the learning hall, or east to the houses. Music stays off until you want Market Velocity.'),
-          button("I'm here", 'primary', close),
+      case 'intro': {
+        const step = TOUR_STEPS[tourStep]!
+        const change = (delta: number) => {
+          tourStep = Math.max(0, Math.min(TOUR_STEPS.length - 1, tourStep + delta))
+          open('intro')
+          sheet.querySelector<HTMLButtonElement>('.sheet-head button')?.focus({ preventScroll: true })
+        }
+        return renderSimple(step.title, [
+          para(`Tour ${tourStep + 1} of ${TOUR_STEPS.length}`, 'kicker'),
+          para(step.text),
+          ...(tourStep > 0 ? [button('Back', 'ghost', () => change(-1))] : []),
+          tourStep < TOUR_STEPS.length - 1 ? button('Next', 'primary', () => change(1)) : button("I'm here", 'primary', close),
+          button('Skip tour', 'ghost', close),
         ])
+      }
       case 'profile':
         return renderProfile()
       case 'learn':
@@ -975,6 +996,7 @@ export function mountUi(
     const previous = current
     stop()
     current = panel
+    if (panel === 'intro' && previous !== 'intro') tourStep = 0
     if (extra?.shared) sharedHold = extra.shared
     if (extra?.tab) profileTab = extra.tab
     if (extra?.house) houseId = extra.house

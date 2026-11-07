@@ -1,2 +1,1 @@
-Put `theme.mp3` here. It loops behind the music toggle, which is off by default.
-Push the mp3 with git, not a file API that re-encodes the bytes.
+The supplied theme now ships at `public/audio/market_velocity.mp3` and is selected explicitly by `src/music.ts`. This directory is not an automatic audio override. Theme playback requires a user tap; ambient city-air audio is an independent opt-in Web Audio control in Settings.

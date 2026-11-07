@@ -1,143 +1,58 @@
-import { assetUrl } from './assets.ts'
 import { getSave } from './state.ts'
-
-const themeParts = [
-  '/audio/parts/market-00.b64',
-  '/audio/parts/market-01.b64',
-  '/audio/parts/market-02.b64',
-  '/audio/parts/market-03.b64',
-  '/audio/parts/market-04.b64',
-  '/audio/parts/market-05.b64',
-  '/audio/parts/market-06.b64',
-]
-
-/** Drop the theme at public/assets/audio/theme.mp3 and it is picked up on the next load. */
-const THEME = '/assets/audio/theme.mp3'
+export const THEME = '/audio/market_velocity.mp3'
 const PREF = 'grind-district-music'
+export function musicWanted(): boolean { try { return localStorage.getItem(PREF) === 'on' } catch { return false } }
+function remember(on: boolean): void { try { localStorage.setItem(PREF, on ? 'on' : 'off') } catch { /* session remains usable */ } }
 
-async function exists(url: string): Promise<boolean> {
-  try {
-    const response = await fetch(url, { method: 'HEAD', cache: 'no-store' })
-    const type = response.headers.get('content-type') ?? ''
-    // Vite dev and some static hosts answer a missing file with index.html.
-    return response.ok && !type.includes('text/html')
-  } catch {
-    return false
-  }
-}
-
-async function resolveTheme(): Promise<string | null> {
-  if (await exists(THEME)) return THEME
-  try {
-    return await assetUrl('/audio/market_velocity.mp3', themeParts, 'audio/mpeg', 0x49)
-  } catch {
-    return null
-  }
-}
-
-export function musicWanted(): boolean {
-  try {
-    return localStorage.getItem(PREF) === 'on'
-  } catch {
-    return false
-  }
-}
-
-function remember(on: boolean): void {
-  try {
-    localStorage.setItem(PREF, on ? 'on' : 'off')
-  } catch {
-    // Private mode: the toggle still works for this visit.
-  }
-}
-
-/**
- * Music toggle. Off by default. Once someone turns it on, the next visit resumes it
- * on the first tap, unless reduced motion is set in Settings or by the system.
- */
-export function bindMusic(
-  button: HTMLButtonElement,
-  slider: HTMLInputElement,
-  note: HTMLParagraphElement,
-): void {
+/** Existing supplied theme; play() is invoked synchronously in the user's gesture.
+ * Restored preference offers Resume, never promises autoplay. Ambient is independent. */
+export function bindMusic(button: HTMLButtonElement, slider: HTMLInputElement, note: HTMLParagraphElement): void {
   const audio = new Audio()
+  audio.src = THEME
   audio.loop = true
-  audio.preload = 'none'
-  let ready: Promise<boolean> | null = null
-  let playing = false
-
-  const load = () => {
-    ready ??= resolveTheme().then((url) => {
-      if (!url) return false
-      audio.src = url
-      return true
-    })
-    return ready
-  }
-
-  const level = () => Number(slider.value) / 100 * 0.8
-
+  audio.preload = 'metadata'
+  let playing = false, pending = false, desired = musicWanted(), started = false, generation = 0
+  const level = () => Math.max(0, Math.min(100, Number(slider.value) || 0)) / 100 * 0.8
   const paint = () => {
-    button.textContent = playing ? 'Music on' : 'Music off'
+    button.textContent = pending ? 'Starting theme…' : playing ? 'Pause theme' : desired ? 'Resume theme' : 'Play theme'
     button.setAttribute('aria-pressed', String(playing))
-    slider.disabled = !playing
-    audio.volume = playing ? level() : 0
+    slider.disabled = false // Volume/mute can be chosen before playback.
+    audio.volume = level()
   }
-
-  const start = async () => {
-    playing = true
+  const fail = (error: unknown) => {
+    playing = pending = false
+    audio.pause()
+    note.textContent = error instanceof Error && error.name === 'NotAllowedError'
+      ? 'Playback needs a fresh tap on Play/Resume theme.'
+      : 'Theme could not play. Check your connection, device sound and audio support; tap to retry.'
     paint()
-    if (!(await load())) {
-      playing = false
-      note.textContent = 'The theme is not in this build yet.'
-      paint()
-      return
-    }
+  }
+  const start = () => {
+    const attempt = ++generation
+    desired = true; pending = true; remember(true); paint()
+    // NO fetch/HEAD/await before play: those lose transient mobile user activation.
     try {
-      await audio.play()
-      note.textContent = ''
-    } catch {
-      playing = false
-      audio.pause()
-      note.textContent = 'Tap again to play the theme.'
-      paint()
-    }
+      const result = audio.play()
+      void Promise.resolve(result).then(() => {
+        if (attempt !== generation) return
+        if (!desired || document.hidden) { audio.pause(); return }
+        pending = false; playing = started = true; note.textContent = ''; paint()
+      }, error => { if (attempt === generation) fail(error) })
+    } catch (error) { if (attempt === generation) fail(error) }
   }
-
   button.addEventListener('click', () => {
-    if (playing) {
-      playing = false
-      audio.pause()
-      note.textContent = ''
-      remember(false)
-      paint()
-      return
-    }
-    remember(true)
-    void start()
+    if (playing || pending) {
+      ++generation; desired = playing = pending = false; remember(false)
+      audio.pause(); note.textContent = ''; paint()
+    } else start()
   })
-
-  slider.addEventListener('input', () => {
-    if (playing) audio.volume = level()
-  })
-
+  slider.value = String(getSave().volume)
+  slider.addEventListener('input', paint)
+  audio.addEventListener('error', () => { ++generation; fail(new Error('Media failed')) })
   document.addEventListener('visibilitychange', () => {
-    if (!playing) return
-    if (document.hidden) audio.pause()
-    else void audio.play().catch(() => undefined)
+    if (document.hidden) { ++generation; playing = pending = false; audio.pause(); paint() }
+    else if (desired && started) start()
   })
-
-  const calm = () => getSave().reduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (musicWanted() && !calm()) {
-    // Browsers need a gesture. Resume on the first one after entering.
-    const resume = () => {
-      window.removeEventListener('pointerdown', resume)
-      window.removeEventListener('keydown', resume)
-      if (!playing && musicWanted() && !calm()) void start()
-    }
-    window.addEventListener('pointerdown', resume, { once: true })
-    window.addEventListener('keydown', resume, { once: true })
-  }
-
+  if (desired) note.textContent = 'Tap Resume theme to enable sound on this device.'
   paint()
 }
