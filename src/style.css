@@ -1609,3 +1609,10 @@ body.sheet-open #online-chip, body.cc-sheet-on #online-chip { display: none !imp
 .doc-card{border-radius:18px;padding:14px;background:#0b1210;border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 0 0 4px #1a2420;white-space:pre-wrap;font-size:13px;line-height:1.5}
 .book-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.book-cols .pair{flex-wrap:wrap;font-size:13px}
 .share-strip{display:flex;gap:10px;justify-content:center}.share-strip button{width:48px;height:48px;border-radius:50%;padding:0;font-size:20px}
+
+/* Shop art: the drawing fills its own box and never runs under the caption. */
+.shop-pic { overflow: hidden; margin-bottom: 8px; }
+.shop-pic svg { display: block; width: 100%; height: 100%; }
+/* Panel headers are opaque so scrolled text never shows through. */
+html body .sheet-head { background: #0b1210 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+#nav-courses[hidden] { display: none !important; }

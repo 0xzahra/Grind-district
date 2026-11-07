@@ -134,9 +134,16 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   const s = getSave()
   const tabs = el('div', '', 'cr-tabs')
   const body = el('div', '', 'cr-body')
-  const T: Array<[string, string]> = [['overview', 'Progress'], ['paths', 'Earn Paths'], ['weekly', 'Weekly'], ['jobs', 'Jobs']]
+  const T: Array<[string, string]> = [['overview', 'Progress'], ['courses', 'Courses'], ['paths', 'Earn Paths'], ['weekly', 'Weekly'], ['jobs', 'Jobs']]
   for (const [id, label] of T) { const b = btn(label, () => renderCareer(root, go, onPins, id), 'cr-tab' + (id === tab ? ' on' : '')); tabs.append(b) }
   root.replaceChildren(tabs, body)
+  if (tab === 'courses') {
+    const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed).length
+    body.append(el('h3', 'Courses on Campus'), bar('Courses passed', passed, SKILL_ORDER.length), el('p', 'Each pass is filed to your CV, resume and portfolio with a certificate.', 'cc-muted'),
+      btn('Open courses', () => { (document.getElementById('nav-courses') as HTMLButtonElement | null)?.click() }, 'cr-btn primary'),
+      btn('Walk to Campus', () => go('place:Campus')))
+    return
+  }
   if (tab === 'overview') {
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
     body.append(el('h3', 'Progress'), bar('Learning · courses passed', passed.length, SKILL_ORDER.length), bar('Trading practice · sized trades', c.trades, 25), bar(`Jobs · ${c.job ? JOB_LEVELS[jobLevel()] : 'no job yet'}`, jobLevel() + (c.job ? 1 : 0), 10))

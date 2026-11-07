@@ -266,7 +266,7 @@ const apiAgents = createRemoteAgents(scene)
   let firstOpened = false
   if (needsFirstCourse()) {
     scene.add(firstMarker)
-    window.setTimeout(() => notify('Your first task', 'Walk to Campus, the building under the gold marker to the north, and finish one short course. It goes straight onto your CV.', undefined, 'place:Campus'), 2500)
+    window.setTimeout(() => { if (needsFirstCourse()) notify('Your first task', 'Walk to Campus, the building under the gold marker to the north, and finish one short course. It goes straight onto your CV.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
@@ -667,7 +667,7 @@ const apiAgents = createRemoteAgents(scene)
     isOpen: (title) => !ccSheet.hidden && sheetTitle.textContent === title,
   })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
-  const openCareer = (tab?: unknown) => openSheet('Career', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'overview'))
+  const openCareer = (tab?: unknown) => openSheet('Career & Courses', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'overview'))
   const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
   window.addEventListener('gd:career', (e) => { setCC(true); openCareer((e as CustomEvent).detail) })
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
