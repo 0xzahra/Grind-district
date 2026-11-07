@@ -317,9 +317,13 @@ const apiAgents = createRemoteAgents(scene)
     const graphics = getSave().graphics
     const dpr = window.devicePixelRatio || 1
     const coarseDev = matchMedia('(pointer: coarse)').matches
-    // Phones: never above 1.5x (a 2.6x DPR screen is ~3x the pixels for no visible gain at arm's length).
-    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? 1.5 : coarseDev ? 1.25 : 2)
+    // Each tier must look and cost visibly different. Phones: 1x / 1.25x / 1.5x; desktops: 1x / 1.5x / 2x.
+    // (Phones on High used to get 1.25x, below Medium's 1.5x, so High looked softer than Medium.)
+    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? (coarseDev ? 1.25 : 1.5) : coarseDev ? 1.5 : 2)
     renderer.setPixelRatio(ratio)
+    // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
+    // Every point light is paid for in every lit pixel, so this is the biggest lever on mid-range phones.
+    world.setQuality(graphics)
     // Shadows only on high: the biggest single cost on mid-range Android.
     const shadows = graphics !== 'low' && !matchMedia('(pointer: coarse)').matches
     renderer.shadowMap.enabled = shadows

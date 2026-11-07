@@ -978,6 +978,11 @@ export function mountUi(
       times,
       para('Graphics', 'kicker'),
       graphics,
+      para(({
+        low: 'Low: fastest. Plain resolution, 3 street lights, no shadows or effects. Best for mid-range phones.',
+        medium: 'Medium: sharper, 4 street lights, soft effects. Shadows on computers.',
+        high: 'High: sharpest, every street light and glow, full shadows on computers.',
+      } as const)[save.graphics], 'muted'),
       para('Map', 'kicker'),
       maps,
       para('Comfort', 'kicker'),
