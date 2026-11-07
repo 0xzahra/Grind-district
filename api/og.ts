@@ -43,6 +43,6 @@ export async function GET(req: Request): Promise<Response> {
       h('div', { fontSize: 72, color: '#f2ece0', marginTop: 36, fontWeight: 700 }, name.slice(0, 28)),
       h('div', { fontSize: 32, color: GOLD, marginTop: 4 }, handle),
       ...(p?.pinned?.length ? [h('div', { marginTop: 22, flexWrap: 'wrap' }, ...p.pinned.slice(0, 3).map((t) => h('div', { fontSize: 22, color: '#e6dcc8', border: '1px solid rgba(201,162,94,0.5)', borderRadius: 999, padding: '8px 18px', marginRight: 12 }, `✓ ${t}`)))] : []),
-      h('div', { marginTop: 'auto' }, ...(p ? [stat('Rank', p.rank || 'Shrimp'), stat('Reputation', String(p.reputation)), stat('Balance', `$${p.balance.toLocaleString('en-US', { maximumFractionDigits: 2 })}`)] : [h('div', { fontSize: 32, color: '#d8cfbf' }, 'Learn, trade and climb from shrimp to whale.')]))))
+      h('div', { marginTop: 'auto' }, ...(p ? [stat('Rank', p.rank || 'Shrimp'), stat('Reputation', String(p.reputation)), stat('Balance', `$${p.balance.toLocaleString('en-US', { maximumFractionDigits: 2 })}`)] : [h('div', { fontSize: 32, color: '#d8cfbf' }, 'Learn on Campus. Build a CV from what you do.')]))))
   return new ImageResponse(tree as never, { width: 1200, height: 630, headers: { 'cache-control': 'public, max-age=300, s-maxage=300' } })
 }
