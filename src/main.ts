@@ -3,7 +3,7 @@ import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
-import { MIN_BOOM, freeFraction, overHead, pickHeading, travelBeforeWall, type Box2 } from './cameraBoom.ts'
+import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer } from './humans.ts'
@@ -1086,54 +1086,33 @@ const apiAgents = createRemoteAgents(scene)
     return pulledCam.copy(desired)
   }
 
-  // Indoor camera collision: walk the look ray out and stop before the room shell or any wall-thin blocker,
-  // so the camera (and its near plane) never sits inside a wall. Cheap 2D test, no raycast.
-  const indoorCamera = (origin: THREE.Vector3, cam: THREE.Vector3) => {
-    const room = interiors.bounds()
-    if (!room) return
-    const walls = interiors.obstacles().filter((o) => o.kind === 'box' && Math.min(o.hx, o.hz) < 0.6)
-    // Keep the camera under the ceiling: from above, single-sided wall planes read as giant slabs.
-    if (cam.y > 2.7) cam.y = 2.7
-    const walls2: Box2[] = walls.flatMap((w) => (w.kind === 'box' ? [{ x: w.x, z: w.z, hx: w.hx, hz: w.hz }] : []))
-    const free = (tx: number, tz: number) => freeFraction(origin.x, origin.z, tx, tz, room, walls2)
-    // Judge the room against the boom the player asked for, not the already pulled-in camera: that one may
-    // already sit over the head with almost no horizontal reach, which skipped the heading search entirely.
-    const aimX = desiredCam.x - origin.x, aimZ = desiredCam.z - origin.z
-    const want = Math.hypot(aimX, aimZ)
-    const good = free(origin.x + aimX, origin.z + aimZ)
-    if (good * want < 1.2 && want > 0.5) {
-      // Backed against a wall: try 8 headings around the player, take the one with the most room (cheap, no raycast).
-      // A thin-pad second pass opens narrow passages (cameraBoom.ts pickHeading).
-      const pick = pickHeading(origin.x, origin.z, aimX, aimZ, want, room, walls2)
-      const best = pick.reach, bx = pick.dir?.x ?? 0, bz = pick.dir?.z ?? 0
-      if (bx || bz) {
-        const r = Math.max(0.6, best - 0.1)
-        const p = overHead(origin, { x: bx, y: 0, z: bz }, r, 2.6)
-        cam.set(p.x, Math.max(p.y, Math.min(2.6, origin.y + 0.6)), p.z) // a little above eye level, looking down at the player
-        // Turn the boom to the open side so the next frame does not swing back into the wall and snap
-        // again (the jitter in the recording). Not while the player is dragging the view.
-        if (lookIdle > 0.4) camYaw = Math.atan2(bx, bz)
-      } else {
-        // Nowhere better: look down from over the head instead of sliding into it (body vanished in the recording).
-        const p = overHead(origin, { x: aimX, y: 0, z: aimZ }, Math.max(0.25, good * want - 0.1), 2.6)
-        cam.set(p.x, p.y, p.z)
+  // Indoors the camera is not squeezed between walls any more: it keeps its normal boom and any tall wall,
+  // partition or cupboard between it and the player is cut away (hidden) for that frame, like a doll's house.
+  // Rooms have no ceilings and sit far from the city, so there is nothing else for the camera to hit outside.
+  const cutHidden = new Set<THREE.Object3D>()
+  const cutNow = new Set<THREE.Object3D>()
+  const hips = new THREE.Vector3()
+  const restoreCut = () => { for (const o of cutHidden) o.visible = true; cutHidden.clear() }
+  const cutAway = (cam: THREE.Vector3) => {
+    cutNow.clear()
+    for (const target of [lookTarget, hips.set(pos.x, 0.9, pos.z)]) {
+      rayDirection.subVectors(target, cam)
+      const len = rayDirection.length()
+      if (len < 0.05) continue
+      raycaster.set(cam, rayDirection.multiplyScalar(1 / len))
+      raycaster.far = Math.max(0.05, len - 0.15)
+      for (const h of raycaster.intersectObjects(scene.children, true)) {
+        const o = h.object as THREE.Mesh
+        // Whole instanced sets (benches, books) are never hidden; only single tall pieces: walls, partitions, shelves.
+        if (!o.isMesh || (o as unknown as THREE.InstancedMesh).isInstancedMesh || o.userData.ghost || isUnder(avatar.object, o)) continue
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+        const bb = o.geometry.boundingBox!
+        if ((bb.max.y - bb.min.y) * o.scale.y < 1.2) continue
+        cutNow.add(o)
       }
-      smoothCam.copy(cam)
-      camVel.set(0, 0, 0)
-    } else if (free(cam.x, cam.z) < 1) {
-      cam.lerpVectors(origin, cam, free(cam.x, cam.z))
-      smoothCam.copy(cam)
-      camVel.set(0, 0, 0)
     }
-    // Last guard: hugging a wall or a corner leaves no clear sample at all (the look point itself is within
-    // the wall pad), and the lerp above lands the camera on the head. Look down from over the head, leaning
-    // toward the middle of the room, which is always open floor.
-    if (cam.distanceTo(origin) < MIN_BOOM - 0.1) {
-      const p = overHead(origin, { x: room.x - origin.x, y: 0, z: room.z - origin.z }, 0.35, 2.6)
-      cam.set(p.x, p.y, p.z)
-      smoothCam.copy(cam)
-      camVel.set(0, 0, 0)
-    }
+    for (const o of cutHidden) if (!cutNow.has(o)) { o.visible = true; cutHidden.delete(o) }
+    for (const o of cutNow) if (!cutHidden.has(o) && o.visible) { o.visible = false; cutHidden.add(o) }
   }
 
   // Place caption: shows briefly on entering an area, then hides itself (the Enter button stays while in range).
@@ -1416,7 +1395,9 @@ const apiAgents = createRemoteAgents(scene)
     shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar(0.55 * Math.min(1, 6 / camDist))
     lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, 1.45, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
-    const useDist = interiors.inside ? Math.min(camDist, 3.6) : camDist // rooms are small: a short boom never reaches the walls
+    const indoors = Boolean(interiors.inside)
+    if (!indoors && cutHidden.size) restoreCut()
+    const useDist = indoors ? Math.min(camDist, 4.6) : camDist // walls between camera and player are cut away indoors
     const horiz = useDist * Math.cos(camPitch)
     desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + useDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
     // The over-the-shoulder offset must not put the look point inside a wall (player hugging a building).
@@ -1429,9 +1410,9 @@ const apiAgents = createRemoteAgents(scene)
       if (raycaster.intersectObjects(scene.children, true).some((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))) lookTarget.copy(headPt)
     }
     boomBlocked = false
-    const ideal = pullCamera(lookTarget, desiredCam)
+    const ideal = indoors ? desiredCam : pullCamera(lookTarget, desiredCam)
     // Outdoors, backed against a building: turn the view toward the open side (8 flat probes, 4x a second),
-    // unless the player is dragging the camera. Indoors this is done by indoorCamera.
+    // unless the player is dragging the camera. Indoors, walls are cut away instead.
     steerAcc += dt
     if (!interiors.inside && boomBlocked && lookIdle > 0.4 && steerAcc > 0.25) {
       steerAcc = 0
@@ -1463,9 +1444,9 @@ const apiAgents = createRemoteAgents(scene)
       camVel.addScaledVector(pulledCam.copy(ideal).sub(smoothCam), k * dt).multiplyScalar(Math.exp(-2 * Math.sqrt(k) * dt))
       smoothCam.addScaledVector(camVel, dt)
     }
-    const safe = pullCamera(lookTarget, smoothCam)
+    const safe = indoors ? pulledCam.copy(smoothCam) : pullCamera(lookTarget, smoothCam)
     if (safe.y < 0.4) safe.y = 0.4
-    if (interiors.inside) indoorCamera(lookTarget, safe)
+    if (indoors) cutAway(safe)
     camera.position.copy(safe)
     { // Very subtle walk sway (off with reduced motion).
       const sp = Math.hypot(vel.x, vel.z)
