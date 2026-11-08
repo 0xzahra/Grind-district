@@ -105,8 +105,12 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const uses: Use[] = []
     const mk = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.receiveShadow = true; group.add(m); return m }
     const { w, d } = UP
-    mk(new THREE.PlaneGeometry(w, d), std(0x8a6243, 0.6), 0, 0.01, 0).rotation.x = -Math.PI / 2
+    // Same oak boards and plaster grain as the ground floor (the upstairs room was flat colour; 8 Nov recording).
+    const upFloor = std(0x8a6243, 0.6)
+    Object.assign(upFloor, pbrSet('wood_floor', 4), { roughness: 1 })
+    mk(new THREE.PlaneGeometry(w, d), upFloor, 0, 0.01, 0).rotation.x = -Math.PI / 2
     const wall = std(0xe9e0d0, 0.92)
+    { const pl = pbrSet('plastered_wall_04', 3); wall.normalMap = pl.normalMap; wall.roughnessMap = pl.roughnessMap; wall.normalScale.set(0.5, 0.5) }
     mk(new THREE.BoxGeometry(w + 0.5, 3.2, 0.25), wall, 0, 1.6, -d / 2 - 0.125); mk(new THREE.BoxGeometry(w + 0.5, 3.2, 0.25), wall, 0, 1.6, d / 2 + 0.125)
     mk(new THREE.BoxGeometry(0.25, 3.2, d), wall, -w / 2 - 0.125, 1.6, 0); mk(new THREE.BoxGeometry(0.25, 3.2, d), wall, w / 2 + 0.125, 1.6, 0)
     mk(new THREE.BoxGeometry(1.8, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.12, roughness: 0.1 }), 1.5, 1.5, -d / 2 + 0.02)
