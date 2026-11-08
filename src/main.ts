@@ -3,7 +3,7 @@ import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
-import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
+import { MIN_BOOM, freeFraction, overHead, pickHeading, travelBeforeWall, type Box2 } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer } from './humans.ts'
@@ -1094,30 +1094,8 @@ const apiAgents = createRemoteAgents(scene)
     const walls = interiors.obstacles().filter((o) => o.kind === 'box' && Math.min(o.hx, o.hz) < 0.6)
     // Keep the camera under the ceiling: from above, single-sided wall planes read as giant slabs.
     if (cam.y > 2.7) cam.y = 2.7
-    const pad = 0.45
-    // 2: past the shell's inner face or inside a wall (never allowed); 1: within the pad of one; 0: clear.
-    const blocked = (x: number, z: number) => {
-      const dx = Math.abs(x - room.x), dz = Math.abs(z - room.z)
-      if (dx > room.hw + 0.4 || dz > room.hd + 0.4) return 2
-      for (const w of walls) if (w.kind === 'box' && Math.abs(x - w.x) < w.hx && Math.abs(z - w.z) < w.hz) return 2
-      if (!(dx < room.hw + 0.5 - pad && dz < room.hd + 0.5 - pad)) return 1
-      for (const w of walls) if (w.kind === 'box' && Math.abs(x - w.x) < w.hx + pad && Math.abs(z - w.z) < w.hz + pad) return 1
-      return 0
-    }
-    // Free fraction of the segment origin -> (tx, tz), 12 cheap 2D samples. A player hugging a wall starts
-    // inside its pad; the first 0.6 m may cross pad (not wall), otherwise every heading read as blocked
-    // and the camera fell onto the head (phone recording, 8 Nov).
-    const free = (tx: number, tz: number) => {
-      const len = Math.hypot(tx - origin.x, tz - origin.z)
-      let g = 0
-      for (let i = 1; i <= 12; i++) {
-        const t = i / 12
-        const b = blocked(origin.x + (tx - origin.x) * t, origin.z + (tz - origin.z) * t)
-        if (b === 2 || (b === 1 && t * len > 0.6)) break
-        g = t
-      }
-      return g
-    }
+    const walls2: Box2[] = walls.flatMap((w) => (w.kind === 'box' ? [{ x: w.x, z: w.z, hx: w.hx, hz: w.hz }] : []))
+    const free = (tx: number, tz: number) => freeFraction(origin.x, origin.z, tx, tz, room, walls2)
     // Judge the room against the boom the player asked for, not the already pulled-in camera: that one may
     // already sit over the head with almost no horizontal reach, which skipped the heading search entirely.
     const aimX = desiredCam.x - origin.x, aimZ = desiredCam.z - origin.z
@@ -1125,14 +1103,9 @@ const apiAgents = createRemoteAgents(scene)
     const good = free(origin.x + aimX, origin.z + aimZ)
     if (good * want < 1.2 && want > 0.5) {
       // Backed against a wall: try 8 headings around the player, take the one with the most room (cheap, no raycast).
-      let best = good * want, bx = 0, bz = 0
-      const base = Math.atan2(aimX, aimZ)
-      for (let k = 1; k < 8; k++) {
-        const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 4)
-        const tx = origin.x + Math.sin(a) * want, tz = origin.z + Math.cos(a) * want
-        const d = free(tx, tz) * want
-        if (d > best + 0.3) { best = d; bx = Math.sin(a); bz = Math.cos(a) }
-      }
+      // A thin-pad second pass opens narrow passages (cameraBoom.ts pickHeading).
+      const pick = pickHeading(origin.x, origin.z, aimX, aimZ, want, room, walls2)
+      const best = pick.reach, bx = pick.dir?.x ?? 0, bz = pick.dir?.z ?? 0
       if (bx || bz) {
         const r = Math.max(0.6, best - 0.1)
         const p = overHead(origin, { x: bx, y: 0, z: bz }, r, 2.6)
