@@ -650,8 +650,10 @@ const apiAgents = createRemoteAgents(scene)
     // composedPath, not closest: a sheet button that removes itself on click (Top up) is detached by now and would close everything.
     if (event.composedPath().includes(ccSheet) || !target.isConnected) return
     const hit = target.closest('button, a')
-    if (!hit || ['cc-keys', 'cc-bell', 'cc-status', 'cc-msg'].includes(hit.id)) return
-    window.setTimeout(() => setCC(false), 0)
+    // Buttons that open a sheet inside the control centre (Career, Feed, ...) must not close it: closing runs
+    // closeSheet, so the sheet flashed open then vanished. Only close when the tap left no sheet open.
+    if (!hit || ['cc-keys', 'cc-bell', 'cc-status', 'cc-msg', 'cc-career', 'cc-feed'].includes(hit.id)) return
+    window.setTimeout(() => { if (ccSheet.hidden) setCC(false) }, 0)
   })
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || document.body.classList.contains('rail-shut')) return

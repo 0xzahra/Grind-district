@@ -42,6 +42,7 @@ export function nearPassportPanel(course: SkillId, passed: boolean): HTMLElement
   const act = document.createElement('div')
   box.append(title, note, status, act)
   const btn = (label: string, fn: () => void) => { const b = document.createElement('button'); b.className = 'primary'; b.textContent = label; b.onclick = fn; return b }
+  let busy = false // a tap on Connect/Save owns the panel; the background wallet check never overwrites it
   const set = (msg: string, ...buttons: HTMLElement[]) => { status.textContent = msg; act.replaceChildren(...buttons) }
 
   const showConfirmed = (account: string, c: Completion, tx?: string) => {
@@ -59,6 +60,7 @@ export function nearPassportPanel(course: SkillId, passed: boolean): HTMLElement
     } catch { set('Could not reach NEAR testnet. Nothing was changed. Try again.', btn('Retry', () => void check(account, tx))) }
   }
   const save = async (account: string) => {
+    busy = true
     if (!passed) return set('Pass this course first, then save it here.')
     set('Waiting for your wallet to approve…')
     try {
@@ -70,12 +72,14 @@ export function nearPassportPanel(course: SkillId, passed: boolean): HTMLElement
     } catch { set('Not saved: the wallet request was rejected or failed. You can try again.', btn('Try again', () => void check(account))) }
   }
   const connect = async () => {
+    busy = true
     set('Opening NEAR wallets…')
     try { const w = await (await connector()).connect(); const a = (await w.getAccounts())[0]?.accountId; if (!a) throw new Error('no account'); await check(a) }
     catch { set('Not connected. Your game and save are unchanged.', btn('Connect NEAR testnet wallet', () => void connect())) }
   }
-  set('Checking for a connected NEAR wallet…')
-  void currentAccount().then((a) => a ? check(a) : set('', btn('Connect NEAR testnet wallet', () => void connect())))
+  // Show a working button at once; the wallet library loads in the background (it was a blank wait on phones).
+  set('', btn('Connect NEAR testnet wallet', () => void connect()))
+  void currentAccount().then((a) => { if (a && !busy) void check(a) })
   return box
 }
 

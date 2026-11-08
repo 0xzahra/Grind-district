@@ -153,6 +153,13 @@ export function mountMenu(enter: () => void): void {
   }
 
   play.addEventListener('click', start)
+  // Returning players see that Play resumes their save; guests are told how to keep it (non-blocking).
+  if (getSave().signedUp) {
+    const handle = localStorage.getItem('gd.privy.username')
+    play.textContent = handle ? `Continue as @${handle}` : 'Continue playing'
+    const note = document.querySelector('#menu-note')
+    if (note && !handle) note.textContent = 'Playing as a guest on this device. Sign in later from Settings › Account to keep your progress.'
+  }
   must('#menu-agents').addEventListener('click', () => show('agents'))
   const nearBtn = document.querySelector<HTMLButtonElement>('#menu-near')
   if (nearBtn) { nearBtn.hidden = !nearPassportOn(); nearBtn.addEventListener('click', () => show('near')) }
