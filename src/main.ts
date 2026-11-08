@@ -53,8 +53,10 @@ import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
 watchUpdates()
 
-const WALK = 2.7
-const RUN = 5.5
+// Faster to get around (owner request, 8 Nov): walk 2.7 -> 3.0, run 5.5 -> 7.2 m/s. Both stay inside the
+// range the walk/run clips can match without feet sliding (walk clip up to ~3.0 m/s, run clip up to ~7.3 m/s).
+const WALK = 3.0
+const RUN = 7.2
 
 let snapNext = false
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
