@@ -1,4 +1,4 @@
-// Privy sign-in (Google, email OTP fallback). Lazy-loaded. Without VITE_PRIVY_APP_ID it says sign-in is not set up and offers guest play.
+// Privy sign-in: Google, X and email code, each shown only when the Privy app has it switched on. Lazy-loaded. Without VITE_PRIVY_APP_ID it says sign-in is not set up and offers guest play.
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,16}$/
 export const CLAIMED_KEY = 'gd.privy.username'
@@ -15,20 +15,39 @@ async function client() {
   return new mod.default({ appId: APP_ID!, storage: new mod.LocalStorage() })
 }
 
-/** Finish a Google redirect if we came back from one. */
+type Social = 'google' | 'twitter'
+const SOCIAL_LABEL: Record<Social, string> = { google: 'Google', twitter: 'X' }
+const OAUTH_KEY = 'gd.oauth.provider'
+
+/** Finish a Google or X redirect if we came back from one. */
 export async function resumeOAuth(): Promise<void> {
   const q = new URLSearchParams(location.search)
   const code = q.get('privy_oauth_code')
   const state = q.get('privy_oauth_state')
   if (!APP_ID || !code || !state) return
   history.replaceState(null, '', location.pathname)
+  let provider: Social = 'google'
+  try { if (sessionStorage.getItem(OAUTH_KEY) === 'twitter') provider = 'twitter'; sessionStorage.removeItem(OAUTH_KEY) } catch { /* private mode */ }
   try {
     const privy = await client()
-    await privy.auth.oauth.loginWithCode(code, state, 'google')
+    await privy.auth.oauth.loginWithCode(code, state, provider)
     openLogin()
   } catch (e) {
-    openLogin(`Google sign-in did not complete: ${(e as Error).message || 'unknown error'}. Try again or use an email code.`)
+    openLogin(`${SOCIAL_LABEL[provider]} sign-in did not complete: ${(e as Error).message || 'unknown error'}. Try again or use another option.`)
   }
+}
+
+/** Which sign-in methods the Privy app has switched on, and whether this web address is allowed to use them.
+ *  Read from Privy's own app config, so the dialog never shows a button that cannot work. */
+async function signInOptions(privy: Awaited<ReturnType<typeof client>>): Promise<{ google: boolean; twitter: boolean; email: boolean; domainOk: boolean } | null> {
+  // Privy keeps retrying when it cannot be reached; give up after 10 s so the dialog says so instead of spinning.
+  await Promise.race([privy.initialize(), new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 10_000))])
+  const cfg = privy.app.getConfig()
+  if (!cfg) return null
+  const allowed = (cfg.allowed_domains ?? []).map((d) => d.replace(/\/+$/, '').toLowerCase())
+  const here = location.origin.toLowerCase()
+  const domainOk = allowed.length === 0 || allowed.some((d) => d === here || d === location.host.toLowerCase() || (d.startsWith('https://*.') && here.endsWith(d.slice(9))))
+  return { google: !!cfg.google_oauth, twitter: !!cfg.twitter_oauth, email: !!cfg.email_auth, domainOk }
 }
 
 /** On the title screen, a returning player who signs in goes straight into the city under their handle. */
@@ -117,28 +136,39 @@ export function openLogin(notice = ''): void {
     await bind(token, j)
   }
 
-  const google = el('button', 'Continue with Google', 'primary')
-  google.onclick = async () => {
-    try {
-      const privy = await client()
-      const { url } = await privy.auth.oauth.generateURL('google', location.origin + location.pathname)
-      location.assign(url)
-    } catch (e) {
-      const m = (e as Error).message || ''
-      msg.textContent = /not allowed|disallowed/i.test(m) ? 'Google sign-in is not switched on yet. Use an email code for now.' : m
+  const social = (provider: Social) => {
+    const b = el('button', `Continue with ${SOCIAL_LABEL[provider]}`, 'primary')
+    b.onclick = async () => {
+      b.disabled = true
+      b.textContent = `Opening ${SOCIAL_LABEL[provider]}…`
+      try {
+        const privy = await client()
+        const { url } = await privy.auth.oauth.generateURL(provider, location.origin + location.pathname)
+        try { sessionStorage.setItem(OAUTH_KEY, provider) } catch { /* private mode: falls back to Google */ }
+        location.assign(url)
+      } catch (e) {
+        b.disabled = false
+        b.textContent = `Continue with ${SOCIAL_LABEL[provider]}`
+        msg.textContent = `${SOCIAL_LABEL[provider]} sign-in failed: ${(e as Error).message || 'unknown error'}`
+      }
     }
+    return b
   }
   const email = el('input'); email.type = 'email'; email.placeholder = 'you@example.com'
   const send = el('button', 'Email me a code', 'ghost')
   const code = el('input'); code.inputMode = 'numeric'; code.placeholder = '6-digit code'; code.hidden = true
   const verify = el('button', 'Verify', 'primary'); verify.hidden = true
   send.onclick = async () => {
+    if (!email.value.trim()) { msg.textContent = 'Enter your email first.'; return }
+    send.disabled = true
+    msg.textContent = 'Sending…'
     try {
       const privy = await client()
       await privy.auth.email.sendCode(email.value.trim())
       code.hidden = verify.hidden = false
-      msg.textContent = 'Code sent.'
-    } catch (e) { msg.textContent = (e as Error).message }
+      msg.textContent = 'Code sent. Check your inbox (and spam).'
+    } catch (e) { msg.textContent = `Could not send the code: ${(e as Error).message || 'unknown error'}` }
+    send.disabled = false
   }
   verify.onclick = async () => {
     try {
@@ -148,9 +178,28 @@ export function openLogin(notice = ''): void {
     } catch (e) { msg.textContent = (e as Error).message }
   }
   send.className = 'primary'
-  body.append(el('p', 'Sign in with a one-time code sent to your email.', 'muted'), email, send, code, verify, msg)
-  void google
-  void client().then(async (p) => { if (await p.getAccessToken()) await afterLogin(p) }).catch(() => {})
+  const loading = el('p', 'Loading sign-in options…', 'muted')
+  body.append(loading, msg)
+  void client().then(async (p) => {
+    if (await p.getAccessToken()) { await afterLogin(p); return }
+    const opts = await signInOptions(p)
+    loading.remove()
+    if (!opts) { msg.textContent = 'Could not load sign-in options. Check your connection and try again, or play as a guest.'; return }
+    if (!opts.domainOk) {
+      // Privy rejects every login from an origin missing in the dashboard's allowed domains.
+      msg.textContent = `Sign-in is not enabled for ${location.host} yet. You can play as a guest; your progress stays on this device.`
+      return
+    }
+    const parts: HTMLElement[] = []
+    if (opts.google) parts.push(social('google'))
+    if (opts.twitter) parts.push(social('twitter'))
+    if (opts.email) parts.push(el('p', parts.length ? 'Or get a one-time code by email.' : 'Sign in with a one-time code sent to your email.', 'muted'), email, send, code, verify)
+    if (!parts.length) { msg.textContent = 'No sign-in method is switched on yet. You can play as a guest.'; return }
+    body.insertBefore(el('div', '', 'login-options'), msg).append(...parts)
+  }).catch((e) => {
+    loading.remove()
+    msg.textContent = `Could not reach the sign-in service: ${(e as Error).message || 'network error'}. Try again, or play as a guest.`
+  })
 }
 
 /** Current Privy access token, or null when signed out / Privy not configured. */

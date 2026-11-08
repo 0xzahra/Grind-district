@@ -1022,7 +1022,7 @@ export function mountUi(
     const accountRow = document.createElement('div')
     accountRow.className = 'tabs'
     if (signedIn) accountRow.append(button('Sign out', 'ghost', () => { void import('./login.ts').then((l) => l.signOut()) }))
-    else accountRow.append(button('Sign in with email', 'ghost', () => { close(); void import('./login.ts').then((l) => l.openLogin()) }))
+    else accountRow.append(button('Sign in', 'ghost', () => { close(); void import('./login.ts').then((l) => l.openLogin()) }))
     const settingsCard = (body: HTMLElement) => { const c = frame('Settings', body); c.classList.add('glass-sheet', 'settings-glass'); return c }
     return settingsCard(stack(
       nameLabel,
