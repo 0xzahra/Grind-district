@@ -3,6 +3,7 @@ import { RANKS } from './logic.ts'
 import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
+import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer } from './humans.ts'
@@ -1031,6 +1032,11 @@ const apiAgents = createRemoteAgents(scene)
   const smoothCam = new THREE.Vector3()
   const pulledCam = new THREE.Vector3()
   const rayDirection = new THREE.Vector3()
+  const liftDir = new THREE.Vector3()
+  const headPt = new THREE.Vector3()
+  let boomBlocked = false
+  let steerAcc = 0
+  let steerYaw: number | null = null
   const focus = new THREE.Vector3()
   const mapCtx = map.getContext('2d')
 
@@ -1055,8 +1061,26 @@ const apiAgents = createRemoteAgents(scene)
     const hits = raycaster.intersectObjects(scene.children, true)
     for (const hit of hits) {
       if (hit.object.userData.ghost) continue
+      // Only solid meshes stop the camera. Rain/dust Points have a 1 m pick radius, so they used to yank the
+      // camera in at random (seen in the 8 Nov local repro: hits on Points at ~6 m with open street behind).
+      if (!(hit.object as THREE.Mesh).isMesh) continue
       if (isUnder(avatar.object, hit.object)) continue
-      const travel = Math.max(0.7, hit.distance - 0.45)
+      const travel = travelBeforeWall(hit.distance)
+      if (travel < MIN_BOOM) boomBlocked = true
+      if (travel >= MIN_BOOM) return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
+      // No room behind the player: rise over the head instead of pushing into it or through the wall.
+      // A small sideways offset keeps lookAt from going straight down.
+      const flat = Math.max(Math.min(0.2, hit.distance * 0.6), travel * Math.hypot(rayDirection.x, rayDirection.z))
+      const up = overHead(origin, rayDirection, flat, interiors.inside ? 2.6 : Infinity)
+      liftDir.set(up.x - origin.x, up.y - origin.y, up.z - origin.z)
+      const climb = liftDir.length()
+      if (climb > 0.05) {
+        raycaster.set(origin, liftDir.multiplyScalar(1 / climb))
+        raycaster.far = climb
+        const blocker = raycaster.intersectObjects(scene.children, true).find((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))
+        if (!blocker) return pulledCam.set(up.x, up.y, up.z)
+      }
+      // Something overhead too: stay in front of the wall (close, but never on the far side of it).
       return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
     }
     return pulledCam.copy(desired)
@@ -1071,31 +1095,69 @@ const apiAgents = createRemoteAgents(scene)
     // Keep the camera under the ceiling: from above, single-sided wall planes read as giant slabs.
     if (cam.y > 2.7) cam.y = 2.7
     const pad = 0.45
+    // 2: past the shell's inner face or inside a wall (never allowed); 1: within the pad of one; 0: clear.
     const blocked = (x: number, z: number) => {
-      if (!(Math.abs(x - room.x) < room.hw + 0.5 - pad && Math.abs(z - room.z) < room.hd + 0.5 - pad)) return true
-      for (const w of walls) if (w.kind === 'box' && Math.abs(x - w.x) < w.hx + pad && Math.abs(z - w.z) < w.hz + pad) return true
-      return false
+      const dx = Math.abs(x - room.x), dz = Math.abs(z - room.z)
+      if (dx > room.hw + 0.4 || dz > room.hd + 0.4) return 2
+      for (const w of walls) if (w.kind === 'box' && Math.abs(x - w.x) < w.hx && Math.abs(z - w.z) < w.hz) return 2
+      if (!(dx < room.hw + 0.5 - pad && dz < room.hd + 0.5 - pad)) return 1
+      for (const w of walls) if (w.kind === 'box' && Math.abs(x - w.x) < w.hx + pad && Math.abs(z - w.z) < w.hz + pad) return 1
+      return 0
     }
-    // Free fraction of the segment origin -> (tx, tz), 12 cheap 2D samples.
-    const free = (tx: number, tz: number) => { let g = 0; for (let i = 1; i <= 12; i++) { const t = i / 12; if (blocked(origin.x + (tx - origin.x) * t, origin.z + (tz - origin.z) * t)) break; g = t } return g }
-    const good = free(cam.x, cam.z)
-    const want = Math.hypot(cam.x - origin.x, cam.z - origin.z)
+    // Free fraction of the segment origin -> (tx, tz), 12 cheap 2D samples. A player hugging a wall starts
+    // inside its pad; the first 0.6 m may cross pad (not wall), otherwise every heading read as blocked
+    // and the camera fell onto the head (phone recording, 8 Nov).
+    const free = (tx: number, tz: number) => {
+      const len = Math.hypot(tx - origin.x, tz - origin.z)
+      let g = 0
+      for (let i = 1; i <= 12; i++) {
+        const t = i / 12
+        const b = blocked(origin.x + (tx - origin.x) * t, origin.z + (tz - origin.z) * t)
+        if (b === 2 || (b === 1 && t * len > 0.6)) break
+        g = t
+      }
+      return g
+    }
+    // Judge the room against the boom the player asked for, not the already pulled-in camera: that one may
+    // already sit over the head with almost no horizontal reach, which skipped the heading search entirely.
+    const aimX = desiredCam.x - origin.x, aimZ = desiredCam.z - origin.z
+    const want = Math.hypot(aimX, aimZ)
+    const good = free(origin.x + aimX, origin.z + aimZ)
     if (good * want < 1.2 && want > 0.5) {
       // Backed against a wall: try 8 headings around the player, take the one with the most room (cheap, no raycast).
       let best = good * want, bx = 0, bz = 0
-      const base = Math.atan2(cam.x - origin.x, cam.z - origin.z)
+      const base = Math.atan2(aimX, aimZ)
       for (let k = 1; k < 8; k++) {
         const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 4)
         const tx = origin.x + Math.sin(a) * want, tz = origin.z + Math.cos(a) * want
         const d = free(tx, tz) * want
         if (d > best + 0.3) { best = d; bx = Math.sin(a); bz = Math.cos(a) }
       }
-      if (bx || bz) { const r = Math.max(0.6, best - 0.1); cam.set(origin.x + bx * r, Math.min(2.6, origin.y + 0.9), origin.z + bz * r) }
-      else cam.lerpVectors(origin, cam, Math.max(good, 0.2))
+      if (bx || bz) {
+        const r = Math.max(0.6, best - 0.1)
+        const p = overHead(origin, { x: bx, y: 0, z: bz }, r, 2.6)
+        cam.set(p.x, Math.max(p.y, Math.min(2.6, origin.y + 0.6)), p.z) // a little above eye level, looking down at the player
+        // Turn the boom to the open side so the next frame does not swing back into the wall and snap
+        // again (the jitter in the recording). Not while the player is dragging the view.
+        if (lookIdle > 0.4) camYaw = Math.atan2(bx, bz)
+      } else {
+        // Nowhere better: look down from over the head instead of sliding into it (body vanished in the recording).
+        const p = overHead(origin, { x: aimX, y: 0, z: aimZ }, Math.max(0.25, good * want - 0.1), 2.6)
+        cam.set(p.x, p.y, p.z)
+      }
       smoothCam.copy(cam)
       camVel.set(0, 0, 0)
-    } else if (good < 1) {
-      cam.lerpVectors(origin, cam, good)
+    } else if (free(cam.x, cam.z) < 1) {
+      cam.lerpVectors(origin, cam, free(cam.x, cam.z))
+      smoothCam.copy(cam)
+      camVel.set(0, 0, 0)
+    }
+    // Last guard: hugging a wall or a corner leaves no clear sample at all (the look point itself is within
+    // the wall pad), and the lerp above lands the camera on the head. Look down from over the head, leaning
+    // toward the middle of the room, which is always open floor.
+    if (cam.distanceTo(origin) < MIN_BOOM - 0.1) {
+      const p = overHead(origin, { x: room.x - origin.x, y: 0, z: room.z - origin.z }, 0.35, 2.6)
+      cam.set(p.x, p.y, p.z)
       smoothCam.copy(cam)
       camVel.set(0, 0, 0)
     }
@@ -1370,7 +1432,8 @@ const apiAgents = createRemoteAgents(scene)
       camYaw += delta * (1 - Math.exp(-1.2 * dt))
     }
     // Idle for 2 s with no manual look: swing gently round to the 3/4 front so the face shows.
-    if (stillFor > 2 && lookIdle > 2 && !paused) {
+    // Not indoors: in a small room the swing ran the camera into a wall and into the face (phone recording, 8 Nov).
+    if (stillFor > 2 && lookIdle > 2 && !paused && !interiors.inside) {
       const front = faceYaw + 0.45
       const delta = Math.atan2(Math.sin(front - camYaw), Math.cos(front - camYaw))
       camYaw += delta * (1 - Math.exp(-0.9 * dt))
@@ -1383,7 +1446,41 @@ const apiAgents = createRemoteAgents(scene)
     const useDist = interiors.inside ? Math.min(camDist, 3.6) : camDist // rooms are small: a short boom never reaches the walls
     const horiz = useDist * Math.cos(camPitch)
     desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + useDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
+    // The over-the-shoulder offset must not put the look point inside a wall (player hugging a building).
+    headPt.set(pos.x, 1.45, pos.z)
+    rayDirection.subVectors(lookTarget, headPt)
+    const offLen = rayDirection.length()
+    if (offLen > 0.05) {
+      raycaster.set(headPt, rayDirection.multiplyScalar(1 / offLen))
+      raycaster.far = offLen + 0.3
+      if (raycaster.intersectObjects(scene.children, true).some((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))) lookTarget.copy(headPt)
+    }
+    boomBlocked = false
     const ideal = pullCamera(lookTarget, desiredCam)
+    // Outdoors, backed against a building: turn the view toward the open side (8 flat probes, 4x a second),
+    // unless the player is dragging the camera. Indoors this is done by indoorCamera.
+    steerAcc += dt
+    if (!interiors.inside && boomBlocked && lookIdle > 0.4 && steerAcc > 0.25) {
+      steerAcc = 0
+      const reach = Math.min(6, useDist * Math.cos(camPitch))
+      let bestRoom = 0
+      steerYaw = null
+      for (let k = 0; k < 8; k++) {
+        const a = camYaw + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 4)
+        liftDir.set(Math.sin(a), 0, Math.cos(a))
+        raycaster.set(headPt, liftDir)
+        raycaster.far = reach
+        const h = raycaster.intersectObjects(scene.children, true).find((x) => (x.object as THREE.Mesh).isMesh && !x.object.userData.ghost && !isUnder(avatar.object, x.object))
+        const room = h ? h.distance : reach
+        if (room > bestRoom + 0.3) { bestRoom = room; steerYaw = a }
+      }
+      if (bestRoom < 2) steerYaw = null
+    }
+    if (!boomBlocked && steerAcc > 1) steerYaw = null
+    if (steerYaw !== null && lookIdle > 0.4 && !interiors.inside) {
+      const delta = Math.atan2(Math.sin(steerYaw - camYaw), Math.cos(steerYaw - camYaw))
+      camYaw += delta * (1 - Math.exp(-4 * dt))
+    }
     if (!cameraReady) {
       smoothCam.copy(ideal)
       cameraReady = true
