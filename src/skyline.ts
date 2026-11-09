@@ -11,15 +11,15 @@ function windowTextures(): { map: THREE.CanvasTexture; glow: THREE.CanvasTexture
   const mk = () => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; return c }
   const a = mk(), e = mk()
   const g = a.getContext('2d')!, ge = e.getContext('2d')!
-  g.fillStyle = '#b9b4aa'
+  g.fillStyle = '#8d96a0'
   g.fillRect(0, 0, 64, 256)
   ge.fillStyle = '#000'
   ge.fillRect(0, 0, 64, 256)
   for (let y = 4; y < 256; y += 8) {
     for (let x = 3; x < 64; x += 6) {
       const grad = g.createLinearGradient(0, y, 0, y + 5)
-      grad.addColorStop(0, '#9fb6c4')
-      grad.addColorStop(1, '#5d7484')
+      grad.addColorStop(0, '#6f8494')
+      grad.addColorStop(1, '#3c4d5a')
       g.fillStyle = grad
       g.fillRect(x, y, 4, 5)
       if (Math.random() < 0.3) { ge.fillStyle = '#ffe3b8'; ge.fillRect(x, y, 4, 5) }
@@ -35,11 +35,11 @@ function windowTextures(): { map: THREE.CanvasTexture; glow: THREE.CanvasTexture
 }
 
 export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
-  const count = graphics === 'high' ? 90 : graphics === 'medium' ? 52 : 26
+  const count = graphics === 'high' ? 64 : graphics === 'medium' ? 44 : 24
   const win = windowTextures()
   const glass = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.55, metalness: 0.1, map: win.map, emissive: 0xffffff, emissiveMap: win.glow, emissiveIntensity: 0.04,
-    fog: true,
+    color: 0xc4ccd4, roughness: 0.7, metalness: 0.05, map: win.map, emissive: 0xffffff, emissiveMap: win.glow, emissiveIntensity: 0.02,
+    fog: true, envMapIntensity: 0.35,
   })
   // Curtain-wall towers: reflective blue-grey glass with thin mullions; reflections come from the shared
   // scene env map (PMREM of the sky HDRI), so no extra render passes. Every fifth tower wears it.
@@ -48,8 +48,8 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   mg.fillStyle = '#ffffff'; mg.fillRect(0, 0, 32, 128)
   mg.fillStyle = '#5c646b'; for (let y = 0; y < 128; y += 8) mg.fillRect(0, y, 32, 1); for (let x = 0; x < 32; x += 8) mg.fillRect(x, 0, 1, 128)
   const mullion = new THREE.CanvasTexture(mc); mullion.colorSpace = THREE.SRGBColorSpace; mullion.wrapS = mullion.wrapT = THREE.RepeatWrapping; mullion.repeat.set(2, 6)
-  const curtainMat = new THREE.MeshStandardMaterial({ color: 0x7d8f9c, map: mullion, roughness: 0.12, metalness: 0.85, envMapIntensity: graphics === 'low' ? 0.6 : 1.0, fog: true })
-  const crownMat = new THREE.MeshStandardMaterial({ color: 0x8f8b84, roughness: 0.8, metalness: 0.1 })
+  const curtainMat = new THREE.MeshStandardMaterial({ color: 0x8796a3, map: mullion, roughness: 0.3, metalness: 0.5, envMapIntensity: 0.55, fog: true })
+  const crownMat = new THREE.MeshStandardMaterial({ color: 0x7a7f86, roughness: 0.85, metalness: 0.1 })
   const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false })
   const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
   const base = new THREE.InstancedMesh(box, glass, count)
@@ -64,12 +64,12 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   const rand = () => ((rnd = (rnd * 16807) % 2147483647) / 2147483647)
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2 + rand() * 0.05
-    const r = 92 + rand() * 40
+    const r = 104 + rand() * 36
     const x = Math.cos(a) * r
     const z = Math.sin(a) * r
     const w = 8 + rand() * 10
     const d = 8 + rand() * 10
-    const h = 25 + rand() * rand() * 85
+    const h = 16 + rand() * rand() * 52
     m.position.set(x, 0, z)
     m.rotation.set(0, -a, 0)
     m.scale.set(w, h, d)
@@ -104,7 +104,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   }
   return {
     tick(t: number, night: number) {
-      glass.emissiveIntensity = 0.01 + night * 0.28
+      glass.emissiveIntensity = 0.01 + night * 0.22
       beacons.visible = Math.sin(t * 2.4) > 0.2 && night > 0.2
     },
   }

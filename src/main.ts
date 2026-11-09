@@ -260,10 +260,12 @@ const apiAgents = createRemoteAgents(scene)
   {
     // toneMapped left on (unlike other ghost/HUD markers) so this doesn't bloom into a hazy halo on Medium/High
     // while everything else in the scene is exposure- and AgX-graded: reported as "that ring is weird" on High.
-    const gold = new THREE.MeshBasicMaterial({ color: 0xf2c14e })
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.4, 4), gold); cone.rotation.x = Math.PI; cone.position.y = 0.7
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.09, 8, 24), gold); ring.rotation.x = Math.PI / 2; ring.position.y = 2.15
-    firstMarker.add(cone, ring); firstMarker.position.set(0, 7.2, -42.2)
+    // Waypoint gem over the Campus door (not a spinning funnel): a slim gold diamond and a soft ring on the paving.
+    const gold = new THREE.MeshStandardMaterial({ color: 0xe8c27a, emissive: 0x8a6420, emissiveIntensity: 0.6, metalness: 0.85, roughness: 0.25 })
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0).scale(1, 1.9, 1), gold); gem.position.y = 0
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2c879, transparent: true, opacity: 0.5, depthWrite: false }))
+    halo.position.y = -4.15
+    firstMarker.add(gem, halo); firstMarker.position.set(0, 4.2, -40.4)
   }
   resumeMusicOnFirstTap()
   ensureAmbientOnGesture()
@@ -1156,7 +1158,13 @@ const apiAgents = createRemoteAgents(scene)
   const tryBake = () => { if (!indoors()) { bake(); baked = true } else setTimeout(tryBake, 5000) }
   setTimeout(tryBake, 4000)
   void baked
-  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __give: (n: number) => { getSave().ledger += n }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  let debugView: [number[], number[]] | null = null
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __pick: (sx: number, sy: number) => {
+    const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
+    return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
+      const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
+      return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
+  }, __give: (n: number) => { getSave().ledger += n }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1209,7 +1217,7 @@ const apiAgents = createRemoteAgents(scene)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
       scene.environmentIntensity = 0.45 * (1 - nightLevel) + 0.18 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.82, 0.92, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.74, 0.9, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.15 * (1 - nightLevel) + 0.06 : 0
     }
@@ -1346,8 +1354,7 @@ const apiAgents = createRemoteAgents(scene)
     seating.apply(avatar.object, dt)
     if (firstMarker.parent) {
       // Slow spin + tiny bob so it reads as a Campus waypoint, not a clipping toy.
-      firstMarker.rotation.y += dt * 0.35
-      firstMarker.position.y = 7.2 + Math.sin(performance.now() / 1600) * 0.06
+      firstMarker.children[0]!.position.y = Math.sin(performance.now() / 900) * 0.08
       if (!needsFirstCourse()) scene.remove(firstMarker)
       else if (!firstOpened && !interiors.inside && Math.hypot(pos.x, pos.z + 42.2) < 3.2) { firstOpened = true; ui.open('learn', { course: SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0] }) }
     }
@@ -1493,6 +1500,7 @@ const apiAgents = createRemoteAgents(scene)
       introT = 1
     }
     camera.lookAt(lookTarget)
+    if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
     camera.updateMatrixWorld()
     setMixerViewer(camera)
     const baseFov = (window.innerWidth < 800 ? 57 : 50) + (new URLSearchParams(location.search).has('widefov') ? 6 : 0)

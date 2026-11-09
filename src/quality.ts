@@ -6,7 +6,6 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
 import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js'
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
@@ -61,7 +60,6 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let bloom: UnrealBloomPass | null = null
   let level: Graphics = 'low'
   let grade: ShaderPass | null = null
-  let bokeh: BokehPass | null = null
   let broken = false
   let checks = 0
   let blackRuns = 0
@@ -94,10 +92,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         console.warn('[grind] AO unavailable', error)
       }
     }
-    // Subtle lens depth of field on High desktop only: wide aperture is off, just a soft far falloff.
-    if (level === 'high' && !coarse && gl2) {
-      try { bokeh = new BokehPass(scene, camera, { focus: 7, aperture: 0.00012, maxblur: 0.004 }); composer.addPass(bokeh) } catch (error) { console.warn('[grind] DOF unavailable', error) }
-    }
+    // No depth of field: blurring the bright sky over building silhouettes read as a white glow behind them.
     bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.04, 0.55, 0.98)
     composer.addPass(bloom)
     composer.addPass(new OutputPass())
@@ -126,7 +121,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       grade!.uniforms.grain.value = 0
     },
     setFocus(d: number) {
-      if (bokeh) (bokeh.uniforms as Record<string, { value: number }>).focus!.value = d
+      void d
     },
     /** Night lifts bloom so neon strips read; day keeps it subtle. */
     setNight(night: number) {

@@ -60,39 +60,7 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
     scene.add(m)
   }
 
-  // Soft clouds: a few big billboards high up, drifting.
-  const cloudTex = (() => {
-    const c = document.createElement('canvas')
-    c.width = 256
-    c.height = 128
-    const g = c.getContext('2d')!
-    for (let i = 0; i < 14; i++) {
-      const x = 40 + Math.random() * 176
-      const y = 50 + Math.random() * 40
-      const r = 22 + Math.random() * 30
-      const grad = g.createRadialGradient(x, y, 0, x, y, r)
-      grad.addColorStop(0, 'rgba(255,255,255,0.55)')
-      grad.addColorStop(1, 'rgba(255,255,255,0)')
-      g.fillStyle = grad
-      g.fillRect(0, 0, 256, 128)
-    }
-    const t = new THREE.CanvasTexture(c)
-    t.colorSpace = THREE.SRGBColorSpace
-    return t
-  })()
-  const cloudMat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.8 })
-  const clouds: THREE.Sprite[] = []
-  for (let i = 0; i < (lite ? 5 : 9); i++) {
-    const s = new THREE.Sprite(cloudMat)
-    const a = (i / 9) * Math.PI * 2
-    s.position.set(Math.cos(a) * 120, 60 + (i % 3) * 8, Math.sin(a) * 120)
-    s.scale.set(90, 40, 1)
-    s.renderOrder = -1
-    s.raycast = () => undefined
-    s.userData.ghost = true
-    clouds.push(s)
-    scene.add(s)
-  }
+  // Clouds live in the sky shader (sky.ts); the old drifting billboard cards are gone.
 
   // Birds: tiny flapping chevrons circling over the plaza.
   const birdGeo = mergeGeometries([
@@ -137,11 +105,6 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
     /** Street bench seats (seat-top height, facing away from the backrest) for the sitting system. */
     benchSeats: spots.map((s) => ({ x: s.x, z: s.z, yaw: s.rot, y: 0.49 })),
     tick(time: number, focus: THREE.Vector3, night: number) {
-      for (const [i, c] of clouds.entries()) {
-        const a = (i / clouds.length) * Math.PI * 2 + time * 0.004
-        c.position.set(focus.x + Math.cos(a) * 120, c.position.y, focus.z + Math.sin(a) * 120)
-      }
-      cloudMat.opacity = 0.8 - night * 0.55
       for (let i = 0; i < birdCount; i++) {
         const a = time * 0.25 + (i / birdCount) * Math.PI * 2
         const r = 14 + (i % 4) * 3

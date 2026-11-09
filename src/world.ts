@@ -5,7 +5,7 @@ import { LOOK, lightBudget } from './lookPalette.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
 import { LANE_INNER, LANE_OUTER, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { createArchitecture, type Facade, type Style } from './architecture.ts'
 
 export type Hotspot = {
   id: string
@@ -112,7 +112,6 @@ export function createWorld(options: {
   const obstacles: Obstacle[] = []
   const hotspots: Hotspot[] = []
   const reserved: Obstacle[] = []
-  const facades: THREE.MeshStandardMaterial[] = []
   const ripples: { mesh: THREE.Mesh; offset: number }[] = []
   const glow: THREE.PointLight[] = []
   const doors: { x: number; z: number; own: Obstacle }[] = []
@@ -244,82 +243,6 @@ export function createWorld(options: {
 
   let ladderMap = paintLadder(options.rankLabel)
   const ladderMat = new THREE.MeshBasicMaterial({ map: ladderMap, toneMapped: false })
-
-  // Glass curtain-wall towers (trading floor, influencer row): dense mullion grid, mostly glazing.
-  const CURTAIN = new Set([11, 13])
-  // 'spec' packs roughness (G) and metalness (B) in one map: glazing smooth + metallic so it mirrors the sky env map.
-  const facadeSpec = (seed: number) => paint(128, 256, (g) => {
-    g.fillStyle = 'rgb(0,235,0)'; g.fillRect(0, 0, 128, 256)
-    g.fillStyle = 'rgb(0,28,210)'
-    if (CURTAIN.has(seed)) { for (let row = 4; row < 206; row += 14) for (let col = 2; col < 126; col += 16) g.fillRect(col, row, 14, 12) }
-    else for (let row = 18; row < 200; row += 28) for (let col = 14; col < 118; col += 22) g.fillRect(col, row, 10, 16)
-    for (let col = 6; col < 122; col += 30) g.fillRect(col, 218, 24, 34)
-  })
-  const facadeTex = (seed: number, wall = false) => {
-    const rand = mulberry32(seed)
-    if (CURTAIN.has(seed)) return paint(128, 256, (g) => {
-      g.fillStyle = wall ? '#5d6670' : '#000000'; g.fillRect(0, 0, 128, 256)
-      for (let row = 4; row < 206; row += 14) for (let col = 2; col < 126; col += 16) {
-        if (wall) { const gr = g.createLinearGradient(0, row, 0, row + 12); gr.addColorStop(0, '#7f97a8'); gr.addColorStop(1, '#3e5262'); g.fillStyle = gr; g.fillRect(col, row, 14, 12) }
-        else if (rand() > 0.85) { g.fillStyle = '#e9d7b8'; g.fillRect(col, row, 14, 12) }
-      }
-      g.fillStyle = wall ? '#2f3438' : '#000'; g.fillRect(0, 206, 128, 10)
-      for (let col = 6; col < 122; col += 30) { g.fillStyle = wall ? '#8aa1ad' : '#6b5c48'; g.fillRect(col, 218, 24, 34) }
-    })
-    return paint(128, 256, (g) => {
-      // Albedo: warm limestone, framed glazed windows with sills, a glazed shopfront and door at street level.
-      // Emissive copy: black wall, a few lit panes and the shopfront only.
-      g.fillStyle = wall ? ['#c9bca6', '#bdb3a3', '#cfc2ad', '#b4ada2'][seed % 4]! : '#000000'
-      g.fillRect(0, 0, 128, 256)
-      if (wall) {
-        g.fillStyle = 'rgba(0,0,0,0.06)'
-        for (let row = 10; row < 210; row += 28) g.fillRect(0, row, 128, 1)
-      }
-      for (let row = 18; row < 200; row += 28) {
-        for (let col = 14; col < 118; col += 22) {
-          const lit = rand()
-          if (wall) {
-            g.fillStyle = '#6f6656' // frame
-            g.fillRect(col - 2, row - 2, 14, 20)
-            const grad = g.createLinearGradient(0, row, 0, row + 16)
-            grad.addColorStop(0, '#a9bfcb')
-            grad.addColorStop(1, '#62788a')
-            g.fillStyle = grad
-            g.fillRect(col, row, 10, 16)
-            g.fillStyle = '#6f6656' // mullion + transom
-            g.fillRect(col + 4.5, row, 1, 16)
-            g.fillRect(col, row + 5, 10, 1)
-            g.fillStyle = '#e4dccb' // sill
-            g.fillRect(col - 3, row + 18, 16, 2)
-          } else if (lit > 0.8) {
-            g.fillStyle = '#f0d7b0'
-            g.fillRect(col, row, 10, 16)
-          }
-        }
-      }
-      // Street level: dark fascia, glazed shopfront bays and a central door.
-      if (wall) {
-        g.fillStyle = '#3b3631'
-        g.fillRect(0, 206, 128, 8)
-        g.fillStyle = '#4d463e'
-        g.fillRect(0, 214, 128, 42)
-        for (let col = 6; col < 122; col += 30) {
-          const grad = g.createLinearGradient(0, 218, 0, 252)
-          grad.addColorStop(0, '#b3c6cf')
-          grad.addColorStop(1, '#6e8290')
-          g.fillStyle = grad
-          g.fillRect(col, 218, 24, 34)
-        }
-        g.fillStyle = '#5a3f2c' // door
-        g.fillRect(56, 220, 16, 36)
-        g.fillStyle = '#d2b47a'
-        g.fillRect(68, 236, 2, 4)
-      } else {
-        g.fillStyle = '#7a6a52'
-        for (let col = 6; col < 122; col += 30) g.fillRect(col, 218, 24, 34)
-      }
-    })
-  }
 
   const groundMap = paint(2048, 2048, (g) => {
     const scale = 2048 / SPAN
@@ -520,8 +443,9 @@ export function createWorld(options: {
   spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'Road west to the trading floor.')
   spot('east-arch', 13.4, 0, 2.5, 'Row road', 'Road east to Influencer Row, where you can post bounties.')
 
-  // Dark, reflective storefront glass (picks up the PMREM environment): reads as real glazing, not paint.
-  const shopGlass = new THREE.MeshStandardMaterial({ color: 0x2c3940, roughness: 0.06, metalness: 0.75, envMapIntensity: 0.9 })
+  // Buildings come from the architecture kit (architecture.ts): tiled facades, podium shopfronts, parapets with
+  // edge lighting and small fascia signs, merged per material across the city. Footprints and doors are unchanged.
+  const architecture = createArchitecture({ anisotropy, stone, stoneDark, leaf, boxUV: boxProjectUV })
   const addBuilding = (spec: {
     x: number
     z: number
@@ -533,145 +457,12 @@ export function createWorld(options: {
     subtitle: string
     windows?: boolean
     seed?: number
-    steeple?: boolean
+    style?: Style
+    facade?: Facade
+    mint?: boolean
+    floors?: number
   }) => {
-    const group = new THREE.Group()
-    const material = spec.windows
-      ? new THREE.MeshStandardMaterial({
-          map: facadeTex(spec.seed ?? 1, true),
-          normalMap: concrete.normalMap,
-          emissive: 0xfff1dd,
-          emissiveMap: facadeTex(spec.seed ?? 1),
-          emissiveIntensity: 0.08,
-          roughnessMap: facadeSpec(spec.seed ?? 1),
-          metalnessMap: facadeSpec(spec.seed ?? 1),
-          roughness: 1,
-          metalness: 0.85,
-          envMapIntensity: 1.1,
-        })
-      : (spec.seed ?? 0) % 2 === 1 && !spec.steeple ? brick : stone
-    if (spec.windows && material instanceof THREE.MeshStandardMaterial) facades.push(material)
-    // Varied silhouettes: bigger civic blocks step up by seed.
-    if (spec.windows && spec.w >= 8) spec = { ...spec, h: spec.h + ((spec.seed ?? 0) % 3) * 1.3 }
-    const block = solid(new THREE.BoxGeometry(spec.w, spec.h, spec.d), material)
-    block.position.y = spec.h / 2
-    group.add(block)
-    // Facade detail, merged to two draw calls per building: plinth, corner pilasters, stepped cornice,
-    // string course, balconies with rails on the long faces.
-    {
-      const { w, d, h } = spec
-      const light: THREE.BufferGeometry[] = []
-      const dark: THREE.BufferGeometry[] = []
-      const bx = (list: THREE.BufferGeometry[], gw: number, gh: number, gd: number, x: number, y: number, z: number) =>
-        list.push(new THREE.BoxGeometry(gw, gh, gd).translate(x, y, z))
-      bx(dark, w + 0.24, 0.55, d + 0.24, 0, 0.275, 0)
-      bx(light, w + 0.56, 0.22, d + 0.56, 0, h - 0.06, 0)
-      bx(light, w + 0.36, 0.16, d + 0.36, 0, h - 0.26, 0)
-      bx(dark, w + 0.2, 0.32, d + 0.2, 0, h + 0.16, 0)
-      if (h > 4.2) bx(light, w + 0.14, 0.12, d + 0.14, 0, h * 0.5, 0)
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) bx(light, 0.38, h - 0.5, 0.38, sx * (w / 2 + 0.02), h / 2, sz * (d / 2 + 0.02))
-      if (spec.windows && h > 4.6) {
-        const along = w >= d
-        for (const side of [-1, 1]) for (const k of [-0.25, 0.25]) {
-          const px = along ? k * w : side * (w / 2 + 0.32)
-          const pz = along ? side * (d / 2 + 0.32) : k * d
-          bx(dark, along ? 1.7 : 0.64, 0.1, along ? 0.64 : 1.7, px, h * 0.5 + 0.12, pz)
-          bx(dark, along ? 1.7 : 0.04, 0.5, along ? 0.04 : 1.7, along ? px : px + side * 0.3, h * 0.5 + 0.42, along ? pz + side * 0.3 : pz)
-        }
-      }
-      // Upgrade: recessed-window relief (slim vertical fins between window bays), a glazed shopfront band at
-      // street level, and rooftop plant (AC units, a water tank, a stair core) so silhouettes read as real buildings.
-      const glazing: THREE.BufferGeometry[] = []
-      if (spec.windows) {
-        for (const side of [-1, 1]) {
-          const nW = Math.max(2, Math.floor(w / 1.7))
-          for (let k = 1; k < nW; k++) bx(dark, 0.07, h - 1.9, 0.16, -w / 2 + (k * w) / nW, (h + 1.5) / 2, side * (d / 2 + 0.08))
-          const nD = Math.max(2, Math.floor(d / 1.7))
-          for (let k = 1; k < nD; k++) bx(dark, 0.16, h - 1.9, 0.07, side * (w / 2 + 0.08), (h + 1.5) / 2, -d / 2 + (k * d) / nD)
-        }
-        bx(glazing, w + 0.05, 1.05, d + 0.05, 0, 1.08, 0)
-        bx(dark, w + 0.3, 0.1, d + 0.3, 0, 1.66, 0) // shopfront fascia
-      }
-      if (w >= 6 && d >= 5) {
-        // Low rooftop plant only (no tall black chimney/stair slab — Zahra: black boxes on roofs)
-        const r = mulberry32((spec.seed ?? 3) * 7 + 1)
-        for (let k = 0; k < 1 + Math.floor(r() * 2); k++) {
-          bx(light, 0.7 + r() * 0.45, 0.32, 0.55 + r() * 0.35, (r() - 0.5) * (w - 2.6), h + 0.42, (r() - 0.5) * (d - 2.6))
-        }
-      }
-      const gm = glazing.length ? mergeGeometries(glazing) : null
-      if (gm) group.add(solid(gm, shopGlass, false))
-      const lm = mergeGeometries(light)
-      const dm = mergeGeometries(dark)
-      if (lm) group.add(solid(lm, stone))
-      if (dm) group.add(solid(dm, stoneDark))
-    }
-    if (spec.steeple) {
-      const tower = solid(new THREE.BoxGeometry(1.4, 3.2, 1.4), stoneDark)
-      tower.position.y = spec.h + 1.6
-      const cap = solid(new THREE.ConeGeometry(1.1, 1.6, 4), stoneDark)
-      cap.position.y = spec.h + 3.8
-      const arm = solid(new THREE.BoxGeometry(0.7, 0.08, 0.08), trim, false)
-      arm.position.y = spec.h + 4.5
-      const stem = solid(new THREE.BoxGeometry(0.08, 0.7, 0.08), trim, false)
-      stem.position.y = spec.h + 4.5
-      group.add(tower, cap, arm, stem)
-    }
-    const outward: Record<Door, { x: number; y: number; z: number; rot: number }> = {
-      pz: { x: 0, y: spec.h * 0.58, z: spec.d / 2 + 0.05, rot: 0 },
-      nz: { x: 0, y: spec.h * 0.58, z: -spec.d / 2 - 0.05, rot: Math.PI },
-      px: { x: spec.w / 2 + 0.05, y: spec.h * 0.58, z: 0, rot: Math.PI / 2 },
-      nx: { x: -spec.w / 2 - 0.05, y: spec.h * 0.58, z: 0, rot: -Math.PI / 2 },
-    }
-    const face = outward[spec.door]
-    const signWidth = spec.w > 10 ? 2.4 : 1.7
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(signWidth, signWidth * 0.42),
-      new THREE.MeshBasicMaterial({ map: paintSign(spec.title, spec.subtitle), toneMapped: false }),
-    )
-    sign.position.set(face.x, Math.min(face.y, spec.h - 0.7), face.z)
-    sign.rotation.y = face.rot
-    sign.userData.ghost = true
-    const awningShift: Record<Door, [number, number]> = {
-      pz: [0, 0.7],
-      nz: [0, -0.7],
-      px: [0.7, 0],
-      nx: [-0.7, 0],
-    }
-    const shift = awningShift[spec.door]
-    // Coloured fabric street awning (readable variety) + slim roof cornice ledge above
-    const awnCols = [0xc45c48, 0x2f6b5c, 0xc9a227, 0x3d5a80, 0xb86b3c, 0x6b3d5a]
-    const awnMat = new THREE.MeshStandardMaterial({
-      color: awnCols[(spec.seed ?? 0) % awnCols.length],
-      roughness: 0.78,
-      metalness: 0.04,
-    })
-    const sideDoor = spec.door === 'px' || spec.door === 'nx'
-    const awnW = sideDoor ? 1.45 : Math.min(spec.w * 0.72, 5.2)
-    const awnD = sideDoor ? Math.min(spec.d * 0.72, 5.2) : 1.45
-    const awning = solid(new THREE.BoxGeometry(sideDoor ? awnD : awnW, 0.09, sideDoor ? awnW : awnD), awnMat, false)
-    // Hang just above the entrance canopy, not at the roof — so the facade reads as a shop
-    awning.position.set(face.x + shift[0] * 1.15, Math.min(3.35, spec.h * 0.55), face.z + shift[1] * 1.15)
-    awning.userData.ghost = true
-    const corniceLedge = solid(new THREE.BoxGeometry(spec.door === 'px' || spec.door === 'nx' ? 1.3 : spec.w * 0.7, 0.08, spec.door === 'pz' || spec.door === 'nz' ? 1.3 : spec.d * 0.7), stoneDark, false)
-    corniceLedge.position.set(face.x + shift[0], spec.h - 0.08, face.z + shift[1])
-    corniceLedge.userData.ghost = true
-    group.add(sign, awning, corniceLedge)
-    {
-      // Entrance canopy: glass slab on two steel tie rods, just above head height.
-      const side = spec.door === 'px' || spec.door === 'nx'
-      const cw = 2.6, cd = 1.5
-      const cx = face.x + shift[0] * 1.05, cz = face.z + shift[1] * 1.05
-      const canopy = new THREE.Mesh(new THREE.BoxGeometry(side ? cd : cw, 0.06, side ? cw : cd), shopGlass)
-      canopy.position.set(cx, 2.45, cz)
-      const frame = solid(new THREE.BoxGeometry(side ? cd + 0.06 : cw + 0.06, 0.1, side ? cw + 0.06 : cd + 0.06), stoneDark, false)
-      frame.position.set(cx, 2.4, cz)
-      canopy.userData.ghost = frame.userData.ghost = true
-      group.add(frame, canopy)
-    }
-    group.name = `bldg:${spec.title}`
-    group.position.set(spec.x, 0, spec.z)
-    scene.add(group)
+    for (const extra of architecture.build(spec)) scene.add(extra)
     obstacles.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2 + 0.15, hz: spec.d / 2 + 0.15 })
     reserved.push({ kind: 'box', x: spec.x, z: spec.z, hx: spec.w / 2 + 1.8, hz: spec.d / 2 + 1.8 })
     const stepOut = 1.45
@@ -683,36 +474,31 @@ export function createWorld(options: {
     }
     const at = doorAt[spec.door]
     doors.push({ x: at.x, z: at.z, own: obstacles[obstacles.length - 1] as Obstacle })
-    // Subtle door pad (not a black slab on the paving)
-    const mat = solid(new THREE.BoxGeometry(1.35, 0.03, 1.35), stone, false)
-    mat.position.set(at.x, 0.02, at.z)
-    mat.userData.ghost = true
-    scene.add(mat)
     return at
   }
 
-  const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Campus', subtitle: 'learn', windows: true, seed: 3 })
+  const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Campus', subtitle: 'learn', seed: 3, style: 'civic', floors: 2 })
   spot('learn', hall.x, hall.z, 2.5, 'Campus', 'Take short courses. Each one you pass is added to your CV.', 'learn', 'Open the hall')
-  const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'web3 events', windows: true, seed: 5 })
+  const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'web3 events', seed: 5, style: 'glass', floors: 2 })
   spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for in-game cash.', 'conference', 'Go inside')
-  const lounge = addBuilding({ x: -40, z: -36, w: 9, d: 7, h: 4.4, door: 'px', title: 'Members lounge', subtitle: 'rooms open by rank', windows: true, seed: 53 })
+  const lounge = addBuilding({ x: -40, z: -36, w: 9, d: 7, h: 4.4, door: 'px', title: 'Members lounge', subtitle: 'rooms open by rank', seed: 53, style: 'brick', facade: 'charcoal' })
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
-  const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', windows: true, seed: 8 })
+  const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', seed: 8, style: 'brick' })
   spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Grab a coffee and read today\'s market headlines.', 'cafe', 'Read the room')
-  addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 3.2, door: 'pz', title: 'Booth', subtitle: 'no seed asks', windows: true, seed: 2 })
-  addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 3.2, door: 'pz', title: 'Booth', subtitle: 'one-pagers', windows: true, seed: 4 })
+  addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 2.6, door: 'pz', title: 'Booth', subtitle: 'no seed asks', seed: 2, style: 'kiosk' })
+  addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 2.6, door: 'pz', title: 'Booth', subtitle: 'one-pagers', seed: 4, style: 'kiosk' })
   spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Project stands. Browse what teams are building.')
 
-  const floor = addBuilding({ x: -48, z: 0, w: 12, d: 16, h: 6, door: 'px', title: 'Trade', subtitle: 'spot book', windows: true, seed: 11 })
+  const floor = addBuilding({ x: -48, z: 0, w: 12, d: 16, h: 6, door: 'px', title: 'Trade', subtitle: 'spot book', seed: 11, style: 'glass', mint: true, floors: 3 })
   spot('trade', floor.x, floor.z, 2.6, 'Trading floor', 'Buy and sell UNIT with in-game cash and practise sizing your trades.', 'trade', 'Open the book')
-  const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Bounty', subtitle: 'post', windows: true, seed: 13 })
+  const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Bounty', subtitle: 'post', seed: 13, style: 'civic', mint: true, floors: 3 })
   spot('bounty', row.x, row.z, 2.6, 'Influencer row', 'Post a bounty to earn in-game cash and add it to your portfolio.', 'bounty', 'Post a bounty')
-  const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Meme', subtitle: 'desk', windows: true, seed: 17 })
+  const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Mempool', subtitle: 'meme desk', seed: 18, style: 'brick', mint: true, floors: 2 })
   spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'Trade the volatile MEME coin. Big swings, high risk.', 'trench', 'Open the trench book')
 
-  const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', windows: true, seed: 19 })
+  const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', seed: 19, style: 'arch' })
   spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Clothing store. Change your character, outfit and mask.', 'boutique', 'Try a body')
-  const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', windows: true, seed: 23 })
+  const gym = addBuilding({ x: -22, z: -22, w: 8, d: 8, h: 4, door: 'px', title: 'Gym', subtitle: 'reps, not leverage', seed: 23, style: 'brick', facade: 'charcoal', mint: true })
   spot('gym', gym.x, gym.z, 2.4, 'Gym', 'Do a quick timing workout. One set a day keeps your streak going.', 'gym', 'Train')
   // Church: gabled stone nave, tall bell tower + spire + cross on the north facade, arched stained glass,
   // double doors, steps and a forecourt. Faces north to the plaza, away from the house row.
@@ -852,8 +638,8 @@ export function createWorld(options: {
       door: home.door,
       title: home.title,
       subtitle: home.subtitle,
-      windows: true,
       seed: home.seed,
+      style: 'house',
     })
     spot(home.id, door.x, door.z, 2.2, home.spotTitle, home.body, 'house', home.enter, home.id)
     if (home.id === 'yours') {
@@ -876,13 +662,14 @@ export function createWorld(options: {
     }
   }
   // z was -16: its footprint overlapped the Boutique shell (22,-22) by ~2.3m x / 0.8m z. Moved clear.
-  const net = addBuilding({ x: 28, z: -13, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', windows: true, seed: 37 })
+  const net = addBuilding({ x: 28, z: -13, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', seed: 37, style: 'glass' })
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Read today\'s market headlines, same as the campus café.', 'cafe', 'Read the room')
-  const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.7, door: 'px', title: 'Carbon', subtitle: 'practice pledge', seed: 41 })
+  const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.6, door: 'px', title: 'Carbon desk', subtitle: 'practice pledge', seed: 41, style: 'kiosk', mint: true })
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a climate project with in-game cash and log your pledge.', 'climate', 'The desk')
-  const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'phones · laptops · drones', windows: true, seed: 47 })
+  const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'phones · laptops · drones', seed: 47, style: 'pavilion' })
   spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Phones, laptops, accessories and drones for in-game cash.', 'gadgets', 'Open the case')
   spot('dealer', gadgets.x + 5, gadgets.z, 2.2, 'Auto dealership', 'Cars, jets and air taxis for in-game cash.', 'dealer', 'Browse')
+  architecture.flush(scene)
   // Outdoor showcases: glass cases + lit pedestals so the shops read from the street (not blank walls).
   {
     const caseGlass = new THREE.MeshStandardMaterial({ color: 0xa8c0cc, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.28 })
@@ -1458,33 +1245,6 @@ export function createWorld(options: {
   addGlow(row.x, 2.2, row.z, 0xffb089, 8)
   addGlow(trench.x, 2.2, trench.z, 0xff8fbf, 7)
 
-  const skyRand = mulberry32(4)
-  for (let i = 0; i < 16; i += 1) {
-    const angle = (i / 16) * Math.PI * 2
-    const dist = 72 + skyRand() * 6
-    const height = 7 + skyRand() * 10
-    const w = 3 + skyRand() * 2
-    const d = 3 + skyRand() * 2
-    const shell = new THREE.Mesh(
-      new THREE.BoxGeometry(w, height, d),
-      new THREE.MeshStandardMaterial({ color: 0x2a3238, roughness: 0.88 }),
-    )
-    shell.position.set(Math.cos(angle) * dist, height / 2, Math.sin(angle) * dist)
-    shell.userData.ghost = true
-    shell.castShadow = false
-    // Soft warm window band so distant silhouettes are buildings, not untouchable black boxes.
-    const band = new THREE.Mesh(
-      new THREE.PlaneGeometry(w * 0.72, height * 0.55),
-      new THREE.MeshStandardMaterial({ color: 0x2a3238, emissive: 0xffc98a, emissiveIntensity: 0.06, roughness: 1, side: THREE.DoubleSide }),
-    )
-    band.position.copy(shell.position)
-    band.position.y = height * 0.42
-    band.lookAt(0, band.position.y, 0)
-    band.userData.ghost = true
-    band.castShadow = false
-    scene.add(shell, band)
-  }
-
   const moon = new THREE.Mesh(new THREE.SphereGeometry(2.2, 20, 14), new THREE.MeshBasicMaterial({ color: 0xd7efe4, toneMapped: false }))
   moon.position.set(-28, 32, -24)
   moon.userData.ghost = true
@@ -1554,7 +1314,7 @@ export function createWorld(options: {
     trimPulse = night ? 0.95 : dusk ? 0.62 : 0.28
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = night ? 0.4 : 0.08
-    for (const facade of facades) facade.emissiveIntensity = night ? 0.18 : dusk ? 0.08 : 0.015
+    architecture.setNight(night ? 1 : dusk ? 0.35 : 0)
     for (const light of glow) light.intensity = night ? Number(light.userData.night) : dusk ? Number(light.userData.night) * 0.35 : 0
     moon.visible = night || dusk
     stars.visible = night
@@ -1566,7 +1326,7 @@ export function createWorld(options: {
   const duskSky = new THREE.Color(0x4a3568)
   const duskLow = new THREE.Color(0xf0a060)
   const daySky = new THREE.Color(0x2f86ea)
-  const dayLow = new THREE.Color(0xa9cdf0)
+  const dayLow = new THREE.Color(0x9aacba)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
   const sunDay = new THREE.Color(0xffd8a6)
@@ -1584,7 +1344,7 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.0055 - day * 0.0028 + dusk * 0.0022 // day soft haze, dusk thicker
+    fog.density = 0.0064 - day * 0.0019 + dusk * 0.0016 // soft aerial haze by day, thicker at dusk
     // Day: softer sun (Zahra: too bright). Night: lamps. Dusk: warm amber.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
@@ -1603,7 +1363,7 @@ export function createWorld(options: {
     waterMat.emissiveIntensity = 0.04 + night * 0.07
     groundMat.roughness = 0.97 - night * 0.3
     groundMat.metalness = 0.02 + night * 0.12
-    for (const facade of facades) facade.emissiveIntensity = 0.012 + night * 0.35
+    architecture.setNight(night)
     for (const light of glow) light.intensity = Number(light.userData.night) * 1.15 * Math.max(0, night - 0.1)
     poolNight = night
     decalMat.opacity = 0.9 * Math.max(0, night - 0.15)
