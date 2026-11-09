@@ -328,25 +328,36 @@ export function createWorld(options: {
     const rect = (x: number, z: number, w: number, d: number) => {
       g.fillRect(toX(x - w / 2), toY(z - d / 2), w * scale, d * scale)
     }
-    g.fillStyle = '#24312c'
+    // Warm sand base (Zahra env realism): desert-adjacent plaza ground, not grey asphalt wash.
+    g.fillStyle = '#c4a574'
     g.fillRect(0, 0, 2048, 2048)
-    g.fillStyle = '#2c6a46'
+    // Soft dune noise
+    for (let i = 0; i < 180; i++) {
+      const x = (Math.sin(i * 12.9898) * 43758.5453) % 1
+      const y = (Math.sin(i * 78.233) * 12345.678) % 1
+      const xx = ((x < 0 ? x + 1 : x) * 2048) | 0
+      const yy = ((y < 0 ? y + 1 : y) * 2048) | 0
+      g.fillStyle = i % 2 ? 'rgba(168,130,78,0.22)' : 'rgba(232,210,160,0.18)'
+      g.beginPath(); g.arc(xx, yy, 18 + (i % 7) * 4, 0, Math.PI * 2); g.fill()
+    }
+    g.fillStyle = '#3f7a4a'
     g.beginPath()
     g.arc(toX(-40), toY(40), 14 * scale, 0, Math.PI * 2)
     g.fill()
-    g.fillStyle = '#1a4f48'
+    g.fillStyle = '#2a5c42'
     g.beginPath()
     g.arc(toX(-40), toY(40), 6.4 * scale, 0, Math.PI * 2)
     g.fill()
-    g.fillStyle = '#4e6874'
+    g.fillStyle = '#b8965c'
     rect(0, -48, 32, 26)
-    g.fillStyle = '#3e4a46'
+    g.fillStyle = '#a88855'
     rect(-48, 0, 24, 30)
-    g.fillStyle = '#5c4e4a'
+    g.fillStyle = '#9a7a4e'
     rect(48, 0, 24, 30)
-    g.fillStyle = '#4a3a42'
+    g.fillStyle = '#8f7048'
     rect(0, 48, 32, 24)
-    g.fillStyle = '#6d7c74'
+    // Roads stay darker packed sand / asphalt strips
+    g.fillStyle = '#6b5a3e'
     rect(0, 0, 80, 6.4)
     rect(0, 0, 6.4, 80)
     g.strokeStyle = 'rgba(26, 243, 143, 0.55)'
@@ -357,7 +368,7 @@ export function createWorld(options: {
     g.moveTo(toX(0), toY(-40))
     g.lineTo(toX(0), toY(40))
     g.stroke()
-    g.fillStyle = '#8b9b93'
+    g.fillStyle = '#d2b484'
     g.beginPath()
     g.arc(mid, mid, 15 * scale, 0, Math.PI * 2)
     g.fill()
@@ -377,12 +388,13 @@ export function createWorld(options: {
 
   const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 0.92, metalness: 0.02 })
   {
-    // Poly Haven asphalt: tiled normal + roughness give the painted ground real grain.
-    const asphalt = pbr('asphalt_02', SPAN / 6)
-    groundMat.normalMap = asphalt.normalMap
-    groundMat.roughnessMap = asphalt.roughnessMap
+    // Sand-grain normal (reuse asphalt grain softly) + warm tint already in the painted map.
+    const grit = pbr('asphalt_02', SPAN / 5)
+    groundMat.normalMap = grit.normalMap
+    groundMat.roughnessMap = grit.roughnessMap
     groundMat.roughness = 1
-    groundMat.normalScale.set(0.6, 0.6)
+    groundMat.normalScale.set(0.35, 0.35)
+    groundMat.color = new THREE.Color(0xf0e2c4)
   }
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, SPAN), groundMat)
   ground.rotation.x = -Math.PI / 2
@@ -1529,6 +1541,24 @@ export function createWorld(options: {
           const material = ripple.mesh.material as THREE.MeshBasicMaterial
           material.opacity = (1 - t) * 0.45
         }
+        // Soft wind sway on tree crowns (leaves).
+        treeSpots.forEach(([x, z, base], index) => {
+          const scale = base * 1.9
+          const sway = Math.sin(time * 1.1 + index * 0.7) * 0.045
+          const sway2 = Math.cos(time * 0.9 + index * 1.1) * 0.03
+          dummy.position.set(x, 1.45 * scale, z)
+          dummy.rotation.set(sway * 0.4, 0, sway)
+          dummy.scale.set(scale * (1 + sway2 * 0.15), scale * 0.82, scale * (1 - sway2 * 0.1))
+          dummy.updateMatrix()
+          crowns.setMatrixAt(index, dummy.matrix)
+          dummy.position.set(x + 0.15 * scale, 1.95 * scale, z - 0.1 * scale)
+          dummy.rotation.set(sway * 0.5, index + time * 0.05, sway2)
+          dummy.scale.setScalar(scale * 0.8 * (1 + sway * 0.08))
+          dummy.updateMatrix()
+          crowns2.setMatrixAt(index, dummy.matrix)
+        })
+        crowns.instanceMatrix.needsUpdate = true
+        crowns2.instanceMatrix.needsUpdate = true
       }
       if (time < nextScreen) return
       nextScreen = time + 0.5

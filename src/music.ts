@@ -17,12 +17,12 @@ function el(): HTMLAudioElement {
   audio.volume = (volume / 100) * 0.6
   return audio
 }
-export function setMusicVolume(v: number): void { volume = Math.max(0, Math.min(100, v)); write(LEVEL, String(volume)); if (audio) audio.volume = (volume / 100) * 0.6 }
+export function setMusicVolume(v: number): void { volume = Math.max(0, Math.min(100, v)); write(LEVEL, String(volume)); if (audio) audio.volume = (volume / 100) * 0.6; void import('./ambient-audio.ts').then((a) => a.syncAmbientToMusic()).catch(() => {}) }
 /** Call only from a tap handler. Returns false if the browser refused playback. */
 export async function setMusic(on: boolean): Promise<boolean> {
   write(PREF, on ? 'on' : 'off')
-  if (!on) { audio?.pause(); return true }
-  try { await el().play(); return true } catch { write(PREF, 'off'); return false }
+  if (!on) { audio?.pause(); void import('./ambient-audio.ts').then((a) => a.syncAmbientToMusic()).catch(() => {}); return true }
+  try { await el().play(); void import('./ambient-audio.ts').then((a) => a.syncAmbientToMusic()).catch(() => {}); return true } catch { write(PREF, 'off'); return false }
 }
 /** Resume on the first tap of a session if the player left music on (never before a gesture). */
 export function resumeMusicOnFirstTap(): void {
