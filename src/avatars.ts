@@ -182,18 +182,22 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     avatar.object.scale.set(sc.b, sc.h, sc.b)
     upgradeToHuman(avatar, model, {
       glasses: own && !female,
-      makeup: own ? { lip: mo.lip, blush: mo.blush } : undefined,
+      makeup: undefined, // no makeup (Zahra: free modest creator, no makeup)
       extras: own ? extras(luxury) : undefined,
       look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().top ?? tint } : undefined,
       height: female ? 1.68 : 1.78,
     })
     if (own) {
+      const head0 = avatar.object.getObjectByName('Head')
+      if (head0) head0.scale.set(mo.f ?? 1, 1, mo.f ?? 1)
       // Boutique colours (blue, mint, sand, coral, ice) recolour the rigged model's top, not just the hidden procedural body.
       const setStyle = avatar.setStyle
       const base: { hair: number; skin?: number } = female ? { hair } : { hair, skin: 0xe8c3a6 }
       avatar.setStyle = (t, lux) => {
         setStyle(t, lux)
         const now = getMorph(); avatar.object.scale.set(now.b, now.h, now.b)
+        const head = avatar.object.getObjectByName('Head') as { scale: { set: (x:number,y:number,z:number)=>void } } | undefined
+        if (head?.scale) head.scale.set(now.f ?? 1, 1, now.f ?? 1)
         const o = outfit()
         const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t }
         avatar.object.userData.extras = extras(lux)
@@ -201,7 +205,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         avatar.object.userData.look = look
         const apply = avatar.object.userData.applyLook as ((l: typeof look) => void) | undefined
         apply?.(look)
-        ;(avatar.object.userData.setMakeup as ((l?: number | null, b?: number | null) => void) | undefined)?.(now.lip, now.blush)
+        // makeup disabled
       }
     }
     const setMask = avatar.setMask

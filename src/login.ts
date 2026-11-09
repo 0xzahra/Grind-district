@@ -1,6 +1,7 @@
 import { trackFunnelOnce } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
+import { needsAvatarCreator, mountAvatarCreator } from './creator.ts'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,16}$/
 export const CLAIMED_KEY = 'gd.privy.username'
@@ -50,13 +51,19 @@ async function enterAs(_handle: string): Promise<void> {
   window.dispatchEvent(new Event('gd-auth-changed'))
   const menu = document.getElementById('menu')
   if (!menu || menu.hidden) return
-  const go = el('button', 'Enter the district', 'glass-btn primary')
-  go.onclick = () => {
+  const body = document.querySelector<HTMLElement>('#login-dlg .wallet-body')
+  const finish = () => {
     document.getElementById('login-dlg')?.remove()
     window.dispatchEvent(new Event('gd-auth-changed'))
     document.getElementById('play')?.click()
   }
-  document.querySelector('#login-dlg .wallet-body')?.append(go)
+  if (body && needsAvatarCreator()) {
+    mountAvatarCreator(body, finish)
+    return
+  }
+  const go = el('button', 'Enter the district', 'glass-btn primary')
+  go.onclick = finish
+  body?.append(go)
 }
 
 export type LoginMode = 'signin' | 'signup'

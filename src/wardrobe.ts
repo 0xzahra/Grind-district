@@ -8,6 +8,8 @@ export const PIECES: Piece[] = [
   { id: 'oxford-sky', slot: 'top', label: 'Sky oxford shirt', usd: 40, hex: 0x8fb8e8 },
   { id: 'knit-olive', slot: 'top', label: 'Olive knit', usd: 55, hex: 0x5d6b3a },
   { id: 'blazer-navy', slot: 'top', label: 'Navy blazer', usd: 120, hex: 0x1d2a44 },
+  { id: 'kaftan-sand', slot: 'top', label: 'Sand kaftan', usd: 0, hex: 0xc4a574 },
+  { id: 'abaya-ink', slot: 'top', label: 'Ink abaya', usd: 0, hex: 0x1a1c22, for: 'lady', model: 'dress' },
   { id: 'agbada-gold', slot: 'top', label: 'Gold-thread kaftan', usd: 180, hex: 0xc8962e },
   { id: 'suit-charcoal', slot: 'top', label: 'Charcoal three-piece suit', usd: 260, hex: 0x2e3136, for: 'gent', model: 'suit' },
   { id: 'suit-cream', slot: 'top', label: 'Cream linen suit', usd: 240, hex: 0xe8dcc4, for: 'gent', model: 'suit' },

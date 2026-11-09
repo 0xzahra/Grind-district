@@ -1,5 +1,5 @@
 import { itemPic } from './itemPics.ts'
-import { getMorph, setMorph, HAIRS, SKIN_TONES, LIPS, BLUSH, type Style } from './morph.ts'
+import { getMorph, setMorph, HAIRS, SKIN_TONES, type Style } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
@@ -785,7 +785,7 @@ export function mountUi(
       wrap.append(para(slotNames[slot], 'kicker'), grid)
     }
     const mo = getMorph()
-    const slider = (label: string, key: 'h' | 'b', min: number, max: number) => {
+    const slider = (label: string, key: 'h' | 'b' | 'f', min: number, max: number) => {
       const row = document.createElement('label'); row.className = 'morph-row'
       const t = document.createElement('span'); t.textContent = label
       const r = document.createElement('input'); r.type = 'range'; r.min = String(min); r.max = String(max); r.step = '0.01'; r.value = String(mo[key])
@@ -793,25 +793,19 @@ export function mountUi(
       row.append(t, r); return row
     }
     const looks = document.createElement('details'); looks.className = 'looks-more'
-    const lsum = document.createElement('summary'); lsum.textContent = 'Body, hair & makeup'; looks.append(lsum)
+    const lsum = document.createElement('summary'); lsum.textContent = 'Body, face, hair & skin'; looks.append(lsum)
     const realAppend = wrap.append.bind(wrap)
     wrap.append(looks)
     const intoLooks = (...n: Array<Node | string>) => looks.append(...n)
     intoLooks(para('Body', 'kicker'), slider('Height', 'h', 0.92, 1.08), slider('Build', 'b', 0.9, 1.15))
+    intoLooks(para('Face shape', 'kicker'), slider('Face', 'f', 0.88, 1.12))
     const hairs = document.createElement('div'); hairs.className = 'tabs'
     for (const hc of HAIRS) hairs.append(button(hc.label, mo.hair === hc.hex ? 'primary' : 'ghost', () => { setMorph({ hair: hc.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }))
     intoLooks(para('Hair', 'kicker'), hairs)
     const tones = document.createElement('div'); tones.className = 'tabs skin-tones'
     for (const st of SKIN_TONES) { const b = button('', mo.skin === st.hex ? 'primary' : 'ghost', () => { setMorph({ skin: st.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }); b.style.setProperty('background', `#${st.hex.toString(16).padStart(6, '0')}`, 'important'); b.title = st.label; b.setAttribute('aria-label', `Skin tone ${st.label}`); tones.append(b) }
     intoLooks(para('Skin tone', 'kicker'), tones)
-    const mkRow = (label: string, list: ReadonlyArray<{ label: string; hex: number | null }>, key: 'lip' | 'blush') => {
-      const r = document.createElement('div'); r.className = 'tabs'
-      for (const it of list) r.append(button(it.label, (mo[key] ?? null) === it.hex ? 'primary' : 'ghost', () => { setMorph({ [key]: it.hex }); hooks.onStyle(); saveLookSoon(); open('boutique') }))
-      intoLooks(para(label, 'kicker'), r)
-    }
     void realAppend
-    mkRow('Makeup · lips', LIPS, 'lip')
-    mkRow('Makeup · blush', BLUSH, 'blush')
     wrap.append(para(`Gold chain · ${money(CHAIN_USD)} practice. A want, not a need. Resells for ${money(RESELL_USD)}.`, 'muted'))
     if (save.luxury) {
       wrap.append(button('Resell the chain', 'ghost', () => {
