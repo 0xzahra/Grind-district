@@ -4,8 +4,9 @@ import type { Graphics, PanelId, Season, TimeOfDay } from './logic.ts'
 import { LOOK, lightBudget } from './lookPalette.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
-import { LANE_INNER, LANE_OUTER, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
+import { LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
 import { createArchitecture, type Facade, type Style } from './architecture.ts'
+import { buildShowroom } from './showcase.ts'
 
 export type Hotspot = {
   id: string
@@ -666,73 +667,14 @@ export function createWorld(options: {
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Read today\'s market headlines, same as the campus café.', 'cafe', 'Read the room')
   const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.6, door: 'px', title: 'Carbon desk', subtitle: 'practice pledge', seed: 41, style: 'kiosk', mint: true })
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a climate project with in-game cash and log your pledge.', 'climate', 'The desk')
-  const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'phones · laptops · drones', seed: 47, style: 'pavilion' })
+  // Glass pavilion facing the plaza, just clear of the roundabout; the dealership platform sits beside it.
+  const gadgets = addBuilding({ x: -20, z: 15.8, w: 5.4, d: 4.2, h: 3.1, door: 'nz', title: 'Gadgets', subtitle: 'phones · laptops · drones', seed: 47, style: 'pavilion' })
   spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Phones, laptops, accessories and drones for in-game cash.', 'gadgets', 'Open the case')
-  spot('dealer', gadgets.x + 5, gadgets.z, 2.2, 'Auto dealership', 'Cars, jets and air taxis for in-game cash.', 'dealer', 'Browse')
+  const dealerAt = { x: -27, z: 10.4 }
+  spot('dealer', dealerAt.x + 2.2, dealerAt.z - 3.1, 2.2, 'Auto dealership', 'Cars, jets and air taxis for in-game cash.', 'dealer', 'Browse')
+  reserved.push({ kind: 'box', x: dealerAt.x, z: dealerAt.z, hx: 3.4, hz: 3.4 })
   architecture.flush(scene)
-  // Outdoor showcases: glass cases + lit pedestals so the shops read from the street (not blank walls).
-  {
-    const caseGlass = new THREE.MeshStandardMaterial({ color: 0xa8c0cc, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.28 })
-    const caseFrame = new THREE.MeshStandardMaterial({ color: 0x2a3036, roughness: 0.45, metalness: 0.55 })
-    const brassLite = new THREE.MeshStandardMaterial({ color: 0xc9a25e, roughness: 0.35, metalness: 0.7, emissive: 0x3a2a10, emissiveIntensity: 0.35 })
-    const addCase = (cx: number, cz: number, yaw: number, buildInner: (g: THREE.Group) => void, label: string) => {
-      const g = new THREE.Group()
-      g.position.set(cx, 0, cz)
-      g.rotation.y = yaw
-      const plinth = solid(new THREE.BoxGeometry(1.35, 0.55, 1.05), stoneDark)
-      plinth.position.y = 0.28
-      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.15, 0.9), caseGlass)
-      glass.position.y = 1.15
-      glass.userData.ghost = true
-      const frame = solid(new THREE.BoxGeometry(1.28, 0.06, 0.98), caseFrame, false)
-      frame.position.y = 1.72
-      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), brassLite)
-      lamp.position.y = 1.78
-      lamp.userData.ghost = true
-      const tag = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.0, 0.28),
-        new THREE.MeshBasicMaterial({ map: paintSign(label, 'on show'), toneMapped: false }),
-      )
-      tag.position.set(0, 0.72, 0.56)
-      tag.userData.ghost = true
-      g.add(plinth, glass, frame, lamp, tag)
-      buildInner(g)
-      scene.add(g)
-      obstacles.push({ kind: 'circle', x: cx, z: cz, r: 0.85 })
-    }
-    // Phone + laptop in the Gadgets window bay
-    addCase(gadgets.x - 2.2, gadgets.z + 3.1, 0, (g) => {
-      const phone = solid(new THREE.BoxGeometry(0.18, 0.36, 0.04), new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: 0.3, metalness: 0.6 }), false)
-      phone.position.set(-0.22, 0.95, 0)
-      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.28), new THREE.MeshBasicMaterial({ color: 0x4ecdc4, toneMapped: false }))
-      screen.position.set(-0.22, 0.95, 0.025)
-      screen.userData.ghost = true
-      const laptop = solid(new THREE.BoxGeometry(0.42, 0.02, 0.28), new THREE.MeshStandardMaterial({ color: 0xc0c6cc, roughness: 0.35, metalness: 0.5 }), false)
-      laptop.position.set(0.22, 0.78, 0)
-      const lid = solid(new THREE.BoxGeometry(0.42, 0.28, 0.02), new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.4, metalness: 0.45 }), false)
-      lid.position.set(0.22, 0.92, -0.12)
-      lid.rotation.x = -0.5
-      g.add(phone, screen, laptop, lid)
-    }, 'Gadgets')
-    // Compact hatch on a turntable pad at the dealership
-    addCase(gadgets.x + 5.2, gadgets.z + 3.0, 0, (g) => {
-      const body = solid(new THREE.BoxGeometry(0.55, 0.22, 0.95), new THREE.MeshStandardMaterial({ color: 0x1a4cff, roughness: 0.35, metalness: 0.55 }), false)
-      body.position.set(0, 0.88, 0)
-      const cabin = solid(new THREE.BoxGeometry(0.48, 0.18, 0.5), new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.15, metalness: 0.7 }), false)
-      cabin.position.set(0, 1.05, -0.08)
-      for (const [wx, wz] of [[-0.22, 0.32], [0.22, 0.32], [-0.22, -0.32], [0.22, -0.32]] as const) {
-        const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 8), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }))
-        wh.rotation.z = Math.PI / 2
-        wh.position.set(wx, 0.76, wz)
-        wh.userData.ghost = true
-        g.add(wh)
-      }
-      g.add(body, cabin)
-      g.userData.spinShowcase = true
-    }, 'Auto')
-    addGlow(gadgets.x - 2.2, 1.6, gadgets.z + 3.1, 0xffe2b8, 4)
-    addGlow(gadgets.x + 5.2, 1.6, gadgets.z + 3.0, 0xffe2b8, 4)
-  }
+  buildShowroom(scene, { obstacles, pavilion: { x: -20, z: 15.8, w: 5.4, d: 4.2 }, dealer: dealerAt })
 
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.
@@ -820,18 +762,33 @@ export function createWorld(options: {
       g.setLineDash([18, 16])
       g.beginPath()
       g.moveTo(mid - ROAD_END * scale, mid)
-      g.lineTo(mid - 16 * scale, mid)
-      g.moveTo(mid + 16 * scale, mid)
+      g.lineTo(mid - (RING_OUT + 1) * scale, mid)
+      g.moveTo(mid + (RING_OUT + 1) * scale, mid)
       g.lineTo(mid + ROAD_END * scale, mid)
       g.moveTo(mid, mid - ROAD_END * scale)
-      g.lineTo(mid, mid - 16 * scale)
-      g.moveTo(mid, mid + 16 * scale)
+      g.lineTo(mid, mid - (RING_OUT + 1) * scale)
+      g.moveTo(mid, mid + (RING_OUT + 1) * scale)
       g.lineTo(mid, mid + ROAD_END * scale)
       for (const l of SIDE_LINES) {
         if (l.horizontal) { g.moveTo(mid + (l.from + 3) * scale, mid + l.at * scale); g.lineTo(mid + (l.to - 3) * scale, mid + l.at * scale) }
         else { g.moveTo(mid + l.at * scale, mid + (l.from + 3) * scale); g.lineTo(mid + l.at * scale, mid + (l.to - 3) * scale) }
       }
       g.stroke()
+      g.setLineDash([])
+      // Roundabout: a paver footway ring, the asphalt ring with flared mouths where the arms join, and a
+      // dashed lane edge. The plaza paving sits on top so everything meets it cleanly.
+      g.fillStyle = '#77706a'
+      g.beginPath(); g.arc(mid, mid, (RING_OUT + 1.6) * scale, 0, Math.PI * 2); g.fill()
+      g.fillStyle = '#1e2624'
+      g.beginPath(); g.arc(mid, mid, RING_OUT * scale, 0, Math.PI * 2); g.fill()
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) for (const sgn of [-1, 1]) {
+        const cx = dx * (RING_OUT + 0.6) + (dx ? 0 : sgn * (ROAD_HALF + 0.6)), cz = dz * (RING_OUT + 0.6) + (dz ? 0 : sgn * (ROAD_HALF + 0.6))
+        g.beginPath(); g.arc(mid + cx * scale, mid + cz * scale, 1.6 * scale, 0, Math.PI * 2); g.fill()
+      }
+      g.strokeStyle = 'rgba(230, 236, 232, 0.45)'
+      g.lineWidth = 2
+      g.setLineDash([10, 12])
+      g.beginPath(); g.arc(mid, mid, (RING_IN + 0.35) * scale, 0, Math.PI * 2); g.stroke()
       g.setLineDash([])
       // The plaza paving sits on top so the roads meet it cleanly.
       g.fillStyle = '#857a6b'
@@ -1123,7 +1080,7 @@ export function createWorld(options: {
   ]
   const clearOf = (x: number, z: number) => {
     if (Math.abs(x) < 5 || Math.abs(z) < 5) return false
-    if (Math.hypot(x, z) < 15) return false
+    if (Math.hypot(x, z) < RING_OUT + 2.4) return false // plaza + roundabout
     if (Math.hypot(x + 40, z - 40) < 11) return false
     if (ESTATE_ZONES.some((r) => Math.abs(x - r.x) < r.hx + 1 && Math.abs(z - r.z) < r.hz + 1)) return false
     if (Math.abs(x) > 56 || Math.abs(z) > 56) return false

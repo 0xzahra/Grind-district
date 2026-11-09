@@ -2,7 +2,11 @@
 // Roads: two straight arms (x and z axes) from the plaza ring out to a turnaround that stops well short of
 // the civic buildings at the arm ends (trading floor, influencer row, learning hall, trenches).
 export const ROAD_HALF = 3.2
-export const LANE_INNER = 18
+// Roundabout round the plaza: one-way ring of asphalt between RING_IN and RING_OUT; the arms join it.
+export const RING_IN = 15.6
+export const RING_OUT = 20.2
+export const RING_R = 17.9
+export const LANE_INNER = 21
 export const LANE_OUTER = 33 // the U-turn apex reaches LANE_OUTER + ROAD_HALF/2
 export const ROAD_END = 37 // painted asphalt ends here (turning bay)
 export const ARMS = [
@@ -34,7 +38,7 @@ export const FOOTPRINTS: Footprint[] = [
   { x: 36, z: 46, w: 6, d: 5, label: 'Vacant house' },
   { x: 28, z: -16, w: 8, d: 6, label: 'Terminal café' },
   { x: -28, z: 16, w: 4.4, d: 2.6, label: 'Carbon desk' },
-  { x: -16, z: 14, w: 5.4, d: 4.2, label: 'Gadgets' },
+  { x: -20, z: 15.8, w: 5.4, d: 4.2, label: 'Gadgets' },
 ]
 
 /** Lane centre point for arm `arm`, progress t (0 = plaza ring, 1 = turnaround), outbound or inbound lane. */
@@ -136,4 +140,25 @@ export function sidePoint(s: number, outbound: boolean): { x: number; z: number;
   // Right of travel (y up): (-hz, hx)... for +z travel right is -x, i.e. (-hz, ?): right = (-hz, hx) gives (-1, 0) for (0,1).
   const off = ROAD_HALF * 0.5
   return { x: x - hz * off, z: z + hx * off, heading: Math.atan2(hx, hz) }
+}
+
+/** Ring transfer from the inbound end of arm `from` to the outbound start of arm `to`. Traffic keeps right,
+ *  so the ring runs clockwise in x/z (angle decreasing). Radius eases from the arm lane onto RING_R and back. */
+export function ringRoute(from: number, to: number): { x: number; z: number }[] {
+  const a = lanePoint(from, 0, false), b = lanePoint(to, 0, true)
+  const r0 = Math.hypot(a.x, a.z), r1 = Math.hypot(b.x, b.z)
+  const t0 = Math.atan2(a.z, a.x)
+  let t1 = Math.atan2(b.z, b.x)
+  while (t1 > t0) t1 -= Math.PI * 2
+  const ease = (e0: number, e1: number, u: number) => { const k = Math.min(1, Math.max(0, (u - e0) / (e1 - e0))); return k * k * (3 - 2 * k) }
+  const n = Math.max(12, Math.ceil(((t0 - t1) * RING_R) / 0.5))
+  const out: { x: number; z: number }[] = []
+  const blend = Math.min(0.24, 5.5 / ((t0 - t1) * RING_R))
+  for (let i = 0; i <= n; i++) {
+    const u = i / n
+    const th = t0 + (t1 - t0) * u
+    const r = RING_R + (r0 - RING_R) * (1 - ease(0, blend, u)) + (r1 - RING_R) * ease(1 - blend, 1, u)
+    out.push({ x: Math.cos(th) * r, z: Math.sin(th) * r })
+  }
+  return out
 }

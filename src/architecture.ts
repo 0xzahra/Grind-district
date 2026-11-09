@@ -467,7 +467,7 @@ export function createArchitecture(o: {
       push(led, new THREE.BoxGeometry(w + 1.34, e, e).translate(x, top, z - (d + 1.3) / 2))
       push(led, new THREE.BoxGeometry(e, e, d + 1.34).translate(x + (w + 1.3) / 2, top, z))
       push(led, new THREE.BoxGeometry(e, e, d + 1.34).translate(x - (w + 1.3) / 2, top, z))
-      const s = sign(spec, 0.18 + H + 0.12, Math.min(2.6, (spec.door === 'px' || spec.door === 'nx' ? d : w) * 0.85), 0.68)
+      const s = sign(spec, 0.18 + H + 0.12, Math.min(1.7, (spec.door === 'px' || spec.door === 'nx' ? d : w) * 0.6), 0.68)
       if (s) extra.push(s)
       return extra
     }

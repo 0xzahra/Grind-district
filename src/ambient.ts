@@ -8,7 +8,7 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
   const dummy = new THREE.Object3D()
   const spots: { x: number; z: number; rot: number }[] = []
   for (const axis of [0, 1]) for (const sign of [-1, 1]) for (const side of [-1, 1]) {
-    for (let t = 19; t < 58; t += 7.5) {
+    for (let t = 24; t < 58; t += 7.5) {
       const along = sign * t
       const off = side * 5.3
       const x = axis ? off : along

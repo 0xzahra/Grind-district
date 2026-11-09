@@ -59,7 +59,7 @@ const blocks: Block[] = [
   ...HOUSES.map((home) => ({ x: home.x, z: home.z, w: home.w, d: home.d, label: home.title })),
   { x: 28, z: -16, w: 8, d: 6, label: 'Terminal café' },
   { x: -28, z: 16, w: 4.4, d: 2.6, label: 'Carbon' },
-  { x: -16, z: 14, w: 5.4, d: 4.2, label: 'Gadgets' },
+  { x: -20, z: 15.8, w: 5.4, d: 4.2, label: 'Gadgets' },
 ]
 
 function citySpots(): Spot[] {
@@ -99,7 +99,7 @@ function citySpots(): Spot[] {
     })),
     { id: 'net', ...net, r: 2.3, title: 'Internet café', body: 'Read today\'s market headlines, same as the campus café.', action: 'cafe', enter: 'Read the room' },
     { id: 'climate', ...desk, r: 2.3, title: 'Carbon desk', body: 'Back a climate project with in-game cash and log your pledge.', action: 'climate', enter: 'The desk' },
-    { id: 'gadgets', ...at(blocks.length - 1, 'pz'), r: 2.2, title: 'Gadgets', body: 'Phones, laptops, accessories and drones for in-game cash.', action: 'gadgets', enter: 'Open the case' },
+    { id: 'gadgets', ...at(blocks.length - 1, 'nz'), r: 2.2, title: 'Gadgets', body: 'Phones, laptops, accessories and drones for in-game cash.', action: 'gadgets', enter: 'Open the case' },
     { id: 'prayer', x: -24, z: 26, r: 2.6, title: 'Masjid', body: 'Prayer hall. Sit quietly to focus before your next course.', action: 'prayer', enter: 'Sit' },
     { id: 'ring', x: 0, z: 0, r: 4.4, title: 'The Grind Ring', body: 'The central plaza where every player meets.' },
     { id: 'ladder', x: -9, z: -8, r: 2.3, title: 'The ladder', body: 'The rank ladder: shrimp to whale. Climb it by learning and coming back daily.' },
