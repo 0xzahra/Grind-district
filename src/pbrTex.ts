@@ -3,7 +3,7 @@ import * as THREE from 'three'
 // Shared, cached loader for CC0 Poly Haven PBR sets packed to 512 px WebP (see CREDITS.md).
 const loader = new THREE.TextureLoader()
 const cache = new Map<string, THREE.Texture>()
-export function pbrSet(name: string, repeat = 2, anisotropy = 4) {
+export function pbrSet(name: string, repeat = 2, anisotropy = 8) {
   const load = (ch: string, srgb: boolean) => {
     const key = `${name}_${ch}_${repeat}`
     let t = cache.get(key)
