@@ -28,7 +28,6 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     im.computeBoundingSphere()
     scene.add(im)
   }
-  const metal = new THREE.MeshStandardMaterial({ ...pbrSet('metal_plate', 1), color: 0x3a3d40, roughness: 1, metalness: 0.7 })
   const paint = new THREE.MeshStandardMaterial({ color: 0x2d3133, roughness: 0.45, metalness: 0.6 })
   const granite = new THREE.MeshStandardMaterial({ color: 0x9c9890, roughness: 0.85 })
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e7df, roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -2 })
@@ -126,31 +125,24 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     holes.push({ ...along(dx, dz, t, (t % 2 ? 1 : -1) * ROAD_HALF * 0.5), y: 0.013 })
     for (const s of [-1, 1]) drains.push({ ...along(dx, dz, t + 3, s * (ROAD_HALF - 0.25)), y: 0.013 })
   }
-  inst(new THREE.CylinderGeometry(0.38, 0.38, 0.02, 20), metal, holes)
-  inst(new THREE.BoxGeometry(0.7, 0.02, 0.32), metal, drains.map((d) => ({ ...d, ry: (d.ry ?? 0) })))
-
-  // Timber power poles with cross-arms and sagging wires along the outer arms (medium/high).
-  if (!low) {
-    const poles: T[] = []
-    for (const [dx, dz] of arms) for (let t = 24; t <= 36; t += 12) { const p = along(dx, dz, t, -(ROAD_HALF + 2.3)); if (free(p.x, p.z, 0.25)) poles.push({ ...p }) }
-    inst(new THREE.CylinderGeometry(0.11, 0.15, 7, 7).translate(0, 3.5, 0), timber, poles, true)
-    inst(new THREE.BoxGeometry(1.6, 0.1, 0.1).translate(0, 6.6, 0), timber, poles.map((p) => ({ ...p, ry: (p.ry ?? 0) + Math.PI / 2 })))
-    const pts: number[] = []
-    for (let i = 0; i + 1 < poles.length; i += 2) {
-      const a = poles[i]!, b = poles[i + 1]!
-      for (const off of [-0.65, 0.65]) {
-        const ox = a.ry ? off : 0, oz = a.ry ? 0 : off
-        for (let k = 0; k < 8; k++) {
-          const t0 = k / 8, t1 = (k + 1) / 8, sag = (t: number) => 6.65 - 0.5 * 4 * t * (1 - t)
-          pts.push(a.x + (b.x - a.x) * t0 + ox, sag(t0), a.z + (b.z - a.z) * t0 + oz, a.x + (b.x - a.x) * t1 + ox, sag(t1), a.z + (b.z - a.z) * t1 + oz)
-        }
-      }
-    }
-    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
-    const wires = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x1b1b1b })); wires.userData.ghost = true; wires.raycast = () => undefined
-    scene.add(wires)
-    for (const p of poles) obstacles.push({ kind: 'circle', x: p.x, z: p.z, r: 0.2 })
+  // Covers are painted so they read as what they are: a cast manhole lid with a ring and treads, a slotted kerb drain.
+  const cover = (draw: (g: CanvasRenderingContext2D) => void) => {
+    const c = document.createElement('canvas'); c.width = c.height = 128
+    const g = c.getContext('2d')!; draw(g)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
+    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, metalness: 0.35, transparent: true, alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -3 })
   }
+  const lid = cover((g) => {
+    g.fillStyle = '#5f6266'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill()
+    g.strokeStyle = '#3d4043'; g.lineWidth = 7; g.beginPath(); g.arc(64, 64, 54, 0, 7); g.stroke()
+    g.lineWidth = 5; for (let i = -3; i <= 3; i++) { const w = Math.sqrt(1 - (i / 4) ** 2) * 40; g.beginPath(); g.moveTo(64 - w, 64 + i * 11); g.lineTo(64 + w, 64 + i * 11); g.stroke() }
+  })
+  const grate = cover((g) => {
+    g.fillStyle = '#5f6266'; g.fillRect(2, 34, 124, 60)
+    g.fillStyle = '#26282a'; for (let x = 12; x < 116; x += 15) g.fillRect(x, 42, 8, 44)
+  })
+  inst(new THREE.PlaneGeometry(0.8, 0.8).rotateX(-Math.PI / 2), lid, holes)
+  inst(new THREE.PlaneGeometry(0.8, 0.8).rotateX(-Math.PI / 2), grate, drains.map((d) => ({ ...d, ry: (d.ry ?? 0) })))
 
   // Park (basin at -40,40): real grass, a clipped hedge ring, flower beds and a steel railing round the water.
   const grassSet = pbrSet('leafy_grass', 9)

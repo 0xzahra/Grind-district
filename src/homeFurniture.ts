@@ -15,11 +15,11 @@ const MATS: Record<Mat, () => THREE.Material> = {
   oak: () => new THREE.MeshStandardMaterial({ ...pbrSet('wood_table_001', 1), color: 0xe0c3a0, roughness: 1 }),
   walnut: () => new THREE.MeshStandardMaterial({ ...pbrSet('wood_table_001', 1), color: 0x8a6448, roughness: 1 }),
   white: () => new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.8 }),
-  linen: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xf1ede4, roughness: 1 }),
+  linen: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0xf1ede4, roughness: 1 }),
   // Plain warm upholstery: the old patterned texture read as black on phones.
-  fabric: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0xc9b9a0, roughness: 1 }),
-  cushion: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0x8a5a44, roughness: 1 }),
-  blue: () => new THREE.MeshStandardMaterial({ normalMap: pbrSet('fabric_pattern_07', 3).normalMap, roughnessMap: pbrSet('fabric_pattern_07', 3).roughnessMap, normalScale: new THREE.Vector2(0.6, 0.6), color: 0x4d6070, roughness: 1 }),
+  fabric: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0xc9b9a0, roughness: 1 }),
+  cushion: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0x8a5a44, roughness: 1 }),
+  blue: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0x4d6070, roughness: 1 }),
   // Dark bronze by default (lookPalette.ts) so lamp stems and brackets sit with the city's brass trim.
   metal: () => new THREE.MeshStandardMaterial({ color: LOOK.furnitureMetal, roughness: 0.45, metalness: 0.6 }),
   // Lamp shades: faint warm self-light only (no extra real lights).
@@ -110,8 +110,8 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
     for (const sx of [-1, 1]) b(mat, 0.02, ap, d - 0.1, sx * (w / 2 - 0.06), y, 0)
   }
   const nightstand = () => { b('oak', 0.45, 0.5, 0.4, 0, 0.04, 0); legs4('oak', 0.45, 0.4, 0.04, 0.04); b('oak', 0.39, 0.2, 0.008, 0, 0.27, 0.204); b('walnut', 0.3, 0.03, 0.02, 0, 0.36, 0.2) }
-  const tableLamp = (y: number) => { c('metal', 0.08, 0.1, 0.03, 0, y, 0); c('metal', 0.012, 0.012, 0.3, 0, y + 0.03, 0, 6); c('shade', 0.1, 0.15, 0.18, 0, y + 0.28, 0, 12) }
-  const floorLamp = () => { c('metal', 0.16, 0.18, 0.03, 0, 0, 0, 12); c('metal', 0.015, 0.015, 1.45, 0, 0.03, 0, 6); c('shade', 0.15, 0.22, 0.28, 0, 1.4, 0, 14) }
+  const tableLamp = (y: number) => { c('metal', 0.08, 0.1, 0.03, 0, y, 0); c('metal', 0.012, 0.012, 0.3, 0, y + 0.03, 0, 6); c('shade', 0.15, 0.15, 0.18, 0, y + 0.28, 0, 12) } // drum shade (a tapered one read as a funnel)
+  const floorLamp = () => { c('metal', 0.16, 0.18, 0.03, 0, 0, 0, 12); c('metal', 0.015, 0.015, 1.45, 0, 0.03, 0, 6); c('shade', 0.22, 0.22, 0.28, 0, 1.4, 0, 14) }
   const shelf = () => { // wall shelf: two boards on brackets with books
     for (const y of [1.2, 1.6]) { b('walnut', 1.0, 0.03, 0.24, 0, y, 0); for (const sx of [-0.4, 0.4]) b('metal', 0.02, 0.1, 0.18, sx, y - 0.1, -0.02) }
     for (let i = 0; i < 6; i++) b(i % 2 ? 'book' : 'blue', 0.05, 0.2 + (i % 3) * 0.03, 0.17, -0.38 + i * 0.07, 1.23, 0)

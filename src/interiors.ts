@@ -85,7 +85,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const put = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => { const me = new THREE.Mesh(g, m); me.position.set(x, y, z); f.group.add(me); extra.push(g, m); return me }
     if (items.includes('house-rug')) { const r = put(new THREE.PlaneGeometry(3.2, 2.1), std(0x7a3b2a, 0.95), 1.5, 0.015, 2.2); r.rotation.x = -Math.PI / 2; put(new THREE.PlaneGeometry(2.6, 1.5), std(0xc9a46a, 0.95), 1.5, 0.02, 2.2).rotation.x = -Math.PI / 2 }
     if (items.includes('house-plant')) { put(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 10), std(0xd8d2c6, 0.6), -8.6, 0.25, 6.4); for (const [dx, dy, s] of [[0, 1.1, 0.5], [0.15, 1.55, 0.38], [-0.12, 1.35, 0.34]]) put(new THREE.IcosahedronGeometry(s, 0), std(0x3f5a34, 0.85), -8.6 + dx, dy, 6.4) }
-    if (items.includes('house-lamp')) { put(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), std(0x4e3626, 0.5), 8.6, 0.75, -6.3); put(new THREE.CylinderGeometry(0.18, 0.28, 0.3, 12, 1, true), std(0xe8dcc4, 0.9), 8.6, 1.55, -6.3); put(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), std(0x4e3626, 0.5), 8.6, 0.02, -6.3) }
+    if (items.includes('house-lamp')) { put(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), std(0x4e3626, 0.5), 8.6, 0.75, -6.3); put(new THREE.CylinderGeometry(0.25, 0.25, 0.3, 14), new THREE.MeshStandardMaterial({ color: 0xf3e6cf, roughness: 0.9, emissive: 0xffd8a0, emissiveIntensity: 0.25 }), 8.6, 1.55, -6.3); put(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), std(0x4e3626, 0.5), 8.6, 0.02, -6.3) }
 
     const fUses: Use[] = f.seats.map((st) => { const sp = seatSpot(`house-seat-${st.id}`, st.title, { x: ORIGIN.house.x + st.x, z: ORIGIN.house.z + st.z, yaw: st.yaw, y: st.y }, hooks.sit, 1.3); return { ...sp, run: sp.use } as Use })
     for (const sc of f.screens) {
@@ -110,7 +110,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     Object.assign(upFloor, pbrSet('wood_floor', 4), { roughness: 1 })
     mk(new THREE.PlaneGeometry(w, d), upFloor, 0, 0.01, 0).rotation.x = -Math.PI / 2
     const wall = std(0xe9e0d0, 0.92)
-    { const pl = pbrSet('plastered_wall_04', 3); wall.normalMap = pl.normalMap; wall.roughnessMap = pl.roughnessMap; wall.normalScale.set(0.5, 0.5) }
+    wall.map = pbrSet('plastered_wall_04', 2).map
     mk(new THREE.BoxGeometry(w + 0.5, 3.2, 0.25), wall, 0, 1.6, -d / 2 - 0.125); mk(new THREE.BoxGeometry(w + 0.5, 3.2, 0.25), wall, 0, 1.6, d / 2 + 0.125)
     mk(new THREE.BoxGeometry(0.25, 3.2, d), wall, -w / 2 - 0.125, 1.6, 0); mk(new THREE.BoxGeometry(0.25, 3.2, d), wall, w / 2 + 0.125, 1.6, 0)
     mk(new THREE.BoxGeometry(1.8, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.12, roughness: 0.1 }), 1.5, 1.5, -d / 2 + 0.02)
@@ -191,7 +191,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     floor.rotation.x = -Math.PI / 2
     const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : id === 'boutique' ? 0xeedfd6 : 0xf1ebe2, 0.92)
     // Home: cutaway-height walls and no beams, so the phone's high follow camera sees over them.
-    if (id !== 'trading' && id !== 'conference') { const pl = pbrSet('plastered_wall_04', 3); wallMat.normalMap = pl.normalMap; wallMat.roughnessMap = pl.roughnessMap; wallMat.normalScale.set(0.5, 0.5) }
+    // Faceted plaster: big soft planes of tone on every wall (flat colour, no photo texture).
+    wallMat.map = pbrSet('plastered_wall_04', 2).map
     const H = id === 'house' ? 2.6 : 3.2
     const T = 0.25
     box(w + T * 2, H, T, wallMat, 0, -d / 2 - T / 2)
@@ -713,11 +714,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
 
   // Filled rooms: potted plants in the corners, framed art on the back wall, warm pendant shades. Shared geometry,
   // basic emissive shades (no extra lights), built once per room on first entry.
-  // Pendant: drum shade (not an open cone/funnel) + warm emissive cloth, low intensity.
   const propMat = { pot: new THREE.MeshStandardMaterial({ color: 0x7a4e36, roughness: 0.85 }), leaf: new THREE.MeshStandardMaterial({ color: 0x355f3c, roughness: 0.75 }),
     frame: new THREE.MeshStandardMaterial({ color: 0x2b2118, roughness: 0.6 }),
-    shade: new THREE.MeshStandardMaterial({ color: 0xf0e2c8, emissive: 0xffd7a0, emissiveIntensity: 0.35, roughness: 0.85 }),
-    shadeCap: new THREE.MeshStandardMaterial({ color: 0x4a4034, roughness: 0.55, metalness: 0.25 }),
+    shade: new THREE.MeshStandardMaterial({ color: 0xf6ecd8, emissive: 0xffd7a0, emissiveIntensity: 0.55, roughness: 0.7, flatShading: true }),
+    shadeCap: new THREE.MeshStandardMaterial({ color: 0xb8955a, roughness: 0.4, metalness: 0.8 }),
   }
   const art = [0xb8954e, 0x3a5f8a, 0xa84a38, 0x2f7a58].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }))
   const propGeo = {
@@ -725,9 +725,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     leaf: new THREE.IcosahedronGeometry(0.45, 0),
     frame: new THREE.BoxGeometry(1.3, 0.9, 0.05),
     canvas: new THREE.PlaneGeometry(1.15, 0.75),
-    shade: new THREE.CylinderGeometry(0.28, 0.32, 0.26, 14, 1, true),
-    shadeTop: new THREE.CircleGeometry(0.28, 14),
-    stem: new THREE.CylinderGeometry(0.018, 0.018, 0.35, 6),
+    // Globe pendant: a faceted frosted globe under a small brass cup on a thin rod.
+    shade: new THREE.IcosahedronGeometry(0.19, 1),
+    shadeTop: new THREE.CylinderGeometry(0.05, 0.085, 0.07, 10),
+    stem: new THREE.CylinderGeometry(0.012, 0.012, 0.3, 6),
   }
   const addProps = (group: THREE.Group, id: RoomId) => {
     const o = ORIGIN[id], s = SIZE[id]
@@ -747,9 +748,11 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         at(new THREE.Mesh(propGeo.frame, propMat.frame), x, 1.9, -s.d / 2 + 0.08)
         at(new THREE.Mesh(propGeo.canvas, art[(i + Math.round(s.w)) % art.length]!), x, 1.9, -s.d / 2 + 0.115)
       }
+      // The house has cutaway walls and no ceiling, so nothing can hang there: pendants only in roofed rooms.
+      if (id === 'house') continue
       const stem = new THREE.Mesh(propGeo.stem, propMat.shadeCap); at(stem, x, 3.05, 0)
-      const shade = new THREE.Mesh(propGeo.shade, propMat.shade); at(shade, x, 2.78, 0)
-      const cap = new THREE.Mesh(propGeo.shadeTop, propMat.shadeCap); cap.rotation.x = -Math.PI / 2; at(cap, x, 2.91, 0)
+      const shade = new THREE.Mesh(propGeo.shade, propMat.shade); at(shade, x, 2.68, 0)
+      const cap = new THREE.Mesh(propGeo.shadeTop, propMat.shadeCap); at(cap, x, 2.88, 0)
     }
   }
   return {

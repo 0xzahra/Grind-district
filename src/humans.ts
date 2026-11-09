@@ -11,10 +11,10 @@ import type { ShrimpAvatar } from './shrimp.ts'
 export const MEN = ['man1', 'man2', 'man3', 'man4'] as const
 export const WOMEN = ['woman1', 'woman2', 'woman3', 'woman4'] as const
 export type HumanModel = (typeof MEN)[number] | (typeof WOMEN)[number]
-export type Look = { skin?: number; hair?: number; top?: number; bottom?: number; shoes?: number }
+export type Look = { skin?: number; hair?: number; top?: number; bottom?: number; shoes?: number; /** Long sleeves in the top colour (abaya). */ sleeves?: boolean }
 export type Extras = { chain?: boolean; watch?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean }
 
-type Template = { scene: THREE.Group; clips: THREE.AnimationClip[]; parts: { name: string; start: number; count: number }[]; height: number }
+type Template = { scene: THREE.Group; clips: THREE.AnimationClip[]; parts: { name: string; start: number; count: number }[]; height: number; base: Float32Array; limb: Uint8Array; skirt?: THREE.BufferGeometry | null }
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const cache = new Map<HumanModel, Promise<Template>>()
 const GOLD = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.9, roughness: 0.3 })
@@ -22,7 +22,8 @@ const PEARL = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.35 
 const STEEL = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.85, roughness: 0.3 })
 const SHADE = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 })
 const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
-const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0, envMapIntensity: 0.7 }) // matte cloth/skin: no plastic sheen
+// Faceted, matte low-poly people: flat shading shows every plane of the model (the art reference), no plastic sheen.
+const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.45 })
 
 function toFloat(attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, size: number): THREE.BufferAttribute {
   const out = new Float32Array(attr.count * size)
@@ -69,7 +70,18 @@ function load(name: HumanModel): Promise<Template> {
       for (const m of skinned) m.removeFromParent()
       scene.updateMatrixWorld(true)
       const box = new THREE.Box3().setFromObject(scene, true)
-      return { scene, clips: gltf.animations, parts, height: Math.max(0.1, box.max.y - box.min.y) }
+      // Which vertices sit on an arm (1) or a leg (2): lets an outfit cover them (long sleeves) by colour alone.
+      const limb = new Uint8Array(merged.getAttribute('position').count)
+      const names = first.skeleton.bones.map((b) => b.name)
+      const si = merged.getAttribute('skinIndex'), sw = merged.getAttribute('skinWeight')
+      for (let i = 0; i < limb.length; i++) {
+        let best = 0
+        for (let k = 1; k < 4; k++) if (sw.getComponent(i, k) > sw.getComponent(i, best)) best = k
+        const bone = names[si.getComponent(i, best)] ?? ''
+        limb[i] = /^(UpperArm|LowerArm|Shoulder)/.test(bone) ? 1 : /^(UpperLeg|LowerLeg)/.test(bone) ? 2 : 0
+      }
+      const base = (merged.getAttribute('color').array as Float32Array).slice()
+      return { scene, clips: gltf.animations, parts, height: Math.max(0.1, box.max.y - box.min.y), base, limb }
     })
     cache.set(name, p)
   }
@@ -138,12 +150,19 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       if (!mesh.userData.ownGeo) { mesh.geometry = mesh.geometry.clone(); mesh.userData.ownGeo = true }
       const geo = mesh.geometry
       const col = geo.getAttribute('color') as THREE.BufferAttribute
+      ;(col.array as Float32Array).set(t.base)
       const c = new THREE.Color()
       for (const p of t.parts) {
-        const hex = /skin/i.test(p.name) ? look.skin : /^hair/i.test(p.name) ? look.hair : /shirt\d?$|dress|jacket/i.test(p.name) ? look.top : /pants/i.test(p.name) ? look.bottom : /shoes|socks/i.test(p.name) ? look.shoes : undefined
-        if (hex === undefined) continue
-        c.setHex(hex) // vertex colours are linear; setHex converts from sRGB
-        for (let i = p.start; i < p.start + p.count; i++) col.setXYZ(i, c.r, c.g, c.b)
+        const skin = /skin/i.test(p.name)
+        const hex = skin ? look.skin : /^hair/i.test(p.name) ? look.hair : /shirt\d?$|dress|jacket/i.test(p.name) ? look.top : /pants/i.test(p.name) ? look.bottom : /shoes|socks/i.test(p.name) ? look.shoes : undefined
+        if (hex !== undefined) {
+          c.setHex(hex) // vertex colours are linear; setHex converts from sRGB
+          for (let i = p.start; i < p.start + p.count; i++) col.setXYZ(i, c.r, c.g, c.b)
+        }
+        if (skin && look.sleeves && look.top !== undefined) {
+          c.setHex(look.top)
+          for (let i = p.start; i < p.start + p.count; i++) if (t.limb[i]) col.setXYZ(i, c.r, c.g, c.b)
+        }
       }
       col.needsUpdate = true
     }
@@ -209,26 +228,25 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
       root.userData.setExtras = setExtras
     }
-    // Full-length abaya/dress hem: woman4 dress mesh ends mid-thigh; extend a soft skirt to the ankles
-    // so modest outfits (abaya, wrap, blush, ankara) read as floor-length, not a short gown.
+    // Full-length gown: the woman4 dress mesh stops mid-thigh, so a faceted skirt runs from the waist to the
+    // ankles. It is skinned to the hips and legs, so it sways with each stride and drapes over the lap when seated.
     if (model === 'woman4') {
-      // Geometry is in the unscaled rig frame (dress ends ~y 1.76; ankles ~0). Person.scale applies.
-      const hemMat = new THREE.MeshStandardMaterial({
-        color: look?.top ?? 0x1a1c22,
-        roughness: 0.88,
-        metalness: 0.02,
-        side: THREE.DoubleSide,
-      })
-      const hem = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.25, 1.85, 14, 1, true), hemMat)
-      hem.position.set(0, 0.98, 0.02)
-      hem.castShadow = true
-      hem.frustumCulled = false
-      person.add(hem)
-      root.userData.dressHem = hem
-      const prevLook = root.userData.applyLook as ((look: Look) => void) | undefined
-      root.userData.applyLook = (next: Look) => {
-        prevLook?.(next)
-        if (next.top != null) hemMat.color.setHex(next.top)
+      if (t.skirt === undefined) t.skirt = skirtGeometry(mesh, t)
+      if (t.skirt) {
+        const skirtMat = new THREE.MeshStandardMaterial({ color: look?.top ?? 0x1a1c22, flatShading: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.45 })
+        const skirt = new THREE.SkinnedMesh(t.skirt, skirtMat)
+        skirt.name = 'Skirt'
+        skirt.position.copy(mesh.position); skirt.quaternion.copy(mesh.quaternion); skirt.scale.copy(mesh.scale)
+        mesh.parent!.add(skirt)
+        skirt.bind(mesh.skeleton, mesh.bindMatrix)
+        skirt.castShadow = true
+        skirt.frustumCulled = false
+        root.userData.dressHem = skirt
+        const prevLook = root.userData.applyLook as ((look: Look) => void) | undefined
+        root.userData.applyLook = (next: Look) => {
+          prevLook?.(next)
+          if (next.top != null) skirtMat.color.setHex(next.top)
+        }
       }
     }
     root.userData.person = person
@@ -236,41 +254,13 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
     bodyRef.visible = false
     root.add(person)
     const mixer = new THREE.AnimationMixer(person)
-    // Quaternius Idle often omits UpperArmR and leaves a raised A/T pose. Inject a mirrored
-    // UpperArmR track from UpperArmL, and a small adduct offset so arms hang by the sides.
-    const clips = t.clips.map((clip) => {
-      if (clip.name !== 'Idle') return clip
-      const hasR = clip.tracks.some((tr) => /UpperArmR\.quaternion/.test(tr.name))
-      const left = clip.tracks.find((tr) => /UpperArmL\.quaternion/.test(tr.name))
-      let next = clip
-      if (!hasR && left && left instanceof THREE.QuaternionKeyframeTrack) {
-        const vals = left.values.slice()
-        // Mirror X and Z of quaternion for opposite arm (approximate left→right)
-        for (let i = 0; i < vals.length; i += 4) {
-          vals[i] = -vals[i]!
-          vals[i + 2] = -vals[i + 2]!
-        }
-        const mirrored = new THREE.QuaternionKeyframeTrack('UpperArmR.quaternion', Array.from(left.times), vals)
-        next = new THREE.AnimationClip(clip.name, clip.duration, [...clip.tracks, mirrored])
-      }
-      return next
-    })
+    const clips = t.clips
     const act = (n: string) => { const c = clips.find((k) => k.name === n); return c ? mixer.clipAction(c) : null }
     const idle = act('Idle'), walk = act('Walk'), run = act('Run')
     for (const a of [idle, walk, run]) if (a) { a.play(); a.setEffectiveWeight(0) }
     idle?.setEffectiveWeight(1)
     const w = { idle: 1, walk: 0, run: 0 }
-    const armL = person.getObjectByName('UpperArmL') as THREE.Bone | null
-    const armR = person.getObjectByName('UpperArmR') as THREE.Bone | null
-    const foreL = person.getObjectByName('LowerArmL') as THREE.Bone | null
-    const foreR = person.getObjectByName('LowerArmR') as THREE.Bone | null
-    // Rest offsets: pull upper arms in toward the torso (fix raised Idle), slight elbow bend.
-    const restUL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0.05, 0.55))
-    const restUR = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, -0.05, -0.55))
-    const restFL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0, -0.2))
-    const restFR = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0, 0.2))
-    const qIdle = new THREE.Quaternion()
-    const qIdent = new THREE.Quaternion()
+    const arms = armRig(person)
     const baseFace = avatar.face
     avatar.face = (x, z, dt, moving) => { baseFace(x, z, dt, moving); person.rotation.y = bodyRef.rotation.y }
     avatar.step = (dt, moving, speed) => {
@@ -286,15 +276,11 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       const lod = mixerLod(root)
       if (root.userData.acc < lod) return
       mixer.update(root.userData.acc)
+      root.userData.accLast = root.userData.acc
       root.userData.acc = 0
-      // Idle: hang arms naturally. Walk/Run: keep clip swing (only a light idle blend).
-      if (w.idle > 0.05) {
-        const tIdle = w.idle
-        if (armL) armL.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restUL, tIdle))
-        if (armR) armR.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restUR, tIdle))
-        if (foreL) foreL.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restFL, tIdle * 0.7))
-        if (foreR) foreR.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restFR, tIdle * 0.7))
-      }
+      // The pack's clips leave the arms raised (Idle even lacks a right-arm track on some models), so the arms
+      // are posed here: they hang by the sides and swing against the opposite leg, in step with the clip.
+      if (arms) poseArms(person, arms, w.run, (root.userData.armT = ((root.userData.armT as number | undefined) ?? Math.random() * 6) + root.userData.accLast))
     }
   }).catch(() => { /* keep the procedural body */ })
 }
@@ -318,4 +304,106 @@ function mixerLod(root: THREE.Object3D): number {
   if (!viewFrustum.intersectsSphere(lodSphere)) return 0.5
   const d = lodSphere.center.distanceToSquared(viewPos)
   return d > 900 ? 0.12 : d > 324 ? 0.06 : 0
+}
+
+type ArmRig = { hips: THREE.Object3D; sides: Array<{ upper: THREE.Object3D; fore: THREE.Object3D; hand: THREE.Object3D; thigh: THREE.Object3D; knee: THREE.Object3D; side: number }> }
+function armRig(person: THREE.Object3D): ArmRig | null {
+  const get = (n: string) => person.getObjectByName(n)
+  const hips = get('Hips')
+  const sides: ArmRig['sides'] = []
+  // Each arm swings against the opposite leg.
+  for (const [arm, leg, side] of [['L', 'R', 1], ['R', 'L', -1]] as const) {
+    const upper = get(`UpperArm${arm}`), fore = get(`LowerArm${arm}`), hand = get(`Palm${arm}`), thigh = get(`UpperLeg${leg}`), knee = get(`LowerLeg${leg}`)
+    if (upper && fore && hand && thigh && knee) sides.push({ upper, fore, hand, thigh, knee, side })
+  }
+  return hips && sides.length === 2 ? { hips, sides } : null
+}
+
+const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vDir = new THREE.Vector3(), vWant = new THREE.Vector3()
+const vRight = new THREE.Vector3(), vFwd = new THREE.Vector3(), vUp = new THREE.Vector3(0, 1, 0)
+const qWorld = new THREE.Quaternion(), qParent = new THREE.Quaternion(), qTurn = new THREE.Quaternion()
+/** Turn `bone` so that the segment from it to `child` points along the world direction `want`. */
+function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): void {
+  bone.getWorldPosition(vA); child.getWorldPosition(vB)
+  vDir.subVectors(vB, vA).normalize()
+  qTurn.setFromUnitVectors(vDir, want)
+  bone.parent!.getWorldQuaternion(qParent)
+  // local' = parent^-1 * turn * parent * local
+  bone.quaternion.premultiply(qWorld.copy(qParent).invert().multiply(qTurn).multiply(qParent))
+  bone.updateMatrixWorld(true)
+}
+function poseArms(person: THREE.Object3D, rig: ArmRig, run: number, time: number): void {
+  person.updateMatrixWorld(true)
+  person.getWorldQuaternion(qWorld)
+  vRight.set(1, 0, 0).applyQuaternion(qWorld).normalize()
+  vFwd.set(0, 0, 1).applyQuaternion(qWorld).normalize()
+  for (const s of rig.sides) {
+    // Stride angle of the opposite thigh (forward positive) drives this arm.
+    s.thigh.getWorldPosition(vA); s.knee.getWorldPosition(vB)
+    vDir.subVectors(vB, vA).normalize()
+    const stride = Math.atan2(vDir.dot(vFwd), -vDir.y)
+    const reach = 0.5 + run * 0.35
+    const swing = THREE.MathUtils.clamp(stride * (0.6 + run * 0.4), -reach, reach) + Math.sin(time * 1.3 + s.side) * 0.025
+    const out = 0.13 + run * 0.05
+    vWant.copy(vUp).multiplyScalar(-Math.cos(swing)).addScaledVector(vFwd, Math.sin(swing)).addScaledVector(vRight, s.side * out).normalize()
+    aim(s.upper, s.fore, vWant)
+    // Elbow: a relaxed bend that opens on the back swing and closes on the forward swing (more when running).
+    const bend = swing + 0.2 + Math.max(0, swing) * 0.5 + run * 0.9
+    vWant.copy(vUp).multiplyScalar(-Math.cos(bend)).addScaledVector(vFwd, Math.sin(bend)).addScaledVector(vRight, s.side * (out - 0.07)).normalize()
+    aim(s.fore, s.hand, vWant)
+  }
+}
+
+/** Waist-to-ankle skirt in the skinned mesh's bind space, weighted to the hips and legs. Null if the rig lacks the bones. */
+function skirtGeometry(mesh: THREE.SkinnedMesh, t: Template): THREE.BufferGeometry | null {
+  const bones = mesh.skeleton.bones
+  const index = (n: string) => bones.findIndex((b) => b.name === n)
+  const iHips = index('Hips'), iUL = index('UpperLegL'), iUR = index('UpperLegR'), iLL = index('LowerLegL'), iLR = index('LowerLegR'), iHead = index('Head')
+  if ([iHips, iUL, iUR, iLL, iLR, iHead].some((i) => i < 0)) return null
+  const m = new THREE.Matrix4()
+  const bind = (i: number) => new THREE.Vector3().setFromMatrixPosition(m.copy(mesh.skeleton.boneInverses[i]!).invert().premultiply(mesh.bindMatrixInverse))
+  const hipL = bind(iUL), hipR = bind(iUR), head = bind(iHead)
+  const mid = hipL.clone().add(hipR).multiplyScalar(0.5)
+  const up = head.clone().sub(mid).normalize()
+  const right = hipL.clone().sub(hipR)
+  const half = right.length() / 2
+  right.addScaledVector(up, -right.dot(up)).normalize()
+  const fwd = right.clone().cross(up).normalize()
+  // Ground: the lowest vertex along `up`.
+  const pos = mesh.geometry.getAttribute('position')
+  let low = 0
+  const v = new THREE.Vector3()
+  for (let i = 0; i < pos.count; i++) low = Math.min(low, v.fromBufferAttribute(pos, i).sub(mid).dot(up))
+  const leg = -low
+  void t
+  // Rows: waist, hip line, knee line, hem. [height, radius across, radius front-back, hips, upper leg, lower leg]
+  const rows = [
+    [0.17 * leg, 1.75 * half, 1.4 * half, 1, 0, 0],
+    [-0.06 * leg, 2.35 * half, 2.0 * half, 0.7, 0.3, 0],
+    [-0.5 * leg, 2.85 * half, 2.75 * half, 0.3, 0.7, 0],
+    [-0.955 * leg, 3.3 * half, 3.5 * half, 0.22, 0, 0.78],
+  ] as const
+  const SEG = 12
+  const P: number[] = [], SI: number[] = [], SW: number[] = [], idx: number[] = []
+  for (const [h, rx, rz, wH, wU, wL] of rows) for (let k = 0; k < SEG; k++) {
+    const a = (k / SEG) * Math.PI * 2
+    const c = Math.cos(a), sn = Math.sin(a)
+    v.copy(mid).addScaledVector(up, h).addScaledVector(right, c * rx).addScaledVector(fwd, sn * rz)
+    P.push(v.x, v.y, v.z)
+    const left = THREE.MathUtils.smoothstep(c, -0.55, 0.55)
+    if (wL > 0) { SI.push(iHips, iLL, iLR, 0); SW.push(wH, wL * left, wL * (1 - left), 0) }
+    else { SI.push(iHips, iUL, iUR, 0); SW.push(wH, wU * left, wU * (1 - left), 0) }
+  }
+  for (let r = 0; r < rows.length - 1; r++) for (let k = 0; k < SEG; k++) {
+    const a = r * SEG + k, b = r * SEG + ((k + 1) % SEG), c = a + SEG, d = b + SEG
+    idx.push(a, c, b, b, c, d)
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3))
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(SI, 4))
+  g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(SW, 4))
+  g.setIndex(idx)
+  g.computeVertexNormals()
+  g.computeBoundingSphere()
+  return g
 }

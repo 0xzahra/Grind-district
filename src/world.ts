@@ -5,8 +5,11 @@ import { LOOK, lightBudget } from './lookPalette.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
 import { LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { createArchitecture, type Facade, type Style } from './architecture.ts'
 import { buildShowroom } from './showcase.ts'
+import { createDrinkStand } from './drinkStand.ts'
+import { facetMap, paintFacets } from './facets.ts'
 
 export type Hotspot = {
   id: string
@@ -46,6 +49,7 @@ type Door = 'px' | 'nx' | 'pz' | 'nz'
 type Rect = { x: number; z: number; hx: number; hz: number }
 
 const WALK_HALF = 1.1
+const ASPHALT = '#3b3d40'
 
 const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) < a.hx + b.hx && Math.abs(a.z - b.z) < a.hz + b.hz
 const legRect = (x1: number, z1: number, x2: number, z2: number, half: number): Rect => ({
@@ -63,12 +67,12 @@ export function districtName(x: number, z: number): string {
   if (Math.hypot(x, z + 48) < 24) return 'Campus'
   if (Math.hypot(x + 48, z) < 22) return 'Trading floor'
   if (Math.hypot(x - 48, z) < 22) return 'Influencer row'
-  if (Math.hypot(x, z - 48) < 22) return 'Trenches'
+  if (Math.hypot(x, z - 48) < 22) return 'Mempool'
   if (Math.hypot(x + 40, z - 40) < 14) return 'The basin'
   if (z < -16 && Math.abs(x) < 8) return 'Campus'
   if (x < -16 && Math.abs(z) < 8) return 'Trading floor'
   if (x > 16 && Math.abs(z) < 8) return 'Influencer row'
-  if (z > 16 && Math.abs(x) < 8) return 'Trenches'
+  if (z > 16 && Math.abs(x) < 8) return 'Mempool'
   if (Math.hypot(x, z) < 16) return 'The Plaza'
   return 'The streets'
 }
@@ -126,37 +130,19 @@ export function createWorld(options: {
     emissiveIntensity: 1.1,
     roughness: 0.38,
   })
-  // CC0 PBR sets from Poly Haven (see CREDITS.md), packed to 512 px WebP for phones (tools/pack-tex.mjs).
-  const texLoader = new THREE.TextureLoader()
-  const pbr = (name: string, repeat = 2) => {
-    const load = (ch: string, srgb: boolean) => {
-      const t = texLoader.load(`/tex/${name}_${ch}.webp`)
-      t.wrapS = t.wrapT = THREE.RepeatWrapping
-      t.repeat.set(repeat, repeat)
-      t.anisotropy = anisotropy
-      if (srgb) t.colorSpace = THREE.SRGBColorSpace
-      return t
-    }
-    return { map: load('diff', true), normalMap: load('nor_gl', false), roughnessMap: load('rough', false) }
-  }
-  const concrete = pbr('plastered_wall_04')
-  Object.assign(stone, concrete, { color: new THREE.Color(0xd8cfc0), roughness: 1, metalness: 0 })
-  stone.normalScale.set(0.8, 0.8)
-  Object.assign(stoneDark, pbr('concrete_wall_008'), { color: new THREE.Color(0x6e675e), roughness: 1, metalness: 0 })
+  // Flat, faceted finishes (facets.ts): large planes of tone over a matte colour, no photo textures.
+  Object.assign(stone, { map: facetMap(11, 2, 0.1, 1, anisotropy), color: new THREE.Color(0xdcd3c4), roughness: 0.95, metalness: 0 })
+  Object.assign(stoneDark, { map: facetMap(19, 2, 0.12, 1, anisotropy), color: new THREE.Color(0x857f76), roughness: 0.95, metalness: 0 })
   Object.assign(trim, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
   for (const m of [stone, stoneDark, trim]) m.needsUpdate = true
-  // Classic brick (red_brick_03) for the low civic blocks; honed grey stone (grey_cartago_02) for the city wall.
-  const brick = new THREE.MeshStandardMaterial({ ...pbr('red_brick_03'), color: 0xe6d6c8, roughness: 1, metalness: 0 })
-  Object.assign(stoneDark, pbr('grey_cartago_02'), { color: new THREE.Color(0x8a857c) })
-  stoneDark.needsUpdate = true
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4a38, roughness: 0.82 })
   const bark = new THREE.MeshStandardMaterial({ color: 0x4a3428, roughness: 0.9 })
   const leaf = new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.8, flatShading: true })
   const lampMat = new THREE.MeshStandardMaterial({
-    color: 0xffe2b8,
+    color: 0xf6ecd8,
     emissive: 0xffc27a,
     emissiveIntensity: 0.9,
-    roughness: 0.4,
+    roughness: 0.6,
   })
   const waterMat = new THREE.MeshStandardMaterial({
     color: 0x2a5566,
@@ -167,7 +153,7 @@ export function createWorld(options: {
   })
 
   const solid = (geometry: THREE.BufferGeometry, material: THREE.Material, cast = true) => {
-    if (material === stone || material === stoneDark || material === trim || material === brick) boxProjectUV(geometry, material === trim ? 1.2 : 0.35)
+    if (material === stone || material === stoneDark || material === trim) boxProjectUV(geometry, material === trim ? 1.2 : 0.35)
     const item = new THREE.Mesh(geometry, material)
     item.castShadow = cast
     item.receiveShadow = true
@@ -189,29 +175,6 @@ export function createWorld(options: {
     draw(context)
     return finalize(new THREE.CanvasTexture(canvas))
   }
-
-  const paintSign = (title: string, subtitle: string) =>
-    paint(1024, 448, (g) => {
-      g.fillStyle = '#0c1411'
-      g.fillRect(0, 0, 1024, 448)
-      g.strokeStyle = '#c9a25e'
-      g.lineWidth = 16
-      g.strokeRect(18, 18, 988, 412)
-      g.textAlign = 'center'
-      g.textBaseline = 'middle'
-      const label = title.toUpperCase()
-      let size = 92
-      g.font = `${size}px "Archivo Black", sans-serif`
-      while (g.measureText(label).width > 900 && size > 42) {
-        size -= 4
-        g.font = `${size}px "Archivo Black", sans-serif`
-      }
-      g.fillStyle = '#e8c98f'
-      g.fillText(label, 512, 170)
-      g.fillStyle = '#f2ece0'
-      g.font = '500 40px Outfit, sans-serif'
-      g.fillText(subtitle, 512, 300)
-    })
 
   const paintLadder = (current: string) =>
     paint(512, 1024, (g) => {
@@ -250,77 +213,28 @@ export function createWorld(options: {
     const mid = 1024
     const toX = (x: number) => mid + x * scale
     const toY = (z: number) => mid + z * scale
-    const rect = (x: number, z: number, w: number, d: number) => {
-      g.fillRect(toX(x - w / 2), toY(z - d / 2), w * scale, d * scale)
+    // Pale warm stone ground in big soft facets (about 7 m across): planar, matte, no noise.
+    paintFacets(g, 2048, 2048, 41, 26, 0.085, [205, 196, 180])
+    // Park: a faceted lawn round the basin.
+    g.save()
+    g.beginPath(); g.arc(toX(-40), toY(40), 14 * scale, 0, Math.PI * 2); g.clip()
+    paintFacets(g, 2048, 2048, 43, 40, 0.16, [118, 150, 98])
+    g.restore()
+    g.fillStyle = '#5d7f6a'
+    g.beginPath(); g.arc(toX(-40), toY(40), 6.4 * scale, 0, Math.PI * 2); g.fill()
+    // Forecourts of the four district halls: a slightly cooler, lighter stone so each has its own apron.
+    const court = (x: number, z: number, w: number, d: number, seed: number) => {
+      g.save()
+      g.beginPath(); g.rect(toX(x - w / 2), toY(z - d / 2), w * scale, d * scale); g.clip()
+      paintFacets(g, 2048, 2048, seed, 34, 0.07, [214, 208, 197])
+      g.restore()
+      g.strokeStyle = 'rgba(120,108,90,0.5)'; g.lineWidth = 3
+      g.strokeRect(toX(x - w / 2), toY(z - d / 2), w * scale, d * scale)
     }
-    // Warm sand base (Zahra env realism): desert-adjacent plaza ground, not grey asphalt wash.
-    g.fillStyle = '#c4a574'
-    g.fillRect(0, 0, 2048, 2048)
-    // Soft dune noise
-    for (let i = 0; i < 180; i++) {
-      const x = (Math.sin(i * 12.9898) * 43758.5453) % 1
-      const y = (Math.sin(i * 78.233) * 12345.678) % 1
-      const xx = ((x < 0 ? x + 1 : x) * 2048) | 0
-      const yy = ((y < 0 ? y + 1 : y) * 2048) | 0
-      g.fillStyle = i % 2 ? 'rgba(168,130,78,0.22)' : 'rgba(232,210,160,0.18)'
-      g.beginPath(); g.arc(xx, yy, 18 + (i % 7) * 4, 0, Math.PI * 2); g.fill()
-    }
-    g.fillStyle = '#3f7a4a'
-    g.beginPath()
-    g.arc(toX(-40), toY(40), 14 * scale, 0, Math.PI * 2)
-    g.fill()
-    g.fillStyle = '#2a5c42'
-    g.beginPath()
-    g.arc(toX(-40), toY(40), 6.4 * scale, 0, Math.PI * 2)
-    g.fill()
-    g.fillStyle = '#b8965c'
-    rect(0, -48, 32, 26)
-    g.fillStyle = '#a88855'
-    rect(-48, 0, 24, 30)
-    g.fillStyle = '#9a7a4e'
-    rect(48, 0, 24, 30)
-    g.fillStyle = '#8f7048'
-    rect(0, 48, 32, 24)
-    // Roads stay darker packed sand / asphalt strips
-    g.fillStyle = '#6b5a3e'
-    rect(0, 0, 80, 6.4)
-    rect(0, 0, 6.4, 80)
-    g.strokeStyle = 'rgba(26, 243, 143, 0.55)'
-    g.lineWidth = 2
-    g.beginPath()
-    g.moveTo(toX(-40), toY(0))
-    g.lineTo(toX(40), toY(0))
-    g.moveTo(toX(0), toY(-40))
-    g.lineTo(toX(0), toY(40))
-    g.stroke()
-    g.fillStyle = '#d2b484'
-    g.beginPath()
-    g.arc(mid, mid, 15 * scale, 0, Math.PI * 2)
-    g.fill()
-    g.strokeStyle = 'rgba(16, 24, 22, 0.45)'
-    g.lineWidth = 2
-    for (let radius = 3; radius <= 14; radius += 1.6) {
-      g.beginPath()
-      g.arc(mid, mid, radius * scale, 0, Math.PI * 2)
-      g.stroke()
-    }
-    g.strokeStyle = 'rgba(201, 162, 94, 0.8)'
-    g.lineWidth = 4
-    g.beginPath()
-    g.arc(mid, mid, 3.1 * scale, 0, Math.PI * 2)
-    g.stroke()
+    court(0, -48, 32, 26, 51); court(-48, 0, 24, 30, 53); court(48, 0, 24, 30, 57); court(0, 48, 32, 24, 59)
   })
 
-  const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 0.92, metalness: 0.02 })
-  {
-    // Sand-grain normal (reuse asphalt grain softly) + warm tint already in the painted map.
-    const grit = pbr('asphalt_02', SPAN / 5)
-    groundMat.normalMap = grit.normalMap
-    groundMat.roughnessMap = grit.roughnessMap
-    groundMat.roughness = 1
-    groundMat.normalScale.set(0.35, 0.35)
-    groundMat.color = new THREE.Color(0xf0e2c4)
-  }
+  const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, metalness: 0, color: 0xf2ebe0 })
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, SPAN), groundMat)
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
@@ -341,7 +255,7 @@ export function createWorld(options: {
   sun.shadow.camera.bottom = -18
   sun.shadow.bias = -0.00035
   sun.shadow.normalBias = 0.06
-  sun.shadow.radius = 2
+  sun.shadow.radius = 4 // wide, soft penumbra
   scene.add(sun)
   scene.add(sun.target)
   const fill = new THREE.DirectionalLight(0xe8e2d6, 0.2)
@@ -440,7 +354,7 @@ export function createWorld(options: {
   // No gateway arches and no mid-road / roadside boards (Zahra MacBook: CAMPUS gate blocked the
   // carriageway; cars drove under/through it). District names live only on building facade signs.
   spot('north-arch', 0, -13.4, 2.5, 'Campus road', 'Road north to the learning hall, where courses build your CV.')
-  spot('south-arch', 0, 13.4, 2.5, 'Trenches road', 'Road south to the Trenches, the fast-moving meme market.')
+  spot('south-arch', 0, 13.4, 2.5, 'Mempool road', 'Road south to Mempool, the fast-moving meme desk.')
   spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'Road west to the trading floor.')
   spot('east-arch', 13.4, 0, 2.5, 'Row road', 'Road east to Influencer Row, where you can post bounties.')
 
@@ -495,7 +409,7 @@ export function createWorld(options: {
   const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Bounty', subtitle: 'post', seed: 13, style: 'civic', mint: true, floors: 3 })
   spot('bounty', row.x, row.z, 2.6, 'Influencer row', 'Post a bounty to earn in-game cash and add it to your portfolio.', 'bounty', 'Post a bounty')
   const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Mempool', subtitle: 'meme desk', seed: 18, style: 'brick', mint: true, floors: 2 })
-  spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'Trade the volatile MEME coin. Big swings, high risk.', 'trench', 'Open the trench book')
+  spot('trench', trench.x, trench.z, 2.6, 'Mempool', 'Trade the volatile MEME coin. Big swings, high risk.', 'trench', 'Open the meme book')
 
   const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', seed: 19, style: 'arch' })
   spot('boutique', shop.x, shop.z, 2.4, 'Boutique', 'Clothing store. Change your character, outfit and mask.', 'boutique', 'Try a body')
@@ -544,10 +458,20 @@ export function createWorld(options: {
       c.lineTo(118, 256)
       c.closePath()
       c.clip()
-      const cols = ['#7a1f2b', '#1f3f7a', '#c99a2e', '#2f6a4a', '#5a2a6a', '#b85a1f']
-      for (let y = 0; y < 256; y += 22) for (let x = 0; x < 128; x += 22) {
-        c.fillStyle = cols[(x / 22 + y / 22 * 2) % cols.length | 0] ?? '#7a1f2b'
-        c.fillRect(x, y, 21, 21)
+      // Faceted jewel panes with dark leading (large triangles, like the rest of the city).
+      const cols = ['#8a2a38', '#27508f', '#d3a640', '#2f7a58', '#6a3a7c', '#c46a2a', '#3f8f9a']
+      const pr = mulberry32(77)
+      const pt = (i: number, j: number): [number, number] => [i * 32 + (i % 4 ? (pr() - 0.5) * 16 : 0), j * 32 + (pr() - 0.5) * 14]
+      const grid: [number, number][][] = []
+      for (let j = 0; j <= 8; j++) { grid.push([]); for (let i = 0; i <= 4; i++) grid[j]!.push(pt(i, j)) }
+      c.lineWidth = 3
+      c.strokeStyle = '#1c1612'
+      for (let j = 0; j < 8; j++) for (let i = 0; i < 4; i++) {
+        const q = [grid[j]![i]!, grid[j]![i + 1]!, grid[j + 1]![i + 1]!, grid[j + 1]![i]!]
+        for (const tri of (i + j) % 2 ? [[q[0], q[1], q[2]], [q[0], q[2], q[3]]] : [[q[0], q[1], q[3]], [q[1], q[2], q[3]]]) {
+          c.fillStyle = cols[Math.floor(pr() * cols.length)]!
+          c.beginPath(); c.moveTo(tri[0]![0], tri[0]![1]); c.lineTo(tri[1]![0], tri[1]![1]); c.lineTo(tri[2]![0], tri[2]![1]); c.closePath(); c.fill(); c.stroke()
+        }
       }
       c.restore()
       c.strokeStyle = '#2a2018'
@@ -743,13 +667,13 @@ export function createWorld(options: {
         ...SIDE_RECTS,
       ]
       // Sidewalks first, then the asphalt over them, then walkways.
-      g.fillStyle = '#77706a'
+      g.fillStyle = '#a7a199'
       for (const road of roads) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
-      g.fillStyle = '#5f5a50'
-      for (const path of paths) fillRect({ ...path, hx: path.hx + 0.18, hz: path.hz + 0.18 })
-      g.fillStyle = '#8d8676'
+      g.fillStyle = '#8f887c'
+      for (const path of paths) fillRect({ ...path, hx: path.hx + 0.14, hz: path.hz + 0.14 })
+      g.fillStyle = '#b9b2a6'
       for (const path of paths) fillRect(path)
-      g.fillStyle = '#1e2624'
+      g.fillStyle = ASPHALT
       for (const road of roads) fillRect(road)
       // Rounded inside corners on the side road so the asphalt matches the driven curve.
       for (const [cx, cz] of [[30, 0], [30, 12], [44, 12]] as const) {
@@ -777,9 +701,9 @@ export function createWorld(options: {
       g.setLineDash([])
       // Roundabout: a paver footway ring, the asphalt ring with flared mouths where the arms join, and a
       // dashed lane edge. The plaza paving sits on top so everything meets it cleanly.
-      g.fillStyle = '#77706a'
+      g.fillStyle = '#a7a199'
       g.beginPath(); g.arc(mid, mid, (RING_OUT + 1.6) * scale, 0, Math.PI * 2); g.fill()
-      g.fillStyle = '#1e2624'
+      g.fillStyle = ASPHALT
       g.beginPath(); g.arc(mid, mid, RING_OUT * scale, 0, Math.PI * 2); g.fill()
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) for (const sgn of [-1, 1]) {
         const cx = dx * (RING_OUT + 0.6) + (dx ? 0 : sgn * (ROAD_HALF + 0.6)), cz = dz * (RING_OUT + 0.6) + (dz ? 0 : sgn * (ROAD_HALF + 0.6))
@@ -791,22 +715,18 @@ export function createWorld(options: {
       g.beginPath(); g.arc(mid, mid, (RING_IN + 0.35) * scale, 0, Math.PI * 2); g.stroke()
       g.setLineDash([])
       // The plaza paving sits on top so the roads meet it cleanly.
-      g.fillStyle = '#857a6b'
-      g.beginPath()
-      g.arc(mid, mid, 15 * scale, 0, Math.PI * 2)
-      g.fill()
-      g.strokeStyle = 'rgba(16, 24, 22, 0.45)'
-      g.lineWidth = 2
-      for (let radius = 3; radius <= 14; radius += 1.6) {
-        g.beginPath()
-        g.arc(mid, mid, radius * scale, 0, Math.PI * 2)
-        g.stroke()
-      }
-      g.strokeStyle = 'rgba(201, 162, 94, 0.8)'
-      g.lineWidth = 4
-      g.beginPath()
-      g.arc(mid, mid, 3.1 * scale, 0, Math.PI * 2)
-      g.stroke()
+      // Plaza: pale faceted stone, a darker band at the kerb and one fine brass inlay ring round the stand.
+      g.save()
+      g.beginPath(); g.arc(mid, mid, RING_IN * scale, 0, Math.PI * 2); g.clip()
+      paintFacets(g, canvas.width, canvas.width, 61, 30, 0.075, [221, 214, 202])
+      g.restore()
+      g.strokeStyle = 'rgba(128,118,102,0.55)'
+      g.lineWidth = 0.9 * scale
+      g.beginPath(); g.arc(mid, mid, (RING_IN - 0.5) * scale, 0, Math.PI * 2); g.stroke()
+      g.strokeStyle = 'rgba(190, 154, 92, 0.85)'
+      g.lineWidth = 3
+      g.beginPath(); g.arc(mid, mid, 4.2 * scale, 0, Math.PI * 2); g.stroke()
+      g.beginPath(); g.arc(mid, mid, 9.5 * scale, 0, Math.PI * 2); g.stroke()
       groundMap.needsUpdate = true
     }
   }
@@ -818,7 +738,7 @@ export function createWorld(options: {
   const MZ = 27
   masjid.position.set(MX, 0, MZ)
   const white = new THREE.MeshStandardMaterial({ color: 0xf1ece2, roughness: 0.85 })
-  Object.assign(white, { normalMap: concrete.normalMap, roughnessMap: concrete.roughnessMap })
+  white.map = facetMap(23, 2, 0.08, 1, anisotropy)
   const domeMat = new THREE.MeshStandardMaterial({ color: 0xe9e3d6, roughness: 0.5, metalness: 0.05 })
   const prayerHall = solid(new THREE.BoxGeometry(10, 5, 9), white)
   prayerHall.position.set(0, 2.5, 1.5)
@@ -923,115 +843,12 @@ export function createWorld(options: {
     screenOf('meme', 3.2, 42.2, Math.PI),
   ]
 
-  // Plaza drinks stand ("Grand Drink" / The Grind Ring): a believable kiosk — counter, striped
-  // awning, bottle shelves, cups, vendor gap — with a small rotating drink prop (not a giant halo).
-  const emblem = new THREE.Group()
-  const stand = new THREE.Group()
-  stand.name = 'grind-ring-drinks'
-  const stallWood = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 0.72, metalness: 0.05 })
-  const stallWoodLight = new THREE.MeshStandardMaterial({ color: 0x8a6240, roughness: 0.78, metalness: 0.04 })
-  const stripeA = new THREE.MeshStandardMaterial({ color: 0xc45c48, roughness: 0.7, metalness: 0.04 })
-  const stripeB = new THREE.MeshStandardMaterial({ color: 0xf2e6d4, roughness: 0.75, metalness: 0.03 })
-  const stallBrass = new THREE.MeshStandardMaterial({ color: 0xb8923a, roughness: 0.35, metalness: 0.65 })
-  const glassBottle = new THREE.MeshStandardMaterial({ color: 0x1a4a3a, roughness: 0.15, metalness: 0.35, transparent: true, opacity: 0.85 })
-  const cupMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.55, metalness: 0.05 })
-  // Raised deck / footprint so the stand reads as a stall, not a floating prop
-  const deck = solid(new THREE.CylinderGeometry(2.55, 2.7, 0.22, 32), stone)
-  deck.position.y = 0.11
-  stand.add(deck)
-  const deckRim = solid(new THREE.TorusGeometry(2.55, 0.06, 6, 32), stoneDark)
-  deckRim.rotation.x = Math.PI / 2
-  deckRim.position.y = 0.22
-  stand.add(deckRim)
-  // U-shaped counter (open on +Z for the vendor)
-  const counterH = 1.05
-  const counterTop = solid(new THREE.BoxGeometry(3.2, 0.1, 0.55), stallWoodLight)
-  counterTop.position.set(0, counterH, 1.05)
-  const counterL = solid(new THREE.BoxGeometry(0.55, counterH, 2.4), stallWood)
-  counterL.position.set(-1.45, counterH / 2, 0.15)
-  const counterR = solid(new THREE.BoxGeometry(0.55, counterH, 2.4), stallWood)
-  counterR.position.set(1.45, counterH / 2, 0.15)
-  const counterBack = solid(new THREE.BoxGeometry(3.4, counterH, 0.45), stallWood)
-  counterBack.position.set(0, counterH / 2, -1.0)
-  stand.add(counterTop, counterL, counterR, counterBack)
-  // Front kick panel under the serving ledge
-  const kick = solid(new THREE.BoxGeometry(3.0, 0.85, 0.12), stallWood)
-  kick.position.set(0, 0.42, 1.28)
-  stand.add(kick)
-  // Back wall + bottle shelves
-  const backWall = solid(new THREE.BoxGeometry(3.5, 2.35, 0.18), stone)
-  backWall.position.set(0, 1.35, -1.35)
-  stand.add(backWall)
-  for (const sy of [1.15, 1.65, 2.15]) {
-    const shelf = solid(new THREE.BoxGeometry(3.1, 0.07, 0.32), stallWoodLight)
-    shelf.position.set(0, sy, -1.15)
-    stand.add(shelf)
-    for (let i = 0; i < 7; i++) {
-      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.26, 8), i % 2 ? glassBottle : stallBrass)
-      bottle.position.set(-1.15 + i * 0.38, sy + 0.16, -1.15)
-      bottle.castShadow = true
-      bottle.userData.ghost = true
-      stand.add(bottle)
-    }
-  }
-  // Stacked cups on the counter
-  for (let i = 0; i < 4; i++) {
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.055, 0.12, 10), cupMat)
-    cup.position.set(-0.7 + i * 0.22, counterH + 0.12, 1.0)
-    cup.userData.ghost = true
-    stand.add(cup)
-  }
-  stand.position.set(0, 0, 0)
-  scene.add(stand)
-
-  // Striped fabric awning
-  {
-    const awningRoot = new THREE.Group()
-    const awningW2 = 3.6
-    for (let i = 0; i < 8; i++) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(awningW2 / 8, 0.08, 1.6), i % 2 ? stripeA : stripeB)
-      stripe.position.set(-awningW2 / 2 + (i + 0.5) * (awningW2 / 8), 2.55, 0.15)
-      stripe.castShadow = true
-      awningRoot.add(stripe)
-    }
-    // Slight front droop
-    awningRoot.rotation.x = 0.12
-    for (const sx of [-1, 1] as const) {
-      const post = solid(new THREE.CylinderGeometry(0.05, 0.06, 2.5, 6), stallBrass)
-      post.position.set(sx * 1.55, 1.25, 1.15)
-      stand.add(post)
-    }
-    stand.add(awningRoot)
-  }
-
-  // Sign board: "Grind Ring Café"
-  const cafeSign = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.4, 0.7),
-    new THREE.MeshBasicMaterial({ map: paintSign('Grind Ring', 'drinks · coffee · chill'), toneMapped: false }),
-  )
-  cafeSign.position.set(0, 2.95, -1.28)
-  cafeSign.userData.ghost = true
-  stand.add(cafeSign)
-
-  // Small rotating drink prop on the counter (the old "halo" role, scaled down)
-  emblem.position.set(0.55, counterH + 0.28, 0.95)
-  const drinkCup = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.18, 12), cupMat)
-  const drinkLid = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.03, 12), stripeA)
-  drinkLid.position.y = 0.1
-  const drinkStraw = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), stallBrass)
-  drinkStraw.position.set(0.03, 0.22, 0)
-  const drinkHalo = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 6, 20), trim)
-  drinkHalo.rotation.x = Math.PI / 2
-  drinkHalo.position.y = 0.02
-  drinkHalo.userData.ghost = true
-  emblem.add(drinkCup, drinkLid, drinkStraw, drinkHalo)
-  stand.add(emblem)
-
-  // Soft warm glow under the awning
-  addGlow(0, 1.8, 0.2, 0xffd9a0, 4)
+  // Plaza drinks stand: counter, awning, back bar, stools and a small still drink on the counter (drinkStand.ts).
+  const drinkStand = createDrinkStand(scene, anisotropy)
+  addGlow(0, 2.2, 0.6, 0xffd9a0, 4)
   obstacles.push({ kind: 'circle', x: 0, z: 0, r: 2.7 })
   reserved.push({ kind: 'circle', x: 0, z: 0, r: 3.4 })
-  spot('ring', 0, 0, 4.4, 'The Grind Ring', 'Plaza drinks stand — coffee, juice, and a place to meet.')
+  spot('ring', 0, 0, 4.4, 'Grind Ring', 'The plaza drinks stand. Coffee, juice, tea and a place to meet.')
 
   const totem = new THREE.Group()
   totem.position.set(-9, 0, -8)
@@ -1154,17 +971,29 @@ export function createWorld(options: {
   for (const m of [trunks, crowns, crowns2]) m.computeBoundingSphere()
   scene.add(trunks, crowns, crowns2)
 
+  // Street lamps: a slim bronze post on a collared base, a swan-neck arm reaching over the kerb and a frosted
+  // lantern under a flat cap. All posts merge into one mesh and all lanterns into another (two draw calls).
+  const lampMetal = new THREE.MeshStandardMaterial({ color: 0x2f2a25, roughness: 0.45, metalness: 0.7 })
+  const lampParts: THREE.BufferGeometry[] = [], lampGlow: THREE.BufferGeometry[] = []
   const addLamp = (x: number, z: number) => {
-    lampSpots.push({ x, z, y: 2.3 })
-    const group = new THREE.Group()
-    group.position.set(x, 0, z)
-    const pole = solid(new THREE.CylinderGeometry(0.045, 0.06, 2.3, 6), stoneDark)
-    pole.position.y = 1.15
-    const head = solid(new THREE.SphereGeometry(0.14, 10, 8), lampMat, false)
-    head.position.y = 2.35
-    group.add(pole, head)
-    scene.add(group)
-    obstacles.push({ kind: 'circle', x, z, r: 0.26 })
+    // The arm reaches toward the road the lamp stands beside.
+    const [ax, az] = Math.abs(z) < 6 ? [0, -Math.sign(z)] : Math.abs(x) < 6 ? [-Math.sign(x), 0] : Math.abs(x - 44) < 6 ? [Math.sign(44 - x), 0] : [0, Math.sign(12 - z)]
+    const yaw = Math.atan2(ax, az)
+    const H = 3.25, R = 0.42
+    const place = (g: THREE.BufferGeometry) => g.rotateY(yaw).translate(x, 0, z)
+    lampParts.push(
+      place(new THREE.CylinderGeometry(0.075, 0.11, 0.36, 8).translate(0, 0.18, 0)),
+      place(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 8).translate(0, 0.38, 0)),
+      place(new THREE.CylinderGeometry(0.038, 0.05, H - 0.4, 8).translate(0, 0.4 + (H - 0.4) / 2, 0)),
+      // Swan neck: a quarter ring from the post top out over the kerb.
+      place(new THREE.TorusGeometry(R, 0.028, 6, 10, Math.PI / 2).rotateY(-Math.PI / 2).translate(0, H, R)),
+      place(new THREE.CylinderGeometry(0.012, 0.012, 0.12, 6).translate(0, H + R - 0.08, R)),
+      place(new THREE.CylinderGeometry(0.17, 0.2, 0.05, 10).translate(0, H + R - 0.16, R)),
+      place(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 10).translate(0, H + R - 0.5, R)),
+    )
+    lampGlow.push(place(new THREE.CylinderGeometry(0.13, 0.1, 0.3, 10).translate(0, H + R - 0.335, R)))
+    lampSpots.push({ x: x + ax * R, z: z + az * R, y: H + R - 0.4 })
+    obstacles.push({ kind: 'circle', x, z, r: 0.22 })
   }
   for (const [x, z] of [
     [-14, 4.8],
@@ -1181,11 +1010,19 @@ export function createWorld(options: {
     [-4.8, 38],
     [48, 22], [48, 34], [48, 46], [48, 62], [40, 76], [35.6, 16.4],
     // Opposite kerb of each arterial road, staggered so every stretch of road has a pool of light at night.
-    [-21, -4.8], [-33, -4.8], [-44, -4.8], [21, 4.8], [33, 4.8], [44, 4.8],
-    [-4.8, -21], [-4.8, -33], [-4.8, -44], [4.8, 21], [4.8, 33], [4.8, 44],
+    [-23.5, -4.8], [-33, -4.8], [-44, -4.8], [23.5, 4.8], [33, 4.8], [44, 4.8],
+    [-4.8, -23.5], [-4.8, -33], [-4.8, -44], [4.8, 23.5], [4.8, 33], [4.8, 44],
   ] as const) addLamp(x, z)
+  {
+    const strip = (list: THREE.BufferGeometry[]) => mergeGeometries(list.map((g) => { const n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); return n }))!
+    const posts = new THREE.Mesh(strip(lampParts), lampMetal)
+    posts.castShadow = true
+    posts.receiveShadow = true
+    const lanterns = new THREE.Mesh(strip(lampGlow), lampMat)
+    scene.add(posts, lanterns)
+  }
   // A few real warm lamp lights at road junctions (cheap: 4 lights, night only); the rest are light-pool decals.
-  for (const [x, z] of [[-21, -4.8], [21, 4.8], [-4.8, -21], [4.8, 21]] as const) addGlow(x, 2.2, z, 0xffd6a0, 5)
+  for (const [x, z] of [[-23.5, -4.8], [23.5, 4.8], [-4.8, -23.5], [4.8, 23.5]] as const) addGlow(x, 3.2, z, 0xffd6a0, 5)
 
   const basinWater = new THREE.Mesh(new THREE.CircleGeometry(6.2, 32), waterMat)
   basinWater.rotation.x = -Math.PI / 2
@@ -1272,6 +1109,7 @@ export function createWorld(options: {
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = night ? 0.4 : 0.08
     architecture.setNight(night ? 1 : dusk ? 0.35 : 0)
+    drinkStand.setNight(night ? 1 : dusk ? 0.35 : 0)
     for (const light of glow) light.intensity = night ? Number(light.userData.night) : dusk ? Number(light.userData.night) * 0.35 : 0
     moon.visible = night || dusk
     stars.visible = night
@@ -1308,12 +1146,12 @@ export function createWorld(options: {
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.85)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.22 + day * 1.05 : 0.1) * (seasonBear ? 0.85 : 1)
+    sun.intensity = (elev >= 0 ? 0.2 + day * 0.88 : 0.1) * (seasonBear ? 0.88 : 1) // soft key: the fill does more of the work
     sun.castShadow = day > 0.2
-    hemi.intensity = 0.15 + day * 0.48
+    hemi.intensity = 0.16 + day * 0.6
     hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.35)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
-    fill.intensity = 0.015 + day * 0.07
+    fill.intensity = 0.02 + day * 0.13
     lampMat.emissiveIntensity = 0.06 + night * 1.45
     trimPulse = 0.12 + night * 0.18
     trim.emissiveIntensity = trimPulse
@@ -1321,6 +1159,7 @@ export function createWorld(options: {
     groundMat.roughness = 0.97 - night * 0.3
     groundMat.metalness = 0.02 + night * 0.12
     architecture.setNight(night)
+    drinkStand.setNight(night)
     for (const light of glow) light.intensity = Number(light.userData.night) * 1.15 * Math.max(0, night - 0.1)
     poolNight = night
     decalMat.opacity = 0.9 * Math.max(0, night - 0.15)
@@ -1378,8 +1217,6 @@ export function createWorld(options: {
       sun.target.updateMatrixWorld()
       if (!reduceMotion) {
         trim.emissiveIntensity = trimPulse + Math.sin(time * 1.7) * 0.08
-        emblem.rotation.y = time * 0.35
-        scene.traverse((o) => { if (o.userData.spinShowcase) o.rotation.y = time * 0.4 })
         for (const ripple of ripples) {
           const t = (time * 0.16 + ripple.offset) % 1
           const scale = 0.35 + t * 2.1

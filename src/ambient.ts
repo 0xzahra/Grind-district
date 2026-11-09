@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { blocked, type Obstacle } from './physics.ts'
 
-// Street furniture (instanced benches, planters, bins), soft clouds, birds, café steam and dust motes.
+// Street furniture (instanced benches, planters, bins), a small flock of birds, café steam and dust motes.
 // All instanced / a handful of draw calls so mid-range Android keeps its frame rate.
 export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: boolean) {
   const dummy = new THREE.Object3D()
@@ -62,15 +62,31 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
 
   // Clouds live in the sky shader (sky.ts); the old drifting billboard cards are gone.
 
-  // Birds: tiny flapping chevrons circling over the plaza.
-  const birdGeo = mergeGeometries([
-    new THREE.BoxGeometry(0.5, 0.03, 0.12).translate(0.25, 0, 0).rotateZ(0.3),
-    new THREE.BoxGeometry(0.5, 0.03, 0.12).translate(-0.25, 0, 0).rotateZ(-0.3),
-  ])!
-  const birdCount = lite ? 6 : 14
-  const birds = new THREE.InstancedMesh(birdGeo, new THREE.MeshBasicMaterial({ color: 0x2a2622 }), birdCount)
-  birds.frustumCulled = false
-  scene.add(birds)
+  // Birds: real low-poly birds (body, head, beak, fanned tail and two hinged wings), a small flock that wheels
+  // over the plaza, flapping in bursts and gliding between them. Three instanced draw calls.
+  // (They used to be two flat plates each, which read as sheets of paper drifting about.)
+  const birdMat = new THREE.MeshStandardMaterial({ color: 0x4a4f57, roughness: 0.85, flatShading: true })
+  const bodyGeo = mergeGeometries([
+    new THREE.OctahedronGeometry(0.16, 0).scale(0.7, 0.62, 2.0),
+    new THREE.OctahedronGeometry(0.09, 0).translate(0, 0.05, 0.3),
+    new THREE.ConeGeometry(0.03, 0.12, 4).rotateX(Math.PI / 2).translate(0, 0.04, 0.44),
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -0.26), new THREE.Vector3(-0.13, 0, -0.52), new THREE.Vector3(0.13, 0, -0.52)]),
+  ].map((g) => { const n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); if (!n.getAttribute('normal')) n.computeVertexNormals(); return n }))!
+  // One wing: a tapered, swept blade hinged at the shoulder (x = 0), pointing along +x.
+  const wingGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0.14), new THREE.Vector3(0.34, 0, 0.1), new THREE.Vector3(0, 0, -0.12),
+    new THREE.Vector3(0.34, 0, 0.1), new THREE.Vector3(0.36, 0, -0.1), new THREE.Vector3(0, 0, -0.12),
+    new THREE.Vector3(0.34, 0, 0.1), new THREE.Vector3(0.72, 0, -0.16), new THREE.Vector3(0.36, 0, -0.1),
+  ])
+  wingGeo.computeVertexNormals()
+  birdMat.side = THREE.DoubleSide
+  const birdCount = lite ? 5 : 9
+  const birds = new THREE.InstancedMesh(bodyGeo, birdMat, birdCount)
+  const wingsL = new THREE.InstancedMesh(wingGeo, birdMat, birdCount)
+  const wingsR = new THREE.InstancedMesh(wingGeo, birdMat, birdCount)
+  for (const m of [birds, wingsL, wingsR]) { m.frustumCulled = false; m.userData.ghost = true; m.raycast = () => undefined; scene.add(m) }
+  const wing = new THREE.Object3D()
+  const flip = new THREE.Matrix4().makeScale(-1, 1, 1)
 
   // Café steam and floating dust: point sprites.
   const puffTex = (() => {
@@ -106,16 +122,30 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
     benchSeats: spots.map((s) => ({ x: s.x, z: s.z, yaw: s.rot, y: 0.49 })),
     tick(time: number, focus: THREE.Vector3, night: number) {
       for (let i = 0; i < birdCount; i++) {
-        const a = time * 0.25 + (i / birdCount) * Math.PI * 2
-        const r = 14 + (i % 4) * 3
-        dummy.position.set(Math.cos(a) * r, 18 + (i % 3) * 2 + Math.sin(time + i) * 0.6, Math.sin(a) * r)
-        dummy.rotation.set(0, -a, 0)
-        dummy.scale.set(1, 1 + Math.sin(time * 9 + i) * 0.8, 1)
+        // Two loose groups wheel in opposite directions at different heights.
+        const dir = i % 2 ? 1 : -1
+        const a = dir * time * (0.16 + (i % 3) * 0.02) + (i / birdCount) * Math.PI * 2
+        const r = 16 + (i % 4) * 3.5 + Math.sin(time * 0.21 + i) * 2
+        const y = 15 + (i % 3) * 2.5 + Math.sin(time * 0.5 + i * 1.7) * 0.8
+        dummy.position.set(Math.cos(a) * r, y, Math.sin(a) * r)
+        // Face along the tangent of the circle and bank into the turn.
+        dummy.rotation.set(0, -a + (dir > 0 ? Math.PI : 0), 0)
+        dummy.rotateZ(-dir * 0.28)
+        dummy.scale.setScalar(1)
         dummy.updateMatrix()
         birds.setMatrixAt(i, dummy.matrix)
+        // Flap for a few beats, then glide with the wings held slightly up.
+        const beat = (Math.sin(time * 0.7 + i * 2.3) + 1) / 2
+        const flap = beat > 0.45 ? Math.sin(time * 9 + i) * 0.75 : 0.18
+        wing.position.set(0.05, 0.03, 0.02)
+        wing.rotation.set(0, 0, flap)
+        wing.updateMatrix()
+        wingsL.setMatrixAt(i, wing.matrix.premultiply(dummy.matrix))
+        wing.updateMatrix()
+        wingsR.setMatrixAt(i, wing.matrix.premultiply(flip).premultiply(dummy.matrix))
       }
-      birds.instanceMatrix.needsUpdate = true
-      birds.visible = night < 0.6
+      birds.instanceMatrix.needsUpdate = wingsL.instanceMatrix.needsUpdate = wingsR.instanceMatrix.needsUpdate = true
+      birds.visible = wingsL.visible = wingsR.visible = night < 0.6
       for (let i = 0; i < steamN; i++) {
         const v = vents[i % vents.length]!
         const t = (time * 0.35 + i * 0.137) % 1

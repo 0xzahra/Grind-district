@@ -3,6 +3,7 @@
 // Facades tile in metres (one window bay per texture cell), so windows never stretch or blur with size.
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { paintFacets } from './facets.ts'
 
 export type Door = 'px' | 'nx' | 'pz' | 'nz'
 export type Style = 'civic' | 'glass' | 'brick' | 'arch' | 'pavilion' | 'kiosk' | 'house'
@@ -44,13 +45,6 @@ function canvas(w: number, h: number, draw: (g: CanvasRenderingContext2D) => voi
   return c
 }
 
-function noise(g: CanvasRenderingContext2D, w: number, h: number, r: () => number, alpha: number, n: number): void {
-  for (let i = 0; i < n; i++) {
-    g.fillStyle = r() > 0.5 ? `rgba(0,0,0,${alpha})` : `rgba(255,255,255,${alpha * 0.8})`
-    g.fillRect(r() * w, r() * h, 1 + r() * 3, 1 + r() * 2)
-  }
-}
-
 const WALL: Record<Facade, string> = {
   stone: '#d6ccba', brick: '#8f4f3c', glass: '#3c464e', render: '#ece6dc', arch: '#e3d5c4', charcoal: '#3a3836',
 }
@@ -86,11 +80,15 @@ function paintFacade(kind: Facade, seed: number) {
       // Running-bond brick: 10 px courses, per-brick tone, recessed mortar.
       const base = kind === 'brick' ? [143, 79, 60] : [58, 56, 54]
       for (let y = 0; y < S; y += 10) for (let x = -((y / 10) % 2) * 12; x < S; x += 24) {
-        const k = 0.86 + r() * 0.26
+        const k = 0.92 + r() * 0.14
         g.fillStyle = `rgb(${base[0]! * k | 0},${base[1]! * k | 0},${base[2]! * k | 0})`
-        g.fillRect(x + 1, y + 1, 22, 8)
+        g.fillRect(x + 0.5, y + 0.5, 23, 9)
       }
-    } else noise(g, S, S, r, 0.035, 2600)
+    } else if (kind !== 'glass') {
+      // Flat wall in big soft facets (about 1.5 m): planar and matte, like the rest of the city.
+      const c = parseInt(WALL[kind].slice(1), 16)
+      paintFacets(g, S, S, seed, 5, 0.075, [(c >> 16) & 255, (c >> 8) & 255, c & 255])
+    }
     for (let cy = 0; cy < TILE; cy++) for (let cx = 0; cx < TILE; cx++) {
       const o = cellRect(cx, cy)
       const k = cy * TILE + cx
@@ -183,7 +181,7 @@ function paintPodium(seed: number) {
   const albedo = canvas(W, H, (g) => {
     g.fillStyle = '#cfc6b6'
     g.fillRect(0, 0, W, H)
-    noise(g, W, H, r, 0.03, 900)
+    void r
     g.fillStyle = '#3f3c39' // granite plinth
     g.fillRect(0, H - 34, W, 34)
     const gx = 24, gy = 120, gw = W - 48, gh = H - 34 - 120

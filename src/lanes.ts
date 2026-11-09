@@ -1,6 +1,6 @@
 // Car lanes and building footprints, shared by the renderer and the automated lane check.
 // Roads: two straight arms (x and z axes) from the plaza ring out to a turnaround that stops well short of
-// the civic buildings at the arm ends (trading floor, influencer row, learning hall, trenches).
+// the civic buildings at the arm ends (trading floor, influencer row, learning hall, mempool).
 export const ROAD_HALF = 3.2
 // Roundabout round the plaza: one-way ring of asphalt between RING_IN and RING_OUT; the arms join it.
 export const RING_IN = 15.6
@@ -26,7 +26,7 @@ export const FOOTPRINTS: Footprint[] = [
   { x: 12, z: -36, w: 3.2, d: 2.2, label: 'Booth' },
   { x: -48, z: 0, w: 12, d: 16, label: 'Trading floor' },
   { x: 48, z: 0, w: 12, d: 16, label: 'Influencer row' },
-  { x: 0, z: 48, w: 16, d: 11, label: 'Trenches' },
+  { x: 0, z: 48, w: 16, d: 11, label: 'Mempool' },
   { x: 22, z: -22, w: 8, d: 7, label: 'Boutique' },
   { x: -22, z: -22, w: 8, d: 8, label: 'Gym' },
   { x: 24, z: 24.5, w: 9, d: 17, label: 'Church' },

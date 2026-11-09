@@ -170,7 +170,7 @@ const BASE_COURSES: Course[] = [
     paragraphs: [
       'A memecoin is a token wrapped around a joke, a character, or a moment. People buy it for the crowd, the bit, and the chance the crowd gets larger. In February 2025 the SEC’s Division of Corporation Finance described typical meme coins as bought for entertainment and priced by market demand, and said that kind of coin usually does not pay a yield or a claim on a business. That text is a staff statement. It is not a statute, and it does not make a coin safe.',
       'Investor.gov warns about the version that is a pump: promoters tout a coin, the price rises on that attention, and the promoters sell into the buyers. After they sell, the price often collapses. The people who bought the hurry are the ones left in it.',
-      'There is often no cash flow under the joke. Attention can double a price in an hour and leave in the next. The trenches desk here is practice, with wilder swings on purpose. Sizing small is the skill. A loss does not touch your rank. A story that says you must hurry does not either.',
+      'There is often no cash flow under the joke. Attention can double a price in an hour and leave in the next. The Mempool desk here is practice, with wilder swings on purpose. Sizing small is the skill. A loss does not touch your rank. A story that says you must hurry does not either.',
       'Sources: SEC staff statement on meme coins, 27 February 2025, which is not a Commission rule; Investor.gov, pump-and-dump warnings.',
     ],
     questions: [

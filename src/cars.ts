@@ -23,11 +23,12 @@ const P: Record<CarKind, Profile> = {
 }
 export const carLength = (k: CarKind) => P[k].L
 
-const PALETTE = [0xf1f1ee, 0x2b2e33, 0xa9adb3, 0x1d2b4a, 0x8e1b22, 0x2f4a3a, 0xc8b48f, 0xb0643a, 0x2a6f73, 0x141517, 0x5a1f2b, 0x6f93b8]
+const PALETTE = [0xf2efe8, 0xb9c0c7, 0x4f86c6, 0xc8433a, 0xd9b26a, 0x2f8f83, 0xe07b3a, 0x3d6b4f, 0x2c4a7a, 0x5a5f66, 0x8e3a5a, 0xd8cdb8]
+const FLEET = [0xf2efe8, 0xd8cdb8, 0x2f8f83, 0x4f86c6] // vans and minibuses wear calm fleet colours
 export function carColour(kind: CarKind, i: number): number {
-  if (kind === 'taxi') return 0xf0c020
-  if (kind === 'minibus') return [0xf1f1ee, 0x2a6f73, 0xc8b48f][i % 3]!
-  return PALETTE[(i * 7 + kind.length) % PALETTE.length]!
+  if (kind === 'taxi') return 0xf2c230
+  if (kind === 'minibus' || kind === 'van') return FLEET[(i >> 1) % FLEET.length]!
+  return PALETTE[(i * 5 + kind.length) % PALETTE.length]!
 }
 
 function colour(g: THREE.BufferGeometry, c: number): THREE.BufferGeometry {
@@ -85,9 +86,12 @@ export function carGeometry(kind: CarKind) {
     s.lineTo(rear + 0.06, p.tail)
     s.lineTo(rear, p.tail - 0.08)
   } else {
-    s.lineTo(cabBack, p.beltR)
-    if (p.bed) s.lineTo(rear + 0.06, p.tail)
-    else { s.lineTo(rear + 0.1, p.tail); s.lineTo(rear, p.tail - 0.1) }
+    if (p.bed) {
+      // Open load bed: the body drops to the bed floor behind the cab (walls and tailgate are added below).
+      s.lineTo(cabBack, p.beltR)
+      s.lineTo(cabBack, p.beltR - 0.36)
+      s.lineTo(rear, p.beltR - 0.36)
+    } else { s.lineTo(cabBack, p.beltR); s.lineTo(rear + 0.1, p.tail); s.lineTo(rear, p.tail - 0.1) }
   }
   s.lineTo(rear, clr + 0.18)
   s.closePath()
@@ -130,8 +134,11 @@ export function carGeometry(kind: CarKind) {
   for (const sx of [-1, 1]) trim(0.16, 0.1, 0.12, sx * (W / 2 + 0.05), p.belt + 0.06, front - p.bonnet - 0.05)
   if (kind === 'suv') for (const sx of [-1, 1]) trim(0.05, 0.05, glassLen * 0.9, sx * (W / 2 - 0.2), H + 0.04, cabBack + p.rRake + glassLen / 2)
   if (p.bed) {
-    trim(W - 0.22, 0.04, p.boot - 0.2, 0, p.beltR - 0.03, rear + p.boot / 2)
-    parts.push(colour(clean(new THREE.BoxGeometry(W - 0.1, 0.5, 0.08).translate(0, p.beltR + 0.25, cabBack - 0.04)), 1))
+    const wall = (w: number, d: number, x: number, z: number) => parts.push(colour(clean(new THREE.BoxGeometry(w, 0.38, d).translate(x, p.beltR - 0.17, z)), 1))
+    for (const sx of [-1, 1]) wall(0.09, p.boot, sx * (W / 2 - 0.045), rear + p.boot / 2)
+    wall(W, 0.09, 0, rear + 0.045)
+    trim(W - 0.2, 0.03, p.boot - 0.12, 0, p.beltR - 0.345, rear + p.boot / 2) // bed liner
+    trim(W * 0.5, 0.05, 0.02, 0, p.beltR - 0.12, rear - 0.005) // tailgate handle
   }
   const body = mergeGeometries(parts)!
 
@@ -139,17 +146,17 @@ export function carGeometry(kind: CarKind) {
   const lamp: THREE.BufferGeometry[] = []
   const hy = p.nose - 0.13
   for (const sx of [-1, 1]) {
-    lamp.push(tint(clean(new THREE.BoxGeometry(0.34, 0.1, 0.05).translate(sx * (W / 2 - 0.3), hy, front + 0.01)), 1, 0.95, 0.82))
+    lamp.push(tint(clean(new THREE.BoxGeometry(0.4, 0.13, 0.06).translate(sx * (W / 2 - 0.3), hy, front + 0.012)), 1, 0.96, 0.84))
     const ty = (p.tail > p.beltR + 0.3 ? p.belt : p.tail) - 0.16
-    lamp.push(tint(clean(new THREE.BoxGeometry(p.tail > 1.6 ? 0.12 : 0.36, p.tail > 1.6 ? 0.5 : 0.1, 0.05).translate(sx * (W / 2 - 0.22), p.tail > 1.6 ? 0.9 : ty, rear - 0.01)), 0.9, 0.08, 0.1))
+    lamp.push(tint(clean(new THREE.BoxGeometry(p.tail > 1.6 ? 0.13 : 0.4, p.tail > 1.6 ? 0.5 : 0.12, 0.06).translate(sx * (W / 2 - 0.24), p.tail > 1.6 ? 0.9 : p.bed ? p.beltR - 0.2 : ty, rear - 0.012)), 0.92, 0.1, 0.1))
   }
-  return { body, glass, lamps: mergeGeometries(lamp)!, wheel: { r, track: W / 2 - 0.14, base: wb / 2 }, roofSign: kind === 'taxi', height: H, length: L, width: W }
+  return { body, glass, lamps: mergeGeometries(lamp)!, wheel: { r: r * 1.06, track: W / 2 - 0.11, base: wb / 2 }, roofSign: kind === 'taxi', height: H, length: L, width: W }
 }
 
 /** Shared wheel: tyre + alloy rim + hub, vertex coloured, axle along x. */
 function wheelGeometry(): THREE.BufferGeometry {
   const tyre = colour(clean(new THREE.CylinderGeometry(1, 1, 0.22, 14).rotateZ(Math.PI / 2)), 0.05)
-  const rim = colour(clean(new THREE.CylinderGeometry(0.62, 0.62, 0.235, 10).rotateZ(Math.PI / 2)), 0.72)
+  const rim = colour(clean(new THREE.CylinderGeometry(0.62, 0.62, 0.235, 8).rotateZ(Math.PI / 2)), 0.86)
   const hub = colour(clean(new THREE.CylinderGeometry(0.2, 0.2, 0.25, 6).rotateZ(Math.PI / 2)), 0.25)
   return mergeGeometries([tyre, rim, hub])!
 }
@@ -158,10 +165,10 @@ export type Fleet = ReturnType<typeof createFleet>
 
 /** One instanced fleet. `kinds` gives each car's body type (index = car id). */
 export function createFleet(scene: THREE.Scene, kinds: CarKind[], opts: { shadows: boolean; colours?: number[] }) {
-  const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.45, envMapIntensity: 1.1 })
+  const paint = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.12, envMapIntensity: 0.7 })
   const glassMat = new THREE.MeshStandardMaterial({ color: 0x33434e, roughness: 0.05, metalness: 0.55, envMapIntensity: 1.5 })
   const lampMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false })
-  const wheelMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.5 })
+  const wheelMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.6, metalness: 0.25 })
   const shadowTex = (() => {
     const c = document.createElement('canvas'); c.width = c.height = 64
     const g = c.getContext('2d')!

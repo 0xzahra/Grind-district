@@ -692,7 +692,7 @@ export function mountUi(
     const blurb = symbol === 'unit'
       ? `${season} season. A plan logged on the sell can count when the close is red.`
       : `${season} season. MEME is attention. Size small. Rank will not follow a crash.`
-    return frame(symbol === 'unit' ? 'Spot book' : 'Trenches book', stack(
+    return frame(symbol === 'unit' ? 'Spot book' : 'Meme book', stack(
       renderMarkets(),
       para(symbol === 'unit' ? 'UNIT · district coin' : 'MEME · new coin', 'kicker'),
       para(blurb, 'muted'),

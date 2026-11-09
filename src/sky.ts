@@ -17,14 +17,18 @@ export function createPhysicalSky(scene: THREE.Scene) {
   // Calm horizon (no white band glowing behind the buildings) and soft painted clouds that drift with the
   // sky itself: no billboards, so nothing in the sky reads as a flat card moving about.
   mat.uniforms.cloudTime = { value: 0 }
+  mat.uniforms.gdDay = { value: 1 }
   mat.fragmentShader = mat.fragmentShader
     .replace('void main() {', `uniform float cloudTime;
+		uniform float gdDay;
 		float gdHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 		float gdNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 			return mix(mix(gdHash(i), gdHash(i + vec2(1.0, 0.0)), f.x), mix(gdHash(i + vec2(0.0, 1.0)), gdHash(i + vec2(1.0, 1.0)), f.x), f.y); }
 		void main() {`)
-    .replace('gl_FragColor = vec4( texColor, 1.0 );', `float gdHz = 1.0 - smoothstep(-0.02, 0.3, direction.y);
-			texColor = mix(texColor, texColor * vec3(0.74, 0.79, 0.86), gdHz);
+    .replace('gl_FragColor = vec4( texColor, 1.0 );', `// Daytime: lean on a designed gradient (soft blue overhead, pale warm haze at the horizon) so the sky is
+			// never a white glare behind the roofs; dawn, dusk and night keep the scattering colours.
+			vec3 gdSky = mix(vec3(0.52, 0.59, 0.66), vec3(0.27, 0.43, 0.68), smoothstep(-0.02, 0.5, direction.y));
+			texColor = mix(texColor, gdSky, 0.8 * gdDay);
 			vec2 gdP = direction.xz / max(direction.y, 0.08) * 0.55 + vec2(cloudTime * 0.006, cloudTime * 0.002);
 			float gdN = gdNoise(gdP) * 0.55 + gdNoise(gdP * 2.3 + 7.1) * 0.3 + gdNoise(gdP * 5.1 + 3.7) * 0.15;
 			float gdC = smoothstep(0.56, 0.82, gdN) * smoothstep(0.03, 0.22, direction.y) * (1.0 - smoothstep(0.55, 0.95, direction.y));
@@ -50,6 +54,7 @@ export function createPhysicalSky(scene: THREE.Scene) {
       const night = THREE.MathUtils.clamp(-elev * 3, 0, 1)
       u.rayleigh!.value = 2.1 - night * 1.9
       u.cloudTime!.value = performance.now() / 1000
+      u.gdDay!.value = THREE.MathUtils.smoothstep(Math.sin(elev), 0.12, 0.5)
       if (follow) sky.position.copy(follow)
     },
   }
