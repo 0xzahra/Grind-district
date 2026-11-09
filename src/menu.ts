@@ -5,9 +5,8 @@ import { getSave, signUp } from './state.ts'
 import { agentJoinForm } from './agent.ts'
 import { AGENT_EXPLAINER } from './agentPrompt.ts'
 import { SKILL_ORDER } from './logic.ts'
-import { nearPassportOn, nearPassportPage } from './nearPassport.ts'
+import { nearPassportPage } from './nearPassport.ts'
 
-import { trackFunnelOnce } from './track.ts'
 type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents' | 'near'
 
 function must<T extends Element>(selector: string): T {
@@ -90,6 +89,14 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
   }
 }
 
+export function hasAccountSession(): boolean {
+  try {
+    return !!(localStorage.getItem('gd.privy.username') || localStorage.getItem('gd.privy.userId') || localStorage.getItem('gd.near.account'))
+  } catch {
+    return false
+  }
+}
+
 export function mountMenu(enter: () => void): void {
   const home = must<HTMLElement>('#menu-home')
   const page = must<HTMLElement>('#menu-page')
@@ -103,9 +110,6 @@ export function mountMenu(enter: () => void): void {
   const note = must<HTMLParagraphElement>('#menu-note')
   const account = must<HTMLElement>('#menu-account')
   const profileName = must<HTMLElement>('#menu-profile-name')
-  const saved = getSave()
-  // Title screen stays clean: no handle, profile or stats until you are in the city.
-  note.textContent = saved.signedUp ? 'Welcome back.' : ''
   profileName.textContent = ''
 
   const show = (next: Page) => {
@@ -124,7 +128,8 @@ export function mountMenu(enter: () => void): void {
     account.hidden = true
     slot.replaceChildren()
     home.hidden = false
-    play.focus()
+    const focus = document.querySelector<HTMLButtonElement>('#menu-create') ?? document.querySelector<HTMLButtonElement>('#menu-signin') ?? play
+    focus?.focus()
   }
 
   const showAccount = () => {
@@ -132,55 +137,61 @@ export function mountMenu(enter: () => void): void {
     page.hidden = true
     signup.hidden = true
     account.hidden = false
-    must<HTMLButtonElement>('#account-new').focus()
+    must<HTMLButtonElement>('#account-existing').focus()
   }
 
-  const showSignup = () => {
-    home.hidden = true
-    page.hidden = true
-    account.hidden = true
-    error.hidden = true
-    error.textContent = ''
-    signup.hidden = false
-    nameInput.focus()
-  }
-
-  const start = () => {
-    if (getSave().signedUp) {
-      enter()
+  /** Enter the 3D district only with a real account session (Privy or NEAR). */
+  const enterIfSignedIn = () => {
+    if (!hasAccountSession()) {
+      note.textContent = 'Sign in to enter the district.'
+      void import('./login.ts').then((m) => m.openLogin('', 'signin'))
       return
     }
-    // Opening card already has Sign in; this button is the guest path.
-    trackFunnelOnce('guest_play', { step: 'started' })
-    showSignup()
+    enter()
   }
 
-  play.addEventListener('click', start)
-  // Sign in is always on the opening card (owner request, 9 Nov). Guest / Continue stays secondary.
-  const signinBtn = must<HTMLButtonElement>('#menu-signin')
-  signinBtn.addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
-  if (getSave().signedUp) {
+  const refreshHome = () => {
+    const session = hasAccountSession()
     const handle = localStorage.getItem('gd.privy.username')
+    play.hidden = !session
+    play.disabled = false
     play.textContent = handle ? `Continue as @${handle}` : 'Continue'
-    play.hidden = false
-    const note = document.querySelector('#menu-note')
-    if (note && !handle) note.textContent = 'Playing as a guest on this device. Sign in to keep your progress on any device.'
-  } else {
-    play.textContent = 'Play as guest'
-    // Fresh players: Sign in is primary; guest is the quieter path.
+    note.textContent = session ? (handle ? `Signed in as @${handle}.` : 'Signed in on this device.') : ''
+    // Opening card: Sign up / Sign in / Agents. Continue only appears after a real session.
+    const create = document.querySelector<HTMLButtonElement>('#menu-create')
+    const signin = document.querySelector<HTMLButtonElement>('#menu-signin')
+    if (create) create.hidden = session
+    if (signin) signin.hidden = session
   }
+
+  play.addEventListener('click', enterIfSignedIn)
+  must<HTMLButtonElement>('#menu-create').addEventListener('click', () => {
+    void import('./login.ts').then((m) => m.openLogin('', 'signup'))
+  })
+  must<HTMLButtonElement>('#menu-signin').addEventListener('click', () => {
+    void import('./login.ts').then((m) => m.openLogin('', 'signin'))
+  })
   must('#menu-agents').addEventListener('click', () => show('agents'))
-  const nearBtn = document.querySelector<HTMLButtonElement>('#menu-near')
-  if (nearBtn) { nearBtn.hidden = !nearPassportOn(); nearBtn.addEventListener('click', () => show('near')) }
-  must('#account-new').addEventListener('click', showSignup)
-  must('#account-existing').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
+
+  must('#account-existing').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin('', 'signin')) })
+  must('#account-new').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin('', 'signup')) })
   must('#account-back').addEventListener('click', back)
-  must('#menu-profile').addEventListener('click', () => { if (getSave().signedUp) enter(); else showAccount() })
+  must('#menu-profile').addEventListener('click', () => {
+    if (hasAccountSession()) enterIfSignedIn()
+    else showAccount()
+  })
   if (location.search.includes('privy_oauth_code')) void import('./login.ts').then((m) => m.resumeOAuth())
   must('#menu-back').addEventListener('click', back)
   must('#signup-back').addEventListener('click', back)
+
+  // Body picker is no longer a guest door. Keep the form for rare post-auth use; never enter without a session.
   form.addEventListener('submit', (event) => {
     event.preventDefault()
+    if (!hasAccountSession()) {
+      error.hidden = false
+      error.textContent = 'Sign in first.'
+      return
+    }
     const picked = new FormData(form).get('body')
     const body = picked === 'zuri' ? 'zuri' : picked === 'player' ? 'player' : null
     if (!body) {
@@ -194,8 +205,7 @@ export function mountMenu(enter: () => void): void {
       error.textContent = outcome.error
       return
     }
-    trackFunnelOnce('guest_play', { body })
-    enter()
+    enterIfSignedIn()
   })
 
   window.addEventListener('keydown', (event) => {
@@ -206,13 +216,16 @@ export function mountMenu(enter: () => void): void {
       back()
       return
     }
-    if (!signup.hidden || !account.hidden) return
+    if (!signup.hidden || !account.hidden || !page.hidden) return
     if (event.key !== 'Enter' && event.key !== ' ') return
-    if (!page.hidden) return
     const target = event.target
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return
-    if (target instanceof HTMLButtonElement && target.id !== 'play') return
+    if (target instanceof HTMLButtonElement) return
     event.preventDefault()
-    start()
+    if (hasAccountSession()) enterIfSignedIn()
+    else void import('./login.ts').then((m) => m.openLogin('', 'signin'))
   })
+
+  window.addEventListener('gd-auth-changed', () => refreshHome())
+  refreshHome()
 }

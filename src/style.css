@@ -1641,39 +1641,42 @@ body.sheet-open #greet,
 body.cc-sheet-on #greet,
 body.in-menu #greet { display: none !important; }
 
-/* ===== Opening card polish (9 Nov): smaller logo, slim consistent buttons, clear hierarchy ===== */
+/* ===== Opening + auth polish (9 Nov): gated card, glassmorphism, no guest door ===== */
 #menu-panel {
-  width: min(320px, calc(100vw - 40px)) !important;
-  padding: 18px 16px !important;
-  gap: 0.5rem !important;
+  width: min(300px, calc(100vw - 40px)) !important;
+  padding: 16px 14px !important;
+  gap: 0.45rem !important;
   min-height: 0 !important;
-  border-radius: 22px !important;
+  border-radius: 20px !important;
   background: rgba(16, 16, 18, 0.42) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  #menu-panel {
+    background: rgba(16, 16, 18, 0.38) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(160%) !important;
+    backdrop-filter: blur(22px) saturate(160%) !important;
+  }
+}
 #menu-panel .panel-logo {
   display: block;
-  height: 46px !important;
+  height: 44px !important;
   width: auto !important;
-  margin: 0 auto 0 !important;
+  margin: 0 auto !important;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.35));
 }
 @media (min-width: 521px) {
-  #menu-panel { width: min(360px, calc(100vw - 48px)) !important; padding: 22px 20px !important; }
-  #menu-panel .panel-logo { height: 54px !important; }
+  #menu-panel { width: min(320px, calc(100vw - 48px)) !important; padding: 18px 16px !important; }
+  #menu-panel .panel-logo { height: 50px !important; }
 }
-#menu-home {
-  gap: 0.45rem !important;
-  width: 100% !important;
-}
+#menu-home { gap: 0.4rem !important; width: 100% !important; }
 #menu .title-headline {
   margin: 2px auto 0 !important;
-  max-width: 18.5em !important;
-  font-size: clamp(12.5px, 3.2vw, 14.5px) !important;
+  max-width: 18em !important;
+  font-size: clamp(12px, 3.1vw, 14px) !important;
   font-weight: 600 !important;
   line-height: 1.35 !important;
-  letter-spacing: -0.01em !important;
   color: #f5f5f7 !important;
 }
 #menu .title-desc {
@@ -1688,39 +1691,52 @@ body.in-menu #greet { display: none !important; }
   flex-direction: column !important;
   flex-wrap: nowrap !important;
   align-items: stretch !important;
-  justify-content: flex-start !important;
   gap: 7px !important;
   width: 100% !important;
-  max-width: 240px !important;
+  max-width: 220px !important;
   margin: 2px auto 0 !important;
 }
-#menu .menu-actions button {
+/* Glass buttons: frosted when supported, solid translucent fallback otherwise */
+#menu .menu-actions button,
+#menu .glass-btn,
+.login-dlg .glass-btn,
+.login-dlg button:not(.login-x) {
   width: 100% !important;
   min-width: 0 !important;
   min-height: 38px !important;
   height: 38px !important;
   padding: 0 14px !important;
-  border-radius: 11px !important;
+  border-radius: 12px !important;
   font-size: 13px !important;
   font-weight: 550 !important;
   letter-spacing: 0 !important;
-  box-shadow: none !important;
-  background: rgba(255, 255, 255, 0.055) !important;
-  border: 1px solid rgba(255, 255, 255, 0.13) !important;
-  color: rgba(245, 245, 247, 0.9) !important;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  color: rgba(245, 245, 247, 0.95) !important;
+  background: rgba(36, 36, 40, 0.88) !important; /* fallback without blur */
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22) !important;
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  #menu .menu-actions button,
+  #menu .glass-btn,
+  .login-dlg .glass-btn,
+  .login-dlg button:not(.login-x) {
+    background: rgba(255, 255, 255, 0.08) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    backdrop-filter: blur(16px) saturate(160%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  }
 }
 #menu .menu-actions button.primary,
-#menu #menu-signin {
-  min-height: 42px !important;
-  height: 42px !important;
-  font-weight: 650 !important;
-  font-size: 13.5px !important;
-  background: #f5f5f7 !important;
+#menu .glass-btn.primary,
+.login-dlg .glass-btn.primary,
+.login-dlg button.primary:not(.login-x) {
+  background: rgba(245, 245, 247, 0.92) !important;
   color: #111 !important;
-  border-color: transparent !important;
-  box-shadow: 0 0 0 1.5px rgba(217, 178, 106, 0.5), 0 6px 16px rgba(0, 0, 0, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 0 0 1.5px rgba(217, 178, 106, 0.45), 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+  font-weight: 650 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 #menu #play {
   min-width: 0 !important;
@@ -1728,6 +1744,9 @@ body.in-menu #greet { display: none !important; }
   height: 38px !important;
   font-size: 13px !important;
 }
+#menu #play[hidden],
+#menu-create[hidden],
+#menu-signin[hidden] { display: none !important; }
 #menu-note {
   margin: 2px auto 0 !important;
   max-width: 22em !important;
@@ -1736,85 +1755,72 @@ body.in-menu #greet { display: none !important; }
   color: rgba(245, 245, 247, 0.58) !important;
 }
 @media (max-width: 820px), (orientation: portrait) {
-  #menu-panel {
-    top: 52% !important;
-    max-height: calc(100dvh - 28px) !important;
-  }
+  #menu-panel { top: 52% !important; max-height: calc(100dvh - 28px) !important; }
 }
 
-/* Sign-in dialog: match opening card — slim glass buttons, no bulky gold fill */
+/* Sign-in / Sign-up dialog */
 .login-dlg.wallet-dlg {
-  width: min(92vw, 300px) !important;
-  padding: 14px 14px 12px !important;
+  width: min(90vw, 280px) !important;
+  padding: 12px 12px 10px !important;
   gap: 6px !important;
-  border-radius: 18px !important;
-  background: rgba(16, 16, 18, 0.78) !important;
+  border-radius: 16px !important;
+  background: rgba(18, 18, 20, 0.92) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
-  backdrop-filter: blur(24px) saturate(160%) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .login-dlg.wallet-dlg {
+    background: rgba(16, 16, 18, 0.72) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+    backdrop-filter: blur(24px) saturate(160%) !important;
+  }
 }
 .login-dlg .login-wordmark {
-  font-size: 11px !important;
+  font-size: 10.5px !important;
   letter-spacing: 0.12em !important;
-  opacity: 0.72;
+  opacity: 0.7;
 }
 .login-dlg h2 {
   margin: 0 0 2px !important;
-  font-size: 15px !important;
+  font-size: 14.5px !important;
   font-weight: 600 !important;
-  letter-spacing: -0.01em !important;
   color: #f5f5f7 !important;
 }
 .login-dlg .login-x {
-  top: 8px !important;
-  right: 8px !important;
-  width: 30px !important;
-  height: 30px !important;
-  min-height: 30px !important;
+  top: 6px !important;
+  right: 6px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
   border-radius: 50% !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
   background: rgba(255, 255, 255, 0.06) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   color: #f5f5f7 !important;
   box-shadow: none !important;
 }
-.login-dlg .wallet-body {
+.login-dlg .wallet-body { display: grid !important; gap: 6px !important; }
+.login-options { display: grid; gap: 8px; }
+.login-providers {
   display: grid !important;
   gap: 6px !important;
-}
-.login-dlg button:not(.login-x) {
   width: 100% !important;
-  min-width: 0 !important;
-  min-height: 38px !important;
-  height: 38px !important;
-  padding: 0 14px !important;
-  border-radius: 11px !important;
-  font-size: 13px !important;
-  font-weight: 550 !important;
-  letter-spacing: 0 !important;
-  box-shadow: none !important;
 }
-/* Provider buttons: glass + soft gold ring (matches opening Sign in accent, not a gold fill) */
-.login-dlg button.primary:not(.login-x) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #f5f5f7 !important;
-  border: 1px solid rgba(217, 178, 106, 0.45) !important;
-  box-shadow: none !important;
+.login-email {
+  display: grid !important;
+  gap: 6px !important;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
-.login-dlg button.ghost:not(.login-x),
-.login-dlg button.primary[hidden] {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: rgba(245, 245, 247, 0.92) !important;
-}
+.login-email-label { margin: 0 !important; }
 .login-dlg input {
   width: 100% !important;
   box-sizing: border-box !important;
-  padding: 9px 12px !important;
-  min-height: 38px !important;
+  padding: 8px 11px !important;
+  min-height: 36px !important;
   border-radius: 11px !important;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   background: rgba(10, 12, 14, 0.55) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   color: #f5f5f7 !important;
@@ -1823,9 +1829,8 @@ body.in-menu #greet { display: none !important; }
 .login-dlg .muted,
 .login-dlg p.muted,
 .login-dlg p {
-  font-size: 11.5px !important;
+  font-size: 11px !important;
   line-height: 1.4 !important;
   margin: 0 !important;
   color: rgba(245, 245, 247, 0.62) !important;
 }
-.login-dlg h2 + .wallet-body { margin-top: 2px; }

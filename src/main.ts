@@ -1638,5 +1638,5 @@ mountMenu(() => {
   void begin()
 })
 
-const focusHome = document.querySelector<HTMLButtonElement>('#menu-signin') ?? play
+const focusHome = document.querySelector<HTMLButtonElement>('#menu-create') ?? document.querySelector<HTMLButtonElement>('#menu-signin') ?? play
 focusHome.focus()

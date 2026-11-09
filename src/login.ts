@@ -1,6 +1,6 @@
 import { trackFunnelOnce } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
-// Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden and NEAR / guest still work.
+// Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,16}$/
 export const CLAIMED_KEY = 'gd.privy.username'
@@ -47,19 +47,27 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label = 'timed out'): P
 
 
 async function enterAs(_handle: string): Promise<void> {
+  window.dispatchEvent(new Event('gd-auth-changed'))
   const menu = document.getElementById('menu')
   if (!menu || menu.hidden) return
-  const go = el('button', 'Enter the district', 'primary')
-  go.onclick = () => { document.getElementById('login-dlg')?.remove(); document.getElementById('play')?.click() }
+  const go = el('button', 'Enter the district', 'glass-btn primary')
+  go.onclick = () => {
+    document.getElementById('login-dlg')?.remove()
+    window.dispatchEvent(new Event('gd-auth-changed'))
+    document.getElementById('play')?.click()
+  }
   document.querySelector('#login-dlg .wallet-body')?.append(go)
 }
 
-export function openLogin(notice = ''): void {
+export type LoginMode = 'signin' | 'signup'
+
+export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   document.getElementById('login-dlg')?.remove()
   const dlg = el('div', '', 'wallet-dlg login-dlg')
   dlg.id = 'login-dlg'
   dlg.setAttribute('role', 'dialog')
-  dlg.setAttribute('aria-label', 'Sign in')
+  const heading = mode === 'signup' ? 'Sign up' : 'Sign in'
+  dlg.setAttribute('aria-label', heading)
   const logo = el('p', 'Grind District', 'login-wordmark')
   const body = el('div', '', 'wallet-body')
   const close = el('button', '✕', 'ghost login-x'); close.setAttribute('aria-label', 'Close')
@@ -67,7 +75,7 @@ export function openLogin(notice = ''): void {
   const acct = document.getElementById('menu-account'); const acctWas = acct?.hidden
   if (acct) acct.hidden = true
   window.addEventListener('gd-login-closed', () => { if (acct && acctWas === false && !document.getElementById('login-dlg')) acct.hidden = false }, { once: true })
-  dlg.append(close, logo, el('h2', 'Sign in'), body)
+  dlg.append(close, logo, el('h2', heading), body)
   const mo = new MutationObserver(() => { if (document.body.classList.contains('sheet-open')) { mo.disconnect(); close.click() } })
   mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
   document.body.append(dlg)
@@ -97,7 +105,7 @@ export function openLogin(notice = ''): void {
   const pickUsername = async (auth: { token?: string; near?: unknown }, userId: string) => {
     const input = el('input'); input.placeholder = 'username'; input.maxLength = 16; input.autocapitalize = 'off'
     const state = el('p', '', 'muted')
-    const save = el('button', 'Claim username', 'primary')
+    const save = el('button', 'Claim username', 'glass-btn primary')
     let timer = 0
     input.oninput = () => {
       const u = input.value.trim().toLowerCase()
@@ -145,7 +153,7 @@ export function openLogin(notice = ''): void {
   }
 
   const social = (provider: Social) => {
-    const b = el('button', `Continue with ${SOCIAL_LABEL[provider]}`, 'primary')
+    const b = el('button', `Continue with ${SOCIAL_LABEL[provider]}`, 'glass-btn primary')
     b.onclick = async () => {
       b.disabled = true
       b.textContent = `Opening ${SOCIAL_LABEL[provider]}…`
@@ -164,7 +172,7 @@ export function openLogin(notice = ''): void {
   }
 
   const nearButton = () => {
-    const b = el('button', 'Continue with NEAR', 'primary')
+    const b = el('button', 'Continue with NEAR', 'glass-btn primary')
     b.onclick = async () => {
       b.disabled = true
       b.textContent = 'Opening NEAR wallets…'
@@ -219,9 +227,9 @@ export function openLogin(notice = ''): void {
   }
 
   const email = el('input'); email.type = 'email'; email.placeholder = 'you@example.com'
-  const send = el('button', 'Email me a code', 'ghost')
+  const send = el('button', 'Email me a code', 'glass-btn ghost')
   const code = el('input'); code.inputMode = 'numeric'; code.placeholder = '6-digit code'; code.hidden = true
-  const verify = el('button', 'Verify', 'primary'); verify.hidden = true
+  const verify = el('button', 'Verify', 'glass-btn primary'); verify.hidden = true
   send.onclick = async () => {
     if (!email.value.trim()) { msg.textContent = 'Enter your email first.'; return }
     send.disabled = true
@@ -241,7 +249,7 @@ export function openLogin(notice = ''): void {
       await afterLogin(privy)
     } catch (e) { msg.textContent = (e as Error).message }
   }
-  send.className = 'primary'
+  send.className = 'glass-btn ghost'
 
   const loading = el('p', 'Loading sign-in options…', 'muted')
   body.append(loading, msg)
@@ -249,25 +257,31 @@ export function openLogin(notice = ''): void {
   const renderOptions = (opts: { google: boolean; twitter: boolean; email: boolean; domainOk: boolean } | null, privyError = '') => {
     loading.remove()
     const parts: HTMLElement[] = []
-    // NEAR is always offered: it uses the game's own wallet connector and a signed message, not Privy.
-    parts.push(nearButton())
+    const stack = el('div', '', 'login-providers')
+    // Order: X, Google, NEAR (always), then compact email (Privy one-time code — email cannot verify without a code).
+    if (APP_ID && opts?.domainOk) {
+      if (opts.twitter) stack.append(social('twitter'))
+      if (opts.google) stack.append(social('google'))
+    }
+    stack.append(nearButton())
+    parts.push(stack)
     if (!APP_ID) {
-      parts.push(el('p', 'Google, X and email need the Privy app set up on this build. NEAR and guest play still work.', 'muted'))
+      parts.push(el('p', 'Google, X and email need the Privy app set up on this build. NEAR still works.', 'muted'))
     } else if (privyError) {
       parts.push(el('p', privyError, 'muted'))
     } else if (!opts) {
-      parts.push(el('p', 'Could not load Google / X / email options. Try NEAR, or play as a guest.', 'muted'))
+      parts.push(el('p', 'Could not load Google / X / email options. Try NEAR.', 'muted'))
     } else if (!opts.domainOk) {
-      parts.push(el('p', `Google, X and email are not enabled for ${location.host} yet. You can use NEAR or play as a guest.`, 'muted'))
-    } else {
-      if (opts.google) parts.push(social('google'))
-      if (opts.twitter) parts.push(social('twitter'))
-      if (opts.email) {
-        parts.push(el('p', parts.length ? 'Or get a one-time code by email.' : 'Sign in with a one-time code sent to your email.', 'muted'), email, send, code, verify)
-      }
-      if (!opts.google && !opts.twitter && !opts.email) {
-        parts.push(el('p', 'Google, X and email are off in the Privy dashboard. NEAR and guest play still work.', 'muted'))
-      }
+      parts.push(el('p', `Google, X and email are not enabled for ${location.host} yet. You can use NEAR.`, 'muted'))
+    } else if (opts.email) {
+      const emailBox = el('div', '', 'login-email')
+      emailBox.append(
+        el('p', 'Or email a one-time code', 'muted login-email-label'),
+        email, send, code, verify,
+      )
+      parts.push(emailBox)
+    } else if (!opts.google && !opts.twitter && !opts.email) {
+      parts.push(el('p', 'Google, X and email are off in the Privy dashboard. NEAR still works.', 'muted'))
     }
     parts.push(el('p', 'No funds or transactions are requested to sign in.', 'muted'))
     body.insertBefore(el('div', '', 'login-options'), msg).append(...parts)
