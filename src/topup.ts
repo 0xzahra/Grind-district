@@ -63,7 +63,7 @@ async function api(path: string, init?: RequestInit): Promise<Response> {
 export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { demo?: boolean } = {}): void {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
   let asset: 'USDC' | 'ETH' = 'USDC'
-  let dollars = 10
+  let dollars = 5
   let milliEth = 1
   let price = 0n
   let busy = false
@@ -90,7 +90,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
 
   const paintPresets = () => {
     presets.replaceChildren()
-    const list = asset === 'USDC' ? [5, 10, 25, 50, 100] : [1, 2, 5, 10]
+    const list = asset === 'USDC' ? [5, 10, 25, 50, 100] : [1, 5, 10]
     for (const n of list) {
       const b = el('button', '', '') as HTMLButtonElement
       b.type = 'button'
@@ -110,7 +110,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     if (ex) {
       const b = breakdown(ex)
       table.append(
-        el('dt', asset === 'USDC' ? `${dollars} USDC` : `${(milliEth / 1000).toFixed(3)} ETH`),
+        el('dt', asset === 'USDC' ? `$${dollars}` : `${(milliEth / 1000).toFixed(3)} ETH`),
         el('dd', usd(ex)),
         el('dt', '2% fee'),
         el('dd', usd(b.fee)),
