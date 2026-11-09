@@ -515,6 +515,18 @@ const apiAgents = createRemoteAgents(scene)
   must('#cam-in').addEventListener('click', () => input.nudgeZoom(-260))
   must('#cam-out').addEventListener('click', () => input.nudgeZoom(260))
   must('#cam-turn').addEventListener('click', () => input.nudgeLook(-150))
+  // Outside-menu camera dock: Zoom in / Zoom out / Turn (44px taps), collapsed by default.
+  const camToggle = document.querySelector<HTMLButtonElement>('#cam-toggle')
+  const camPanel = document.querySelector<HTMLElement>('#cam-panel')
+  camToggle?.addEventListener('click', () => {
+    if (!camPanel || !camToggle) return
+    const open = camPanel.hidden
+    camPanel.hidden = !open
+    camToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+  })
+  document.querySelector('#cam-zoom-in')?.addEventListener('click', () => input.nudgeZoom(-260))
+  document.querySelector('#cam-zoom-out')?.addEventListener('click', () => input.nudgeZoom(260))
+  document.querySelector('#cam-orbit')?.addEventListener('click', () => input.nudgeLook(-150))
   // Dock active state follows whichever panel is open.
   const navButtons = [...document.querySelectorAll<HTMLButtonElement>('#nav .icon-btn')]
   for (const b of navButtons) b.addEventListener('click', () => { for (const o of navButtons) o.classList.toggle('active', o === b) })
@@ -722,71 +734,7 @@ const apiAgents = createRemoteAgents(scene)
   // Fetch the top-up chunk now (while this build's assets are live) and re-sync credited top-ups for a known wallet.
   void topupModule().then((m) => m.autoSyncTopups(paintStatus)).catch(() => {})
   onNotesChange(() => { if (!ccSheet.hidden && sheetTitle.textContent === 'Notifications') renderNotes() })
-  // Sliders: while dragging, the menu fades away so the city stays visible; a readout shows the level and zone.
-  const readout = must<HTMLElement>('#cc-readout')
-  const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-  const paintReadout = (kind: 'zoom' | 'look') => {
-    const place = interiors.inside ? 'Indoors' : districtName(avatar.object.position.x, avatar.object.position.z)
-    if (kind === 'zoom') {
-      // Slider up = zoom in. The readout mirrors the camera distance the frame loop actually uses.
-      const pct = Math.round(((12 - camDist) / (12 - 3.2)) * 100)
-      readout.textContent = `Zoom ${pct > 75 ? 'Close' : pct > 40 ? 'Street' : 'Wide'} · ${pct}% · ${place}`
-    } else {
-      const deg = ((Math.round(THREE.MathUtils.radToDeg(camYaw)) % 360) + 360) % 360
-      readout.textContent = `Facing ${DIRS[Math.round(deg / 45) % 8]} · ${deg}° · ${place}`
-    }
-  }
-  // Custom pointer-driven sliders (native vertical range inputs ignore touch-drag on iOS and some Androids).
-  // The whole track is the hit area: finger height sets the value directly; pointer capture keeps the drag alive.
-  const slide = (id: string, kind: 'zoom' | 'look', apply: (v: number, prev: number) => void, read: () => number) => {
-    const inputEl = must<HTMLInputElement>(id)
-    const track = inputEl.parentElement as HTMLElement
-    track.style.touchAction = 'none'
-    inputEl.style.pointerEvents = 'none'
-    const paint = (v: number) => { inputEl.value = String(Math.round(v)); track.style.setProperty('--v', `${v}%`) }
-    let value = 50 // camera state is read lazily (declared later in boot)
-    paint(value)
-    let dragging = -1
-    const at = (e: PointerEvent) => { const r = track.getBoundingClientRect(); return THREE.MathUtils.clamp(((r.bottom - e.clientY) / r.height) * 100, 0, 100) }
-    const move = (e: PointerEvent) => {
-      if (e.pointerId !== dragging) return
-      e.preventDefault()
-      const v = at(e)
-      apply(v, value)
-      value = v
-      paint(v)
-      paintReadout(kind)
-    }
-    const end = (e: PointerEvent) => {
-      if (e.pointerId !== dragging) return
-      dragging = -1
-      document.body.classList.remove('cc-peek')
-      track.classList.remove('active')
-      readout.hidden = true
-    }
-    track.addEventListener('pointerdown', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      dragging = e.pointerId
-      track.setPointerCapture?.(e.pointerId)
-      document.body.classList.add('cc-peek')
-      track.classList.add('active')
-      readout.hidden = false
-      value = read()
-      move(e)
-    })
-    track.addEventListener('pointermove', move)
-    track.addEventListener('pointerup', end)
-    track.addEventListener('pointercancel', end)
-    track.addEventListener('lostpointercapture', end)
-    track.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation() })
-    railToggle.addEventListener('click', () => { value = read(); paint(value) })
-  }
-  const ZMIN = 3.2, ZMAX = 12
-  slide('#cc-zoom', 'zoom', (v) => { camDist = ZMAX - (v / 100) * (ZMAX - ZMIN) }, () => ((ZMAX - camDist) / (ZMAX - ZMIN)) * 100)
-  // Turn: the full track is one full turn; dragging rotates the camera continuously, the fill shows heading.
-  slide('#cc-look', 'look', (v, prev) => { camYaw += ((v - prev) / 100) * Math.PI * 2; lookIdle = 0 },
-    () => (((((camYaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2)) * 100))
+  // Camera zoom/turn: external #cam-dock buttons + pinch/scroll (input.ts).
   const dot = railToggle.querySelector('.cc-dot') as HTMLElement
   const bellBadge = must<HTMLElement>('#cc-bell-badge')
   window.setInterval(() => {
@@ -1152,8 +1100,24 @@ const apiAgents = createRemoteAgents(scene)
   // Place caption: shows briefly on entering an area, then hides itself (the Enter button stays while in range).
   let captionTimer = 0
   const showSpot = (next: Hotspot | null) => {
+    // While seated: always offer Stand (never leave a gold Sit button up).
+    if (seating.sitting) {
+      if (activeSpot !== '__seated__') {
+        activeSpot = '__seated__'
+        spot = null
+        clearTimeout(captionTimer)
+        caption.hidden = true
+        act.hidden = false
+        act.textContent = 'Stand'
+      }
+      return
+    }
     const id = next?.id ?? null
-    if (id === activeSpot) return
+    if (id === activeSpot) {
+      // Keep label in sync if we stood up into the same hotspot.
+      if (next) act.textContent = next.enter ?? 'Enter'
+      return
+    }
     activeSpot = id
     spot = next
     clearTimeout(captionTimer)
@@ -1251,10 +1215,13 @@ const apiAgents = createRemoteAgents(scene)
 
     exitCooldown = Math.max(0, exitCooldown - dt)
     busyFor = Math.max(0, busyFor - dt)
-    if (!paused && frame.interact && spot) {
+    if (!paused && frame.interact) {
+      if (seating.sitting) { seating.stand() }
+      else if (spot) {
       if (spot.exit) leaveRoom()
       else if (spot.use) spot.use()
       else if (!enterRoom(spot) && spot.action) ui.open(spot.action, spot.house ? { house: spot.house } : undefined)
+      }
     }
 
     if (!paused && frame.tap) {
@@ -1391,7 +1358,7 @@ const apiAgents = createRemoteAgents(scene)
     }
 
     let best: Hotspot | null = null
-    let bestDist = Infinity
+    let bestScore = Infinity
     const candidates: Hotspot[] = interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots
     for (const candidate of candidates) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
@@ -1400,9 +1367,11 @@ const apiAgents = createRemoteAgents(scene)
         if (candidate.exit) { leaveRoom(); break }
         if (!interiors.inside && interiors.roomFor(candidate.id) && enterRoom(candidate)) break
       }
-      if (dist < candidate.r && dist < bestDist) {
-        best = candidate
-        bestDist = dist
+      if (dist < candidate.r) {
+        // Prefer Enter/Open actions over nearby Sit chairs (Campus desks were stealing the button).
+        const sitOnly = !!candidate.use && !candidate.action && !candidate.exit && (candidate.enter === 'Sit' || candidate.enter === 'Exercise')
+        const score = dist + (sitOnly ? 0.7 : 0)
+        if (score < bestScore) { best = candidate; bestScore = score }
       }
     }
     showSpot(best)

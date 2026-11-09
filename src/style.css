@@ -1412,6 +1412,9 @@ html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; alig
 /* Top-up sheet (src/topup.ts) */
 .topup { display: grid; gap: 10px; margin: 6px 0 14px; }
 .topup-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.topup-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.topup-presets button { padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: inherit; font: inherit; font-weight: 600; }
+.topup-presets button.on { background: #f2c94c; color: #111; border-color: #f2c94c; }
 .topup-tabs button { padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: inherit; font: inherit; font-weight: 600; }
 .topup-tabs button.on { background: #f2c94c; color: #111; border-color: #f2c94c; }
 .topup-label { font-size: 13px; opacity: .8; }
@@ -1998,3 +2001,55 @@ body:not(.title-on) #app, body:not(.title-on) #game { height: 100%; overflow: hi
   .creator-preview-frame { width: min(140px, 38vw); }
   #login-dlg .wallet-body { max-height: min(72svh, 100dvh - 72px); overflow: auto; }
 }
+
+
+/* Camera controls: one collapsible dock outside the main ☰ menu */
+.cam-dock {
+  position: fixed;
+  right: 12px;
+  top: calc(72px + env(safe-area-inset-top));
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.cam-dock > * { pointer-events: auto; }
+.cam-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font: 600 13px -apple-system, system-ui, sans-serif;
+  color: #f5f5f7;
+  background: rgba(28, 30, 36, 0.72);
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.cam-panel {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(22, 24, 30, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.cam-btn {
+  min-width: 96px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font: 600 14px -apple-system, system-ui, sans-serif;
+  color: #f5f5f7;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.cam-btn:active { transform: scale(0.97); }
+body.in-menu .cam-dock,
+body.sheet-open .cam-dock,
+#menu:not([hidden]) ~ * .cam-dock,
+html:has(#menu:not([hidden])) .cam-dock { display: none !important; }
