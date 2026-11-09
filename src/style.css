@@ -1155,9 +1155,9 @@ body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
 @media (prefers-reduced-motion: reduce) {
   #menu.menu-fallback, #menu:has(#menu-preview[hidden]) { animation: none; }
 }
-#menu-preview { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important; z-index: 0; display: block; }
-#menu > :not(#menu-preview) { z-index: 1; }
-#menu-panel { position: absolute !important; top: 50%; right: max(6vw, 32px); left: auto; transform: translateY(-50%); margin: 0 !important;
+#menu-preview { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important; z-index: 0; display: block; pointer-events: none !important; }
+#menu > :not(#menu-preview) { z-index: 2; pointer-events: auto; }
+#menu-panel { position: absolute !important; top: 50%; right: max(6vw, 32px); left: auto; transform: translateY(-50%); margin: 0 !important; z-index: 3 !important; pointer-events: auto !important;
   width: min(440px, calc(100vw - 32px)); aspect-ratio: 1 / 1; max-height: calc(100dvh - 120px); padding: 28px !important;
   border-radius: 28px !important; background: rgba(20, 20, 22, 0.38) !important; border: 1px solid rgba(255, 255, 255, 0.16) !important;
   -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);

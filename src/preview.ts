@@ -17,6 +17,8 @@ import { applyEnvironment } from './quality.ts'
 // with a physical sky and a slow cinematic drone orbit. Desktop: soft shadows, AO, depth of field, bloom.
 // Phones: shadows + bloom only, lower resolution. Disposed when the player enters.
 export function startPreview(canvas: HTMLCanvasElement): () => void {
+  // Decorative background only — never steal Sign up / Sign in taps.
+  canvas.style.pointerEvents = 'none'
   const coarse = matchMedia('(pointer: coarse)').matches || innerWidth < 820
   let renderer: THREE.WebGLRenderer
   try {

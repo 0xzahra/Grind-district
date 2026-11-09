@@ -165,12 +165,33 @@ export function mountMenu(enter: () => void): void {
   }
 
   play.addEventListener('click', enterIfSignedIn)
-  must<HTMLButtonElement>('#menu-create').addEventListener('click', () => {
-    void import('./login.ts').then((m) => m.openLogin('', 'signup'))
-  })
-  must<HTMLButtonElement>('#menu-signin').addEventListener('click', () => {
-    void import('./login.ts').then((m) => m.openLogin('', 'signin'))
-  })
+  const openAuth = (mode: 'signup' | 'signin') => {
+    const note = document.getElementById('menu-note')
+    if (note) note.textContent = mode === 'signup' ? 'Opening sign up…' : 'Opening sign in…'
+    void import('./login.ts')
+      .then((m) => m.openLogin('', mode))
+      .catch((e: unknown) => {
+        if (note) note.textContent = `Could not open ${mode === 'signup' ? 'sign up' : 'sign in'}. Check your connection and try again.`
+        console.error('[grind] openLogin failed', e)
+      })
+  }
+  // pointerup + click with debounce: some mobile WebViews swallow click after a full-screen WebGL canvas paints.
+  const bindTap = (sel: string, fn: () => void) => {
+    const el = must<HTMLButtonElement>(sel)
+    let last = 0
+    const run = () => {
+      const now = Date.now()
+      if (now - last < 450) return
+      last = now
+      fn()
+    }
+    el.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') run()
+    })
+    el.addEventListener('click', () => run())
+  }
+  bindTap('#menu-create', () => openAuth('signup'))
+  bindTap('#menu-signin', () => openAuth('signin'))
   must('#menu-agents').addEventListener('click', () => show('agents'))
 
   must('#account-existing').addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin('', 'signin')) })
