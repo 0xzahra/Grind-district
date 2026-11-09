@@ -62,8 +62,7 @@ const RUN = 7.2
 let snapNext = false
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
 const topupModule = () => (topupChunk ??= import('./topup.ts').catch((e: unknown) => { topupChunk = null; throw e }))
-// Start fetching right away, while this build's chunks are certainly live (frequent redeploys remove old chunks).
-void topupModule().catch(() => {})
+// Top-up chunk loads only when the balance / top-up UI opens (keeps opening card off the critical path).
 
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
@@ -185,12 +184,10 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   )
   hint.textContent = hintCopy()
 
-  await Promise.race([
-    Promise.all([
-      document.fonts.load('72px "Archivo Black"'),
-      document.fonts.load('32px Outfit'),
-    ]),
-    new Promise((resolve) => setTimeout(resolve, 1800)),
+  // Don't block city boot on display fonts — system stack already paints HUD; optional faces hydrate later.
+  void Promise.all([
+    document.fonts.load('72px "Archivo Black"').catch(() => undefined),
+    document.fonts.load('32px Outfit').catch(() => undefined),
   ])
 
   { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,16}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
@@ -333,7 +330,8 @@ const apiAgents = createRemoteAgents(scene)
     const coarseDev = matchMedia('(pointer: coarse)').matches
     // Each tier must look and cost visibly different. Phones: 1x / 1.25x / 1.5x; desktops: 1x / 1.5x / 2x.
     // (Phones on High used to get 1.25x, below Medium's 1.5x, so High looked softer than Medium.)
-    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? (coarseDev ? 1.25 : 1.5) : coarseDev ? 1.5 : 2)
+    // Cap phone DPR harder so mid-range stays ~30+ FPS (High phone was 1.5× — still heavy with post).
+    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? (coarseDev ? 1.1 : 1.5) : coarseDev ? 1.25 : 2)
     renderer.setPixelRatio(ratio)
     // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
     // Every point light is paid for in every lit pixel, so this is the biggest lever on mid-range phones.
@@ -524,6 +522,18 @@ const apiAgents = createRemoteAgents(scene)
   mountNotifications()
   if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome', 'place:The Grind Ring')
   localStorage.setItem('gd.welcomed', '1')
+  // Good surprise: one soft dawn greeting per local day (streak-aware, no network).
+  try {
+    const day = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local tz
+    if (localStorage.getItem('gd.dawnGreeting') !== day) {
+      localStorage.setItem('gd.dawnGreeting', day)
+      const streak = Math.max(0, Number(getSave().streak) || 0)
+      const line = streak >= 2
+        ? `Sunrise over the Plaza · ${streak}-day streak. Keep showing up.`
+        : 'Sunrise over the Plaza. The district is waking up with you.'
+      window.setTimeout(() => notify('Good morning', line, 'dawn', 'place:The Plaza'), 900)
+    }
+  } catch { /* private mode */ }
   onActivity((kind, label, detail) => {
     if (kind === 'tax') notify('Family request', `${label}. ${detail}`, undefined, 'panel:profile')
     else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`, undefined, 'panel:profile')
@@ -1626,10 +1636,23 @@ async function begin() {
 }
 
 let stopPreview: () => void = () => {}
-void import('./preview.ts').then((m) => {
-  const c = document.querySelector<HTMLCanvasElement>('#menu-preview')
-  if (c && !opening) stopPreview = m.startPreview(c)
-}).catch(() => {})
+const bootTitlePreview = () => {
+  void import('./preview.ts').then((m) => {
+    const c = document.querySelector<HTMLCanvasElement>('#menu-preview')
+    if (c && !opening) stopPreview = m.startPreview(c)
+  }).catch(() => {
+    document.getElementById('menu')?.classList.add('menu-fallback')
+  })
+}
+// Mobile: defer the heavy Three title city until idle so Sign up / Sign in paint first.
+const titleCoarse = matchMedia('(pointer: coarse)').matches || innerWidth < 820
+if (titleCoarse) {
+  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
+  if (ric) ric(() => { if (!opening) bootTitlePreview() }, { timeout: 2200 })
+  else window.setTimeout(() => { if (!opening) bootTitlePreview() }, 900)
+} else {
+  bootTitlePreview()
+}
 
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
 startTracking()

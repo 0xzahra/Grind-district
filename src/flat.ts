@@ -196,16 +196,19 @@ export async function startFlat(onReady: () => void): Promise<void> {
     onRank: () => undefined,
   })
 
-  must('#nav-profile').addEventListener('click', () => ui.open('profile'))
-  must('#nav-wallet').addEventListener('click', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
-  must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
-  must('#nav-city').addEventListener('click', () => ui.open('city'))
-  must('#nav-settings').addEventListener('click', () => ui.open('settings'))
+  // Soft-bind: #nav-wallet was removed from HTML (wallet lives on #cc-status). Never hard-must removed nodes.
+  const on = (sel: string, fn: () => void) => document.querySelector(sel)?.addEventListener('click', fn)
+  on('#nav-profile', () => ui.open('profile'))
+  on('#nav-boutique', () => ui.open('boutique'))
+  on('#nav-city', () => ui.open('city'))
+  on('#nav-settings', () => ui.open('settings'))
+  on('#cc-status', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
   map.addEventListener('click', () => ui.open('city'))
   applyPrefs()
-  must('#pill-rank').addEventListener('click', () => ui.open('profile'))
-  must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
-  must('#pill-season').addEventListener('click', () => ui.open('season'))
+  on('#pill-rank', () => ui.open('profile'))
+  on('#pill-ledger', () => ui.open('profile', { tab: 'books' }))
+  on('#pill-season', () => ui.open('season'))
+  on('#pill-place', () => ui.open('city'))
   document.querySelector('#shot')?.addEventListener('click', () => {
     try {
       const link = document.createElement('a')

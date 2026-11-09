@@ -13,7 +13,6 @@ const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTime
 import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { track } from './track.ts'
-import { accessToken } from './login.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
@@ -433,7 +432,7 @@ export function mountUi(
       if (a) { input.value = a; msg.textContent = 'Looks valid. Save to keep it.' } else { msg.textContent = 'That is not a valid Base address (0x + 40 hex, checksum). Never share seed phrases or private keys.' }
     })
     const call = async (method: 'GET' | 'POST' | 'DELETE', body?: unknown) => {
-      const t = await accessToken()
+      const t = await import('./login.ts').then((m) => m.accessToken())
       if (!t) throw new Error('sign in')
       const r = await fetch('/api/reward-wallet', { method, headers: { authorization: `Bearer ${t}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined })
       const j = await r.json().catch(() => ({})) as { address?: string | null; error?: string }

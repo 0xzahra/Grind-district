@@ -1142,7 +1142,19 @@ body.touch #msg-btn { left: auto; right: max(14px, env(safe-area-inset-right)); 
 body.sheet-open #msg-btn, body.in-menu #msg-btn { display: none; }
 
 /* Title screen: the live 3D city is the full-screen background; overlays on top. */
-#menu { display: block !important; padding: 0 !important; background: transparent !important; overflow: hidden; }
+#menu { display: block !important; padding: 0 !important; background: transparent; overflow: hidden; }
+#menu.menu-fallback,
+#menu:has(#menu-preview[hidden]) {
+  background: linear-gradient(180deg, #8eabca 0%, #e2c39a 52%, #6a655c 100%) !important;
+  animation: gd-dawn-sky 3.6s ease-out both;
+}
+@keyframes gd-dawn-sky {
+  from { filter: brightness(0.88) saturate(0.92); }
+  to { filter: brightness(1) saturate(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #menu.menu-fallback, #menu:has(#menu-preview[hidden]) { animation: none; }
+}
 #menu-preview { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important; z-index: 0; display: block; }
 #menu > :not(#menu-preview) { z-index: 1; }
 #menu-panel { position: absolute !important; top: 50%; right: max(6vw, 32px); left: auto; transform: translateY(-50%); margin: 0 !important;
@@ -1269,7 +1281,7 @@ body:has(#menu:not([hidden])) :is(.menu-profile, #menu-profile-name, #hud .pills
 body.rail-shut #nav-city.top-map { opacity: 0 !important; pointer-events: none !important; }
 
 /* Phone fixes (390x844 recordings). */
-#menu { background: linear-gradient(180deg, #9fb3c8 0%, #c9b79a 55%, #6f6a60 100%); } /* never pitch black if WebGL drops */
+#menu.menu-fallback, #menu:has(#menu-preview[hidden]) { background: linear-gradient(180deg, #8eabca 0%, #e2c39a 52%, #6a655c 100%) !important; } /* never pitch black if WebGL drops */
 #menu-panel { align-content: safe center !important; }
 @media (max-width: 820px), (orientation: portrait) {
   #menu-panel { top: 50% !important; max-height: calc(100dvh - 32px) !important; aspect-ratio: auto !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
@@ -1842,4 +1854,15 @@ body.in-menu #greet { display: none !important; }
   line-height: 1.4 !important;
   margin: 0 !important;
   color: rgba(245, 245, 247, 0.62) !important;
+}
+
+/* Instant (<100ms) tap feedback — transform/opacity only, no layout */
+.glass-btn, #menu .menu-actions button, .login-dlg button, #play {
+  transition: transform 80ms ease, filter 80ms ease, opacity 80ms ease !important;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.glass-btn:active, #menu .menu-actions button:active, .login-dlg button:active, #play:active {
+  transform: scale(0.97);
+  filter: brightness(1.08);
 }

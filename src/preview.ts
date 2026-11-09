@@ -23,6 +23,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse, powerPreference: coarse ? 'low-power' : 'high-performance' })
   } catch {
     canvas.hidden = true
+    document.getElementById('menu')?.classList.add('menu-fallback')
     return () => {}
   }
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); canvas.style.opacity = '0' })
