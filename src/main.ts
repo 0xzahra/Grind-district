@@ -55,6 +55,10 @@ watchUpdates()
 
 const WALK = 2.7
 const RUN = 5.5
+// Camera boom length. ZMIN was 3.2: too far to frame a face close-up. 1.1 still clears the avatar's own
+// head (pullCamera's isUnder() check already excludes the avatar from its own collision raycast).
+const ZMIN = 1.1
+const ZMAX = 12
 
 let snapNext = false
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
@@ -703,7 +707,7 @@ const apiAgents = createRemoteAgents(scene)
     const place = interiors.inside ? 'Indoors' : districtName(avatar.object.position.x, avatar.object.position.z)
     if (kind === 'zoom') {
       // Slider up = zoom in. The readout mirrors the camera distance the frame loop actually uses.
-      const pct = Math.round(((12 - camDist) / (12 - 3.2)) * 100)
+      const pct = Math.round(((ZMAX - camDist) / (ZMAX - ZMIN)) * 100)
       readout.textContent = `Zoom ${pct > 75 ? 'Close' : pct > 40 ? 'Street' : 'Wide'} · ${pct}% · ${place}`
     } else {
       const deg = ((Math.round(THREE.MathUtils.radToDeg(camYaw)) % 360) + 360) % 360
@@ -756,7 +760,6 @@ const apiAgents = createRemoteAgents(scene)
     track.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation() })
     railToggle.addEventListener('click', () => { value = read(); paint(value) })
   }
-  const ZMIN = 3.2, ZMAX = 12
   slide('#cc-zoom', 'zoom', (v) => { camDist = ZMAX - (v / 100) * (ZMAX - ZMIN) }, () => ((ZMAX - camDist) / (ZMAX - ZMIN)) * 100)
   // Turn: the full track is one full turn; dragging rotates the camera continuously, the fill shows heading.
   slide('#cc-look', 'look', (v, prev) => { camYaw += ((v - prev) / 100) * Math.PI * 2; lookIdle = 0 },
@@ -1213,7 +1216,7 @@ const apiAgents = createRemoteAgents(scene)
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
-    camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 3.2, 12)
+    camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, ZMIN, ZMAX)
 
     exitCooldown = Math.max(0, exitCooldown - dt)
     busyFor = Math.max(0, busyFor - dt)

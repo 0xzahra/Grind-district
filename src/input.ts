@@ -121,6 +121,10 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   const lift = (event: PointerEvent) => { touches.delete(event.pointerId) }
   canvas.addEventListener('pointerup', lift)
   canvas.addEventListener('pointercancel', lift)
+  // Safari fires its own proprietary gesture events for a two-finger pinch, outside the Pointer Events
+  // pipeline, and can still zoom the whole page with them even with touch-action: none on the canvas.
+  // The viewport meta tag's user-scalable=no is the primary fix; this is the belt-and-suspenders backup.
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) canvas.addEventListener(type, (e) => e.preventDefault())
 
   canvas.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 && event.button !== 2) return

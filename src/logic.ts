@@ -1016,7 +1016,7 @@ export function publicDoc(text: string): string {
 
 export type BookRow = { section: 'Assets' | 'Liabilities' | 'Investments'; label: string; value: string }
 
-/** Books: assets, liabilities (luxury rewards with upkeep), investments (coins, new coins, stocks).
+/** Books: assets, liabilities (luxury rewards with upkeep), investments (coins and new coins).
  *  isPublic hides family requests and spending wants. */
 export function bookRows(save: Save, isPublic = false): BookRow[] {
   const rows: BookRow[] = []
@@ -1054,6 +1054,5 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
       rows.push({ section: 'Investments', label: `${coin.label} · ${cat}`, value: `${money(h.qty * price)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` })
     }
   }
-  rows.push({ section: 'Investments', label: 'Stocks', value: 'None listed yet' })
   return rows
 }

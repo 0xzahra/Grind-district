@@ -499,7 +499,25 @@ export function createWorld(options: {
     hotspots.push({ id, x, z, r, title, body, action, enter, house })
   }
 
+  // Lighter wayfinding treatment for the road arch: the destination itself already carries the big bold
+  // sign (paintSign, on its own building facade), so a second one at the arch read as a duplicate sign on
+  // the same short street. This is a small plain-weight arrow sign instead - a street sign, not a second
+  // storefront - and toneMapped so it doesn't bloom disproportionately bright on Medium/High.
+  const paintRoadSign = (title: string) =>
+    paint(640, 192, (g) => {
+      g.fillStyle = '#0c1411'
+      g.fillRect(0, 0, 640, 192)
+      g.strokeStyle = '#c9a25e'
+      g.lineWidth = 8
+      g.strokeRect(10, 10, 620, 172)
+      g.textAlign = 'center'
+      g.textBaseline = 'middle'
+      g.fillStyle = '#e8c98f'
+      g.font = '600 56px Outfit, sans-serif'
+      g.fillText(`→  ${title}`, 320, 96)
+    })
   const addArch = (title: string, subtitle: string, x: number, z: number, rotationY: number) => {
+    void subtitle // carried by the destination's own facade sign; the arch is a street sign, not a duplicate
     const group = new THREE.Group()
     group.position.set(x, 0, z)
     group.rotation.y = rotationY
@@ -512,8 +530,8 @@ export function createWorld(options: {
     const strip = solid(new THREE.BoxGeometry(7.6, 0.06, 0.66), trim, false)
     strip.position.y = 3.7
     const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.4, 1.7),
-      new THREE.MeshBasicMaterial({ map: paintSign(title, subtitle), toneMapped: false }),
+      new THREE.PlaneGeometry(3.4, 1.02),
+      new THREE.MeshBasicMaterial({ map: paintRoadSign(title) }),
     )
     sign.position.set(0, 2.15, 0.36)
     sign.userData.ghost = true
