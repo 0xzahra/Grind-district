@@ -65,13 +65,14 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const rate = el('p', '', 'cc-muted')
   const table = el('dl', '', 'topup-break')
 
-  const step3 = el('label', '3. Paste your transaction hash', 'topup-label')
-  const hashIn = input('Transaction hash', '0x… transaction hash', 'text')
+  const step3 = el('label', "3. We'll detect your payment automatically", 'topup-label')
+  const hashHint = el('p', "We watch Base for a payment from the address above. If it's slow to show up, paste the transaction hash here to confirm it now.", 'cc-muted')
+  const hashIn = input('Transaction hash', '0x… transaction hash (optional)', 'text')
   const go = el('button', 'Confirm', 'topup-go') as HTMLButtonElement
   go.type = 'button'
   const status = el('p', '', 'topup-status')
   const fine = el('p', 'Funds go to the Grind District treasury on Base, controlled by the team Safe. In-game $ is a game balance, not a withdrawable token.', 'cc-muted')
-  box.append(tabs, step1, from, step2, addrBox, copy, base, rate, table, step3, hashIn, go, status, fine)
+  box.append(tabs, step1, from, step2, addrBox, copy, base, rate, table, step3, hashHint, hashIn, go, status, fine)
   root.append(box)
 
   const paint = () => {
@@ -87,7 +88,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   }
   tUsdc.onclick = () => { asset = 'USDC'; paint() }
   tEth.onclick = () => { asset = 'ETH'; paint() }
-  from.oninput = () => { const v = from.value.trim(); if (isAddr(v)) { try { localStorage.setItem(WALLET_KEY, v) } catch { /* private */ } } paint() }
+  from.oninput = () => { const v = from.value.trim(); if (isAddr(v)) { try { localStorage.setItem(WALLET_KEY, v) } catch { /* private */ } } paint(); restartWatch() }
   hashIn.oninput = paint
   copy.onclick = async () => {
     try { await navigator.clipboard.writeText(GRIND_TREASURY_VAULT); copy.textContent = 'Copied' } catch {
@@ -99,8 +100,8 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   paint()
   if (opts.demo) return
 
-  const confirm = async () => {
-    const hash = hashIn.value.trim().toLowerCase() as `0x${string}`
+  let busy = false // a confirm (manual or auto-detected) is in flight: the watch poll below waits its turn
+  const confirmHash = async (hash: `0x${string}`) => {
     const sender = from.value.trim().toLowerCase()
     let token: string | null = null
     try { token = await (await import('./login.ts')).accessToken() } catch { token = null }
@@ -117,6 +118,45 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   }
   go.onclick = () => {
     go.disabled = true
-    confirm().catch((e: Error) => { status.textContent = e.message || 'Network error; try again.' }).finally(() => paint())
+    busy = true
+    confirmHash(hashIn.value.trim().toLowerCase() as `0x${string}`)
+      .catch((e: Error) => { status.textContent = e.message || 'Network error; try again.' })
+      .finally(() => { busy = false; paint() })
   }
+
+  // Auto-detect: poll Base for a payment from the declared address straight to the treasury, so the player
+  // never has to find and paste their own transaction hash. /api/topup-confirm still does the real
+  // verification and the idempotent credit; this only discovers which hash to hand it.
+  let watchTimer: ReturnType<typeof setTimeout> | null = null
+  let watchedFor = ''
+  const pollWatch = async () => {
+    watchTimer = null
+    const sender = from.value.trim().toLowerCase()
+    if (!box.isConnected || sender !== watchedFor) return // the sheet closed, or the address changed under us
+    if (!busy) {
+      try {
+        const r = await fetch(`/api/topup-watch?from=${sender}`)
+        if (r.status === 503) return // not configured server-side: retrying won't help, fall back to the manual hash field
+        const j = (await r.json().catch(() => ({}))) as { hash?: string | null }
+        if (j.hash && box.isConnected && sender === watchedFor) {
+          hashIn.value = j.hash
+          busy = true
+          status.textContent = 'Payment found on Base, confirming…'
+          await confirmHash(j.hash.toLowerCase() as `0x${string}`).catch((e: Error) => { status.textContent = e.message || 'Network error; try again.' })
+          busy = false
+          paint()
+        } else if (box.isConnected && sender === watchedFor) {
+          status.textContent = 'Watching for your payment on Base…'
+        }
+      } catch { /* a flaky poll just tries again next tick */ }
+    }
+    if (box.isConnected && sender === watchedFor) watchTimer = setTimeout(pollWatch, 5000)
+  }
+  const restartWatch = () => {
+    if (watchTimer) { clearTimeout(watchTimer); watchTimer = null }
+    const sender = from.value.trim().toLowerCase()
+    watchedFor = isAddr(sender) ? sender : ''
+    if (watchedFor) watchTimer = setTimeout(pollWatch, 1200)
+  }
+  restartWatch()
 }

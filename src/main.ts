@@ -1089,16 +1089,21 @@ const apiAgents = createRemoteAgents(scene)
     const want = Math.hypot(cam.x - origin.x, cam.z - origin.z)
     if (good * want < 1.2 && want > 0.5) {
       // Backed against a wall: try 8 headings around the player, take the one with the most room (cheap, no raycast).
-      let best = good * want, bx = 0, bz = 0
+      // bx/bz default to the original heading (not 0,0): in a tight corner every alternate heading can fail to
+      // beat it by the 0.3 margin below, and the old 0,0 sentinel fell through to a distance-less lerp toward
+      // `origin` with only a *relative* 0.2 floor - for a small `want` that collapsed the camera onto the
+      // player's own head (a near-plane clip that read as a blown-out, permanently stuck frame).
       const base = Math.atan2(cam.x - origin.x, cam.z - origin.z)
+      let best = good * want, bx = Math.sin(base), bz = Math.cos(base)
       for (let k = 1; k < 8; k++) {
         const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 4)
         const tx = origin.x + Math.sin(a) * want, tz = origin.z + Math.cos(a) * want
         const d = free(tx, tz) * want
         if (d > best + 0.3) { best = d; bx = Math.sin(a); bz = Math.cos(a) }
       }
-      if (bx || bz) { const r = Math.max(0.6, best - 0.1); cam.set(origin.x + bx * r, Math.min(2.6, origin.y + 0.9), origin.z + bz * r) }
-      else cam.lerpVectors(origin, cam, Math.max(good, 0.2))
+      // Same absolute-minimum boom (0.6 m) regardless of which heading won, so the camera never sits inside geometry.
+      const r = Math.max(0.6, best - 0.1)
+      cam.set(origin.x + bx * r, Math.min(2.6, origin.y + 0.9), origin.z + bz * r)
       smoothCam.copy(cam)
       camVel.set(0, 0, 0)
     } else if (good < 1) {

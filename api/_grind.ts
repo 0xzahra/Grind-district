@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, parseEventLogs, erc20Abi, type Hash, type Address, type Chain } from 'viem'
+import { createPublicClient, createWalletClient, http, parseEventLogs, erc20Abi, parseAbiItem, type Hash, type Address, type Chain } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { grindLedgerAbi } from '../src/grindLedgerAbi.js'
@@ -100,4 +100,27 @@ export async function confirmTopup(opts: { hash: Hash; rpc: string; operatorKey:
     await opts.store.update(opts.hash, { status: 'failed', error: String((e as Error).message ?? e).slice(0, 300) })
     return { ok: false, code: 502, error: 'credit failed; retry shortly' }
   }
+}
+
+const transferEvent = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
+const ethDepositedEvent = parseAbiItem('event EthDeposited(address indexed from, uint256 amount)')
+
+/**
+ * Core of /api/topup-watch: so the player never has to find and paste their own transaction hash,
+ * look for a recent USDC Transfer or ETH EthDeposited from their declared sending address straight to the
+ * GrindTreasury vault, and hand the hash to the same confirmTopup() above for the real verification and credit.
+ * This only *discovers* the hash - it changes no trust assumptions versus the existing manual-hash flow.
+ */
+export async function findRecentPayment(opts: { rpc: string; from: Address; chain?: Chain; lookbackBlocks?: bigint }): Promise<{ hash: Hash; blockNumber: bigint } | null> {
+  const chain = opts.chain ?? base
+  const pub = createPublicClient({ chain, transport: http(opts.rpc) })
+  const head = await pub.getBlockNumber()
+  const lookback = opts.lookbackBlocks ?? 21_600n // ~12h on Base's ~2s blocks
+  const fromBlock = head > lookback ? head - lookback : 0n
+  const [usdcLogs, ethLogs] = await Promise.all([
+    pub.getLogs({ address: BASE_USDC, event: transferEvent, args: { from: opts.from, to: GRIND_TREASURY_VAULT as Address }, fromBlock, toBlock: head }),
+    pub.getLogs({ address: GRIND_TREASURY_VAULT, event: ethDepositedEvent, args: { from: opts.from }, fromBlock, toBlock: head }),
+  ])
+  const latest = [...usdcLogs, ...ethLogs].sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : a.blockNumber < b.blockNumber ? 1 : 0))[0]
+  return latest ? { hash: latest.transactionHash, blockNumber: latest.blockNumber } : null
 }
