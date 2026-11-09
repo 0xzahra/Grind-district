@@ -1632,3 +1632,11 @@ html body .sheet-head { background: #0b1210 !important; -webkit-backdrop-filter:
 .wardrobe .ward { grid-template-columns: 40px 1fr !important; }
 .wardrobe .ward i { width: 40px !important; height: 40px !important; border: 0 !important; border-radius: 8px !important; background: rgba(255,255,255,.06); }
 .looks-more { margin-top: 10px; } .looks-more summary { cursor: pointer; color: #d9b26a; padding: 8px 0; }
+
+/* R4: never leave the zoom/level readout or Greet over a sheet or the title menu. */
+body.sheet-open #cc-readout,
+body.cc-sheet-on #cc-readout,
+body.in-menu #cc-readout,
+body.sheet-open #greet,
+body.cc-sheet-on #greet,
+body.in-menu #greet { display: none !important; }

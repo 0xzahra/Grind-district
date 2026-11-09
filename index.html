@@ -25,7 +25,21 @@
     <meta name="twitter:title" content="Grind District · learn, play, build your CV" />
     <meta name="twitter:description" content="Live in a shared 3D city, learn real Web3 skills on Campus, and build a CV from what you actually do. Free to play." />
     <meta name="twitter:image" content="https://grinddistrict.vercel.app/og-image.png" />
-  </head>
+    <script>
+    // First paint: keep ?src= / ?ref= / utm_* so guests and later sign-ins keep their source (no PII).
+    (function () {
+      try {
+        if (!localStorage.getItem('gd.guestId')) localStorage.setItem('gd.guestId', (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()));
+        var q = new URLSearchParams(location.search), got = {}, k, v;
+        q.forEach(function (val, key) { if ((key === 'src' || key === 'ref' || key.indexOf('utm_') === 0) && val) got[key] = String(val).slice(0, 80); });
+        var raw = localStorage.getItem('gd.attribution');
+        var cur = raw ? JSON.parse(raw) : null;
+        if (!cur) localStorage.setItem('gd.attribution', JSON.stringify(Object.assign({ landing: location.pathname, at: new Date().toISOString() }, got)));
+        else if (got.src && !cur.src) { for (k in got) cur[k] = got[k]; localStorage.setItem('gd.attribution', JSON.stringify(cur)); }
+      } catch (e) {}
+    })();
+  </script>
+</head>
   <body>
     <div id="app">
       <canvas id="view" aria-label="Grind District. Walk with the keyboard or the on-screen stick."></canvas>

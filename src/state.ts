@@ -1,4 +1,4 @@
-import { attribution, track } from './track.ts'
+import { attribution, track, trackFunnelOnce } from './track.ts'
 import { grade, courseById } from './courses.ts'
 import {
   BOUNTY_USD,
@@ -483,6 +483,7 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   save.skills[id] = { passed: true, tries }
   save.reputation += COURSE_REP
   track('course_complete', { course: id, tries, first, cv: true })
+  if (first) trackFunnelOnce('first_lesson', { course: id })
   const rankedUp = gainXp(gained + bonus)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')

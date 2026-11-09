@@ -70,8 +70,9 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const go = el('button', 'Confirm', 'topup-go') as HTMLButtonElement
   go.type = 'button'
   const status = el('p', '', 'topup-status')
+  const testOnly = el('p', 'Test only — not a real deposit product. Do not send funds you cannot lose.', 'topup-warn')
   const fine = el('p', 'Funds go to the Grind District treasury on Base, controlled by the team Safe. In-game $ is a game balance, not a withdrawable token.', 'cc-muted')
-  box.append(tabs, step1, from, step2, addrBox, copy, base, rate, table, step3, hashIn, go, status, fine)
+  box.append(testOnly, tabs, step1, from, step2, addrBox, copy, base, rate, table, step3, hashIn, go, status, fine)
   root.append(box)
 
   const paint = () => {

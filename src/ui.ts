@@ -1018,7 +1018,7 @@ export function mountUi(
         slider(a.ambientState().volume, 'City sound volume', a.setAmbientVolume),
       )
     }))
-    const signedIn = !!localStorage.getItem('gd.privy.userId')
+    const signedIn = !!(localStorage.getItem('gd.privy.userId') || localStorage.getItem('gd.privy.username') || localStorage.getItem('gd.near.account'))
     const accountRow = document.createElement('div')
     accountRow.className = 'tabs'
     if (signedIn) accountRow.append(button('Sign out', 'ghost', () => { void import('./login.ts').then((l) => l.signOut()) }))

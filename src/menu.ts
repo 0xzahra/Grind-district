@@ -7,6 +7,7 @@ import { AGENT_EXPLAINER } from './agentPrompt.ts'
 import { SKILL_ORDER } from './logic.ts'
 import { nearPassportOn, nearPassportPage } from './nearPassport.ts'
 
+import { trackFunnelOnce } from './track.ts'
 type Page = 'how' | 'city' | 'courses' | 'credits' | 'agents' | 'near'
 
 function must<T extends Element>(selector: string): T {
@@ -150,6 +151,7 @@ export function mountMenu(enter: () => void): void {
       return
     }
     // Opening card already has Sign in; this button is the guest path.
+    trackFunnelOnce('guest_play', { step: 'started' })
     showSignup()
   }
 
@@ -192,6 +194,7 @@ export function mountMenu(enter: () => void): void {
       error.textContent = outcome.error
       return
     }
+    trackFunnelOnce('guest_play', { body })
     enter()
   })
 

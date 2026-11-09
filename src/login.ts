@@ -1,3 +1,4 @@
+import { trackFunnelOnce } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden and NEAR / guest still work.
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
@@ -75,7 +76,9 @@ export function openLogin(notice = ''): void {
   const bind = async (token: string | null, j: { username?: string | null; userId?: string; save?: unknown }, nearProof?: unknown) => {
     if (!j.userId || !j.username) return false
     localStorage.setItem(CLAIMED_KEY, j.username)
+    localStorage.setItem('gd.privy.userId', j.userId)
     if (j.userId.startsWith('near:')) localStorage.setItem(NEAR_KEY, j.userId.slice(5))
+    trackFunnelOnce('account_created', { userIdPrefix: j.userId.startsWith('near:') ? 'near' : 'privy' })
     const { adoptAccount } = await import('./state.ts')
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
     const st = await import('./state.ts')
@@ -167,10 +170,16 @@ export function openLogin(notice = ''): void {
       b.textContent = 'Opening NEAR wallets…'
       msg.textContent = 'No funds or transactions — only a signed login message.'
       try {
-        const { NearConnector } = await import('@hot-labs/near-connect')
         const nonce = crypto.getRandomValues(new Uint8Array(32))
         const nonceB64 = btoa(String.fromCharCode(...Array.from(nonce)))
         const message = `Grind District login\n${Date.now()}\n${nonceB64}`
+        // Test hook: a page can set window.__GD_MOCK_NEAR__ to return a NEP-413 proof (no real wallet).
+        const mock = (window as unknown as { __GD_MOCK_NEAR__?: (a: { message: string; recipient: string; nonce: Uint8Array; nonceB64: string }) => Promise<Record<string, unknown>> }).__GD_MOCK_NEAR__
+        if (mock) {
+          await afterNearLogin(await mock({ message, recipient: NEAR_RECIPIENT, nonce, nonceB64 }))
+          return
+        }
+        const { NearConnector } = await import('@hot-labs/near-connect')
         const connector = new NearConnector({ network: 'testnet', features: { signMessage: true, signInAndSignMessage: true } })
         type Acc = { accountId: string; publicKey?: string; signedMessage?: { accountId: string; publicKey: string; signature: string } }
         const signedAcc = new Promise<Acc>((resolve, reject) => {
