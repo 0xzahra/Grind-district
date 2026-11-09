@@ -136,17 +136,16 @@ export function openWallet(): void {
     } catch { /* offline, disabled or slow */ }
     deposit.replaceChildren()
     if (!info.depositAddress) {
-      deposit.append(el('p', 'Top-ups are coming soon.', 'muted'), el('p', 'Test only — not a real deposit product.', 'muted'))
+      deposit.append(el('p', 'Top-ups are coming soon.', 'muted'))
       return
     }
     if (!info.wallet) {
-      deposit.append(el('p', 'Sign in to get your personal deposit tag.', 'muted'), el('p', 'Test only — not a real deposit product.', 'muted'))
+      deposit.append(el('p', 'Sign in to get your personal deposit tag.', 'muted'))
       return
     }
     track('topup_attempt', { shown: true })
     deposit.append(
-      el('p', 'Test only — not a real deposit product', 'muted'),
-      el('p', 'Top up with USDC on Base (test)', 'wallet-ingame'),
+      el('p', 'Top up with USDC on Base', 'wallet-ingame'),
       qrNode(info.depositAddress),
       el('p', info.depositAddress, 'wallet-addr'),
       el('p', `End the amount with your tag: e.g. 10.${info.wallet.deposit_tag} USDC. Credits land within a day.`, 'muted'),

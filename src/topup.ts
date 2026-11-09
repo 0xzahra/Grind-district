@@ -82,9 +82,8 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const pay = el('button', 'Pay with wallet', 'topup-go') as HTMLButtonElement
   pay.type = 'button'
   const status = el('p', '', 'topup-status')
-  const testOnly = el('p', 'Test only — not a real deposit product. Do not send funds you cannot lose.', 'topup-warn')
   const fine = el('p', 'Pays the Grind District treasury on Base automatically. In-game $ is a game balance, not withdrawable. No address or hash to copy.', 'cc-muted')
-  box.append(testOnly, tabs, amtLabel, presets, table, pay, status, fine)
+  box.append(tabs, amtLabel, presets, table, pay, status, fine)
   root.append(box)
 
   const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }

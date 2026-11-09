@@ -1447,7 +1447,6 @@ html body #nav.cc .cc-quad .cc-btn { display: flex; flex-direction: column; alig
 .topup-addr { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.06); }
 .topup-qr { background: #fff; border-radius: 8px; padding: 4px; line-height: 0; }
 .topup-qr svg { width: 100%; height: auto; }
-.topup-warn { margin: 0; font-size: 13px; font-weight: 600; color: #f2c94c; }
 /* Activity / notification rows: title left, date right on its own column, body below. */
 .cc-list li:has(> strong), .cc-list .cc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 4px; align-items: baseline; }
 .cc-list li:has(> strong) > :not(strong):not(time), .cc-list .cc-row > :not(strong):not(time) { grid-column: 1 / -1; }
