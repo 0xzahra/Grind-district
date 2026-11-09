@@ -263,7 +263,9 @@ const apiAgents = createRemoteAgents(scene)
   // and a prompt points there; walking up to the door opens the courses.
   const firstMarker = new THREE.Group()
   {
-    const gold = new THREE.MeshBasicMaterial({ color: 0xf2c14e, toneMapped: false })
+    // toneMapped left on (unlike other ghost/HUD markers) so this doesn't bloom into a hazy halo on Medium/High
+    // while everything else in the scene is exposure- and AgX-graded: reported as "that ring is weird" on High.
+    const gold = new THREE.MeshBasicMaterial({ color: 0xf2c14e })
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.4, 4), gold); cone.rotation.x = Math.PI; cone.position.y = 0.7
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.12, 6, 20), gold); ring.rotation.x = Math.PI / 2; ring.position.y = 1.9
     firstMarker.add(cone, ring); firstMarker.position.set(0, 6.5, -42.2)
