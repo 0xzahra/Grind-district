@@ -975,21 +975,32 @@ export function mountUi(
       hooks.onPrefs()
       open('settings')
     }))
-    let armed = false
-    const reset = button('Reset progress', 'danger', () => {
-      if (!armed) {
-        armed = true
-        reset.textContent = 'Confirm reset'
-        return
-      }
-      resetProgress()
-      hooks.onBody()
-      hooks.onStyle()
-      hooks.onLook()
-      hooks.onGraphics()
-      hooks.onRank(rankFor(getSave().xp).label)
-      close()
-      toast('Back to zero. Your name stayed. GN time stayed.')
+    const reset = button('Reset game progress…', 'danger', () => {
+      const dlg = document.createElement('div')
+      dlg.className = 'wallet-dlg'
+      dlg.setAttribute('role', 'dialog')
+      dlg.setAttribute('aria-label', 'Confirm reset')
+      const body = document.createElement('div')
+      body.className = 'wallet-body'
+      body.append(
+        para('Reset game progress?', 'kicker'),
+        para('This erases your in-game balance, XP and rank progress, courses, trades, inventory, and activity history — including the cloud copy — and syncs $0.00 to your account.', 'muted'),
+        para('It does NOT sign you out. Username, email/sign-in, and avatar stay. The $1,000 starting bonus is not paid again.'),
+        para('Separate from Delete my account.', 'muted'),
+      )
+      const row = document.createElement('div'); row.className = 'tabs'
+      row.append(
+        button('Keep my progress', 'ghost', () => dlg.remove()),
+        button('Erase progress', 'danger', () => {
+          resetProgress()
+          void import('./login.ts').then((l) => l.syncProgress().catch(() => {}))
+          hooks.onBody(); hooks.onStyle(); hooks.onLook(); hooks.onGraphics()
+          hooks.onRank(rankFor(getSave().xp).label)
+          dlg.remove(); close()
+          toast('Progress erased. Account kept. Balance is $0.00.')
+        }),
+      )
+      body.append(row); dlg.append(body); document.body.append(dlg)
     })
     const notifyRow = document.createElement('div')
     notifyRow.className = 'tabs'
@@ -1017,8 +1028,51 @@ export function mountUi(
     const signedIn = !!(localStorage.getItem('gd.privy.userId') || localStorage.getItem('gd.privy.username') || localStorage.getItem('gd.near.account'))
     const accountRow = document.createElement('div')
     accountRow.className = 'tabs'
-    if (signedIn) accountRow.append(button('Sign out', 'ghost', () => { void import('./login.ts').then((l) => l.signOut()) }))
-    else accountRow.append(button('Sign in', 'ghost', () => { close(); void import('./login.ts').then((l) => l.openLogin()) }))
+    if (signedIn) {
+      accountRow.append(button('Sign out', 'ghost', () => { void import('./login.ts').then((l) => l.signOut()) }))
+      accountRow.append(button('Remove / change email…', 'ghost', () => { void import('./login.ts').then((l) => l.openEmailAccountActions()) }))
+      accountRow.append(button('Delete my account / data…', 'danger', () => {
+        const dlg = document.createElement('div')
+        dlg.className = 'wallet-dlg'
+        dlg.setAttribute('role', 'dialog')
+        dlg.setAttribute('aria-label', 'Delete account')
+        const body = document.createElement('div')
+        body.className = 'wallet-body'
+        body.append(
+          para('Delete your Grind District account?', 'kicker'),
+          para('Permanently removes username, cloud progress, wallet records, and public profile, and deletes Privy sign-in for this app.', 'muted'),
+          para('Game Reset only clears progress. This deletes the account.'),
+        )
+        const row1 = document.createElement('div'); row1.className = 'tabs'
+        row1.append(
+          button('Cancel', 'ghost', () => dlg.remove()),
+          button('I understand — continue', 'danger', () => {
+            body.replaceChildren(para('Final confirmation', 'kicker'), para('Type DELETE below, then confirm. This cannot be undone.'))
+            const input = document.createElement('input')
+            input.type = 'text'; input.placeholder = 'DELETE'; input.autocomplete = 'off'
+            input.style.cssText = 'width:100%;margin:8px 0;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.35);color:#fff'
+            const status = para('', 'result')
+            const row2 = document.createElement('div'); row2.className = 'tabs'
+            row2.append(
+              button('Cancel', 'ghost', () => dlg.remove()),
+              button('Delete forever', 'danger', () => {
+                if (input.value.trim().toUpperCase() !== 'DELETE') { status.textContent = 'Type DELETE exactly to confirm.'; return }
+                status.textContent = 'Deleting…'
+                void import('./login.ts').then(async (l) => {
+                  const ok = await l.deleteAccount()
+                  if (!ok) { status.textContent = 'Could not delete. Sign in again and retry.'; return }
+                  dlg.remove(); toast('Account and data deleted.')
+                })
+              }),
+            )
+            body.append(input, status, row2)
+          }),
+        )
+        body.append(row1); dlg.append(body); document.body.append(dlg)
+      }))
+    } else {
+      accountRow.append(button('Sign in', 'ghost', () => { close(); void import('./login.ts').then((l) => l.openLogin()) }))
+    }
     const settingsCard = (body: HTMLElement) => { const c = frame('Settings', body); c.classList.add('glass-sheet', 'settings-glass'); return c }
     return settingsCard(stack(
       nameLabel,
@@ -1046,11 +1100,12 @@ export function mountUi(
       notifyRow,
       para('Account', 'kicker'),
       accountRow,
+      para('Sign-in stays until you sign out or delete the account. Reset only clears game progress.', 'muted'),
+      reset,
       para('Grind is in-game currency only. Nothing on-chain moves here.', 'muted'),
       para('Support', 'kicker'),
       support,
       button('About this city', 'ghost', () => open('about')),
-      reset,
     ))
   }
 

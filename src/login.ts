@@ -63,9 +63,11 @@ async function enterAs(_handle: string): Promise<void> {
     mountAvatarCreator(body, finish)
     return
   }
-  const go = el('button', 'Enter the district', 'glass-btn primary')
-  go.onclick = finish
-  body?.append(go)
+  // Existing account / returning player: enter immediately (no second "Enter" tap).
+  // City open has its own auto-retry if WebGL fails the first time.
+  const note = el('p', 'Opening the district…', 'muted')
+  body?.append(note)
+  finish()
 }
 
 export type LoginMode = 'signin' | 'signup'
@@ -537,4 +539,137 @@ export async function signOut(): Promise<void> {
     try { localStorage.removeItem(k) } catch { /* ignore */ }
   }
   location.assign(location.pathname)
+}
+
+/** Open Privy email unlink / change flow (requires an email linked on the account). */
+export async function openEmailAccountActions(): Promise<void> {
+  document.getElementById('email-acct-dlg')?.remove()
+  const dlg = el('div', '', 'wallet-dlg')
+  dlg.id = 'email-acct-dlg'
+  dlg.setAttribute('role', 'dialog')
+  dlg.setAttribute('aria-label', 'Email on this account')
+  const body = el('div', '', 'wallet-body')
+  const status = el('p', 'Loading…', 'muted')
+  body.append(el('p', 'Email on this account', 'kicker'), status)
+  dlg.append(body)
+  document.body.append(dlg)
+  const close = () => dlg.remove()
+  if (!APP_ID) {
+    status.textContent = 'Email sign-in is not configured on this build. Use Sign out, or Delete account to remove server data.'
+    const c0 = el('button', 'Close', 'glass-btn ghost'); c0.onclick = close; body.append(c0)
+    return
+  }
+  try {
+    const privy = await client()
+    await privy.initialize()
+    const { user } = await privy.user.get()
+    const email = (user as { email?: { address?: string } | null }).email?.address
+      ?? (user as { linkedAccounts?: Array<{ type?: string; address?: string }> }).linkedAccounts?.find((a) => a.type === 'email')?.address
+    if (!email) {
+      status.textContent = 'No email is linked to this account (you may have signed in with Google, X, or NEAR only). To change identity, delete the account and sign up again.'
+      const c1 = el('button', 'Close', 'glass-btn ghost'); c1.onclick = close; body.append(c1)
+      return
+    }
+    status.textContent = `Linked email: ${email}`
+    const note = el('p', 'Unlink removes this email from the account (Privy). You need at least one other login method left. Change email sends a one-time code to the new address.', 'muted')
+    const row = el('div', '', 'tabs')
+    const unlinkBtn = el('button', 'Unlink this email', 'glass-btn danger')
+    unlinkBtn.onclick = async () => {
+      if (!confirm(`Unlink ${email} from this account? Keep another login method linked first.`)) return
+      status.textContent = 'Unlinking…'
+      try {
+        await privy.auth.email.unlink(email)
+        status.textContent = 'Email unlinked.'
+        setTimeout(close, 900)
+      } catch (e) {
+        status.textContent = `Could not unlink: ${(e as Error).message || 'try again'}. Privy blocks unlink when email is the only login method.`
+      }
+    }
+    const changeBtn = el('button', 'Change email…', 'glass-btn ghost')
+    changeBtn.onclick = () => {
+      body.replaceChildren(el('p', 'Change email', 'kicker'), el('p', `Current: ${email}`, 'muted'))
+      const neu = document.createElement('input')
+      neu.type = 'email'; neu.placeholder = 'new@email.com'; neu.autocomplete = 'email'
+      neu.style.cssText = 'width:100%;margin:8px 0;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.35);color:#fff'
+      const code = document.createElement('input')
+      code.type = 'text'; code.placeholder = '6-digit code'; code.inputMode = 'numeric'
+      code.style.cssText = neu.style.cssText
+      const st = el('p', '', 'result')
+      const send = el('button', 'Send code to new email', 'glass-btn primary')
+      send.onclick = async () => {
+        const addr = neu.value.trim().toLowerCase()
+        if (!addr.includes('@')) { st.textContent = 'Enter a valid email.'; return }
+        st.textContent = 'Sending code…'
+        try {
+          await privy.auth.email.sendCode(addr)
+          st.textContent = 'Code sent. Enter it below, then confirm.'
+        } catch (e) {
+          st.textContent = `Could not send code: ${(e as Error).message || 'error'}`
+        }
+      }
+      const confirmBtn = el('button', 'Confirm change', 'glass-btn primary')
+      confirmBtn.onclick = async () => {
+        const addr = neu.value.trim().toLowerCase()
+        const otp = code.value.trim()
+        if (!addr || !otp) { st.textContent = 'Email and code required.'; return }
+        st.textContent = 'Updating…'
+        try {
+          await privy.auth.email.updateEmail({ oldEmailAddress: email, newEmailAddress: addr, code: otp })
+          st.textContent = 'Email updated.'
+          setTimeout(close, 900)
+        } catch (e) {
+          st.textContent = `Could not update: ${(e as Error).message || 'error'}`
+        }
+      }
+      const back = el('button', 'Close', 'glass-btn ghost')
+      back.onclick = close
+      body.append(neu, send, code, confirmBtn, st, back)
+    }
+    const closeBtn = el('button', 'Close', 'glass-btn ghost')
+    closeBtn.onclick = close
+    row.append(unlinkBtn, changeBtn, closeBtn)
+    body.append(note, row)
+  } catch (e) {
+    status.textContent = `Could not load account email: ${(e as Error).message || 'sign in again'}.`
+    const c2 = el('button', 'Close', 'glass-btn ghost'); c2.onclick = close; body.append(c2)
+  }
+}
+
+/** Delete Grind District server data + Privy user for this login; clear local keys; reload. */
+export async function deleteAccount(): Promise<boolean> {
+  try {
+    const token = await accessToken()
+    const nearRaw = localStorage.getItem(NEAR_KEY)
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    const body: Record<string, unknown> = {}
+    if (token) headers.authorization = `Bearer ${token}`
+    else if (nearRaw) {
+      try { body.near = JSON.parse(nearRaw) } catch { /* */ }
+    }
+    const r = await fetch('/api/profile?op=delete-account', { method: 'POST', headers, body: JSON.stringify(body) }).catch(() => null)
+    if (!r || (!r.ok && r.status !== 404)) return false
+  } catch {
+    return false
+  }
+  if (APP_ID) { try { await (await client()).auth.logout() } catch { /* */ } }
+  try {
+    const { NearConnector } = await import('@hot-labs/near-connect')
+    const c = new NearConnector({ network: 'testnet' })
+    const w = await c.wallet().catch(() => null)
+    if (w) await w.signOut().catch(() => {})
+  } catch { /* */ }
+  const uid = localStorage.getItem('gd.privy.userId')
+  for (const k of [CLAIMED_KEY, NEAR_KEY, 'gd.privy.userId', 'grind-district-save-v1', DRAFT_KEY, 'gd.signup.username']) {
+    try { localStorage.removeItem(k) } catch { /* */ }
+  }
+  if (uid) {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (key && key.includes(uid)) localStorage.removeItem(key)
+      }
+    } catch { /* */ }
+  }
+  location.assign(location.pathname)
+  return true
 }
