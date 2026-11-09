@@ -76,30 +76,42 @@ async function begin() {
 const bootTitlePreview = () => {
   void import('./preview.ts').then((m) => {
     const c = document.querySelector<HTMLCanvasElement>('#menu-preview')
-    if (c && !opening) stopPreview = m.startPreview(c)
+    if (!c || opening) return
+    try { stopPreview() } catch { /* first run */ }
+    // Recreate canvas if a prior dispose removed it.
+    let canvas = c
+    if (!canvas.isConnected) {
+      canvas = document.createElement('canvas')
+      canvas.id = 'menu-preview'
+      canvas.setAttribute('aria-hidden', 'true')
+      document.getElementById('menu')?.prepend(canvas)
+    }
+    canvas.hidden = false
+    stopPreview = m.startPreview(canvas)
+    // preview.ts hides the canvas + sets menu-fallback when WebGL fails; keep that sky.
+    if (!canvas.hidden) document.getElementById('menu')?.classList.remove('menu-fallback')
+    else document.getElementById('menu')?.classList.add('menu-fallback')
   }).catch(() => {
     document.getElementById('menu')?.classList.add('menu-fallback')
   })
 }
 
-// Title Three preview only after a session exists — keeps Sign up / Sign in off the Three chunk.
-const hasSession = () => !!(localStorage.getItem('gd.privy.username') || localStorage.getItem('gd.privy.userId') || localStorage.getItem('gd.near.account'))
+// Title Three preview for everyone (signed in or not). Canvas is pointer-events:none so Sign up / Sign in stay tappable.
+// Phones: start after a short idle so the opening card paints first. Fallback sky only if WebGL fails.
 const schedulePreview = () => {
-  if (!hasSession()) {
-    document.getElementById('menu')?.classList.add('menu-fallback')
-    return
-  }
+  if (opening) return
   const titleCoarse = matchMedia('(pointer: coarse)').matches || innerWidth < 820
   if (titleCoarse) {
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
-    if (ric) ric(() => { if (!opening) bootTitlePreview() }, { timeout: 2200 })
-    else window.setTimeout(() => { if (!opening) bootTitlePreview() }, 900)
+    if (ric) ric(() => { if (!opening) bootTitlePreview() }, { timeout: 1800 })
+    else window.setTimeout(() => { if (!opening) bootTitlePreview() }, 700)
   } else {
     bootTitlePreview()
   }
 }
 schedulePreview()
 window.addEventListener('gd-auth-changed', () => {
+  // Only clear fallback when a real preview is about to (re)start; WebGL failure re-adds it in preview.ts.
   document.getElementById('menu')?.classList.remove('menu-fallback')
   schedulePreview()
 })

@@ -208,7 +208,7 @@ export async function openFriends(): Promise<void> {
   const s = r.data
   const act = (label: string, fn: () => Promise<unknown>, cls = 'cc-link') => { const b = el('button', label, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; await fn(); void openFriends() }; return b }
   const row = (u: string, ...btns: HTMLElement[]) => { const d = el('div', '', 'dm-blocked'); d.append(el('span', `@${u}`), ...btns); return d }
-  const form = el('form', '', 'dm-form'); const inp = el('input'); inp.placeholder = 'Add friend by username'; inp.maxLength = 16; inp.onkeydown = (e) => e.stopPropagation()
+  const form = el('form', '', 'dm-form'); const inp = el('input'); inp.placeholder = 'Add friend by username'; inp.maxLength = 20; inp.onkeydown = (e) => e.stopPropagation()
   const add = el('button', 'Add', 'dm-primary'); add.type = 'submit'; const st = el('p', '', 'cc-muted')
   form.onsubmit = async (e) => { e.preventDefault(); const x = await api<{ status?: string }>('friend', { post: { u: inp.value.trim().toLowerCase(), action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? 'You are now friends.' : 'Request sent.') : (x.data.error ?? 'Failed'); if (x.ok) window.setTimeout(() => void openFriends(), 700) }
   form.append(inp, add)
@@ -251,7 +251,7 @@ type Profile = { username: string; name: string; rank: string; reputation: numbe
 
 function searchBox(): HTMLElement {
   const wrap = el('div', '', 'dm-search')
-  const inp = el('input'); inp.type = 'search'; inp.placeholder = 'Search players by username'; inp.maxLength = 16; inp.setAttribute('aria-label', 'Search players')
+  const inp = el('input'); inp.type = 'search'; inp.placeholder = 'Search players by username'; inp.maxLength = 20; inp.setAttribute('aria-label', 'Search players')
   const out = el('ol', '', 'cc-list dm-results')
   let t = 0, seq = 0
   inp.onkeydown = (e) => e.stopPropagation()

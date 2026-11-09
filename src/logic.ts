@@ -542,7 +542,7 @@ export function cleanDisplayName(value: unknown): string {
 export function cleanUsername(value: unknown): string {
   if (typeof value !== 'string') return ''
   const handle = value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)
-  return /^[a-z0-9_]{3,16}$/.test(handle) ? handle : ''
+  return /^[a-z0-9_]{3,20}$/.test(handle) ? handle : ''
 }
 
 const HOUSE_VISIT_IDS = new Set(['adaeze', 'malik', 'nia', 'vacant'])

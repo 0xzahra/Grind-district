@@ -189,7 +189,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     document.fonts.load('32px Outfit').catch(() => undefined),
   ])
 
-  { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,16}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
+  { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,20}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
   const renderer = createRenderer(canvas)
   if (!renderer) {
     await startFlat(onReveal)

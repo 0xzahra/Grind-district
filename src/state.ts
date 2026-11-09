@@ -282,7 +282,7 @@ export function signUp(name: string, username: string, body: 'player' | 'zuri'):
   const claimed = localStorage.getItem('gd.privy.username')
   const handle = claimed ? cleanUsername(claimed) : (cleanUsername(username) && username === claimed ? cleanUsername(username) : 'guest')
   if (!display) return { ok: false, error: 'Pick a name.' }
-  if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
+  if (!handle) return { ok: false, error: 'Username is 3–20 letters, numbers, or underscores.' }
   save.name = display
   save.username = handle
   save.body = body
@@ -346,7 +346,7 @@ export function setUsername(name: string): { ok: true } | { ok: false; error: st
   if (isAccountBound()) return { ok: false, error: 'Your username is tied to your account.' }
   return { ok: false, error: 'Sign in with email to claim a username.' }
   const handle = cleanUsername(name)
-  if (!handle) return { ok: false, error: 'Username is 3–16 letters, numbers, or underscores.' }
+  if (!handle) return { ok: false, error: 'Username is 3–20 letters, numbers, or underscores.' }
   save.username = handle
   persist()
   emit()

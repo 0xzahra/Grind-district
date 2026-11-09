@@ -1976,3 +1976,25 @@ body:not(.title-on) #app, body:not(.title-on) #game { height: 100%; overflow: hi
   text-transform: uppercase;
   opacity: .7;
 }
+
+
+/* Join-time avatar creator: live face+body preview */
+.creator-preview-host { display: grid; gap: 6px; justify-items: center; margin-bottom: 4px; }
+.creator-preview-label { margin: 0; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7; }
+.creator-preview-frame {
+  width: min(160px, 42vw);
+  aspect-ratio: 280 / 360;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(200, 170, 110, 0.28);
+  background: linear-gradient(180deg, rgba(36, 42, 52, 0.92), rgba(18, 22, 28, 0.95));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.creator-preview-frame canvas { width: 100%; height: 100%; display: block; }
+.creator-controls { display: grid; gap: 6px; }
+.login-game-id { display: grid; gap: 6px; margin-bottom: 4px; }
+.login-game-id .kicker { margin: 0; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(216, 180, 106, 0.9); }
+@media (max-width: 430px) {
+  .creator-preview-frame { width: min(140px, 38vw); }
+  #login-dlg .wallet-body { max-height: min(72svh, 100dvh - 72px); overflow: auto; }
+}

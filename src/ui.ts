@@ -913,7 +913,7 @@ export function mountUi(
     })
     const handle = document.createElement('input')
     handle.type = 'text'
-    handle.maxLength = 16
+    handle.maxLength = 20
     handle.value = save.username
     handle.readOnly = true // bound to the Privy account; guests get one when they sign in
     handle.title = 'Your username is tied to your account'

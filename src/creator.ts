@@ -1,8 +1,10 @@
 // First-time avatar creator shown right after Sign up / username claim.
 // Body + face shape, free modest clothes (incl. kaftan/abaya). No makeup. Paid boutique pieces stay paid.
+// Live face+body preview updates as options change.
 import { setBody } from './state.ts'
 import { setMorph, getMorph, HAIRS, SKIN_TONES, FACE_SHAPES } from './morph.ts'
 import { PIECES, own, wear, worn, type Piece } from './wardrobe.ts'
+import { mountCreatorPreview } from './creatorPreview.ts'
 
 const KEY = 'gd.avatar.created'
 
@@ -32,16 +34,18 @@ const FREE_MODEST: Array<{ id: string; note: string }> = [
 /** Fill a container with the join-time creator. Calls onDone when the player taps Continue. */
 export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void {
   root.replaceChildren()
-  root.append(el('p', 'Create your look. Body and face shape, free modest clothes. No makeup. Paid outfits stay in the boutique.', 'muted'))
-
   let body: 'player' | 'zuri' = 'player'
+  const previewHost = el('div', '', 'creator-preview-host')
+  const controls = el('div', '', 'creator-controls')
+  const preview = mountCreatorPreview(previewHost, () => body)
+
   const paint = () => {
     // Body
     const bodies = el('div', '', 'tabs')
     for (const [id, label] of [['player', 'Gentleman'], ['zuri', 'Lady']] as const) {
       const b = el('button', label, id === body ? 'glass-btn primary' : 'glass-btn ghost')
       b.type = 'button'
-      b.onclick = () => { body = id; setBody(id); paint() }
+      b.onclick = () => { body = id; setBody(id); paint(); preview.refresh() }
       bodies.append(b)
     }
     // Sliders
@@ -52,7 +56,7 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
       const r = document.createElement('input')
       r.type = 'range'; r.min = String(min); r.max = String(max); r.step = '0.01'
       r.value = String(key === 'f' ? (mo.f ?? 1) : mo[key])
-      r.oninput = () => setMorph({ [key]: Number(r.value) })
+      r.oninput = () => { setMorph({ [key]: Number(r.value) }); preview.refresh() }
       row.append(r)
       return row
     }
@@ -62,7 +66,7 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
       const on = Math.abs((mo.f ?? 1) - fs.f) < 0.02
       const b = el('button', fs.label, on ? 'glass-btn primary' : 'glass-btn ghost')
       b.type = 'button'
-      b.onclick = () => { setMorph({ f: fs.f }); paint() }
+      b.onclick = () => { setMorph({ f: fs.f }); paint(); preview.refresh() }
       faces.append(b)
     }
     // Hair
@@ -71,7 +75,7 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
       const on = mo.hair === hc.hex
       const b = el('button', hc.label, on ? 'glass-btn primary' : 'glass-btn ghost')
       b.type = 'button'
-      b.onclick = () => { setMorph({ hair: hc.hex }); paint() }
+      b.onclick = () => { setMorph({ hair: hc.hex }); paint(); preview.refresh() }
       hairs.append(b)
     }
     // Skin
@@ -83,7 +87,7 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
       b.title = st.label
       b.setAttribute('aria-label', `Skin ${st.label}`)
       b.style.setProperty('background', `#${st.hex.toString(16).padStart(6, '0')}`, 'important')
-      b.onclick = () => { setMorph({ skin: st.hex }); paint() }
+      b.onclick = () => { setMorph({ skin: st.hex }); paint(); preview.refresh() }
       tones.append(b)
     }
     // Free modest clothes
@@ -98,7 +102,7 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
       const b = el('button', pc.label, on ? 'glass-btn primary' : 'glass-btn ghost')
       b.type = 'button'
       b.title = item.note
-      b.onclick = () => { own(pc.id); wear(pc); paint() }
+      b.onclick = () => { own(pc.id); wear(pc); paint(); preview.refresh() }
       clothes.append(b)
     }
 
@@ -108,10 +112,11 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
       setBody(body)
       setMorph({ lip: null, blush: null }) // enforce no makeup
       markAvatarCreated()
+      preview.dispose()
       onDone()
     }
 
-    root.replaceChildren(
+    controls.replaceChildren(
       el('p', 'Create your look. Body and face shape, free modest clothes. No makeup.', 'muted'),
       el('p', 'Body', 'kicker'), bodies,
       el('p', 'Body shape', 'kicker'),
@@ -127,5 +132,7 @@ export function mountAvatarCreator(root: HTMLElement, onDone: () => void): void 
     )
   }
   setBody(body)
+  root.replaceChildren(previewHost, controls)
   paint()
+  preview.refresh()
 }

@@ -3,9 +3,10 @@ import { trackFunnelOnce } from './track.ts'
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
 import { needsAvatarCreator, mountAvatarCreator } from './creator.ts'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
-const USERNAME = /^[a-z0-9_]{3,16}$/
+const USERNAME = /^[a-z0-9_]{3,20}$/
 export const CLAIMED_KEY = 'gd.privy.username'
 export const NEAR_KEY = 'gd.near.account'
+const DRAFT_KEY = 'gd.signup.username'
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''): HTMLElementTagNameMap[K] {
   const n = document.createElement(tag)
@@ -137,33 +138,79 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     return true
   }
 
+  const readDraft = () => {
+    try { return (sessionStorage.getItem(DRAFT_KEY) ?? '').trim().toLowerCase() } catch { return '' }
+  }
+  const writeDraft = (u: string) => {
+    try {
+      const v = u.trim().toLowerCase()
+      if (v) sessionStorage.setItem(DRAFT_KEY, v)
+      else sessionStorage.removeItem(DRAFT_KEY)
+    } catch { /* private */ }
+  }
+
+  const ensureGameId = (): string | null => {
+    const live = body.querySelector<HTMLInputElement>('input[data-game-id]')
+    const typed = live ? live.value.trim().toLowerCase() : ''
+    const u = typed || readDraft()
+    writeDraft(u)
+    if (USERNAME.test(u)) return u
+    msg.textContent = 'Pick a Game ID first (3–20 letters, numbers, or _).'
+    live?.focus()
+    return null
+  }
+
+  const claimWith = async (auth: { token?: string; near?: unknown }, username: string) => {
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    const bodyJson: Record<string, unknown> = { username, ref: localStorage.getItem('gd.invitedBy') ?? undefined }
+    if (auth.token) headers.authorization = `Bearer ${auth.token}`
+    if (auth.near) bodyJson.near = auth.near
+    const r = await fetch('/api/claim-username', { method: 'POST', headers, body: JSON.stringify(bodyJson) })
+    const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string; invitedBy?: string | null }
+    if (j.username && (await bind(auth.token ?? null, j, auth.near))) {
+      try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* */ }
+      if (j.invitedBy) { body.append(el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)); localStorage.removeItem('gd.invitedBy') }
+      return true
+    }
+    return j.error ?? 'Could not save'
+  }
+
   const pickUsername = async (auth: { token?: string; near?: unknown }, userId: string) => {
-    const input = el('input'); input.placeholder = 'username'; input.maxLength = 16; input.autocapitalize = 'off'
+    const input = el('input')
+    input.placeholder = 'Game ID (username)'
+    input.maxLength = 20
+    input.autocapitalize = 'off'
+    input.autocomplete = 'username'
+    input.setAttribute('aria-label', 'Game ID username')
+    input.value = readDraft()
     const state = el('p', '', 'muted')
-    const save = el('button', 'Claim username', 'glass-btn primary')
+    const save = el('button', 'Claim Game ID', 'glass-btn primary')
     let timer = 0
-    input.oninput = () => {
+    const check = () => {
       const u = input.value.trim().toLowerCase()
       clearTimeout(timer)
-      if (!USERNAME.test(u)) { state.textContent = '3–16 characters: a–z, 0–9 or _'; return }
+      writeDraft(u)
+      if (!USERNAME.test(u)) { state.textContent = '3–20 characters: a–z, 0–9 or _'; return }
       state.textContent = 'Checking…'
       timer = window.setTimeout(async () => {
         const r = await fetch(`/api/check-username?u=${encodeURIComponent(u)}`).then((x) => x.json()).catch(() => null) as { available?: boolean; reason?: string } | null
-        state.textContent = !r ? 'Could not check right now' : r.available ? 'Available' : r.reason || 'Taken'
+        if (!r) { state.textContent = 'Could not check — we will still try to save it as your Game ID'; return }
+        state.textContent = r.available ? 'Available — this will be your Game ID' : r.reason || 'Taken'
       }, 250)
     }
+    input.oninput = check
+    if (input.value) check()
     save.onclick = async () => {
-      const headers: Record<string, string> = { 'content-type': 'application/json' }
-      const bodyJson: Record<string, unknown> = { username: input.value, ref: localStorage.getItem('gd.invitedBy') ?? undefined }
-      if (auth.token) headers.authorization = `Bearer ${auth.token}`
-      if (auth.near) bodyJson.near = auth.near
-      const r = await fetch('/api/claim-username', { method: 'POST', headers, body: JSON.stringify(bodyJson) })
-      const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string; invitedBy?: string | null }
-      if (j.username && (await bind(auth.token ?? null, j, auth.near))) {
-        if (j.invitedBy) { body.append(el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)); localStorage.removeItem('gd.invitedBy') }
-      } else state.textContent = j.error ?? 'Could not save'
+      const u = input.value.trim().toLowerCase()
+      if (!USERNAME.test(u)) { state.textContent = '3–20 characters: a–z, 0–9 or _'; return }
+      save.disabled = true
+      const err = await claimWith(auth, u)
+      if (err !== true) { state.textContent = String(err); save.disabled = false }
     }
-    body.replaceChildren(el('p', 'Choose your username. It is unique across the city and stays with this account.'), input, state, save)
+    body.replaceChildren(
+      el('p', 'Choose your Game ID. This is your unique username in the city — it stays with this account (Google, X, email, or NEAR).'),
+      input, state, save,
+    )
     void userId
   }
 
@@ -176,7 +223,19 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: '{}' }).catch(() => null)
     const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string } : {}
     if (!r || !r.ok) { body.replaceChildren(el('p', (j as { error?: string }).error ?? 'Could not reach the server. Try again.', 'muted')); return }
-    if (!j.username) { localStorage.removeItem(CLAIMED_KEY); if (j.userId) localStorage.setItem('gd.privy.userId', j.userId); void pickUsername({ token }, j.userId!); return }
+    if (!j.username) {
+      localStorage.removeItem(CLAIMED_KEY)
+      if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
+      const draft = readDraft()
+      if (draft && USERNAME.test(draft)) {
+        body.replaceChildren(el('p', `Claiming @${draft}…`, 'muted'))
+        const err = await claimWith({ token }, draft)
+        if (err === true) return
+        body.replaceChildren(el('p', String(err), 'muted'))
+      }
+      void pickUsername({ token }, j.userId!)
+      return
+    }
     await bind(token, j)
   }
 
@@ -185,7 +244,19 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ near: proof }) }).catch(() => null)
     const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string } : {}
     if (!r || !r.ok) { body.replaceChildren(el('p', (j as { error?: string }).error ?? 'Could not reach the server. Try again.', 'muted'), nearButton()); return }
-    if (!j.username) { localStorage.removeItem(CLAIMED_KEY); if (j.userId) localStorage.setItem('gd.privy.userId', j.userId); void pickUsername({ near: proof }, j.userId!); return }
+    if (!j.username) {
+      localStorage.removeItem(CLAIMED_KEY)
+      if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
+      const draft = readDraft()
+      if (draft && USERNAME.test(draft)) {
+        body.replaceChildren(el('p', `Claiming @${draft}…`, 'muted'))
+        const err = await claimWith({ near: proof }, draft)
+        if (err === true) return
+        body.replaceChildren(el('p', String(err), 'muted'))
+      }
+      void pickUsername({ near: proof }, j.userId!)
+      return
+    }
     await bind(null, j, proof)
   }
 
@@ -193,6 +264,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const b = el('button', `Continue with ${SOCIAL_LABEL[provider]}`, 'glass-btn primary')
     b.onclick = async () => {
       if (closed) return
+      if (mode === 'signup' && !ensureGameId()) return
       b.disabled = true
       b.textContent = `Opening ${SOCIAL_LABEL[provider]}…`
       try {
@@ -219,6 +291,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const b = el('button', 'Continue with NEAR', 'glass-btn primary')
     b.onclick = async () => {
       if (closed) return
+      if (mode === 'signup' && !ensureGameId()) return
       b.disabled = true
       b.textContent = 'Opening NEAR wallets…'
       msg.textContent = 'No funds or transactions — only a signed login message.'
@@ -288,6 +361,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const verify = el('button', 'Verify', 'glass-btn primary'); verify.hidden = true
   send.onclick = async () => {
     if (closed) return
+    if (mode === 'signup' && !ensureGameId()) return
     if (!email.value.trim()) { msg.textContent = 'Enter your email first.'; return }
     send.disabled = true
     msg.textContent = 'Sending…'
@@ -320,6 +394,35 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     if (closed) return
     loading.remove()
     const parts: HTMLElement[] = []
+    if (mode === 'signup') {
+      const gameBox = el('div', '', 'login-game-id')
+      const input = el('input')
+      input.placeholder = 'Game ID (username)'
+      input.maxLength = 20
+      input.autocapitalize = 'off'
+      input.autocomplete = 'username'
+      input.dataset.gameId = '1'
+      input.setAttribute('aria-label', 'Game ID username')
+      input.value = readDraft()
+      const state = el('p', 'Your public Game ID in Grind District. 3–20 characters: a–z, 0–9 or _.', 'muted')
+      let timer = 0
+      input.oninput = () => {
+        const u = input.value.trim().toLowerCase()
+        clearTimeout(timer)
+        writeDraft(u)
+        if (!u) { state.textContent = 'Your public Game ID in Grind District. 3–20 characters: a–z, 0–9 or _.'; return }
+        if (!USERNAME.test(u)) { state.textContent = '3–20 characters: a–z, 0–9 or _'; return }
+        state.textContent = 'Checking…'
+        timer = window.setTimeout(async () => {
+          const r = await fetch(`/api/check-username?u=${encodeURIComponent(u)}`).then((x) => x.json()).catch(() => null) as { available?: boolean; reason?: string } | null
+          if (!r) { state.textContent = 'Could not check right now — you can still continue'; return }
+          state.textContent = r.available ? `@${u} is available` : (r.reason || 'Taken')
+        }, 250)
+      }
+      if (input.value) input.dispatchEvent(new Event('input'))
+      gameBox.append(el('p', 'Pick your Game ID', 'kicker'), input, state)
+      parts.push(gameBox)
+    }
     const stack = el('div', '', 'login-providers')
     // Order: X, Google, NEAR (always), then compact email (Privy one-time code — email cannot verify without a code).
     if (APP_ID && opts?.domainOk) {
