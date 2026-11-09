@@ -18,7 +18,7 @@ import { JOBS } from './careerData.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
-import { assetUrl, prepareAssets } from './assets.ts'
+import { assetUrl } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
 import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics, type SkillId } from './logic.ts'
@@ -30,7 +30,6 @@ import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPresenc
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
-import { startTracking } from './track.ts'
 import { createSkyline } from './skyline.ts'
 import { createStreetProps } from './props.ts'
 import { createStreetscape } from './streetscape.ts'
@@ -40,7 +39,6 @@ import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
-import { mountMenu } from './menu.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
@@ -148,7 +146,7 @@ function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
 
 let abandoned = false
 
-async function main(onReveal: () => void, onFail: (error: unknown) => void = () => {}) {
+export async function startCity(onReveal: () => void, onFail: (error: unknown) => void = () => {}) {
   const canvas = must<HTMLCanvasElement>('#view')
   const boot = must<HTMLDivElement>('#boot')
   must<HTMLParagraphElement>('#boot-text')
@@ -1587,87 +1585,3 @@ const apiAgents = createRemoteAgents(scene)
   }
   requestAnimationFrame(frame)
 }
-
-const menu = must<HTMLElement>('#menu')
-const play = must<HTMLButtonElement>('#play')
-const menuNote = must<HTMLParagraphElement>('#menu-note')
-let opening = false
-
-function revealCity() {
-  menu.hidden = true
-  document.documentElement.classList.remove('title-on')
-  const boot = document.querySelector('#boot')
-  if (boot) {
-    boot.classList.add('hidden')
-    boot.setAttribute('aria-hidden', 'true')
-  }
-}
-
-async function begin() {
-  if (opening) return
-  opening = true
-  stopPreview()
-  prepareAssets()
-  play.disabled = true
-  play.textContent = 'Opening the district'
-  menuNote.textContent = ''
-  // Watchdog: if the 3D city has not shown a frame within 15 s, open the overhead map instead.
-  let shown = false
-  const reveal = () => { shown = true; revealCity() }
-  const flatFallback = async (why: unknown) => {
-    if (shown) return
-    shown = true
-    abandoned = true
-    console.error('[grind] 3D city failed to open; switching to the overhead map.', why)
-    // A canvas that already holds a WebGL context cannot give a 2D one: swap in a fresh canvas.
-    const old = document.querySelector<HTMLCanvasElement>('#view')
-    if (old) old.replaceWith(old.cloneNode(false))
-    try {
-      await startFlat(revealCity)
-    } catch (error) {
-      console.error('[grind] Overhead map failed too.', error)
-      opening = false
-      play.disabled = false
-      play.textContent = 'Enter the district'
-      menu.hidden = false
-      menuNote.textContent = 'The city could not open on this device. Try again or another browser.'
-    }
-  }
-  const watchdog = window.setTimeout(() => { void flatFallback(new Error('timeout')) }, 15000)
-  try {
-    await main(reveal, (error) => { void flatFallback(error) })
-  } catch (error) {
-    await flatFallback(error)
-  } finally {
-    if (shown) clearTimeout(watchdog)
-  }
-}
-
-let stopPreview: () => void = () => {}
-const bootTitlePreview = () => {
-  void import('./preview.ts').then((m) => {
-    const c = document.querySelector<HTMLCanvasElement>('#menu-preview')
-    if (c && !opening) stopPreview = m.startPreview(c)
-  }).catch(() => {
-    document.getElementById('menu')?.classList.add('menu-fallback')
-  })
-}
-// Mobile: defer the heavy Three title city until idle so Sign up / Sign in paint first.
-const titleCoarse = matchMedia('(pointer: coarse)').matches || innerWidth < 820
-if (titleCoarse) {
-  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
-  if (ric) ric(() => { if (!opening) bootTitlePreview() }, { timeout: 2200 })
-  else window.setTimeout(() => { if (!opening) bootTitlePreview() }, 900)
-} else {
-  bootTitlePreview()
-}
-
-loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
-startTracking()
-
-mountMenu(() => {
-  void begin()
-})
-
-const focusHome = document.querySelector<HTMLButtonElement>('#menu-create') ?? document.querySelector<HTMLButtonElement>('#menu-signin') ?? play
-focusHome.focus()

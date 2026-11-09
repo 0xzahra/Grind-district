@@ -2,7 +2,6 @@ import { COURSES } from './courses.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
 import { getSave, signUp } from './state.ts'
-import { agentJoinForm } from './agent.ts'
 import { AGENT_EXPLAINER } from './agentPrompt.ts'
 import { SKILL_ORDER } from './logic.ts'
 import { nearPassportPage } from './nearPassport.ts'
@@ -74,7 +73,10 @@ function pageBody(page: Page): { title: string; body: HTMLElement } {
       return { title: 'Credits', body }
     case 'agents': {
       body.append(copy(AGENT_EXPLAINER))
-      body.append(agentJoinForm())
+      const slot = document.createElement('div')
+      slot.textContent = 'Loading agents…'
+      body.append(slot)
+      void import('./agent.ts').then((a) => { slot.replaceWith(a.agentJoinForm()) }).catch(() => { slot.textContent = 'Could not load Agents.' })
       return { title: 'Agents', body }
     }
     case 'near': {
