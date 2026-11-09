@@ -1742,50 +1742,90 @@ body.in-menu #greet { display: none !important; }
   }
 }
 
-/* Sign-in dialog: same slim full-width rhythm as the opening card */
+/* Sign-in dialog: match opening card — slim glass buttons, no bulky gold fill */
 .login-dlg.wallet-dlg {
-  width: min(92vw, 320px) !important;
-  padding: 16px 14px !important;
-  gap: 8px !important;
+  width: min(92vw, 300px) !important;
+  padding: 14px 14px 12px !important;
+  gap: 6px !important;
   border-radius: 18px !important;
+  background: rgba(16, 16, 18, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
 }
 .login-dlg .login-wordmark {
-  font-size: 13px !important;
-  letter-spacing: 0.1em !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  opacity: 0.72;
 }
 .login-dlg h2 {
-  margin: 0 !important;
-  font-size: 17px !important;
-}
-.login-dlg .wallet-body {
-  gap: 7px !important;
-}
-.login-dlg button:not(.login-x) {
-  width: 100% !important;
-  min-height: 40px !important;
-  height: auto !important;
-  padding: 9px 14px !important;
-  border-radius: 11px !important;
-  font-size: 13px !important;
+  margin: 0 0 2px !important;
+  font-size: 15px !important;
   font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: #f5f5f7 !important;
 }
-.login-dlg button.primary:not(.login-x) {
-  background: #d9b26a !important;
-  color: #1a1408 !important;
-  border-color: transparent !important;
-}
-.login-dlg button.ghost:not(.login-x) {
+.login-dlg .login-x {
+  top: 8px !important;
+  right: 8px !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  border-radius: 50% !important;
+  font-size: 13px !important;
   background: rgba(255, 255, 255, 0.06) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   color: #f5f5f7 !important;
+  box-shadow: none !important;
 }
-.login-dlg input {
-  padding: 10px 12px !important;
+.login-dlg .wallet-body {
+  display: grid !important;
+  gap: 6px !important;
+}
+.login-dlg button:not(.login-x) {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 0 14px !important;
   border-radius: 11px !important;
   font-size: 13px !important;
+  font-weight: 550 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
 }
+/* Provider buttons: glass + soft gold ring (matches opening Sign in accent, not a gold fill) */
+.login-dlg button.primary:not(.login-x) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f5f7 !important;
+  border: 1px solid rgba(217, 178, 106, 0.45) !important;
+  box-shadow: none !important;
+}
+.login-dlg button.ghost:not(.login-x),
+.login-dlg button.primary[hidden] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(245, 245, 247, 0.92) !important;
+}
+.login-dlg input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 9px 12px !important;
+  min-height: 38px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+  background: rgba(10, 12, 14, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #f5f5f7 !important;
+}
+.login-dlg input::placeholder { color: rgba(245, 245, 247, 0.4); }
 .login-dlg .muted,
-.login-dlg p.muted {
+.login-dlg p.muted,
+.login-dlg p {
   font-size: 11.5px !important;
   line-height: 1.4 !important;
+  margin: 0 !important;
+  color: rgba(245, 245, 247, 0.62) !important;
 }
+.login-dlg h2 + .wallet-body { margin-top: 2px; }
