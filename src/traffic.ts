@@ -34,11 +34,11 @@ type Lanes = { roadHalf: number; walk: number; inner: number; outer: number }
 type Arm = { ax: number; az: number } // unit vector pointing out from the plaza
 const ARMS: Arm[] = [...LANE_ARMS]
 const COUNTS: Record<Graphics, { people: number; cars: number }> = {
-  low: { people: 0, cars: 4 },
-  medium: { people: 0, cars: 10 },
-  high: { people: 0, cars: 14 },
+  low: { people: 0, cars: 8 },
+  medium: { people: 0, cars: 16 },
+  high: { people: 0, cars: 22 },
 }
-const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x3d4a3f, 0xb3122e, 0x2a2f36, 0xd9c7a1]
+const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x3d4a3f, 0xb3122e, 0x2a2f36, 0xd9c7a1, 0xc9a227, 0x5c2a8a, 0xe8eef2, 0x1f6b4f]
 const SHIRTS = [0x1a4cff, 0x6b5a45, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]
 const LOD = 70
 const SIGNAL_PERIOD = 14
@@ -145,46 +145,84 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     mesh.setMatrixAt(i, limb.matrix.premultiply(dummy.matrix))
   }
 
-  // Cars: a low body, a glass cabin, and four wheels merged into one instanced mesh.
-  const carBody = new THREE.BoxGeometry(1.9, 0.55, 4.2)
-  carBody.translate(0, 0.55, 0)
-  const cabinGeo = new THREE.BoxGeometry(1.6, 0.5, 2.2)
-  cabinGeo.translate(0, 1.07, -0.25)
-  const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.26, 10)
-  wheelGeo.rotateZ(Math.PI / 2)
-  const wheelParts: THREE.BufferGeometry[] = []
-  for (const [x, z] of [[-0.9, 1.35], [0.9, 1.35], [-0.9, -1.35], [0.9, -1.35]] as const) {
-    const part = wheelGeo.clone()
-    part.translate(x, 0.34, z)
-    wheelParts.push(part)
-  }
-  const wheelsGeo = mergeSimple(wheelParts)
+  // Cars: real variety (hatch / sedan / SUV / van / pickup / sports / taxi), each mesh merges
+  // body + cabin + FOUR wheels so a missing wheel draw can never happen. Instanced per style.
+  type CarStyle = { body: [number, number, number, number, number]; cabin: [number, number, number, number, number]; wheelBase: number; track: number }
+  // body: [w,h,d, y, zShift]; cabin similar; wheelBase = half-length to axle; track = half-width
+  const STYLES: CarStyle[] = [
+    { body: [1.7, 0.48, 3.4, 0.52, 0.05], cabin: [1.5, 0.48, 1.55, 1.0, -0.15], wheelBase: 1.15, track: 0.78 }, // hatch
+    { body: [1.85, 0.5, 4.1, 0.52, 0], cabin: [1.55, 0.5, 2.0, 1.05, -0.2], wheelBase: 1.4, track: 0.85 }, // sedan
+    { body: [1.95, 0.62, 4.3, 0.62, 0], cabin: [1.7, 0.58, 2.2, 1.2, -0.15], wheelBase: 1.45, track: 0.9 }, // suv
+    { body: [1.9, 0.85, 4.6, 0.75, 0], cabin: [1.75, 0.7, 2.6, 1.45, -0.1], wheelBase: 1.55, track: 0.88 }, // van / minibus
+    { body: [1.85, 0.55, 4.5, 0.55, 0.15], cabin: [1.55, 0.5, 1.5, 1.08, 0.55], wheelBase: 1.5, track: 0.86 }, // pickup
+    { body: [1.75, 0.42, 3.9, 0.48, 0.1], cabin: [1.5, 0.4, 1.4, 0.92, -0.35], wheelBase: 1.25, track: 0.8 }, // sports
+    { body: [1.8, 0.52, 4.0, 0.54, 0], cabin: [1.55, 0.5, 1.9, 1.06, -0.15], wheelBase: 1.35, track: 0.84 }, // taxi
+  ]
   const paint = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.55 })
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8, emissive: 0x000000, emissiveIntensity: 0 })
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8 })
   const rubber = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.9 })
-  const bodiesCar = new THREE.InstancedMesh(carBody, paint, counts.cars)
-  const cabins = new THREE.InstancedMesh(cabinGeo, glass, counts.cars)
-  const wheels = new THREE.InstancedMesh(wheelsGeo, rubber, counts.cars)
-  const cars: Car[] = []
-  for (let i = 0; i < counts.cars; i += 1) {
-    // Spawn spaced along the lanes: re-sample until at least 7 m (car + margin) from every car in the same lane.
-    const arm = i % 4
-    const outbound = i % 2 === 0
-    let t = (i * 0.37) % 1
-    for (let tries = 0; tries < 20; tries++) {
-      if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 7)) break
-      t = (t + 0.13) % 1
+  void rubber
+  const wheelUnit = new THREE.CylinderGeometry(0.32, 0.32, 0.24, 10)
+  wheelUnit.rotateZ(Math.PI / 2)
+  const styleMeshes: THREE.InstancedMesh[] = []
+  const styleGlass: THREE.InstancedMesh[] = []
+  const perStyle = STYLES.map(() => 0)
+  for (let i = 0; i < counts.cars; i++) perStyle[i % STYLES.length]!++
+  STYLES.forEach((st, k) => {
+    const [bw, bh, bd, by, bz] = st.body
+    const body = new THREE.BoxGeometry(bw, bh, bd)
+    body.translate(0, by, bz)
+    const whParts: THREE.BufferGeometry[] = []
+    for (const sx of [-1, 1] as const) for (const sz of [-1, 1] as const) {
+      const w = wheelUnit.clone()
+      w.translate(sx * st.track, 0.32, sz * st.wheelBase)
+      whParts.push(w)
     }
-    cars.push({ side: false, s: 0, sOut: true, goal: 0, gone: 0, park: 0, arm, outbound, t, speed: 6 + (i % 3), wait: 0, turn: 0, swing: 0, a0: 0, a1: 0 })
-    bodiesCar.setColorAt(i, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
-  }
-  for (const mesh of [bodiesCar, cabins, wheels]) {
+    const merged = mergeSimple([body, ...whParts])
+    const mesh = new THREE.InstancedMesh(merged, paint, Math.max(1, perStyle[k]!))
     mesh.castShadow = graphics !== 'low'
     mesh.frustumCulled = false
     mesh.userData.ghost = true
     mesh.raycast = () => undefined
     scene.add(mesh)
+    styleMeshes.push(mesh)
+    const [cw, ch, cd, cy, cz] = st.cabin
+    const cabin = new THREE.BoxGeometry(cw, ch, cd)
+    cabin.translate(0, cy, cz)
+    const gMesh = new THREE.InstancedMesh(cabin, glass, Math.max(1, perStyle[k]!))
+    gMesh.frustumCulled = false
+    gMesh.userData.ghost = true
+    gMesh.raycast = () => undefined
+    scene.add(gMesh)
+    styleGlass.push(gMesh)
+  })
+  // Legacy names kept for Kenney swap block below (styles are hidden once GLBs load).
+  const bodiesCar = styleMeshes[0]!
+  const cabins = styleGlass[0]!
+  const wheels = styleMeshes[0]!
+  void bodiesCar; void cabins; void wheels
+  const cars: Car[] = []
+  const carStyleOf: number[] = []
+  const styleSlot: number[] = []
+  const usedSlot = STYLES.map(() => 0)
+  for (let i = 0; i < counts.cars; i += 1) {
+    const arm = i % 4
+    const outbound = i % 2 === 0
+    let t = (i * 0.29) % 1
+    for (let tries = 0; tries < 24; tries++) {
+      if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 8)) break
+      t = (t + 0.11) % 1
+    }
+    cars.push({ side: false, s: 0, sOut: true, goal: 0, gone: 0, park: 0, arm, outbound, t, speed: 5.5 + (i % 4) * 0.6, wait: 0, turn: 0, swing: 0, a0: 0, a1: 0 })
+    const sk = i % STYLES.length
+    carStyleOf.push(sk)
+    styleSlot.push(usedSlot[sk]!)
+    styleMeshes[sk]!.setColorAt(usedSlot[sk]!, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
+    // Taxi: force yellow
+    if (sk === 6) styleMeshes[sk]!.setColorAt(usedSlot[sk]!, color.setHex(0xe6c200))
+    usedSlot[sk]!++
   }
+  for (const mesh of styleMeshes) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
 
   // Head and tail lights: two tiny instanced emissive strips that bloom at night.
   const lightGeo = new THREE.BoxGeometry(1.3, 0.1, 0.05)
@@ -253,7 +291,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       const k = i % kinds.length
       return { mesh: meshes[k]!, index: used[k]!++ }
     })
-    for (const m of [bodiesCar, cabins, wheels]) m.visible = false
+    for (const m of [...styleMeshes, ...styleGlass]) m.visible = false
   }).catch(() => { /* keep the box cars */ })
 
   // Signals at the four plaza stop lines.
@@ -404,7 +442,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           const blocked = (x: number, z: number) => {
             const fx = (x - cx) * arm0.ax * d + (z - cz) * arm0.az * d
             const sx = Math.abs((x - cx) * -arm0.az + (z - cz) * arm0.ax)
-            return fx > 0 && fx < 5.5 && sx < 1.6
+            return fx > 0 && fx < 7 && sx < 2.0
           }
           if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
         }
@@ -488,6 +526,11 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           x += -Math.cos(pt.heading) * off
           z += Math.sin(pt.heading) * off
         }
+        // Final building clamp so shoulder park / plaza swing never clips a facade.
+        {
+          const clamped = keepOffBuildings({ x, z }, 1.45)
+          x = clamped.x; z = clamped.z
+        }
         // Cars are never hidden by distance (only ~10 instances): no popping at the arm-end entrances.
         const far = Math.hypot(x - focus.x, z - focus.z) > LOD + 20
         dummy.position.set(x, hidden ? -60 : 0, z)
@@ -499,9 +542,12 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           slot.mesh.setMatrixAt(slot.index, dummy.matrix)
           slot.mesh.instanceMatrix.needsUpdate = true
         } else {
-          bodiesCar.setMatrixAt(i, dummy.matrix)
-          cabins.setMatrixAt(i, dummy.matrix)
-          wheels.setMatrixAt(i, dummy.matrix)
+          const sk = carStyleOf[i]!
+          const si = styleSlot[i]!
+          styleMeshes[sk]!.setMatrixAt(si, dummy.matrix)
+          styleGlass[sk]!.setMatrixAt(si, dummy.matrix)
+          styleMeshes[sk]!.instanceMatrix.needsUpdate = true
+          styleGlass[sk]!.instanceMatrix.needsUpdate = true
         }
         heads2.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, headLocal))
         roofSigns.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, roofLocal))
@@ -513,9 +559,6 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           obstacles.push({ kind: 'circle', x: x - hx * 1.1, z: z - hz * 1.1, r: 1.05 })
         }
       })
-      bodiesCar.instanceMatrix.needsUpdate = true
-      cabins.instanceMatrix.needsUpdate = true
-      wheels.instanceMatrix.needsUpdate = true
       heads2.instanceMatrix.needsUpdate = true
       tails.instanceMatrix.needsUpdate = true
       roofSigns.instanceMatrix.needsUpdate = true

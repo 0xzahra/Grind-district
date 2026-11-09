@@ -32,7 +32,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   canvas.addEventListener('webglcontextrestored', () => { canvas.style.opacity = '' })
   renderer.setPixelRatio(coarse ? Math.min(0.8, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 0.88
+  renderer.toneMappingExposure = 0.78
   renderer.outputColorSpace = THREE.SRGBColorSpace
   // Phones: no shadow maps (some mobile GPUs return an all-shadow depth map = black ground).
   renderer.shadowMap.enabled = !coarse
@@ -82,7 +82,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   cam.right = cam.top = 40
   cam.far = 120
   cam.updateProjectionMatrix()
-  if (scene.fog instanceof THREE.FogExp2) scene.fog.density = 0.0032
+  if (scene.fog instanceof THREE.FogExp2) scene.fog.density = 0.0055
 
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: coarse ? THREE.UnsignedByteType : THREE.HalfFloatType, samples: coarse ? 0 : 4 }))
   composer.addPass(new RenderPass(scene, camera))
@@ -96,7 +96,8 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     bokeh = new BokehPass(scene, camera, { focus: 45, aperture: 0.00012, maxblur: 0.006 })
     composer.addPass(bokeh)
   }
-  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.06, 0.4, 0.95))
+  // Bloom barely on: Zahra MacBook showed blown-out white panels behind buildings.
+  if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.018, 0.55, 0.985))
   composer.addPass(new OutputPass())
 
   const resize = () => {

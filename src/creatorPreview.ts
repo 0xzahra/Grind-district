@@ -119,7 +119,8 @@ export function mountCreatorPreview(host: HTMLElement, getBody: () => BodyId): C
     const tint = bodyId === 'zuri' ? 0xc4a574 : 0x5c6b80
     avatar = createAvatar(bodyId, tint, false)
     avatar.object.position.set(0, 0, 0)
-    avatar.object.rotation.y = Math.PI
+    // Front-facing: Quaternius rig faces +Z toward camera at yaw 0 (Math.PI showed the back).
+    avatar.object.rotation.y = 0
     scene.add(avatar.object)
     avatar.setStyle(tint, false)
   }
@@ -134,18 +135,22 @@ export function mountCreatorPreview(host: HTMLElement, getBody: () => BodyId): C
     scene = new THREE.Scene()
     scene.background = new THREE.Color(0x1a1e24)
     camera = new THREE.PerspectiveCamera(28, 280 / 360, 0.1, 20)
-    camera.position.set(0.35, 1.15, 3.1)
+    camera.position.set(0.15, 1.2, 3.0)
     camera.lookAt(0, 0.95, 0)
-    const key = new THREE.DirectionalLight(0xfff4e8, 1.55)
-    key.position.set(1.4, 2.8, 2.2)
-    scene.add(key, new THREE.HemisphereLight(0xe8eef6, 0x3a332c, 0.85), new THREE.AmbientLight(0xfff6ea, 0.25))
+    const key = new THREE.DirectionalLight(0xfff6ea, 1.85)
+    key.position.set(0.4, 2.6, 3.2) // key from camera side so the face is lit
+    const fill = new THREE.DirectionalLight(0xd8e6ff, 0.55)
+    fill.position.set(-1.8, 1.6, 1.2)
+    scene.add(key, fill, new THREE.HemisphereLight(0xf2e8dc, 0x3a332c, 0.95), new THREE.AmbientLight(0xfff6ea, 0.35))
+    renderer.toneMappingExposure = 1.12
     rebuild3d()
     const loop = (now: number) => {
       if (disposed || !renderer || !scene || !camera || !avatar) return
       raf = requestAnimationFrame(loop)
       const dt = Math.min(0.05, (now - t0) / 1000)
       t0 = now
-      avatar.object.rotation.y = Math.PI + Math.sin(now * 0.0006) * 0.22
+      // Slow turn around the front so the face stays readable
+      avatar.object.rotation.y = Math.sin(now * 0.00055) * 0.35
       try { avatar.step(dt, false, 0) } catch { /* idle */ }
       renderer.render(scene, camera)
     }

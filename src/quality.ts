@@ -98,7 +98,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     if (level === 'high' && !coarse && gl2) {
       try { bokeh = new BokehPass(scene, camera, { focus: 7, aperture: 0.00012, maxblur: 0.004 }); composer.addPass(bokeh) } catch (error) { console.warn('[grind] DOF unavailable', error) }
     }
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.2, 0.45, 0.9)
+    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.04, 0.55, 0.98)
     composer.addPass(bloom)
     composer.addPass(new OutputPass())
     grade = new ShaderPass(Grade)
@@ -132,8 +132,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     setNight(night: number) {
       if (bloom) {
         // Premium, not neon: only true highlights (lamps, sun glints) bloom, and barely.
-        bloom.threshold = 0.97 - night * 0.04
-        bloom.strength = 0.012 + night * 0.018 // warm pass: even lower glow
+        bloom.threshold = 0.99 - night * 0.02
+        bloom.strength = 0.006 + night * 0.012 // Zahra: no white glow behind buildings
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */

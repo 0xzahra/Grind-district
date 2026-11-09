@@ -29,7 +29,7 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
     try {
       studio.add(obj)
       obj.position.set(0, 0, 0)
-      obj.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI) // rig faces -Z: turn to camera
+      obj.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0) // front-facing toward camera
       obj.updateMatrixWorld(true)
       box.setFromObject(obj)
       box.getSize(size)

@@ -209,16 +209,68 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
       root.userData.setExtras = setExtras
     }
+    // Full-length abaya/dress hem: woman4 dress mesh ends mid-thigh; extend a soft skirt to the ankles
+    // so modest outfits (abaya, wrap, blush, ankara) read as floor-length, not a short gown.
+    if (model === 'woman4') {
+      // Geometry is in the unscaled rig frame (dress ends ~y 1.76; ankles ~0). Person.scale applies.
+      const hemMat = new THREE.MeshStandardMaterial({
+        color: look?.top ?? 0x1a1c22,
+        roughness: 0.88,
+        metalness: 0.02,
+        side: THREE.DoubleSide,
+      })
+      const hem = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.25, 1.85, 14, 1, true), hemMat)
+      hem.position.set(0, 0.98, 0.02)
+      hem.castShadow = true
+      hem.frustumCulled = false
+      person.add(hem)
+      root.userData.dressHem = hem
+      const prevLook = root.userData.applyLook as ((look: Look) => void) | undefined
+      root.userData.applyLook = (next: Look) => {
+        prevLook?.(next)
+        if (next.top != null) hemMat.color.setHex(next.top)
+      }
+    }
     root.userData.person = person
     root.userData.body = bodyRef
     bodyRef.visible = false
     root.add(person)
     const mixer = new THREE.AnimationMixer(person)
-    const act = (n: string) => { const c = t.clips.find((k) => k.name === n); return c ? mixer.clipAction(c) : null }
+    // Quaternius Idle often omits UpperArmR and leaves a raised A/T pose. Inject a mirrored
+    // UpperArmR track from UpperArmL, and a small adduct offset so arms hang by the sides.
+    const clips = t.clips.map((clip) => {
+      if (clip.name !== 'Idle') return clip
+      const hasR = clip.tracks.some((tr) => /UpperArmR\.quaternion/.test(tr.name))
+      const left = clip.tracks.find((tr) => /UpperArmL\.quaternion/.test(tr.name))
+      let next = clip
+      if (!hasR && left && left instanceof THREE.QuaternionKeyframeTrack) {
+        const vals = left.values.slice()
+        // Mirror X and Z of quaternion for opposite arm (approximate left→right)
+        for (let i = 0; i < vals.length; i += 4) {
+          vals[i] = -vals[i]!
+          vals[i + 2] = -vals[i + 2]!
+        }
+        const mirrored = new THREE.QuaternionKeyframeTrack('UpperArmR.quaternion', Array.from(left.times), vals)
+        next = new THREE.AnimationClip(clip.name, clip.duration, [...clip.tracks, mirrored])
+      }
+      return next
+    })
+    const act = (n: string) => { const c = clips.find((k) => k.name === n); return c ? mixer.clipAction(c) : null }
     const idle = act('Idle'), walk = act('Walk'), run = act('Run')
     for (const a of [idle, walk, run]) if (a) { a.play(); a.setEffectiveWeight(0) }
     idle?.setEffectiveWeight(1)
     const w = { idle: 1, walk: 0, run: 0 }
+    const armL = person.getObjectByName('UpperArmL') as THREE.Bone | null
+    const armR = person.getObjectByName('UpperArmR') as THREE.Bone | null
+    const foreL = person.getObjectByName('LowerArmL') as THREE.Bone | null
+    const foreR = person.getObjectByName('LowerArmR') as THREE.Bone | null
+    // Rest offsets: pull upper arms in toward the torso (fix raised Idle), slight elbow bend.
+    const restUL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0.05, 0.55))
+    const restUR = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, -0.05, -0.55))
+    const restFL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0, -0.2))
+    const restFR = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0, 0.2))
+    const qIdle = new THREE.Quaternion()
+    const qIdent = new THREE.Quaternion()
     const baseFace = avatar.face
     avatar.face = (x, z, dt, moving) => { baseFace(x, z, dt, moving); person.rotation.y = bodyRef.rotation.y }
     avatar.step = (dt, moving, speed) => {
@@ -235,6 +287,14 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       if (root.userData.acc < lod) return
       mixer.update(root.userData.acc)
       root.userData.acc = 0
+      // Idle: hang arms naturally. Walk/Run: keep clip swing (only a light idle blend).
+      if (w.idle > 0.05) {
+        const tIdle = w.idle
+        if (armL) armL.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restUL, tIdle))
+        if (armR) armR.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restUR, tIdle))
+        if (foreL) foreL.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restFL, tIdle * 0.7))
+        if (foreR) foreR.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restFR, tIdle * 0.7))
+      }
     }
   }).catch(() => { /* keep the procedural body */ })
 }

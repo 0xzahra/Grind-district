@@ -108,6 +108,7 @@ export function createWorld(options: {
   getSeries: () => Series
 }): World {
   const { scene, anisotropy, mark, aspect, reduceMotion, getSeries } = options
+  void mark; void aspect // logo mark now lives on cars; kept in options for API stability
   const obstacles: Obstacle[] = []
   const hotspots: Hotspot[] = []
   const reserved: Obstacle[] = []
@@ -414,8 +415,9 @@ export function createWorld(options: {
   sun.shadow.camera.right = 18
   sun.shadow.camera.top = 18
   sun.shadow.camera.bottom = -18
-  sun.shadow.bias = -0.00025
-  sun.shadow.normalBias = 0.04
+  sun.shadow.bias = -0.00035
+  sun.shadow.normalBias = 0.06
+  sun.shadow.radius = 2
   scene.add(sun)
   scene.add(sun.target)
   const fill = new THREE.DirectionalLight(0xe8e2d6, 0.2)
@@ -511,43 +513,8 @@ export function createWorld(options: {
     hotspots.push({ id, x, z, r, title, body, action, enter, house })
   }
 
-  const addArch = (title: string, subtitle: string, x: number, z: number, rotationY: number) => {
-    const group = new THREE.Group()
-    group.position.set(x, 0, z)
-    group.rotation.y = rotationY
-    const left = solid(new THREE.BoxGeometry(0.55, 3.3, 0.6), stone)
-    left.position.set(-3.7, 1.65, 0)
-    const right = solid(new THREE.BoxGeometry(0.55, 3.3, 0.6), stone)
-    right.position.set(3.7, 1.65, 0)
-    const beam = solid(new THREE.BoxGeometry(8.1, 0.42, 0.6), stone)
-    beam.position.y = 3.45
-    const strip = solid(new THREE.BoxGeometry(7.6, 0.06, 0.66), trim, false)
-    strip.position.y = 3.7
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.4, 1.7),
-      new THREE.MeshBasicMaterial({ map: paintSign(title, subtitle), toneMapped: false }),
-    )
-    sign.position.set(0, 2.15, 0.36)
-    sign.userData.ghost = true
-    group.add(left, right, beam, strip, sign)
-    scene.add(group)
-  }
-  addArch('Campus', 'learning hall', 0, -16.5, 0)
-  addArch('Trenches', 'wild book', 0, 16.5, Math.PI)
-  addArch('Trading floor', 'spot book', -16.5, 0, Math.PI / 2)
-  addArch('Influencer row', 'post a bounty', 16.5, 0, -Math.PI / 2)
-  for (const [x, z] of [
-    [-3.7, -16.5],
-    [3.7, -16.5],
-    [-3.7, 16.5],
-    [3.7, 16.5],
-    [-16.5, -3.7],
-    [-16.5, 3.7],
-    [16.5, -3.7],
-    [16.5, 3.7],
-  ] as const) {
-    obstacles.push({ kind: 'circle', x, z, r: 0.48 })
-  }
+  // No gateway arches and no mid-road / roadside boards (Zahra MacBook: CAMPUS gate blocked the
+  // carriageway; cars drove under/through it). District names live only on building facade signs.
   spot('north-arch', 0, -13.4, 2.5, 'Campus road', 'Road north to the learning hall, where courses build your CV.')
   spot('south-arch', 0, 13.4, 2.5, 'Trenches road', 'Road south to the Trenches, the fast-moving meme market.')
   spot('west-arch', -13.4, 0, 2.5, 'Trading road', 'Road west to the trading floor.')
@@ -626,12 +593,10 @@ export function createWorld(options: {
         bx(dark, w + 0.3, 0.1, d + 0.3, 0, 1.66, 0) // shopfront fascia
       }
       if (w >= 6 && d >= 5) {
+        // Low rooftop plant only (no tall black chimney/stair slab — Zahra: black boxes on roofs)
         const r = mulberry32((spec.seed ?? 3) * 7 + 1)
-        for (let k = 0; k < 2 + Math.floor(r() * 3); k++) bx(light, 0.9 + r() * 0.6, 0.55, 0.7 + r() * 0.5, (r() - 0.5) * (w - 2.4), h + 0.6, (r() - 0.5) * (d - 2.4))
-        bx(dark, 1.8, 1.3, 1.6, w / 2 - 1.6, h + 0.95, -d / 2 + 1.5) // stair core
-        if (r() > 0.4) {
-          dark.push(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 10).translate(-w / 2 + 1.4, h + 1.35, d / 2 - 1.4))
-          for (const lx of [-0.35, 0.35]) dark.push(new THREE.BoxGeometry(0.06, 0.8, 0.06).translate(-w / 2 + 1.4 + lx, h + 0.6, d / 2 - 1.4))
+        for (let k = 0; k < 1 + Math.floor(r() * 2); k++) {
+          bx(light, 0.7 + r() * 0.45, 0.32, 0.55 + r() * 0.35, (r() - 0.5) * (w - 2.6), h + 0.42, (r() - 0.5) * (d - 2.6))
         }
       }
       const gm = glazing.length ? mergeGeometries(glazing) : null
@@ -659,7 +624,7 @@ export function createWorld(options: {
       nx: { x: -spec.w / 2 - 0.05, y: spec.h * 0.58, z: 0, rot: -Math.PI / 2 },
     }
     const face = outward[spec.door]
-    const signWidth = spec.w > 10 ? 4.2 : 2.6
+    const signWidth = spec.w > 10 ? 2.4 : 1.7
     const sign = new THREE.Mesh(
       new THREE.PlaneGeometry(signWidth, signWidth * 0.42),
       new THREE.MeshBasicMaterial({ map: paintSign(spec.title, spec.subtitle), toneMapped: false }),
@@ -674,10 +639,24 @@ export function createWorld(options: {
       nx: [-0.7, 0],
     }
     const shift = awningShift[spec.door]
-    const awning = solid(new THREE.BoxGeometry(spec.door === 'px' || spec.door === 'nx' ? 1.3 : spec.w * 0.7, 0.08, spec.door === 'pz' || spec.door === 'nz' ? 1.3 : spec.d * 0.7), stoneDark, false)
-    awning.position.set(face.x + shift[0], spec.h - 0.08, face.z + shift[1])
+    // Coloured fabric street awning (readable variety) + slim roof cornice ledge above
+    const awnCols = [0xc45c48, 0x2f6b5c, 0xc9a227, 0x3d5a80, 0xb86b3c, 0x6b3d5a]
+    const awnMat = new THREE.MeshStandardMaterial({
+      color: awnCols[(spec.seed ?? 0) % awnCols.length],
+      roughness: 0.78,
+      metalness: 0.04,
+    })
+    const sideDoor = spec.door === 'px' || spec.door === 'nx'
+    const awnW = sideDoor ? 1.45 : Math.min(spec.w * 0.72, 5.2)
+    const awnD = sideDoor ? Math.min(spec.d * 0.72, 5.2) : 1.45
+    const awning = solid(new THREE.BoxGeometry(sideDoor ? awnD : awnW, 0.09, sideDoor ? awnW : awnD), awnMat, false)
+    // Hang just above the entrance canopy, not at the roof — so the facade reads as a shop
+    awning.position.set(face.x + shift[0] * 1.15, Math.min(3.35, spec.h * 0.55), face.z + shift[1] * 1.15)
     awning.userData.ghost = true
-    group.add(sign, awning)
+    const corniceLedge = solid(new THREE.BoxGeometry(spec.door === 'px' || spec.door === 'nx' ? 1.3 : spec.w * 0.7, 0.08, spec.door === 'pz' || spec.door === 'nz' ? 1.3 : spec.d * 0.7), stoneDark, false)
+    corniceLedge.position.set(face.x + shift[0], spec.h - 0.08, face.z + shift[1])
+    corniceLedge.userData.ghost = true
+    group.add(sign, awning, corniceLedge)
     {
       // Entrance canopy: glass slab on two steel tie rods, just above head height.
       const side = spec.door === 'px' || spec.door === 'nx'
@@ -704,14 +683,15 @@ export function createWorld(options: {
     }
     const at = doorAt[spec.door]
     doors.push({ x: at.x, z: at.z, own: obstacles[obstacles.length - 1] as Obstacle })
-    const mat = solid(new THREE.BoxGeometry(1.5, 0.04, 1.5), trim, false)
-    mat.position.set(at.x, 0.03, at.z)
+    // Subtle door pad (not a black slab on the paving)
+    const mat = solid(new THREE.BoxGeometry(1.35, 0.03, 1.35), stone, false)
+    mat.position.set(at.x, 0.02, at.z)
     mat.userData.ghost = true
     scene.add(mat)
     return at
   }
 
-  const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Campus', subtitle: 'courses file themselves', windows: true, seed: 3 })
+  const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Campus', subtitle: 'learn', windows: true, seed: 3 })
   spot('learn', hall.x, hall.z, 2.5, 'Campus', 'Take short courses. Each one you pass is added to your CV.', 'learn', 'Open the hall')
   const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'web3 events', windows: true, seed: 5 })
   spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for in-game cash.', 'conference', 'Go inside')
@@ -719,15 +699,15 @@ export function createWorld(options: {
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
   const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', windows: true, seed: 8 })
   spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Grab a coffee and read today\'s market headlines.', 'cafe', 'Read the room')
-  addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 2.5, door: 'pz', title: 'Booth', subtitle: 'no seed asks', seed: 2 })
-  addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 2.5, door: 'pz', title: 'Booth', subtitle: 'one-pagers', seed: 4 })
+  addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 3.2, door: 'pz', title: 'Booth', subtitle: 'no seed asks', windows: true, seed: 2 })
+  addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 3.2, door: 'pz', title: 'Booth', subtitle: 'one-pagers', windows: true, seed: 4 })
   spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Project stands. Browse what teams are building.')
 
-  const floor = addBuilding({ x: -48, z: 0, w: 12, d: 16, h: 6, door: 'px', title: 'Trading floor', subtitle: 'spot, sized', windows: true, seed: 11 })
+  const floor = addBuilding({ x: -48, z: 0, w: 12, d: 16, h: 6, door: 'px', title: 'Trade', subtitle: 'spot book', windows: true, seed: 11 })
   spot('trade', floor.x, floor.z, 2.6, 'Trading floor', 'Buy and sell UNIT with in-game cash and practise sizing your trades.', 'trade', 'Open the book')
-  const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Influencer row', subtitle: 'post the work', windows: true, seed: 13 })
+  const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Bounty', subtitle: 'post', windows: true, seed: 13 })
   spot('bounty', row.x, row.z, 2.6, 'Influencer row', 'Post a bounty to earn in-game cash and add it to your portfolio.', 'bounty', 'Post a bounty')
-  const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Trenches', subtitle: 'attention, sized', windows: true, seed: 17 })
+  const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Meme', subtitle: 'desk', windows: true, seed: 17 })
   spot('trench', trench.x, trench.z, 2.6, 'Trenches corner', 'Trade the volatile MEME coin. Big swings, high risk.', 'trench', 'Open the trench book')
 
   const shop = addBuilding({ x: 22, z: -22, w: 8, d: 7, h: 3.8, door: 'nx', title: 'Boutique', subtitle: 'free bodies', windows: true, seed: 19 })
@@ -903,6 +883,69 @@ export function createWorld(options: {
   const gadgets = addBuilding({ x: -16, z: 14, w: 5.4, d: 4.2, h: 3.1, door: 'pz', title: 'Gadgets', subtitle: 'phones · laptops · drones', windows: true, seed: 47 })
   spot('gadgets', gadgets.x, gadgets.z, 2.2, 'Gadgets', 'Phones, laptops, accessories and drones for in-game cash.', 'gadgets', 'Open the case')
   spot('dealer', gadgets.x + 5, gadgets.z, 2.2, 'Auto dealership', 'Cars, jets and air taxis for in-game cash.', 'dealer', 'Browse')
+  // Outdoor showcases: glass cases + lit pedestals so the shops read from the street (not blank walls).
+  {
+    const caseGlass = new THREE.MeshStandardMaterial({ color: 0xa8c0cc, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.28 })
+    const caseFrame = new THREE.MeshStandardMaterial({ color: 0x2a3036, roughness: 0.45, metalness: 0.55 })
+    const brassLite = new THREE.MeshStandardMaterial({ color: 0xc9a25e, roughness: 0.35, metalness: 0.7, emissive: 0x3a2a10, emissiveIntensity: 0.35 })
+    const addCase = (cx: number, cz: number, yaw: number, buildInner: (g: THREE.Group) => void, label: string) => {
+      const g = new THREE.Group()
+      g.position.set(cx, 0, cz)
+      g.rotation.y = yaw
+      const plinth = solid(new THREE.BoxGeometry(1.35, 0.55, 1.05), stoneDark)
+      plinth.position.y = 0.28
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.15, 0.9), caseGlass)
+      glass.position.y = 1.15
+      glass.userData.ghost = true
+      const frame = solid(new THREE.BoxGeometry(1.28, 0.06, 0.98), caseFrame, false)
+      frame.position.y = 1.72
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), brassLite)
+      lamp.position.y = 1.78
+      lamp.userData.ghost = true
+      const tag = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.0, 0.28),
+        new THREE.MeshBasicMaterial({ map: paintSign(label, 'on show'), toneMapped: false }),
+      )
+      tag.position.set(0, 0.72, 0.56)
+      tag.userData.ghost = true
+      g.add(plinth, glass, frame, lamp, tag)
+      buildInner(g)
+      scene.add(g)
+      obstacles.push({ kind: 'circle', x: cx, z: cz, r: 0.85 })
+    }
+    // Phone + laptop in the Gadgets window bay
+    addCase(gadgets.x - 2.2, gadgets.z + 3.1, 0, (g) => {
+      const phone = solid(new THREE.BoxGeometry(0.18, 0.36, 0.04), new THREE.MeshStandardMaterial({ color: 0x1a1e24, roughness: 0.3, metalness: 0.6 }), false)
+      phone.position.set(-0.22, 0.95, 0)
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.28), new THREE.MeshBasicMaterial({ color: 0x4ecdc4, toneMapped: false }))
+      screen.position.set(-0.22, 0.95, 0.025)
+      screen.userData.ghost = true
+      const laptop = solid(new THREE.BoxGeometry(0.42, 0.02, 0.28), new THREE.MeshStandardMaterial({ color: 0xc0c6cc, roughness: 0.35, metalness: 0.5 }), false)
+      laptop.position.set(0.22, 0.78, 0)
+      const lid = solid(new THREE.BoxGeometry(0.42, 0.28, 0.02), new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.4, metalness: 0.45 }), false)
+      lid.position.set(0.22, 0.92, -0.12)
+      lid.rotation.x = -0.5
+      g.add(phone, screen, laptop, lid)
+    }, 'Gadgets')
+    // Compact hatch on a turntable pad at the dealership
+    addCase(gadgets.x + 5.2, gadgets.z + 3.0, 0, (g) => {
+      const body = solid(new THREE.BoxGeometry(0.55, 0.22, 0.95), new THREE.MeshStandardMaterial({ color: 0x1a4cff, roughness: 0.35, metalness: 0.55 }), false)
+      body.position.set(0, 0.88, 0)
+      const cabin = solid(new THREE.BoxGeometry(0.48, 0.18, 0.5), new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.15, metalness: 0.7 }), false)
+      cabin.position.set(0, 1.05, -0.08)
+      for (const [wx, wz] of [[-0.22, 0.32], [0.22, 0.32], [-0.22, -0.32], [0.22, -0.32]] as const) {
+        const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 8), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }))
+        wh.rotation.z = Math.PI / 2
+        wh.position.set(wx, 0.76, wz)
+        wh.userData.ghost = true
+        g.add(wh)
+      }
+      g.add(body, cabin)
+      g.userData.spinShowcase = true
+    }, 'Auto')
+    addGlow(gadgets.x - 2.2, 1.6, gadgets.z + 3.1, 0xffe2b8, 4)
+    addGlow(gadgets.x + 5.2, 1.6, gadgets.z + 3.0, 0xffe2b8, 4)
+  }
 
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.
@@ -1136,42 +1179,115 @@ export function createWorld(options: {
     screenOf('meme', 3.2, 42.2, Math.PI),
   ]
 
+  // Plaza drinks stand ("Grand Drink" / The Grind Ring): a believable kiosk — counter, striped
+  // awning, bottle shelves, cups, vendor gap — with a small rotating drink prop (not a giant halo).
   const emblem = new THREE.Group()
-  const basin = solid(new THREE.CylinderGeometry(2.7, 2.9, 0.55, 40), stone)
-  basin.position.y = 0.28
-  const rim = solid(new THREE.TorusGeometry(2.7, 0.08, 8, 40), stoneDark)
-  rim.rotation.x = Math.PI / 2
-  rim.position.y = 0.55
-  const water = new THREE.Mesh(new THREE.CircleGeometry(2.45, 40), waterMat)
-  water.rotation.x = -Math.PI / 2
-  water.position.y = 0.48
-  const pedestal = solid(new THREE.CylinderGeometry(0.16, 0.22, 1.05, 10), stoneDark)
-  pedestal.position.y = 1
-  emblem.position.y = 1.72
-  const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.2, 1.2 * aspect),
-    new THREE.MeshBasicMaterial({ map: mark, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, toneMapped: false }),
-  )
-  plane.userData.ghost = true
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.025, 8, 40), trim)
-  halo.userData.ghost = true
-  void plane // the logo mark lives only on cars now
-  emblem.add(halo)
-  scene.add(basin, rim, water, pedestal, emblem)
-  obstacles.push({ kind: 'circle', x: 0, z: 0, r: 2.9 })
-  addGlow(0, 1.6, 0, 0xffd9a0, 12)
-  for (let i = 0; i < 3; i += 1) {
-    const ripple = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.02, 6, 40),
-      new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0.1, depthWrite: false, toneMapped: false }),
-    )
-    ripple.rotation.x = Math.PI / 2
-    ripple.position.y = 0.52
-    ripple.userData.ghost = true
-    scene.add(ripple)
-    ripples.push({ mesh: ripple, offset: i / 3 })
+  const stand = new THREE.Group()
+  stand.name = 'grind-ring-drinks'
+  const stallWood = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 0.72, metalness: 0.05 })
+  const stallWoodLight = new THREE.MeshStandardMaterial({ color: 0x8a6240, roughness: 0.78, metalness: 0.04 })
+  const stripeA = new THREE.MeshStandardMaterial({ color: 0xc45c48, roughness: 0.7, metalness: 0.04 })
+  const stripeB = new THREE.MeshStandardMaterial({ color: 0xf2e6d4, roughness: 0.75, metalness: 0.03 })
+  const stallBrass = new THREE.MeshStandardMaterial({ color: 0xb8923a, roughness: 0.35, metalness: 0.65 })
+  const glassBottle = new THREE.MeshStandardMaterial({ color: 0x1a4a3a, roughness: 0.15, metalness: 0.35, transparent: true, opacity: 0.85 })
+  const cupMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.55, metalness: 0.05 })
+  // Raised deck / footprint so the stand reads as a stall, not a floating prop
+  const deck = solid(new THREE.CylinderGeometry(2.55, 2.7, 0.22, 32), stone)
+  deck.position.y = 0.11
+  stand.add(deck)
+  const deckRim = solid(new THREE.TorusGeometry(2.55, 0.06, 6, 32), stoneDark)
+  deckRim.rotation.x = Math.PI / 2
+  deckRim.position.y = 0.22
+  stand.add(deckRim)
+  // U-shaped counter (open on +Z for the vendor)
+  const counterH = 1.05
+  const counterTop = solid(new THREE.BoxGeometry(3.2, 0.1, 0.55), stallWoodLight)
+  counterTop.position.set(0, counterH, 1.05)
+  const counterL = solid(new THREE.BoxGeometry(0.55, counterH, 2.4), stallWood)
+  counterL.position.set(-1.45, counterH / 2, 0.15)
+  const counterR = solid(new THREE.BoxGeometry(0.55, counterH, 2.4), stallWood)
+  counterR.position.set(1.45, counterH / 2, 0.15)
+  const counterBack = solid(new THREE.BoxGeometry(3.4, counterH, 0.45), stallWood)
+  counterBack.position.set(0, counterH / 2, -1.0)
+  stand.add(counterTop, counterL, counterR, counterBack)
+  // Front kick panel under the serving ledge
+  const kick = solid(new THREE.BoxGeometry(3.0, 0.85, 0.12), stallWood)
+  kick.position.set(0, 0.42, 1.28)
+  stand.add(kick)
+  // Back wall + bottle shelves
+  const backWall = solid(new THREE.BoxGeometry(3.5, 2.35, 0.18), stone)
+  backWall.position.set(0, 1.35, -1.35)
+  stand.add(backWall)
+  for (const sy of [1.15, 1.65, 2.15]) {
+    const shelf = solid(new THREE.BoxGeometry(3.1, 0.07, 0.32), stallWoodLight)
+    shelf.position.set(0, sy, -1.15)
+    stand.add(shelf)
+    for (let i = 0; i < 7; i++) {
+      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.26, 8), i % 2 ? glassBottle : stallBrass)
+      bottle.position.set(-1.15 + i * 0.38, sy + 0.16, -1.15)
+      bottle.castShadow = true
+      bottle.userData.ghost = true
+      stand.add(bottle)
+    }
   }
-  spot('ring', 0, 0, 4.4, 'The Grind Ring', 'The central plaza where every player meets.')
+  // Stacked cups on the counter
+  for (let i = 0; i < 4; i++) {
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.055, 0.12, 10), cupMat)
+    cup.position.set(-0.7 + i * 0.22, counterH + 0.12, 1.0)
+    cup.userData.ghost = true
+    stand.add(cup)
+  }
+  stand.position.set(0, 0, 0)
+  scene.add(stand)
+
+  // Striped fabric awning
+  {
+    const awningRoot = new THREE.Group()
+    const awningW2 = 3.6
+    for (let i = 0; i < 8; i++) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(awningW2 / 8, 0.08, 1.6), i % 2 ? stripeA : stripeB)
+      stripe.position.set(-awningW2 / 2 + (i + 0.5) * (awningW2 / 8), 2.55, 0.15)
+      stripe.castShadow = true
+      awningRoot.add(stripe)
+    }
+    // Slight front droop
+    awningRoot.rotation.x = 0.12
+    for (const sx of [-1, 1] as const) {
+      const post = solid(new THREE.CylinderGeometry(0.05, 0.06, 2.5, 6), stallBrass)
+      post.position.set(sx * 1.55, 1.25, 1.15)
+      stand.add(post)
+    }
+    stand.add(awningRoot)
+  }
+
+  // Sign board: "Grind Ring Café"
+  const cafeSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.4, 0.7),
+    new THREE.MeshBasicMaterial({ map: paintSign('Grind Ring', 'drinks · coffee · chill'), toneMapped: false }),
+  )
+  cafeSign.position.set(0, 2.95, -1.28)
+  cafeSign.userData.ghost = true
+  stand.add(cafeSign)
+
+  // Small rotating drink prop on the counter (the old "halo" role, scaled down)
+  emblem.position.set(0.55, counterH + 0.28, 0.95)
+  const drinkCup = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.18, 12), cupMat)
+  const drinkLid = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.03, 12), stripeA)
+  drinkLid.position.y = 0.1
+  const drinkStraw = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), stallBrass)
+  drinkStraw.position.set(0.03, 0.22, 0)
+  const drinkHalo = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 6, 20), trim)
+  drinkHalo.rotation.x = Math.PI / 2
+  drinkHalo.position.y = 0.02
+  drinkHalo.userData.ghost = true
+  emblem.add(drinkCup, drinkLid, drinkStraw, drinkHalo)
+  stand.add(emblem)
+
+  // Soft warm glow under the awning
+  addGlow(0, 1.8, 0.2, 0xffd9a0, 4)
+  obstacles.push({ kind: 'circle', x: 0, z: 0, r: 2.7 })
+  reserved.push({ kind: 'circle', x: 0, z: 0, r: 3.4 })
+  spot('ring', 0, 0, 4.4, 'The Grind Ring', 'Plaza drinks stand — coffee, juice, and a place to meet.')
 
   const totem = new THREE.Group()
   totem.position.set(-9, 0, -8)
@@ -1359,7 +1475,7 @@ export function createWorld(options: {
     // Soft warm window band so distant silhouettes are buildings, not untouchable black boxes.
     const band = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 0.72, height * 0.55),
-      new THREE.MeshStandardMaterial({ color: 0x1a1814, emissive: 0xffc98a, emissiveIntensity: 0.22, roughness: 1, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({ color: 0x2a3238, emissive: 0xffc98a, emissiveIntensity: 0.06, roughness: 1, side: THREE.DoubleSide }),
     )
     band.position.copy(shell.position)
     band.position.y = height * 0.42
@@ -1425,20 +1541,20 @@ export function createWorld(options: {
     const dusk = look.time === 'dusk'
     const bear = look.season === 'bear'
     seasonBear = bear
-    background.setHex(night ? 0x070a09 : dusk ? 0x24160f : 0xc5ddd2)
+    background.setHex(night ? 0x0a1018 : dusk ? 0x3a2218 : 0xb8cfc8)
     fog.color.copy(background)
-    fog.density = night ? 0.0065 : dusk ? 0.005 : 0.003 // depth haze only, never a wash
-    sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xffb27a : 0xfff1d6)
-    sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
-    hemi.intensity = night ? 0.36 : dusk ? 0.55 : 0.88
-    hemi.color.setHex(night ? 0xb7d4ff : 0xfff4e8)
+    fog.density = night ? 0.008 : dusk ? 0.0075 : 0.0045 // richer depth haze (Zahra: not flat bright)
+    sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xff9a5c : 0xffe6c4)
+    sun.intensity = (night ? 0.55 : dusk ? 0.95 : 1.25) * (bear ? 0.82 : 1)
+    hemi.intensity = night ? 0.3 : dusk ? 0.48 : 0.72
+    hemi.color.setHex(night ? 0xa8c0e8 : dusk ? 0xffc9a0 : 0xfff0e0)
     hemi.groundColor.setHex(night ? LOOK.lookBounceNight : LOOK.lookBounceDay)
-    fill.intensity = night ? 0.22 : 0.35
-    lampMat.emissiveIntensity = night ? 0.7 : dusk ? 0.32 : 0.05
-    trimPulse = night ? 1.12 : dusk ? 0.7 : 0.35
+    fill.intensity = night ? 0.16 : dusk ? 0.22 : 0.26
+    lampMat.emissiveIntensity = night ? 0.65 : dusk ? 0.38 : 0.04
+    trimPulse = night ? 0.95 : dusk ? 0.62 : 0.28
     trim.emissiveIntensity = trimPulse
-    waterMat.emissiveIntensity = night ? 0.5 : 0.12
-    for (const facade of facades) facade.emissiveIntensity = night ? 0.32 : dusk ? 0.16 : 0.05
+    waterMat.emissiveIntensity = night ? 0.4 : 0.08
+    for (const facade of facades) facade.emissiveIntensity = night ? 0.18 : dusk ? 0.08 : 0.015
     for (const light of glow) light.intensity = night ? Number(light.userData.night) : dusk ? Number(light.userData.night) * 0.35 : 0
     moon.visible = night || dusk
     stars.visible = night
@@ -1447,8 +1563,8 @@ export function createWorld(options: {
   let seasonBear = false
   const nightSky = new THREE.Color(0x0a1430)
   const nightLow = new THREE.Color(0x1a2438)
-  const duskSky = new THREE.Color(0x2a3a6a)
-  const duskLow = new THREE.Color(0xe9a476)
+  const duskSky = new THREE.Color(0x4a3568)
+  const duskLow = new THREE.Color(0xf0a060)
   const daySky = new THREE.Color(0x2f86ea)
   const dayLow = new THREE.Color(0xa9cdf0)
   const tmpA = new THREE.Color()
@@ -1468,26 +1584,26 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.0042 - day * 0.0032 + dusk * 0.0008 // day: barely any haze, clear blue
-    // Day: the sun drives everything. Night: a faint cool moon and almost no ambient; lamps do the rest.
+    fog.density = 0.0055 - day * 0.0028 + dusk * 0.0022 // day soft haze, dusk thicker
+    // Day: softer sun (Zahra: too bright). Night: lamps. Dusk: warm amber.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
     sunOffset.set(side * 20, 8 + up * 18, 10)
-    sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.7)
+    sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.85)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.3 + day * 1.45 : 0.12) * (seasonBear ? 0.85 : 1)
-    sun.castShadow = day > 0.15
-    hemi.intensity = 0.18 + day * 0.55
-    hemi.color.copy(moonLight).lerp(sunDay, day)
+    sun.intensity = (elev >= 0 ? 0.22 + day * 1.05 : 0.1) * (seasonBear ? 0.85 : 1)
+    sun.castShadow = day > 0.2
+    hemi.intensity = 0.15 + day * 0.48
+    hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.35)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
-    fill.intensity = 0.02 + day * 0.1
-    lampMat.emissiveIntensity = 0.08 + night * 1.6
-    trimPulse = 0.15 + night * 0.2
+    fill.intensity = 0.015 + day * 0.07
+    lampMat.emissiveIntensity = 0.06 + night * 1.45
+    trimPulse = 0.12 + night * 0.18
     trim.emissiveIntensity = trimPulse
-    waterMat.emissiveIntensity = 0.05 + night * 0.08
+    waterMat.emissiveIntensity = 0.04 + night * 0.07
     groundMat.roughness = 0.97 - night * 0.3
     groundMat.metalness = 0.02 + night * 0.12
-    for (const facade of facades) facade.emissiveIntensity = 0.04 + night * 0.7
+    for (const facade of facades) facade.emissiveIntensity = 0.012 + night * 0.35
     for (const light of glow) light.intensity = Number(light.userData.night) * 1.15 * Math.max(0, night - 0.1)
     poolNight = night
     decalMat.opacity = 0.9 * Math.max(0, night - 0.15)
@@ -1546,6 +1662,7 @@ export function createWorld(options: {
       if (!reduceMotion) {
         trim.emissiveIntensity = trimPulse + Math.sin(time * 1.7) * 0.08
         emblem.rotation.y = time * 0.35
+        scene.traverse((o) => { if (o.userData.spinShowcase) o.rotation.y = time * 0.4 })
         for (const ripple of ripples) {
           const t = (time * 0.16 + ripple.offset) % 1
           const scale = 0.35 + t * 2.1

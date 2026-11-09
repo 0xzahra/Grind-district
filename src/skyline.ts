@@ -38,7 +38,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   const count = graphics === 'high' ? 90 : graphics === 'medium' ? 52 : 26
   const win = windowTextures()
   const glass = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.55, metalness: 0.1, map: win.map, emissive: 0xffffff, emissiveMap: win.glow, emissiveIntensity: 0.1,
+    color: 0xffffff, roughness: 0.55, metalness: 0.1, map: win.map, emissive: 0xffffff, emissiveMap: win.glow, emissiveIntensity: 0.04,
     fog: true,
   })
   // Curtain-wall towers: reflective blue-grey glass with thin mullions; reflections come from the shared
@@ -104,7 +104,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   }
   return {
     tick(t: number, night: number) {
-      glass.emissiveIntensity = 0.02 + night * 0.6
+      glass.emissiveIntensity = 0.01 + night * 0.28
       beacons.visible = Math.sin(t * 2.4) > 0.2 && night > 0.2
     },
   }

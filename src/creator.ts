@@ -27,6 +27,7 @@ const FREE_MODEST: Array<{ id: string; note: string }> = [
   { id: 'tee-ivory', note: 'Free tee' },
   { id: 'kaftan-sand', note: 'Free kaftan' },
   { id: 'abaya-ink', note: 'Free abaya' },
+  { id: 'abaya-rose', note: 'Free rose abaya' },
   { id: 'jeans-indigo', note: 'Free jeans' },
   { id: 'sneakers-white', note: 'Free sneakers' },
 ]
