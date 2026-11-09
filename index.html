@@ -57,13 +57,20 @@
           </p>
           <button id="rail-toggle" type="button" aria-label="Menu" aria-expanded="false" title="Menu"><span class="cc-dot" hidden></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
           <button id="shot" type="button" aria-label="Screenshot" title="Screenshot"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg></button>
-          <div id="cam-dock" class="cam-dock">
-            <button id="cam-toggle" type="button" class="cam-toggle glass-fab" aria-label="Camera controls" aria-expanded="false" title="Camera">Cam</button>
-            <div id="cam-panel" class="cam-panel" hidden>
-
-              <button id="cam-zoom-in" type="button" class="cam-btn" aria-label="Zoom in">Zoom in</button>
-              <button id="cam-zoom-out" type="button" class="cam-btn" aria-label="Zoom out">Zoom out</button>
-              <button id="cam-orbit" type="button" class="cam-btn" aria-label="Turn">Turn</button>
+          <div id="cam-dock" class="cam-dock" hidden>
+            <button id="cam-toggle" type="button" class="cam-toggle" aria-label="Camera" aria-expanded="false" aria-controls="cam-panel" title="Camera">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>
+            </button>
+            <div id="cam-panel" class="cam-panel" hidden role="group" aria-label="Camera controls">
+              <button id="cam-zoom-in" type="button" class="cam-btn" aria-label="Zoom in" title="Zoom in">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M16 16l5 5M10.5 7.5v6M7.5 10.5h6"/></svg>
+              </button>
+              <button id="cam-zoom-out" type="button" class="cam-btn" aria-label="Zoom out" title="Zoom out">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M16 16l5 5M7.5 10.5h6"/></svg>
+              </button>
+              <button id="cam-orbit" type="button" class="cam-btn" aria-label="Look around" title="Look around">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/><path d="M19 5v3.5H15.5"/></svg>
+              </button>
             </div>
           </div>
           <nav id="nav" class="cc" aria-label="Control centre">

@@ -512,17 +512,42 @@ const apiAgents = createRemoteAgents(scene)
 
 
   const input = createInput(canvas, stick, nub)
+  // Hidden stubs kept for any legacy callers.
   must('#cam-in').addEventListener('click', () => input.nudgeZoom(-260))
   must('#cam-out').addEventListener('click', () => input.nudgeZoom(260))
   must('#cam-turn').addEventListener('click', () => input.nudgeLook(-150))
-  // Outside-menu camera dock: Zoom in / Zoom out / Turn (44px taps), collapsed by default.
+  // Compact camera group: sits on body directly under #rail-toggle (☰). Icons only.
+  const camDock = document.getElementById('cam-dock')
   const camToggle = document.querySelector<HTMLButtonElement>('#cam-toggle')
   const camPanel = document.querySelector<HTMLElement>('#cam-panel')
-  camToggle?.addEventListener('click', () => {
+  if (camDock) {
+    document.body.appendChild(camDock)
+    camDock.hidden = false
+  }
+  const placeCamDock = () => {
+    if (!camDock) return
+    const menuBtn = document.getElementById('rail-toggle')
+    if (!menuBtn) return
+    const r = menuBtn.getBoundingClientRect()
+    camDock.style.top = `${Math.round(r.bottom + 8)}px`
+    camDock.style.right = `${Math.round(window.innerWidth - r.right)}px`
+    camDock.style.left = 'auto'
+  }
+  placeCamDock()
+  window.addEventListener('resize', placeCamDock)
+  camToggle?.addEventListener('click', (e) => {
+    e.stopPropagation()
     if (!camPanel || !camToggle) return
     const open = camPanel.hidden
     camPanel.hidden = !open
     camToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    placeCamDock()
+  })
+  document.addEventListener('pointerdown', (e) => {
+    if (!camPanel || camPanel.hidden || !camDock) return
+    if (camDock.contains(e.target as Node)) return
+    camPanel.hidden = true
+    camToggle?.setAttribute('aria-expanded', 'false')
   })
   document.querySelector('#cam-zoom-in')?.addEventListener('click', () => input.nudgeZoom(-260))
   document.querySelector('#cam-zoom-out')?.addEventListener('click', () => input.nudgeZoom(260))
