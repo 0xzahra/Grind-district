@@ -1,6 +1,5 @@
 import { SKILL_ORDER } from './logic.ts'
 import { RANKS } from './logic.ts'
-import { schedule } from './events.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
 import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
@@ -221,9 +220,18 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   greetBtn.type = 'button'; greetBtn.id = 'greet'; greetBtn.className = 'glass-fab greet-fab'; greetBtn.textContent = 'Greet'; greetBtn.hidden = true
   document.body.append(greetBtn)
   greetBtn.addEventListener('click', () => {
-    const next = schedule(new Date(), 2)[0]
-    const tips = next ? [`Hi! ${next.kind} "${next.title}" is ${next.label}${next.open ? ', doors are open' : ''} at the Conference centre.`, `Morning. ${next.host} hosts ${next.kind.toLowerCase()} ${next.label}. Pays in-game cash.`] : ['Hi! The Campus has twenty courses. Start with Spot trading.']
-    greetToast(tips[Math.floor(Date.now() / 60000) % tips.length]!)
+    // Greetings are player-to-player flavour. With no real reply yet, keep lines neutral —
+    // never event/announcement copy tied to the moment you tap Greet.
+    const tips = [
+      'Hi!',
+      'Hello.',
+      'Hey — welcome.',
+      'Good to see you.',
+      'Welcome to the district.',
+      'Morning.',
+      'How is the grind?',
+    ]
+    greetToast(tips[Math.floor(Date.now() / 8000) % tips.length]!)
   })
   let greetToast: (m: string) => void = () => {}
   const agentBot = createAgentCompanion(scene)
@@ -399,7 +407,7 @@ const apiAgents = createRemoteAgents(scene)
     travel: (title, enter) => travelHook(title, enter),
     satMap: () => { try {
       if (!satelliteUrl()) { try { bake() } catch { /* vector list only */ } }
-      const alias: Record<string, string> = { Plaza: 'The Grind Ring' }
+      const alias: Record<string, string> = { Plaza: 'The Grind Ring', 'The Plaza': 'The Grind Ring' }
       const pins = GUIDE.flatMap((g) => {
         const want = alias[g.title] ?? g.title
         const h = world.hotspots.find((s) => s.title === want) ?? world.hotspots.find((s) => want.startsWith(s.title) || s.title.startsWith(want))
@@ -433,7 +441,7 @@ const apiAgents = createRemoteAgents(scene)
     ui.toast(`Travelled to ${spot.title}.`)
   }
   travelHook = (title, enter) => {
-    const alias: Record<string, string> = { Plaza: 'The Grind Ring' }
+    const alias: Record<string, string> = { Plaza: 'The Grind Ring', 'The Plaza': 'The Grind Ring' }
     const want = alias[title] ?? title
     const spot = world.hotspots.find((h) => h.title === want) ?? world.hotspots.find((h) => want.startsWith(h.title) || h.title.startsWith(want))
     if (!spot) return
@@ -530,7 +538,7 @@ const apiAgents = createRemoteAgents(scene)
       const line = streak >= 2
         ? `Sunrise over the Plaza · ${streak}-day streak. Keep showing up.`
         : 'Sunrise over the Plaza. The district is waking up with you.'
-      window.setTimeout(() => notify('Good morning', line, 'dawn', 'place:The Plaza'), 900)
+      window.setTimeout(() => notify('Good morning', line, 'dawn', 'place:The Grind Ring'), 900)
     }
   } catch { /* private mode */ }
   onActivity((kind, label, detail) => {

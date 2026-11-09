@@ -111,9 +111,16 @@ const schedulePreview = () => {
 }
 schedulePreview()
 window.addEventListener('gd-auth-changed', () => {
-  // Only clear fallback when a real preview is about to (re)start; WebGL failure re-adds it in preview.ts.
+  // Never restart the title WebGL preview while entering the city — that race was burning the
+  // only GL context on phones so Continue after avatar failed with "could not open on this device".
+  if (opening) return
   document.getElementById('menu')?.classList.remove('menu-fallback')
   schedulePreview()
+})
+// Login finish path: stop preview first, then open the city (avoids play.click racing a fresh preview).
+window.addEventListener('gd-enter-city', () => {
+  try { stopPreview() } catch { /* none */ }
+  void begin()
 })
 
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')

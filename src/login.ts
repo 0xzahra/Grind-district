@@ -55,8 +55,9 @@ async function enterAs(_handle: string): Promise<void> {
   const body = document.querySelector<HTMLElement>('#login-dlg .wallet-body')
   const finish = () => {
     document.getElementById('login-dlg')?.remove()
+    // Refresh Continue label, then enter without restarting the title preview mid-flight.
     window.dispatchEvent(new Event('gd-auth-changed'))
-    document.getElementById('play')?.click()
+    window.dispatchEvent(new Event('gd-enter-city'))
   }
   if (body && needsAvatarCreator()) {
     mountAvatarCreator(body, finish)
@@ -117,7 +118,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   document.body.append(dlg)
   const msg = el('p', notice, 'muted')
 
-  const bind = async (token: string | null, j: { username?: string | null; userId?: string; save?: unknown }, nearProof?: unknown) => {
+  const bind = async (token: string | null, j: { username?: string | null; userId?: string; save?: unknown }, nearProof?: unknown, opts?: { firstClaim?: boolean }) => {
     if (!j.userId || !j.username) return false
     localStorage.setItem(CLAIMED_KEY, j.username)
     localStorage.setItem('gd.privy.userId', j.userId)
@@ -126,12 +127,20 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const { adoptAccount } = await import('./state.ts')
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
     const st = await import('./state.ts')
-    const bonus = await st.grantSignupBonus('')
+    // Sign-up bonus only on a true first username claim — never again on Continue / re-login.
+    const bonus = opts?.firstClaim ? await st.grantSignupBonus('') : false
     if (token) void syncProgress(token)
     else if (nearProof) void syncProgressNear(nearProof)
+    const howLine = how === 'fresh'
+      ? 'Starting a fresh account on this device.'
+      : how === 'migrated'
+        ? 'Your guest progress is now saved to your account.'
+        : how === 'server'
+          ? 'Loaded your saved progress.'
+          : 'Loaded your account progress on this device.'
     body.replaceChildren(
       el('p', `Signed in as @${j.username}.`),
-      el('p', how === 'migrated' ? 'Your guest progress is now saved to your account.' : how === 'server' ? 'Loaded your saved progress.' : 'Loaded your account progress on this device.', 'muted'),
+      el('p', howLine, 'muted'),
       ...(bonus ? [el('p', `Welcome bonus: $${st.SIGNUP_BONUS.toLocaleString()} in-game added (once per account).`)] : []),
     )
     void enterAs(j.username)
@@ -167,7 +176,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     if (auth.near) bodyJson.near = auth.near
     const r = await fetch('/api/claim-username', { method: 'POST', headers, body: JSON.stringify(bodyJson) })
     const j = (await r.json().catch(() => ({}))) as { username?: string; userId?: string; error?: string; invitedBy?: string | null }
-    if (j.username && (await bind(auth.token ?? null, j, auth.near))) {
+    if (j.username && (await bind(auth.token ?? null, j, auth.near, { firstClaim: true }))) {
       try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* */ }
       if (j.invitedBy) { body.append(el('p', `@${j.username} joined via @${j.invitedBy}'s invite link.`)); localStorage.removeItem('gd.invitedBy') }
       return true

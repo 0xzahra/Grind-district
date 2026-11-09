@@ -224,9 +224,12 @@ export function getSave(): Save {
 
 export function loadSave(prefer: Graphics): Save {
   try {
-    // Prefer this user's slot, fall back to the legacy key; a corrupt slot falls through to the next.
+    // Prefer this user's slot. Legacy SAVE_KEY is only used when unsigned (guest) so one player's
+    // Continue never opens another player's books.
     let loaded: Save | null = null
-    for (const key of [slotKey(), SAVE_KEY]) {
+    const keys = [slotKey()]
+    try { if (!localStorage.getItem('gd.privy.userId')) keys.push(SAVE_KEY) } catch { keys.push(SAVE_KEY) }
+    for (const key of keys) {
       const raw = localStorage.getItem(key)
       if (!raw) continue
       try {
@@ -302,18 +305,32 @@ export function setName(name: string): { ok: true } | { ok: false; error: string
   return { ok: true }
 }
 
-/** Bind this device's save to a signed-in Privy account. The current (guest) progress moves into the account slot
- *  unless that slot already has progress, in which case the account's own save wins (no silent overwrite). */
-export function adoptAccount(privyUserId: string, handle: string, serverSave?: unknown): 'migrated' | 'kept' | 'server' {
+/** Bind this device's save to a signed-in account (Privy or NEAR).
+ *  Order: server save → this account's own slot → fresh save.
+ *  Never silently adopt another player's local/legacy SAVE_KEY into a new login. */
+export function adoptAccount(privyUserId: string, handle: string, serverSave?: unknown): 'migrated' | 'kept' | 'server' | 'fresh' {
   const before = slotKey()
+  const prevUser = (() => { try { return localStorage.getItem('gd.privy.userId') } catch { return null } })()
   localStorage.setItem('gd.privy.userId', privyUserId)
   const after = slotKey()
-  let outcome: 'migrated' | 'kept' | 'server' = 'migrated'
-  const existing = after !== before ? localStorage.getItem(after) : null
-  if (serverSave && !existing) {
-    try { save = hydrate(serverSave); outcome = 'server' } catch { /* keep local */ }
-  } else if (existing) {
-    try { save = hydrate(JSON.parse(existing) as unknown); outcome = 'kept' } catch { /* keep local */ }
+  let outcome: 'migrated' | 'kept' | 'server' | 'fresh' = 'fresh'
+  const existing = localStorage.getItem(after)
+  if (serverSave) {
+    try { save = hydrate(serverSave); outcome = 'server' } catch { /* fall through */ }
+  }
+  if (outcome === 'fresh' && existing) {
+    try { save = hydrate(JSON.parse(existing) as unknown); outcome = 'kept' } catch { /* fall through */ }
+  }
+  if (outcome === 'fresh') {
+    // Only carry the in-memory guest save if it is truly unbound guest progress on this device
+    // (no username yet, and we were not already on a different Privy/NEAR account).
+    const guestCarry = !save.username && !save.signedUp && (!prevUser || prevUser === privyUserId) && before !== after
+    if (guestCarry && (save.xp > 0 || save.ledger > 0 || save.activities.length > 0)) {
+      outcome = 'migrated'
+    } else {
+      save = createSave(new Date(), { graphics: save.graphics })
+      outcome = 'fresh'
+    }
   }
   save.username = handle
   if (!save.name) save.name = handle
