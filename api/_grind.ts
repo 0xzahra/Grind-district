@@ -106,7 +106,7 @@ const transferEvent = parseAbiItem('event Transfer(address indexed from, address
 const ethDepositedEvent = parseAbiItem('event EthDeposited(address indexed from, uint256 amount)')
 
 /**
- * Core of /api/topup-watch: so the player never has to find and paste their own transaction hash,
+ * Core of the GET ?from= branch of /api/topup-confirm: so the player never has to find and paste their own transaction hash,
  * look for a recent USDC Transfer or ETH EthDeposited from their declared sending address straight to the
  * GrindTreasury vault, and hand the hash to the same confirmTopup() above for the real verification and credit.
  * This only *discovers* the hash - it changes no trust assumptions versus the existing manual-hash flow.

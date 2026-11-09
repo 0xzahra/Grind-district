@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { PrivyClient } from '@privy-io/server-auth'
-import { confirmTopup, type Store } from './_grind.js'
+import { confirmTopup, findRecentPayment, type Store } from './_grind.js'
 
 // POST { hash, from }: verify a USDC Transfer / EthDeposited to GrindTreasury (or a legacy GrindLedger TopUp) sent from `from` on Base and credit the player as operator (GRIND_OPERATOR_KEY, server-only).
 // GET ?player=0x..: the player's credited top-ups (for refreshing the in-game balance).
+// GET ?from=0x..: looks for a recent payment from this address straight to the treasury, so the top-up sheet
+// can auto-detect it instead of asking the player to find and paste their own transaction hash. Read-only -
+// kept on this same function (not a separate one) to stay under the Hobby plan's serverless function count.
 type Req = { method?: string; body?: { hash?: string; from?: string }; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined> }
 type Res = { status(n: number): { json(b: unknown): void } }
 
@@ -14,6 +17,16 @@ export default async function handler(req: Req, res: Res) {
   if (!url || !key || !op) return res.status(503).json({ error: 'top-ups are not configured' })
   const db = createClient(url, key, { auth: { persistSession: false } })
   if (req.method === 'GET') {
+    const from = String(req.query?.from ?? '').toLowerCase()
+    if (from) {
+      if (!/^0x[0-9a-f]{40}$/.test(from)) return res.status(400).json({ error: 'bad address' })
+      try {
+        const found = await findRecentPayment({ rpc: process.env.BASE_RPC_URL ?? 'https://mainnet.base.org', from: from as `0x${string}` })
+        return res.status(200).json({ hash: found?.hash ?? null })
+      } catch {
+        return res.status(200).json({ hash: null }) // a flaky RPC call should never block the manual-hash fallback
+      }
+    }
     const player = String(req.query?.player ?? '').toLowerCase()
     if (!/^0x[0-9a-f]{40}$/.test(player)) return res.status(400).json({ error: 'bad player' })
     const { data } = await db.from('topups').select('tx_hash,asset,credit_micro,credited_at').eq('player', player).eq('status', 'credited').order('credited_at', { ascending: false }).limit(50)

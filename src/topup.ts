@@ -135,7 +135,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     if (!box.isConnected || sender !== watchedFor) return // the sheet closed, or the address changed under us
     if (!busy) {
       try {
-        const r = await fetch(`/api/topup-watch?from=${sender}`)
+        const r = await fetch(`/api/topup-confirm?from=${sender}`)
         if (r.status === 503) return // not configured server-side: retrying won't help, fall back to the manual hash field
         const j = (await r.json().catch(() => ({}))) as { hash?: string | null }
         if (j.hash && box.isConnected && sender === watchedFor) {
