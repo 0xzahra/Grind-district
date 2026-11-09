@@ -1705,7 +1705,7 @@ body.in-menu #greet { display: none !important; }
   align-items: stretch !important;
   gap: 7px !important;
   width: 100% !important;
-  max-width: 200px !important;
+  max-width: 184px !important;
   margin: 2px auto 0 !important;
 }
 /* Glass buttons: frosted when supported, solid translucent fallback otherwise */
@@ -1772,7 +1772,7 @@ body.in-menu #greet { display: none !important; }
 
 /* Sign-in / Sign-up dialog */
 .login-dlg.wallet-dlg {
-  width: min(90vw, 268px) !important;
+  width: min(90vw, 256px) !important;
   padding: 12px 12px 10px !important;
   gap: 6px !important;
   border-radius: 16px !important;
