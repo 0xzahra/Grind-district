@@ -39,7 +39,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const blank = new THREE.Texture()
   const world = createWorld({
     scene,
-    anisotropy: Math.min(8, renderer.capabilities.getMaxAnisotropy()),
+    anisotropy: Math.min(16, renderer.capabilities.getMaxAnisotropy()),
     mark: blank,
     aspect: 0.86,
     reduceMotion: false,

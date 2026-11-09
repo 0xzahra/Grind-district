@@ -7,9 +7,24 @@ import type { Obstacle } from './physics.ts'
  * and soft contact-shadow blobs under trees, planters and benches (one draw call, a baked radial texture).
  * Five draw calls total regardless of count. Original geometry, no third-party assets.
  */
-export function createStreetProps(scene: THREE.Scene, opts: { lamps: { x: number; z: number }[]; trees: { x: number; z: number }[]; obstacles: Obstacle[]; graphics: Graphics }): { dispose: () => void } {
-  const { lamps, trees, obstacles, graphics } = opts
-  const free = (x: number, z: number, r: number) => Math.hypot(x, z) > 7.5 && obstacles.every((o) => o.kind === 'circle' ? Math.hypot(x - o.x, z - o.z) > o.r + r : Math.abs(x - o.x) > o.hx + r || Math.abs(z - o.z) > o.hz + r)
+type Segment = { x1: number; z1: number; x2: number; z2: number }
+
+/** Shortest distance from (x, z) to the segment (x1,z1)-(x2,z2). */
+function distToSegment(x: number, z: number, s: Segment): number {
+  const dx = s.x2 - s.x1
+  const dz = s.z2 - s.z1
+  const lenSq = dx * dx + dz * dz
+  const t = lenSq > 0 ? Math.max(0, Math.min(1, ((x - s.x1) * dx + (z - s.z1) * dz) / lenSq)) : 0
+  return Math.hypot(x - (s.x1 + dx * t), z - (s.z1 + dz * t))
+}
+
+export function createStreetProps(scene: THREE.Scene, opts: { lamps: { x: number; z: number }[]; trees: { x: number; z: number }[]; obstacles: Obstacle[]; graphics: Graphics; walkLines?: Segment[] }): { dispose: () => void } {
+  const { lamps, trees, obstacles, graphics, walkLines = [] } = opts
+  // Keep clear of resident walking lines too (0.5 m: a strolling body plus a step of margin),
+  // not just other obstacles, so instanced benches/planters never end up straddling a route a citizen walks every lap.
+  const free = (x: number, z: number, r: number) => Math.hypot(x, z) > 7.5
+    && obstacles.every((o) => o.kind === 'circle' ? Math.hypot(x - o.x, z - o.z) > o.r + r : Math.abs(x - o.x) > o.hx + r || Math.abs(z - o.z) > o.hz + r)
+    && walkLines.every((s) => distToSegment(x, z, s) > r + 0.5)
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3()
   const planters: Array<{ x: number; z: number }> = []
   const benches: Array<{ x: number; z: number; ry: number }> = []

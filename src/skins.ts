@@ -39,7 +39,7 @@ export async function loadSkinPermissions(): Promise<void> {
       try {
         const tex = await loader.loadAsync(slot.face)
         tex.colorSpace = THREE.SRGBColorSpace
-        tex.anisotropy = 4
+        tex.anisotropy = 8
         textures.set(id, tex)
       } catch {
         /* missing art: keep placeholder */

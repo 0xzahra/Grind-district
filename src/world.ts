@@ -883,7 +883,8 @@ export function createWorld(options: {
       scene.add(post, plate)
     }
   }
-  const net = addBuilding({ x: 28, z: -16, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', windows: true, seed: 37 })
+  // z was -16: its footprint overlapped the Boutique shell (22,-22) by ~2.3m x / 0.8m z. Moved clear.
+  const net = addBuilding({ x: 28, z: -13, w: 8, d: 6, h: 3.4, door: 'pz', title: 'Terminal café', subtitle: 'gossip and posts', windows: true, seed: 37 })
   spot('net', net.x, net.z, 2.3, 'Internet café', 'Read today\'s market headlines, same as the campus café.', 'cafe', 'Read the room')
   const desk = addBuilding({ x: -28, z: 16, w: 4.4, d: 2.6, h: 2.7, door: 'px', title: 'Carbon', subtitle: 'practice pledge', seed: 41 })
   spot('climate', desk.x, desk.z, 2.3, 'Carbon desk', 'Back a climate project with in-game cash and log your pledge.', 'climate', 'The desk')

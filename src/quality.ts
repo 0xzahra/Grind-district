@@ -210,6 +210,9 @@ export function createProbe(current: () => Graphics, apply: (g: Graphics) => voi
     if (fps < 28) next = g === 'high' ? 'medium' : 'low'
     else if (fps < 45 && g === 'high') next = 'medium'
     else if (fps > 57 && !coarse && g === 'medium') next = 'high'
+    // Phones and narrow windows default to Low; without this they can never probe up,
+    // so a capable phone stays stuck on the one tier with no bloom, grade or AO.
+    else if (fps > 40 && g === 'low') next = 'medium'
     done = true
     try { localStorage.setItem(PROBED, '1') } catch { /* private mode */ }
     if (next !== g) apply(next)

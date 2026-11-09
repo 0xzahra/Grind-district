@@ -34,6 +34,7 @@ import { createStreetProps } from './props.ts'
 import { createStreetscape } from './streetscape.ts'
 import { applyPrefs } from './prefs.ts'
 import { createCrowd } from './npcs.ts'
+import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
@@ -208,7 +209,7 @@ async function main(onReveal: () => void, onFail: (error: unknown) => void = () 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const world = createWorld({
     scene,
-    anisotropy: Math.min(8, renderer.capabilities.getMaxAnisotropy()),
+    anisotropy: Math.min(16, renderer.capabilities.getMaxAnisotropy()),
     mark,
     aspect,
     reduceMotion,
@@ -234,7 +235,13 @@ const apiAgents = createRemoteAgents(scene)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
   const skyline = createSkyline(scene, getSave().graphics)
-  createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics })
+  // Residents walk fixed waypoint lines with no runtime obstacle avoidance (citizens.ts), so keep
+  // instanced street furniture off those lines at generation time instead (e.g. the bench-clipping report near Influencer row).
+  const citizenWalkLines = CITIZENS.flatMap((c) => c.points.length < 2 ? [] : c.points.map((p, i) => {
+    const next = c.points[(i + 1) % c.points.length]!
+    return { x1: p.x, z1: p.z, x2: next.x, z2: next.z }
+  }))
+  createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics, walkLines: citizenWalkLines })
   createStreetscape(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
@@ -1166,7 +1173,7 @@ const apiAgents = createRemoteAgents(scene)
       ui.refresh()
     }
     crowdObstacles = crowd.tick(dt, interiors.inside ? undefined : { x: avatar.object.position.x, z: avatar.object.position.z })
-    greetBtn.hidden = !!interiors.inside || !crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.6)
+    greetBtn.hidden = ui.isOpen() || !!interiors.inside || !crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.6)
     agentBot.tick(dt, avatar.object.position)
   apiAgents.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
