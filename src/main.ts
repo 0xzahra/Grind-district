@@ -1629,4 +1629,5 @@ mountMenu(() => {
   void begin()
 })
 
-play.focus()
+const focusHome = document.querySelector<HTMLButtonElement>('#menu-signin') ?? play
+focusHome.focus()

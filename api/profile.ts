@@ -2,20 +2,29 @@ import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import rewardWallet from './_rewardWallet.js'
 import { createHash, randomBytes } from 'node:crypto'
+import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
 
-// POST { name, rank, reputation, balance, skills } with a Privy token: upsert the caller's public share-card snapshot.
+// POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
-type Req = { method?: string; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined>; body?: Record<string, unknown> }
+type Req = { method?: string; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined>; body?: Record<string, unknown> & { near?: NearProof } }
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
   if (req.query?.op === 'reward-wallet') return rewardWallet(req, res)
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
-  const secret = process.env.PRIVY_APP_SECRET, url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!appId || !secret || !url || !key) return res.status(503).json({ error: 'not configured' })
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return res.status(503).json({ error: 'not configured' })
   let userId: string
-  try { userId = (await new PrivyClient(appId, secret).verifyAuthToken((req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''))).userId } catch { return res.status(401).json({ error: 'sign in' }) }
+  if (req.body?.near) {
+    const v = verifyNearLogin(req.body.near)
+    if (!v.ok) return res.status(401).json({ error: v.error })
+    userId = nearUserId(v.accountId)
+  } else {
+    const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
+    const secret = process.env.PRIVY_APP_SECRET
+    if (!appId || !secret) return res.status(503).json({ error: 'not configured' })
+    try { userId = (await new PrivyClient(appId, secret).verifyAuthToken((req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''))).userId } catch { return res.status(401).json({ error: 'sign in' }) }
+  }
   const db = createClient(url, key, { auth: { persistSession: false } })
   const p = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
   if (!p.data) return res.status(404).json({ error: 'claim a username first' })

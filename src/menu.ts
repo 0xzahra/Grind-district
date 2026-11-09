@@ -149,16 +149,23 @@ export function mountMenu(enter: () => void): void {
       enter()
       return
     }
-    showAccount()
+    // Opening card already has Sign in; this button is the guest path.
+    showSignup()
   }
 
   play.addEventListener('click', start)
-  // Returning players see that Play resumes their save; guests are told how to keep it (non-blocking).
+  // Sign in is always on the opening card (owner request, 9 Nov). Guest / Continue stays secondary.
+  const signinBtn = must<HTMLButtonElement>('#menu-signin')
+  signinBtn.addEventListener('click', () => { void import('./login.ts').then((m) => m.openLogin()) })
   if (getSave().signedUp) {
     const handle = localStorage.getItem('gd.privy.username')
-    play.textContent = handle ? `Continue as @${handle}` : 'Continue playing'
+    play.textContent = handle ? `Continue as @${handle}` : 'Continue'
+    play.hidden = false
     const note = document.querySelector('#menu-note')
-    if (note && !handle) note.textContent = 'Playing as a guest on this device. Sign in later from Settings › Account to keep your progress.'
+    if (note && !handle) note.textContent = 'Playing as a guest on this device. Sign in to keep your progress on any device.'
+  } else {
+    play.textContent = 'Play as guest'
+    // Fresh players: Sign in is primary; guest is the quieter path.
   }
   must('#menu-agents').addEventListener('click', () => show('agents'))
   const nearBtn = document.querySelector<HTMLButtonElement>('#menu-near')
