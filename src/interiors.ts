@@ -538,14 +538,50 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       add(new THREE.PlaneGeometry(6, 2.4), new THREE.MeshStandardMaterial({ map: board, roughness: 0.9 }), -0.5, 1.9, -d / 2 + 0.04)
       box(6.4, 0.12, 0.12, wood, -0.5, -d / 2 + 0.08, 0.64, false)
       box(0.8, 1.1, 0.6, wood, -0.5, -d / 2 + 2.2)
-      // Library wall (east): shelves with instanced book spines.
-      box(0.4, 2.6, 9.0, wood, w / 2 - 0.25, 0)
-      const books: Array<[number, number, number, number?]> = []
-      for (let shelf = 0; shelf < 5; shelf++) for (let i = 0; i < 26; i++) books.push([w / 2 - 0.5, 0.35 + shelf * 0.5, -4.2 + i * 0.33 + (shelf % 2) * 0.1])
-      inst(new THREE.BoxGeometry(0.22, 0.36, 0.24), std(0x7a3a2c, 0.8), books.filter((_, i) => i % 3 === 0))
-      inst(new THREE.BoxGeometry(0.22, 0.34, 0.24), std(0x2c4a5c, 0.8), books.filter((_, i) => i % 3 === 1))
-      inst(new THREE.BoxGeometry(0.22, 0.38, 0.24), std(0xd8ccb0, 0.8), books.filter((_, i) => i % 3 === 2))
-      const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.4, roughness: 0.2 })
+      // Library wall (east): closed back + shelf boards, then packed book spines with varied
+      // heights/depths/colours so you cannot see through gaps to a flat colour grid.
+      const shelfX = w / 2 - 0.32
+      box(0.18, 2.7, 9.2, wood, shelfX + 0.12, 0) // solid back
+      box(0.36, 0.08, 9.2, wood, shelfX, 0.04, 0, false) // plinth
+      box(0.36, 0.08, 9.2, wood, shelfX, 2.62, 0, false) // crown
+      for (let shelf = 0; shelf < 5; shelf++) box(0.34, 0.05, 9.0, wood, shelfX, 0.48 + shelf * 0.5, 0, false)
+      // Pack books flush on each shelf board (no gaps). Four height classes x four colours = 8 draws.
+      type BookSpot = [number, number, number]
+      const tall: BookSpot[] = [], mid: BookSpot[] = [], short: BookSpot[] = [], squat: BookSpot[] = []
+      const packs = [tall, mid, short, squat]
+      const heights = [0.42, 0.36, 0.30, 0.24]
+      const depths = [0.22, 0.20, 0.18, 0.16]
+      const widths = [0.16, 0.14, 0.13, 0.15]
+      const colours = [
+        [0x6e3228, 0x2a3f52, 0x3f5a34, 0x5a3a5c],
+        [0x8a5a2c, 0x1f2a3a, 0xb08d57, 0xc4b496],
+        [0x4a2c28, 0x2c4a5c, 0x355a40, 0x6b4e37],
+        [0x7a3a2c, 0x243040, 0x8a6a3a, 0xd0c4a8],
+      ]
+      let bi = 0
+      for (let shelf = 0; shelf < 5; shelf++) {
+        let cursor = -4.35
+        while (cursor < 4.35) {
+          const k = bi % 4
+          const bw = widths[k]!
+          const bh = heights[k]!
+          const bd = depths[k]!
+          const y = 0.48 + shelf * 0.5 + 0.028 + bh / 2
+          packs[k]!.push([shelfX - 0.01 - bd / 2, y, cursor + bw / 2])
+          cursor += bw + 0.004
+          bi += 1
+        }
+      }
+      packs.forEach((spots, k) => {
+        if (!spots.length) return
+        // Split each height class across its four colours by index.
+        colours[k]!.forEach((col, ci) => {
+          const subset = spots.filter((_, i) => i % 4 === ci)
+          if (!subset.length) return
+          inst(new THREE.BoxGeometry(widths[k]!, heights[k]!, depths[k]!), std(col, 0.82), subset)
+        })
+      })
+      const glass = new THREE.MeshStandardMaterial({ color: 0xcfe0ea, emissive: 0x8fb4cf, emissiveIntensity: 0.08, roughness: 0.15, metalness: 0.05 })
       for (const x of [-5, -1, 3]) box(1.8, 1.8, 0.04, glass, x, d / 2 - 0.02, 1.0, false)
       use({ id: 'lectern', x: -0.5, z: -d / 2 + 3.4, r: 1.4, title: 'Lectern', body: 'Twenty short courses. Pass one and it writes your CV, resume, and portfolio.', enter: 'Open the hall', run: () => hooks.openPanel('learn') })
       use({ id: 'library', x: w / 2 - 1.6, z: 0, r: 1.4, title: 'Library', body: 'Every course has a source line. The shelf has the rest.', enter: 'Browse', run: () => hooks.toast('Read the source line under each course. Then do the four exercises.') })
@@ -677,24 +713,43 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
 
   // Filled rooms: potted plants in the corners, framed art on the back wall, warm pendant shades. Shared geometry,
   // basic emissive shades (no extra lights), built once per room on first entry.
-  const propMat = { pot: new THREE.MeshStandardMaterial({ color: 0x8a5a3c, roughness: 0.8 }), leaf: new THREE.MeshStandardMaterial({ color: 0x3f7a45, roughness: 0.7 }),
-    frame: new THREE.MeshStandardMaterial({ color: 0x2b2118, roughness: 0.6 }), shade: new THREE.MeshBasicMaterial({ color: 0xffd9a0 }) }
-  const art = [0xd9b26a, 0x3d7bd9, 0xc8553d, 0x17a673].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }))
-  const propGeo = { pot: new THREE.CylinderGeometry(0.28, 0.22, 0.45, 10), leaf: new THREE.IcosahedronGeometry(0.45, 0), frame: new THREE.BoxGeometry(1.3, 0.9, 0.05), canvas: new THREE.PlaneGeometry(1.15, 0.75), shade: new THREE.ConeGeometry(0.3, 0.3, 12, 1, true) }
+  // Pendant: drum shade (not an open cone/funnel) + warm emissive cloth, low intensity.
+  const propMat = { pot: new THREE.MeshStandardMaterial({ color: 0x7a4e36, roughness: 0.85 }), leaf: new THREE.MeshStandardMaterial({ color: 0x355f3c, roughness: 0.75 }),
+    frame: new THREE.MeshStandardMaterial({ color: 0x2b2118, roughness: 0.6 }),
+    shade: new THREE.MeshStandardMaterial({ color: 0xf0e2c8, emissive: 0xffd7a0, emissiveIntensity: 0.35, roughness: 0.85 }),
+    shadeCap: new THREE.MeshStandardMaterial({ color: 0x4a4034, roughness: 0.55, metalness: 0.25 }),
+  }
+  const art = [0xb8954e, 0x3a5f8a, 0xa84a38, 0x2f7a58].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }))
+  const propGeo = {
+    pot: new THREE.CylinderGeometry(0.28, 0.22, 0.45, 10),
+    leaf: new THREE.IcosahedronGeometry(0.45, 0),
+    frame: new THREE.BoxGeometry(1.3, 0.9, 0.05),
+    canvas: new THREE.PlaneGeometry(1.15, 0.75),
+    shade: new THREE.CylinderGeometry(0.28, 0.32, 0.26, 14, 1, true),
+    shadeTop: new THREE.CircleGeometry(0.28, 14),
+    stem: new THREE.CylinderGeometry(0.018, 0.018, 0.35, 6),
+  }
   const addProps = (group: THREE.Group, id: RoomId) => {
     const o = ORIGIN[id], s = SIZE[id]
     group.updateMatrixWorld(true)
     const at = (m: THREE.Object3D, x: number, y: number, z: number) => { m.position.copy(group.worldToLocal(new THREE.Vector3(o.x + x, y, o.z + z))); group.add(m) }
     const hw = s.w / 2 - 0.7, hd = s.d / 2 - 0.7
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      // Skip east-wall pots in campus: they collide with the library wall and read as blank blobs.
+      if (id === 'campus' && sx > 0) continue
       at(new THREE.Mesh(propGeo.pot, propMat.pot), sx * hw, 0.22, sz * hd)
       const leaf = new THREE.Mesh(propGeo.leaf, propMat.leaf); leaf.scale.set(1, 1.4, 1); at(leaf, sx * hw, 0.95, sz * hd)
     }
     for (let i = 0; i < 3; i += 1) {
       const x = (i - 1) * s.w * 0.25
-      at(new THREE.Mesh(propGeo.frame, propMat.frame), x, 1.9, -s.d / 2 + 0.08)
-      at(new THREE.Mesh(propGeo.canvas, art[(i + s.w) % art.length]!), x, 1.9, -s.d / 2 + 0.115)
-      at(new THREE.Mesh(propGeo.shade, propMat.shade), x, 2.75, 0)
+      // Art on the back wall; skip campus (chalkboard already owns that wall).
+      if (id !== 'campus') {
+        at(new THREE.Mesh(propGeo.frame, propMat.frame), x, 1.9, -s.d / 2 + 0.08)
+        at(new THREE.Mesh(propGeo.canvas, art[(i + Math.round(s.w)) % art.length]!), x, 1.9, -s.d / 2 + 0.115)
+      }
+      const stem = new THREE.Mesh(propGeo.stem, propMat.shadeCap); at(stem, x, 3.05, 0)
+      const shade = new THREE.Mesh(propGeo.shade, propMat.shade); at(shade, x, 2.78, 0)
+      const cap = new THREE.Mesh(propGeo.shadeTop, propMat.shadeCap); cap.rotation.x = -Math.PI / 2; at(cap, x, 2.91, 0)
     }
   }
   return {
@@ -716,9 +771,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (scene.fog) { savedFog = scene.fog; scene.fog = null }
       savedEnv = scene.environmentIntensity
       scene.environmentIntensity = Math.min(savedEnv, 0.18)
-      lamp.intensity = id === 'house' ? 8 : 13 + SIZE[id].w * 0.75
-      lamp.distance = Math.max(18, SIZE[id].w * 1.3)
-      roomFill.intensity = id === 'house' ? 0.3 : 0.45
+      // Softer indoor light: previous values (~25 on campus) washed rooms to stark white.
+      lamp.intensity = id === 'house' ? 5.5 : 7.5 + SIZE[id].w * 0.28
+      lamp.distance = Math.max(16, SIZE[id].w * 1.15)
+      roomFill.intensity = id === 'house' ? 0.22 : 0.28
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
       if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.6, z: o.z - 0.3, yaw: Math.PI / 2 }

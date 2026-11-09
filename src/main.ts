@@ -264,7 +264,7 @@ const apiAgents = createRemoteAgents(scene)
   const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
   phoneFill.visible = matchMedia('(pointer: coarse)').matches
   scene.add(phoneFill)
-  scene.add(new THREE.AmbientLight(0xffe2c0, 0.18)) // warm golden-hour fill everywhere (GDD: warmer lighting)
+  scene.add(new THREE.AmbientLight(0xffe2c0, 0.11)) // warmer fill, toned down (Zahra: too bright)
   let lightAcc = 1
   // First task (GDD onboarding): until a course is passed, a floating gold marker hangs over the Campus door
   // and a prompt points there; walking up to the door opens the courses.
@@ -1231,7 +1231,7 @@ const apiAgents = createRemoteAgents(scene)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
       scene.environmentIntensity = 0.45 * (1 - nightLevel) + 0.18 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.96, 1.0, nightLevel) // AgX: filmic highlight roll-off, truer colours than ACES
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.82, 0.92, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.15 * (1 - nightLevel) + 0.06 : 0
     }

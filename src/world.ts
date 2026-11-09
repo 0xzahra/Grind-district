@@ -1347,14 +1347,26 @@ export function createWorld(options: {
     const angle = (i / 16) * Math.PI * 2
     const dist = 72 + skyRand() * 6
     const height = 7 + skyRand() * 10
-    const box = new THREE.Mesh(
-      new THREE.BoxGeometry(3 + skyRand() * 2, height, 3 + skyRand() * 2),
-      new THREE.MeshStandardMaterial({ color: 0x1c2824, roughness: 0.9 }),
+    const w = 3 + skyRand() * 2
+    const d = 3 + skyRand() * 2
+    const shell = new THREE.Mesh(
+      new THREE.BoxGeometry(w, height, d),
+      new THREE.MeshStandardMaterial({ color: 0x2a3238, roughness: 0.88 }),
     )
-    box.position.set(Math.cos(angle) * dist, height / 2, Math.sin(angle) * dist)
-    box.userData.ghost = true
-    box.castShadow = false
-    scene.add(box)
+    shell.position.set(Math.cos(angle) * dist, height / 2, Math.sin(angle) * dist)
+    shell.userData.ghost = true
+    shell.castShadow = false
+    // Soft warm window band so distant silhouettes are buildings, not untouchable black boxes.
+    const band = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 0.72, height * 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x1a1814, emissive: 0xffc98a, emissiveIntensity: 0.22, roughness: 1, side: THREE.DoubleSide }),
+    )
+    band.position.copy(shell.position)
+    band.position.y = height * 0.42
+    band.lookAt(0, band.position.y, 0)
+    band.userData.ghost = true
+    band.castShadow = false
+    scene.add(shell, band)
   }
 
   const moon = new THREE.Mesh(new THREE.SphereGeometry(2.2, 20, 14), new THREE.MeshBasicMaterial({ color: 0xd7efe4, toneMapped: false }))
@@ -1418,7 +1430,7 @@ export function createWorld(options: {
     fog.density = night ? 0.0065 : dusk ? 0.005 : 0.003 // depth haze only, never a wash
     sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xffb27a : 0xfff1d6)
     sun.intensity = (night ? 0.7 : dusk ? 1.2 : 1.7) * (bear ? 0.82 : 1)
-    hemi.intensity = night ? 0.4 : dusk ? 0.66 : 1.08
+    hemi.intensity = night ? 0.36 : dusk ? 0.55 : 0.88
     hemi.color.setHex(night ? 0xb7d4ff : 0xfff4e8)
     hemi.groundColor.setHex(night ? LOOK.lookBounceNight : LOOK.lookBounceDay)
     fill.intensity = night ? 0.22 : 0.35
@@ -1465,7 +1477,7 @@ export function createWorld(options: {
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
     sun.intensity = (elev >= 0 ? 0.3 + day * 1.45 : 0.12) * (seasonBear ? 0.85 : 1)
     sun.castShadow = day > 0.15
-    hemi.intensity = 0.22 + day * 0.7
+    hemi.intensity = 0.18 + day * 0.55
     hemi.color.copy(moonLight).lerp(sunDay, day)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
     fill.intensity = 0.02 + day * 0.1
