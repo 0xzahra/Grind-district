@@ -34,42 +34,73 @@ function revealCity() {
 async function begin() {
   if (opening) return
   opening = true
-  stopPreview()
   play.disabled = true
   play.textContent = 'Opening the district'
   menuNote.textContent = ''
+  try { stopPreview() } catch { /* */ }
+  stopPreview = () => {}
+  // Two frames so Mac Safari frees the title-preview GL context before the city canvas asks for one.
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+
   let shown = false
-  const reveal = () => { shown = true; revealCity() }
+  let attempts = 0
+  let watchdog = 0
+  const reveal = () => { shown = true; window.clearTimeout(watchdog); revealCity() }
+
+  const freshView = () => {
+    const cur = document.querySelector<HTMLCanvasElement>('#view')
+    const next = document.createElement('canvas')
+    next.id = 'view'
+    next.setAttribute('aria-label', 'Grind District')
+    if (cur?.parentElement) cur.replaceWith(next)
+    else document.getElementById('game')?.prepend(next)
+    return next
+  }
+
+  const openFlat = async () => {
+    freshView()
+    const { startFlat } = await import('./flat.ts')
+    await startFlat(revealCity)
+    shown = true
+    window.clearTimeout(watchdog)
+  }
+
   const flatFallback = async (why: unknown) => {
     if (shown) return
-    shown = true
-    console.error('[grind] 3D city failed to open; switching to the overhead map.', why)
-    const old = document.querySelector<HTMLCanvasElement>('#view')
-    if (old) old.replaceWith(old.cloneNode(false))
+    console.error('[grind] 3D city failed to open; trying overhead map.', why)
     try {
-      const { startFlat } = await import('./flat.ts')
-      await startFlat(revealCity)
+      await openFlat()
+      return
     } catch (error) {
-      console.error('[grind] Overhead map failed too.', error)
-      opening = false
-      play.disabled = false
-      play.textContent = 'Enter the district'
-      menu.hidden = false
-      menuNote.textContent = 'The city could not open on this device. Try again or another browser.'
+      console.error('[grind] Overhead map failed.', error)
     }
+    attempts += 1
+    if (attempts <= 1) {
+      try { sessionStorage.setItem('gd.autoEnter', '1') } catch { /* */ }
+      menuNote.textContent = 'Opening again…'
+      location.reload()
+      return
+    }
+    opening = false
+    play.disabled = false
+    play.textContent = 'Enter the district'
+    menu.hidden = false
+    document.getElementById('menu')?.classList.add('menu-fallback')
+    menuNote.textContent = 'Could not open the 3D city. Tap Enter to try the map view again.'
   }
-  const watchdog = window.setTimeout(() => { void flatFallback(new Error('timeout')) }, 15000)
+
+  watchdog = window.setTimeout(() => { void flatFallback(new Error('timeout')) }, 45000)
   try {
+    freshView()
     const [{ prepareAssets }, city] = await Promise.all([
       import('./assets.ts'),
       import('./main.ts'),
     ])
     prepareAssets()
     await city.startCity(reveal, (error) => { void flatFallback(error) })
+    window.clearTimeout(watchdog)
   } catch (error) {
     await flatFallback(error)
-  } finally {
-    if (shown) clearTimeout(watchdog)
   }
 }
 
@@ -127,6 +158,16 @@ loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 9
 startTracking()
 
 mountMenu(() => { void begin() })
+
+// After a WebGL failure reload: auto-retry enter once (no dead-end "city could not open").
+try {
+  if (sessionStorage.getItem('gd.autoEnter') === '1') {
+    sessionStorage.removeItem('gd.autoEnter')
+    const note = document.getElementById('menu-note')
+    if (note) note.textContent = 'Opening again…'
+    window.setTimeout(() => { void begin() }, 280)
+  }
+} catch { /* private mode */ }
 
 const focusHome = document.querySelector<HTMLButtonElement>('#menu-create') ?? document.querySelector<HTMLButtonElement>('#menu-signin') ?? play
 focusHome.focus()

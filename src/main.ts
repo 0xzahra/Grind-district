@@ -4,6 +4,7 @@ import { openFriends } from './messages.ts'
 import * as THREE from 'three'
 import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
+import { setAmbientPlace, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer } from './humans.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -110,35 +111,22 @@ async function loadTexture(url: string): Promise<THREE.Texture> {
   })
 }
 
-function glProbe(attributes: WebGLContextAttributes): boolean {
-  const test = document.createElement('canvas')
-  test.width = 16
-  test.height = 16
-  const gl = test.getContext('webgl2', attributes) || test.getContext('webgl', attributes)
-  if (!gl) return false
-  gl.getExtension('WEBGL_lose_context')?.loseContext()
-  return true
-}
-
 function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
+  // Real game canvas only — never allocate+lose a probe context (that burned Mac GL).
   const tries: WebGLContextAttributes[] = [
-    { antialias: true, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false },
-    { antialias: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false },
-    { antialias: false, failIfMajorPerformanceCaveat: false },
+    { antialias: true, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false, alpha: false },
+    { antialias: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false, alpha: false },
+    { antialias: false, failIfMajorPerformanceCaveat: false, alpha: false },
+    { antialias: false, alpha: true },
   ]
   for (const attributes of tries) {
-    if (!glProbe(attributes)) continue
     try {
       const renderer = new THREE.WebGLRenderer({ canvas, ...attributes })
-      if (!renderer.getContext()) {
-        renderer.dispose()
-        continue
-      }
-      if (location.search.includes('stats')) (window as unknown as { __gdInfo: unknown }).__gdInfo = renderer.info // ?stats: draw-call readout for perf checks
+      const gl = renderer.getContext() as WebGLRenderingContext | null
+      if (!gl || gl.isContextLost?.()) { renderer.dispose(); continue }
+      if (location.search.includes('stats')) (window as unknown as { __gdInfo: unknown }).__gdInfo = renderer.info
       return renderer
-    } catch {
-      continue
-    }
+    } catch { continue }
   }
   return null
 }
@@ -195,7 +183,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     return
   }
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.AgXToneMapping
+  try { renderer.toneMapping = THREE.AgXToneMapping } catch { renderer.toneMapping = THREE.ACESFilmicToneMapping }
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
 
@@ -278,6 +266,7 @@ const apiAgents = createRemoteAgents(scene)
     firstMarker.add(cone, ring); firstMarker.position.set(0, 7.2, -42.2)
   }
   resumeMusicOnFirstTap()
+  ensureAmbientOnGesture()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
   let firstOpened = false
   if (needsFirstCourse()) {
@@ -1229,6 +1218,7 @@ const apiAgents = createRemoteAgents(scene)
     skyline.tick(elapsed, nightLevel)
     ambient.tick(elapsed, focus, nightLevel)
     if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
+    try { setAmbientPlace(Boolean(interiors.inside), Math.hypot(pos.x, pos.z)) } catch { /* */ }
 
     const frame = input.read()
     const paused = ui.isOpen()

@@ -142,9 +142,9 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   return () => {
     cancelAnimationFrame(raf)
     removeEventListener('resize', resize)
-    composer.dispose()
-    renderer.dispose()
-    renderer.forceContextLoss()
-    canvas.remove()
+    try { composer.dispose() } catch { /* */ }
+    try { renderer.dispose() } catch { /* */ }
+    // Never forceContextLoss — poisons the next WebGL context on Mac Safari/Chrome.
+    try { canvas.remove() } catch { /* */ }
   }
 }
