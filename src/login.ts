@@ -70,13 +70,41 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   dlg.setAttribute('aria-label', heading)
   const logo = el('p', 'Grind District', 'login-wordmark')
   const body = el('div', '', 'wallet-body')
-  const close = el('button', '✕', 'ghost login-x'); close.setAttribute('aria-label', 'Close')
-  close.onclick = () => { dlg.remove(); window.dispatchEvent(new Event('gd-login-closed')) }
+  const close = el('button', '✕', 'ghost login-x'); close.type = 'button'; close.setAttribute('aria-label', 'Close')
+  // Closed flag lets in-flight Google/X/email/NEAR work abort instead of navigating or hanging the panel.
+  let closed = false
+  let nearConnector: { disconnect?: () => Promise<unknown> | void } | null = null
+  const dismiss = () => {
+    if (closed) return
+    closed = true
+    try { mo.disconnect() } catch { /* already gone */ }
+    try { sessionStorage.removeItem(OAUTH_KEY) } catch { /* private mode */ }
+    // Cancel in-flight NEAR wallet UI if the connector exposes disconnect.
+    try { void nearConnector?.disconnect?.() } catch { /* ignore */ }
+    nearConnector = null
+    // Tear down common wallet/privy overlays so a cancelled provider tap does not leave a stuck modal.
+    for (const sel of [
+      'iframe[src*="privy"]',
+      'iframe[src*="near"]',
+      '[id*="near-connector"]',
+      '[class*="near-connector"]',
+      '[data-near-connect]',
+      '#w3m-modal',
+      'w3m-modal',
+    ]) {
+      document.querySelectorAll(sel).forEach((n) => { try { n.remove() } catch { /* ignore */ } })
+    }
+    dlg.remove()
+    window.dispatchEvent(new Event('gd-login-closed'))
+  }
+  // pointerdown + click: touch devices sometimes swallow click after a disabled provider button.
+  close.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); dismiss() })
+  close.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); dismiss() })
   const acct = document.getElementById('menu-account'); const acctWas = acct?.hidden
   if (acct) acct.hidden = true
   window.addEventListener('gd-login-closed', () => { if (acct && acctWas === false && !document.getElementById('login-dlg')) acct.hidden = false }, { once: true })
-  dlg.append(close, logo, el('h2', heading), body)
-  const mo = new MutationObserver(() => { if (document.body.classList.contains('sheet-open')) { mo.disconnect(); close.click() } })
+  dlg.append(logo, el('h2', heading), body, close)
+  const mo = new MutationObserver(() => { if (document.body.classList.contains('sheet-open')) { mo.disconnect(); dismiss() } })
   mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
   document.body.append(dlg)
   const msg = el('p', notice, 'muted')
@@ -133,7 +161,9 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   }
 
   const afterLogin = async (privy: Awaited<ReturnType<typeof client>>) => {
+    if (closed) return
     const token = await privy.getAccessToken()
+    if (closed) return
     if (!token) { msg.textContent = 'Sign in failed'; return }
     body.replaceChildren(el('p', 'Signing you in…', 'muted'))
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: '{}' }).catch(() => null)
@@ -155,17 +185,24 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const social = (provider: Social) => {
     const b = el('button', `Continue with ${SOCIAL_LABEL[provider]}`, 'glass-btn primary')
     b.onclick = async () => {
+      if (closed) return
       b.disabled = true
       b.textContent = `Opening ${SOCIAL_LABEL[provider]}…`
       try {
         const privy = await client()
+        if (closed) return
         const { url } = await privy.auth.oauth.generateURL(provider, location.origin + location.pathname)
+        if (closed) return
         try { sessionStorage.setItem(OAUTH_KEY, provider) } catch { /* private mode */ }
         location.assign(url)
       } catch (e) {
+        if (closed) return
         b.disabled = false
         b.textContent = `Continue with ${SOCIAL_LABEL[provider]}`
-        msg.textContent = `${SOCIAL_LABEL[provider]} sign-in failed: ${(e as Error).message || 'unknown error'}`
+        const err = (e as Error).message || 'unknown error'
+        msg.textContent = /cancel|denied|closed|block|popup/i.test(err)
+          ? 'Sign-in cancelled. You can try again or pick another option.'
+          : `${SOCIAL_LABEL[provider]} sign-in failed: ${err}`
       }
     }
     return b
@@ -174,6 +211,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const nearButton = () => {
     const b = el('button', 'Continue with NEAR', 'glass-btn primary')
     b.onclick = async () => {
+      if (closed) return
       b.disabled = true
       b.textContent = 'Opening NEAR wallets…'
       msg.textContent = 'No funds or transactions — only a signed login message.'
@@ -184,11 +222,14 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
         // Test hook: a page can set window.__GD_MOCK_NEAR__ to return a NEP-413 proof (no real wallet).
         const mock = (window as unknown as { __GD_MOCK_NEAR__?: (a: { message: string; recipient: string; nonce: Uint8Array; nonceB64: string }) => Promise<Record<string, unknown>> }).__GD_MOCK_NEAR__
         if (mock) {
+          if (closed) return
           await afterNearLogin(await mock({ message, recipient: NEAR_RECIPIENT, nonce, nonceB64 }))
           return
         }
         const { NearConnector } = await import('@hot-labs/near-connect')
         const connector = new NearConnector({ network: 'testnet', features: { signMessage: true, signInAndSignMessage: true } })
+        nearConnector = connector as { disconnect?: () => Promise<unknown> | void }
+        if (closed) { try { void nearConnector.disconnect?.() } catch { /* ignore */ }; return }
         type Acc = { accountId: string; publicKey?: string; signedMessage?: { accountId: string; publicKey: string; signature: string } }
         const signedAcc = new Promise<Acc>((resolve, reject) => {
           const t = window.setTimeout(() => reject(new Error('NEAR wallet timed out')), 120_000)
@@ -216,11 +257,19 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
           signature = signed.signature
         }
         if (!accountId || !publicKey || !signature) throw new Error('Wallet did not return a signed message')
+        if (closed) return
+        nearConnector = null
         await afterNearLogin({ accountId, publicKey, signature, message, recipient: NEAR_RECIPIENT, nonce: nonceB64 })
       } catch (e) {
+        nearConnector = null
+        if (closed) return
         b.disabled = false
         b.textContent = 'Continue with NEAR'
-        msg.textContent = `NEAR sign-in failed: ${(e as Error).message || 'unknown error'}. No funds were requested.`
+        const err = (e as Error).message || 'unknown error'
+        // Popup blocked / user cancelled should land as a soft error with buttons re-enabled.
+        msg.textContent = /cancel|denied|closed|block|popup/i.test(err)
+          ? 'Sign-in cancelled. You can try again or pick another option.'
+          : `NEAR sign-in failed: ${err}. No funds were requested.`
       }
     }
     return b
@@ -231,30 +280,37 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const code = el('input'); code.inputMode = 'numeric'; code.placeholder = '6-digit code'; code.hidden = true
   const verify = el('button', 'Verify', 'glass-btn primary'); verify.hidden = true
   send.onclick = async () => {
+    if (closed) return
     if (!email.value.trim()) { msg.textContent = 'Enter your email first.'; return }
     send.disabled = true
     msg.textContent = 'Sending…'
     try {
       const privy = await client()
+      if (closed) return
       await privy.auth.email.sendCode(email.value.trim())
+      if (closed) return
       code.hidden = verify.hidden = false
       msg.textContent = 'Code sent. Check your inbox (and spam).'
-    } catch (e) { msg.textContent = `Could not send the code: ${(e as Error).message || 'unknown error'}` }
-    send.disabled = false
+    } catch (e) { if (!closed) msg.textContent = `Could not send the code: ${(e as Error).message || 'unknown error'}` }
+    if (!closed) send.disabled = false
   }
   verify.onclick = async () => {
+    if (closed) return
     try {
       const privy = await client()
+      if (closed) return
       await privy.auth.email.loginWithCode(email.value.trim(), code.value.trim())
+      if (closed) return
       await afterLogin(privy)
-    } catch (e) { msg.textContent = (e as Error).message }
+    } catch (e) { if (!closed) msg.textContent = (e as Error).message }
   }
   send.className = 'glass-btn ghost'
 
-  const loading = el('p', 'Loading sign-in options…', 'muted')
+  const loading = el('p', mode === 'signup' ? 'Loading sign up…' : 'Loading sign in…', 'muted')
   body.append(loading, msg)
 
   const renderOptions = (opts: { google: boolean; twitter: boolean; email: boolean; domainOk: boolean } | null, privyError = '') => {
+    if (closed) return
     loading.remove()
     const parts: HTMLElement[] = []
     const stack = el('div', '', 'login-providers')
@@ -294,27 +350,31 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
 
   // Initialize with a hard timeout BEFORE checking the access token, so a hung Privy never leaves "Loading…" forever.
   void client().then(async (p) => {
+    if (closed) return
     try {
       await withTimeout(p.initialize(), 10_000, 'timed out')
     } catch (e) {
-      renderOptions(null, `Could not reach the sign-in service: ${(e as Error).message || 'network error'}. Try NEAR, or play as a guest.`)
+      if (!closed) renderOptions(null, `Could not reach the sign-in service: ${(e as Error).message || 'network error'}. Try NEAR.`)
       return
     }
+    if (closed) return
     try {
       if (await p.getAccessToken()) { await afterLogin(p); return }
     } catch { /* treat as signed out */ }
+    if (closed) return
     try {
       const cfg = p.app.getConfig()
       if (!cfg) { renderOptions(null); return }
       const allowed = (cfg.allowed_domains ?? []).map((d: string) => d.replace(/\/+$/, '').toLowerCase())
       const here = location.origin.toLowerCase()
-      const domainOk = allowed.length === 0 || allowed.some((d: string) => d === here || d === location.host.toLowerCase() || (d.startsWith('https://*.') && here.endsWith(d.slice(9))))
+      const localDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      const domainOk = localDev || allowed.length === 0 || allowed.some((d: string) => d === here || d === location.host.toLowerCase() || (d.startsWith('https://*.') && here.endsWith(d.slice(9))))
       renderOptions({ google: !!cfg.google_oauth, twitter: !!cfg.twitter_oauth, email: !!cfg.email_auth, domainOk })
     } catch {
-      renderOptions(null)
+      if (!closed) renderOptions(null)
     }
   }).catch((e) => {
-    renderOptions(null, `Could not reach the sign-in service: ${(e as Error).message || 'network error'}. Try NEAR, or play as a guest.`)
+    if (!closed) renderOptions(null, `Could not reach the sign-in service: ${(e as Error).message || 'network error'}. Try NEAR.`)
   })
 }
 

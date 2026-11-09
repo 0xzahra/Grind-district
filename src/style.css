@@ -1597,7 +1597,7 @@ body.sheet-open #online-chip, body.cc-sheet-on #online-chip { display: none !imp
 .sheet-card .sheet-head { margin-left: calc(-1 * max(18px, env(safe-area-inset-left))) !important; margin-right: calc(-1 * max(18px, env(safe-area-inset-right))) !important; padding-left: max(18px, env(safe-area-inset-left)) !important; padding-right: max(18px, env(safe-area-inset-right)) !important; max-width: none !important; }
 #cc-sheet-body .cc-balance-head { max-width: none !important; width: auto; background: rgb(22, 23, 25) !important; box-shadow: 0 6px 10px -6px rgba(0,0,0,.6); }
 
-.login-x{position:absolute;top:8px;right:8px;width:36px;height:36px;padding:0;border-radius:50%;font-size:16px;line-height:1}
+.login-x{position:absolute;top:6px;right:6px;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:50%;font-size:16px;line-height:1;z-index:30;pointer-events:auto;touch-action:manipulation}
 .login-dlg{position:fixed}
 .shop-pic{width:100%;height:96px;border-radius:10px;background:#0d1512;display:block}
 
@@ -1693,7 +1693,7 @@ body.in-menu #greet { display: none !important; }
   align-items: stretch !important;
   gap: 7px !important;
   width: 100% !important;
-  max-width: 220px !important;
+  max-width: 200px !important;
   margin: 2px auto 0 !important;
 }
 /* Glass buttons: frosted when supported, solid translucent fallback otherwise */
@@ -1760,7 +1760,7 @@ body.in-menu #greet { display: none !important; }
 
 /* Sign-in / Sign-up dialog */
 .login-dlg.wallet-dlg {
-  width: min(90vw, 280px) !important;
+  width: min(90vw, 268px) !important;
   padding: 12px 12px 10px !important;
   gap: 6px !important;
   border-radius: 16px !important;
@@ -1787,18 +1787,27 @@ body.in-menu #greet { display: none !important; }
   color: #f5f5f7 !important;
 }
 .login-dlg .login-x {
+  position: absolute !important;
   top: 6px !important;
   right: 6px !important;
-  width: 28px !important;
-  height: 28px !important;
-  min-height: 28px !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
   border-radius: 50% !important;
-  font-size: 12px !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  z-index: 30 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
   color: #f5f5f7 !important;
-  box-shadow: none !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25) !important;
 }
+.login-dlg.wallet-dlg { overflow: visible !important; }
+.login-dlg .wallet-body { position: relative; z-index: 1; }
+.login-dlg .login-wordmark, .login-dlg h2 { padding-right: 44px; }
 .login-dlg .wallet-body { display: grid !important; gap: 6px !important; }
 .login-options { display: grid; gap: 8px; }
 .login-providers {
