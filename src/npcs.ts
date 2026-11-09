@@ -179,8 +179,11 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     for (const q of posed) q.seating.stand()
     posed.length = 0
     const walkers = people.filter((p) => p.sim.spec.points.length > 1)
+    const women = walkers.filter((p) => p.sim.spec.body === 'zuri')
     poseSeats.forEach((seat, k) => {
-      const p = walkers[(k * 5 + Math.floor(poseClock / 40)) % walkers.length]
+      // Plaza benches (k 0,1): prefer a woman so the plaza is not all standing men.
+      const pool = (k < 2 && women.length) ? women : walkers
+      const p = pool[(k * 5 + Math.floor(poseClock / 40)) % pool.length]
       if (!p || posed.some((q) => q.p === p)) return
       const seating = createSeating(); seating.sit(seat, p.avatar.object)
       posed.push({ p, seat, seating })

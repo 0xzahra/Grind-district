@@ -13,7 +13,8 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { publishProfile } from './share.ts'
-import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp } from './career.ts'
+import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer } from './career.ts'
+import { JOBS } from './careerData.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
 import { tagPlayer } from './player.ts'
@@ -267,15 +268,15 @@ const apiAgents = createRemoteAgents(scene)
     // while everything else in the scene is exposure- and AgX-graded: reported as "that ring is weird" on High.
     const gold = new THREE.MeshBasicMaterial({ color: 0xf2c14e })
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.4, 4), gold); cone.rotation.x = Math.PI; cone.position.y = 0.7
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.12, 6, 20), gold); ring.rotation.x = Math.PI / 2; ring.position.y = 1.9
-    firstMarker.add(cone, ring); firstMarker.position.set(0, 6.5, -42.2)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.09, 8, 24), gold); ring.rotation.x = Math.PI / 2; ring.position.y = 2.15
+    firstMarker.add(cone, ring); firstMarker.position.set(0, 7.2, -42.2)
   }
   resumeMusicOnFirstTap()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
   let firstOpened = false
   if (needsFirstCourse()) {
     scene.add(firstMarker)
-    window.setTimeout(() => { if (needsFirstCourse()) notify('Your first task', 'Walk to Campus, the building under the gold marker to the north, and finish one short course. It goes straight onto your CV.', 'first-task', 'place:Campus') }, 2500)
+    window.setTimeout(() => { if (needsFirstCourse()) notify('Campus marker', 'The gold ring north of the plaza marks Campus. Walk there, finish one short course — it files to your CV. The marker leaves once you pass.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
@@ -520,7 +521,7 @@ const apiAgents = createRemoteAgents(scene)
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
   mountNotifications()
-  if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'You start as a shrimp. Learn, show up, and climb to whale.', 'welcome', 'place:The Grind Ring')
+  if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Everyone starts at the bottom of the ladder. Learn on Campus, show up daily, climb toward whale — your CV keeps the proof.', 'welcome', 'place:The Grind Ring')
   localStorage.setItem('gd.welcomed', '1')
   // Good surprise: one soft dawn greeting per local day (streak-aware, no network).
   try {
@@ -556,7 +557,13 @@ const apiAgents = createRemoteAgents(scene)
   const sheetBody = must<HTMLElement>('#cc-sheet-body')
   const paintStatus = () => {
     must('#cc-balance').textContent = `$${getSave().ledger.toFixed(2)}`
-    must('#cc-rank').textContent = `${rankFor(getSave().xp).label} · in-game balance · tap for history`
+    {
+      const jobId = getCareer().job
+      const jobTitle = jobId ? (JOBS.find((j) => j.id === jobId)?.title ?? '') : ''
+      must('#cc-rank').textContent = jobTitle
+        ? `${rankFor(getSave().xp).label} · ${jobTitle} · tap for history`
+        : `${rankFor(getSave().xp).label} · in-game balance · tap for history`
+    }
   }
   nav.inert = true
   const closeSheet = () => { ccSheet.hidden = true; document.body.classList.remove('cc-sheet-on'); sheetBody.replaceChildren() }
@@ -691,7 +698,7 @@ const apiAgents = createRemoteAgents(scene)
     isOpen: (title) => !ccSheet.hidden && sheetTitle.textContent === title,
   })
   must('#cc-bell').addEventListener('click', () => openSheet('Notifications', renderNotes))
-  const openCareer = (tab?: unknown) => openSheet('Career & Courses', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses'))
+  const openCareer = (tab?: unknown) => openSheet('Career', () => renderCareer(sheetBody, (to) => { follow(to) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses'))
   const openFeed = () => openSheet('City Feed', () => renderFeed(sheetBody, (to) => { follow(to) }))
   window.addEventListener('gd:career', (e) => { setCC(true); openCareer((e as CustomEvent).detail) })
   // Career > Lessons: close the control centre first (same order as every other menu item), then open that exact
@@ -704,7 +711,7 @@ const apiAgents = createRemoteAgents(scene)
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
-  onCareer(() => { if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
+  onCareer(() => { paintStatus(); if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
   must('#cc-status').addEventListener('click', openBalance)
   // Fetch the top-up chunk now (while this build's assets are live) and re-sync credited top-ups for a known wallet.
   void topupModule().then((m) => m.autoSyncTopups(paintStatus)).catch(() => {})
@@ -1350,8 +1357,9 @@ const apiAgents = createRemoteAgents(scene)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     seating.apply(avatar.object, dt)
     if (firstMarker.parent) {
-      firstMarker.rotation.y += dt * 1.2
-      firstMarker.position.y = 6.5 + Math.sin(performance.now() / 400) * 0.25
+      // Slow spin + tiny bob so it reads as a Campus waypoint, not a clipping toy.
+      firstMarker.rotation.y += dt * 0.35
+      firstMarker.position.y = 7.2 + Math.sin(performance.now() / 1600) * 0.06
       if (!needsFirstCourse()) scene.remove(firstMarker)
       else if (!firstOpened && !interiors.inside && Math.hypot(pos.x, pos.z + 42.2) < 3.2) { firstOpened = true; ui.open('learn', { course: SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0] }) }
     }
@@ -1398,18 +1406,18 @@ const apiAgents = createRemoteAgents(scene)
       ui.open('tax')
     }
 
-    // After a moment without manual look, ease the camera behind the walking direction.
-    if (lookIdle > 1.6 && directed === false && Math.hypot(vel.x, vel.z) > 1 && !paused) {
+    // After a longer pause without manual look, ease the camera behind the walking direction (phones: less auto-swing).
+    const coarseCam = matchMedia('(pointer: coarse)').matches
+    if (lookIdle > (coarseCam ? 2.8 : 1.6) && directed === false && Math.hypot(vel.x, vel.z) > 1 && !paused) {
       const behind = Math.atan2(-vel.x, -vel.z)
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
-      camYaw += delta * (1 - Math.exp(-1.2 * dt))
+      camYaw += delta * (1 - Math.exp(-(coarseCam ? 0.55 : 1.2) * dt))
     }
-    // Idle for 2 s with no manual look: swing gently round to the 3/4 front so the face shows.
-    // Not indoors: in a small room the swing ran the camera into a wall and into the face (phone recording, 8 Nov).
-    if (stillFor > 2 && lookIdle > 2 && !paused && !interiors.inside) {
+    // Idle face-swing: desktop only. On phones it felt like the view “auto-adjusting” on its own.
+    if (!coarseCam && stillFor > 2.5 && lookIdle > 2.5 && !paused && !interiors.inside) {
       const front = faceYaw + 0.45
       const delta = Math.atan2(Math.sin(front - camYaw), Math.cos(front - camYaw))
-      camYaw += delta * (1 - Math.exp(-0.9 * dt))
+      camYaw += delta * (1 - Math.exp(-0.55 * dt))
     }
     if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
     // Over-the-shoulder: frame the player slightly left of centre, GTA style.
@@ -1452,9 +1460,9 @@ const apiAgents = createRemoteAgents(scene)
       if (bestRoom < 2) steerYaw = null
     }
     if (!boomBlocked && steerAcc > 1) steerYaw = null
-    if (steerYaw !== null && lookIdle > 0.4 && !interiors.inside) {
+    if (steerYaw !== null && lookIdle > 0.7 && !interiors.inside) {
       const delta = Math.atan2(Math.sin(steerYaw - camYaw), Math.cos(steerYaw - camYaw))
-      camYaw += delta * (1 - Math.exp(-4 * dt))
+      camYaw += delta * (1 - Math.exp(-1.6 * dt))
     }
     if (!cameraReady) {
       smoothCam.copy(ideal)

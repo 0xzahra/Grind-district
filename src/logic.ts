@@ -850,7 +850,7 @@ export function skillLines(save: Save): string[] {
   return SKILL_ORDER.flatMap((id) => (save.skills[id]?.passed ? [SKILL_META[id].cv] : []))
 }
 
-export function documents(save: Save, now = new Date()): { cv: string; resume: string; portfolio: string } {
+export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: string; resume: string; portfolio: string } {
   const rank = rankFor(save.xp)
   const next = nextRank(save.xp)
   const skills = skillLines(save)
@@ -861,6 +861,7 @@ export function documents(save: Save, now = new Date()): { cv: string; resume: s
     'Grind District profile',
     '',
     `Rank        ${rank.label} · ${save.xp} XP${next ? ` (${next.label} at ${next.xp})` : ''}`,
+    ...(jobTitle ? [`Job         ${jobTitle}`] : []),
     `Reputation  ${save.reputation}`,
     `Streak      ${save.streak} day${save.streak === 1 ? '' : 's'}`,
     `Market      ${season} season`,

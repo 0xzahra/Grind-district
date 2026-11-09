@@ -50,7 +50,10 @@ export async function publishProfile(): Promise<boolean> {
     if (!token) return false
     const s = getSave()
     const mo = await import('./morph.ts')
-    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: s.ledger, skills: skillLines(s), pinned: (await import('./career.ts')).pinnedTitles(), look: mo.hasLocalMorph() ? mo.getMorph() : undefined, lux: (await import('./luxury.ts')).luxRecord() }) })
+    const career = await import('./career.ts')
+    const jobId = career.getCareer().job
+    const jobTitle = jobId ? (await import('./careerData.ts')).JOBS.find((j) => j.id === jobId)?.title : undefined
+    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: Math.round(s.ledger * 100) / 100, skills: skillLines(s), pinned: career.pinnedTitles(), job: jobTitle ?? null, look: mo.hasLocalMorph() ? mo.getMorph() : undefined, lux: (await import('./luxury.ts')).luxRecord() }) })
     // Fresh device: adopt the look saved on the account.
     const j = r.ok ? await r.json().catch(() => null) as { look?: { h: number; b: number; hair: number | null; skin?: number | null; lux?: { last: string; streak: number; best: number } } | null } | null : null
     if (j?.look?.lux) (await import('./luxury.ts')).adoptLux(j.look.lux)

@@ -109,8 +109,23 @@ export function createSeating() {
       }
       for (const l of b.legs) bend(l, -1.45 * t)
       for (const k of b.knees) bend(k, 1.5 * t)
-      for (const a of b.arms) bend(a, -0.45 * t)
-      for (const f of b.fores) bend(f, -0.75 * t)
+      // Vary idle sit arms so every NPC is not the same raised-hand pose.
+      const variant = (Math.round((seat?.x ?? 0) * 3) + Math.round((seat?.z ?? 0) * 5) + Math.round((seat?.yaw ?? 0) * 7)) % 3
+      if (variant === 0) {
+        // Hands in lap
+        for (const a of b.arms) bend(a, -0.15 * t)
+        for (const f of b.fores) bend(f, -0.35 * t)
+      } else if (variant === 1) {
+        // One arm up / resting on back of bench
+        if (b.arms[0]) bend(b.arms[0], -0.85 * t)
+        if (b.arms[1]) bend(b.arms[1], -0.1 * t)
+        if (b.fores[0]) bend(b.fores[0], -0.55 * t)
+        if (b.fores[1]) bend(b.fores[1], -0.25 * t)
+      } else {
+        // Crossed / folded
+        for (const a of b.arms) bend(a, -0.55 * t)
+        for (const f of b.fores) bend(f, -1.05 * t)
+      }
       // Rest the hips on the seat top (scaled person: work in world units then convert).
       const seatY = seat?.y ?? 0.46
       const drop = Math.max(0, b.hipDrop - (seatY + 0.06))

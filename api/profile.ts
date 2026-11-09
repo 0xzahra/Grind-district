@@ -80,6 +80,12 @@ export default async function handler(req: Req, res: Res) {
     const base = (row.look ?? old) as Record<string, unknown>
     row.look = { ...base, lux: was?.last && was.last > cur.last ? was : cur }
   }
+  // Career job title (e.g. Influencer / Community manager) rides in look jsonb — no schema change.
+  if (typeof b.job === 'string') {
+    const base = (row.look ?? old) as Record<string, unknown>
+    const title = b.job.trim().slice(0, 48)
+    row.look = title ? { ...base, job: title } : { ...base, job: null }
+  }
   const { error } = await db.from('public_profiles').upsert(row, { onConflict: 'username' })
   if (error) return res.status(500).json({ error: 'save failed' })
   res.status(200).json({ ok: true, username: row.username, look: row.look ?? old ?? null })

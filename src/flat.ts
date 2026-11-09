@@ -4,11 +4,13 @@ import { HOUSES, type HouseId } from './houses.ts'
 import { createInput } from './input.ts'
 import { drawMinimap } from './minimap.ts'
 import { applyPrefs } from './prefs.ts'
-import type { DroneId, MaskId, PanelId } from './logic.ts'
-import { decodeShare, seasonAt } from './logic.ts'
+import { decodeShare, seasonAt, rankFor, type DroneId, type MaskId, type PanelId } from './logic.ts'
 import { CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { getSave, rememberPlace, tickMarket } from './state.ts'
 import { mountUi } from './ui.ts'
+import { initCareer, renderCareer, getCareer } from './career.ts'
+import { JOBS } from './careerData.ts'
+import { publishProfile } from './share.ts'
 import { districtName } from './world.ts'
 
 const WALK = 2.7
@@ -202,6 +204,42 @@ export async function startFlat(onReady: () => void): Promise<void> {
   on('#nav-boutique', () => ui.open('boutique'))
   on('#nav-city', () => ui.open('city'))
   on('#nav-settings', () => ui.open('settings'))
+  // Career sheet (same control-centre sheet as the 3D path).
+  initCareer({ toast: (m) => ui.toast(m), rankUp: () => undefined })
+  const ccSheet = document.querySelector<HTMLElement>('#cc-sheet')
+  const sheetTitle = document.querySelector<HTMLElement>('#cc-sheet-title')
+  const sheetBody = document.querySelector<HTMLElement>('#cc-sheet-body')
+  const paintStatus = () => {
+    const bal = document.querySelector('#cc-balance')
+    const rank = document.querySelector('#cc-rank')
+    if (bal) bal.textContent = `$${getSave().ledger.toFixed(2)}`
+    if (rank) {
+      const jobId = getCareer().job
+      const jobTitle = jobId ? (JOBS.find((j) => j.id === jobId)?.title ?? '') : ''
+      rank.textContent = jobTitle
+        ? `${rankFor(getSave().xp).label} · ${jobTitle} · tap for history`
+        : `${rankFor(getSave().xp).label} · in-game balance · tap for history`
+    }
+  }
+  paintStatus()
+  const openCareer = (tab?: unknown) => {
+    if (!ccSheet || !sheetTitle || !sheetBody) return
+    document.body.classList.remove('rail-shut')
+    sheetTitle.textContent = 'Career'
+    sheetBody.replaceChildren()
+    renderCareer(sheetBody, () => undefined, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses')
+    ccSheet.hidden = false
+    document.body.classList.add('cc-sheet-on')
+    paintStatus()
+  }
+  on('#cc-career', () => openCareer())
+  document.querySelector('#cc-sheet-back')?.addEventListener('click', () => {
+    if (!ccSheet || !sheetBody) return
+    ccSheet.hidden = true
+    document.body.classList.remove('cc-sheet-on')
+    sheetBody.replaceChildren()
+  })
+  window.addEventListener('gd:career', (e) => openCareer((e as CustomEvent).detail))
   on('#cc-status', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
   map.addEventListener('click', () => ui.open('city'))
   applyPrefs()

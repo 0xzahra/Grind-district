@@ -83,7 +83,7 @@ export default async function handler(req: Req, res: Res) {
     const o = c.name
     const [a, bb] = user < o ? [user, o] : [o, user]
     const [pp, pl, fr, party, bl] = await Promise.all([
-      db.from('public_profiles').select('username,name,rank,reputation,skills,pinned,look,updated_at').eq('username', o).maybeSingle(),
+      db.from('public_profiles').select('username,name,rank,reputation,balance,skills,pinned,look,updated_at').eq('username', o).maybeSingle(),
       db.from('players').select('username').eq('username', o).maybeSingle(),
       db.from('friendships').select('requester,status').eq('a', a).eq('b', bb).maybeSingle(),
       db.from('parties').select('id,members').contains('members', [user]).maybeSingle(),
@@ -96,9 +96,11 @@ export default async function handler(req: Req, res: Res) {
     const lux = lk.lux as { streak?: number } | undefined
     return res.status(200).json({ me: user, self: o === user, profile: {
       username: o, name: pp.data?.name ?? '', rank: pp.data?.rank ?? '', reputation: pp.data?.reputation ?? 0,
+      balance: Math.round(Number(pp.data?.balance ?? 0) * 100) / 100,
       skills: pp.data?.skills ?? [], pinned: pp.data?.pinned ?? [], seen: pp.data?.updated_at ?? null,
       look: { h: lk.h ?? 1, b: lk.b ?? 1, hair: lk.hair ?? null, skin: lk.skin ?? null }, streak: lux?.streak ?? 0,
       agent: (lk.agent as { label?: string } | undefined)?.label ?? null,
+      job: typeof lk.job === 'string' ? lk.job : null,
     }, friend, inParty: !!(party.data && (party.data.members as string[]).includes(o)), blocked: !!bl.data })
   }
   if (op === 'social') {

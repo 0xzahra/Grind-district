@@ -60,6 +60,21 @@ export const CITIZENS: CitizenSpec[] = [
   })
 }
 
+// Soften perfectly straight 2-point patrols: insert a mid waypoint with a small lateral arc
+// so walkers weave instead of skating on a ruler line (Zahra phase-2).
+{
+  CITIZENS.forEach((c, i) => {
+    if (c.points.length !== 2 || c.speed <= 0) return
+    const a = c.points[0]!, b = c.points[1]!
+    const dx = b.x - a.x, dz = b.z - a.z
+    const len = Math.hypot(dx, dz) || 1
+    const side = (i % 2 ? 1 : -1) * (1.4 + (i % 3) * 0.35)
+    const mx = (a.x + b.x) / 2 + (-dz / len) * side
+    const mz = (a.z + b.z) / 2 + (dx / len) * side
+    c.points = [a, { x: mx, z: mz }, b]
+  })
+}
+
 export function bootCitizens(): CitizenSim[] {
   return CITIZENS.map((spec) => {
     const start = spec.points[0] ?? { x: 0, z: 0 }

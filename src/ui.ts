@@ -12,6 +12,8 @@ let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
 import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
+import { getCareer } from './career.ts'
+import { JOBS } from './careerData.ts'
 import { track } from './track.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
@@ -318,7 +320,7 @@ export function mountUi(
     const glass = document.createElement('section')
     glass.className = 'glass'
     const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
-    const docs = documents(save)
+    const docs = documents(save, new Date(), (() => { const id = getCareer().job; return id ? (JOBS.find(j => j.id === id)?.title ?? '') : '' })())
     const doc = (text: string) => { const pre = document.createElement('pre'); pre.className = 'doc doc-card'; pre.textContent = text; return pre }
     glass.append(
       renderLuxury(),

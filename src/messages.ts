@@ -247,7 +247,7 @@ type Presence = { find: (u: string) => { x: number; z: number } | null }
 let presence: Presence | null = null
 /** main.ts wires live city presence so profiles can say who is online and teleport near them. */
 export function setPresence(p: Presence): void { presence = p }
-type Profile = { username: string; name: string; rank: string; reputation: number; skills: string[]; pinned: string[]; seen: string | null; look: { h: number; b: number; hair: number | null; skin: number | null }; streak: number; agent: string | null }
+type Profile = { username: string; name: string; rank: string; reputation: number; balance?: number; skills: string[]; pinned: string[]; seen: string | null; look: { h: number; b: number; hair: number | null; skin: number | null }; streak: number; agent: string | null; job?: string | null }
 
 function searchBox(): HTMLElement {
   const wrap = el('div', '', 'dm-search')
@@ -310,6 +310,7 @@ export async function openProfile(username: string): Promise<void> {
   badge(here ? 'Online · in the city' : p.seen ? `Seen ${when(p.seen)}` : 'Offline', here ? 'on' : '')
   if (p.agent) badge(`Agent · ${p.agent}`, 'agent')
   if (p.rank) badge(p.rank)
+  if (p.job) badge(p.job, 'job')
   if (r.data.friend === 'friends') badge('Friend')
   if (r.data.inParty) badge('In your party')
   if (p.streak >= 3) badge(`${p.streak}-day streak`)
@@ -317,9 +318,10 @@ export async function openProfile(username: string): Promise<void> {
   info.append(badges)
   head.append(silhouette(p), info)
   const sheet = el('div', '', 'pf-sheet')
-  sheet.append(el('h3', 'Career sheet'), el('p', `Rank: ${p.rank || 'New'} · Reputation ${p.reputation.toLocaleString()}`))
+  sheet.append(el('h3', 'Career sheet'), el('p', `Rank: ${p.rank || 'New'}${p.job ? ` · ${p.job}` : ''} · Reputation ${p.reputation.toLocaleString()}${typeof p.balance === 'number' ? ` · $${p.balance.toFixed(2)}` : ''}`))
+  sheet.append(el('h3', 'Courses on CV'))
   if (p.skills.length) { const ul = el('ul', '', 'pf-skills'); for (const s of p.skills) ul.append(el('li', s)); sheet.append(ul) }
-  else sheet.append(el('p', 'No skills shared yet.', 'cc-muted'))
+  else sheet.append(el('p', 'No courses completed yet.', 'cc-muted'))
   sheet.append(el('h3', 'Pinned certificates'))
   if (p.pinned.length) { const ul = el('ul', '', 'pf-certs'); for (const s of p.pinned) ul.append(el('li', s)); sheet.append(ul) }
   else sheet.append(el('p', 'Nothing pinned.', 'cc-muted'))

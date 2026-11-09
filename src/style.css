@@ -1866,3 +1866,62 @@ body.in-menu #greet { display: none !important; }
   transform: scale(0.97);
   filter: brightness(1.08);
 }
+
+/* Career sheet: no 3-line title wrap, tabs not clipped, Back not oversized */
+#cc-sheet-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap !important;
+  font-size: 15px !important;
+  line-height: 1.2 !important;
+}
+.cc-back, #cc-sheet-back {
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  min-height: 0 !important;
+  height: auto !important;
+  width: auto !important;
+  flex: 0 0 auto;
+}
+.cr-tabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  gap: 4px !important;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.cr-tabs::-webkit-scrollbar { display: none; }
+.cr-tab {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+}
+
+/* Phase-2: stop touch scroll stealing the canvas (blank/jank while moving). Sheets keep their own scroll. */
+#view, #menu-preview { touch-action: none; }
+body:not(.title-on) { overscroll-behavior: none; }
+
+.settings-glass, .glass-sheet.settings-glass {
+  background: rgba(22, 22, 24, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  border-radius: 18px !important;
+}
+/* Game-wide glass buttons: consistent radius/padding */
+.sheet-card .glass-btn, #sheet .glass-btn, #cc-sheet-body .glass-btn, .settings-glass button {
+  border-radius: 999px !important;
+  min-height: 40px;
+  padding: 8px 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Phase-2 blank-on-scroll: lock page scroll while in the city; only sheets scroll. */
+html, body { overscroll-behavior: none; }
+body:not(.title-on) #view { touch-action: none; }
+body:not(.title-on) { overflow: hidden; position: fixed; inset: 0; width: 100%; height: 100%; }
+body:not(.title-on) #app, body:not(.title-on) #game { height: 100%; overflow: hidden; }

@@ -1,5 +1,20 @@
 import * as THREE from 'three'
-import { ARMS as LANE_ARMS, lanePoint, uturnPoint, sidePoint, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS } from './lanes.ts'
+import { ARMS as LANE_ARMS, lanePoint, uturnPoint, sidePoint, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS, insideFootprint } from './lanes.ts'
+
+/** Nudge a car pose out of any building footprint so vehicles never clip through walls. */
+function keepOffBuildings<T extends { x: number; z: number }>(pt: T, margin = 1.2): T {
+  for (let n = 0; n < 4; n++) {
+    const hit = insideFootprint(pt.x, pt.z, margin)
+    if (!hit) return pt
+    const dx = pt.x - hit.x, dz = pt.z - hit.z
+    const sx = Math.sign(dx) || 1, sz = Math.sign(dz) || 1
+    const ox = hit.w / 2 + margin - Math.abs(dx)
+    const oz = hit.d / 2 + margin - Math.abs(dz)
+    if (ox < oz) pt.x += sx * (ox + 0.05)
+    else pt.z += sz * (oz + 0.05)
+  }
+  return pt
+}
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -260,7 +275,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   const HIDE = 50 // cars only leave or re-enter the city edge when the player is this far away (no popping in view)
   const uAt = (sv: number, u: number): Pt => {
     // U-turn across the side road at distance sv, from the outbound lane to the inbound lane.
-    const p = sidePoint(sv, true)
+    const p = keepOffBuildings(sidePoint(sv, true))
     const fx = Math.sin(p.heading), fz = Math.cos(p.heading)
     const rx = -Math.cos(p.heading), rz = Math.sin(p.heading)
     const r = lanes.roadHalf * 0.5
@@ -274,7 +289,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     if (car.gone > 0) {
       car.gone -= dt
       if (car.gone > 0) return null
-      const back = sidePoint(SIDE_LEN, false)
+      const back = keepOffBuildings(sidePoint(SIDE_LEN, false))
       const busy = cars.some((o) => o !== car && o.side && !o.gone && !o.sOut && SIDE_LEN - o.s < 7)
       if (Math.hypot(back.x - focus.x, back.z - focus.z) < HIDE || busy) { car.gone = 1; return null }
       car.sOut = false
@@ -286,7 +301,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       const ahead = car.sOut ? o.s - car.s : car.s - o.s
       if (ahead > 0 && ahead < 9) target = Math.min(target, Math.max(0, (ahead - 6.2) * 2))
     }
-    const here = sidePoint(car.s, car.sOut)
+    const here = keepOffBuildings(sidePoint(car.s, car.sOut))
     const fx = Math.sin(here.heading), fz = Math.cos(here.heading)
     const blocked = (x: number, z: number) => {
       const f = (x - here.x) * fx + (z - here.z) * fz
@@ -296,7 +311,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
     if (car.turn > 0) {
       car.turn += (Math.max(target, 2.5) * dt) / (Math.PI * lanes.roadHalf * 0.5)
-      if (car.turn >= 1) { car.turn = 0; car.sOut = false; return sidePoint(car.s, false) }
+      if (car.turn >= 1) { car.turn = 0; car.sOut = false; return keepOffBuildings(sidePoint(car.s, false)) }
       return uAt(car.s, car.turn)
     }
     if (car.wait > 0) {
@@ -318,10 +333,10 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       if (car.s <= 0) {
         // Rejoin the east arm heading into the plaza once the inbound lane is clear.
         const clear = cars.every((o) => o === car || o.side || o.arm !== 0 || o.outbound || Math.abs(o.t - SIDE_JOIN_T) * span > 7)
-        if (clear) { car.side = false; car.arm = 0; car.outbound = false; car.t = SIDE_JOIN_T; return lanePoint(0, SIDE_JOIN_T, false) }
+        if (clear) { car.side = false; car.arm = 0; car.outbound = false; car.t = SIDE_JOIN_T; return keepOffBuildings(lanePoint(0, SIDE_JOIN_T, false)) }
       }
     }
-    return sidePoint(car.s, car.sOut)
+    return keepOffBuildings(sidePoint(car.s, car.sOut))
   }
 
   return {
@@ -453,7 +468,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           }
         }
         // Drive on the right: outbound lane is to the right of the outward direction.
-        pt = car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound)
+        pt = keepOffBuildings(car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound))
         if (car.swing > 0) {
           const a = car.a0 + (car.a1 - car.a0) * car.swing
           const r = Math.hypot(pt.x, pt.z) - 2.5 * Math.sin(Math.PI * car.swing)
