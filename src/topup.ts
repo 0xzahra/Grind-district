@@ -1,123 +1,231 @@
-// Top-up sheet, no wallet connect: pick USDC or ETH, copy the GrindTreasury address on Base, send from any wallet,
-// then paste the transaction hash. /api/topup-confirm verifies the payment on-chain and credits in-game $.
-import qrcode from 'qrcode-generator'
-import { GRIND_TREASURY_VAULT, ETH_USD_FEED, breakdown, ethToUsdMicro } from './grindConfig.ts'
+// Automatic top-up: pick amount → Pay in wallet → server detects & credits. No copy/paste of address or hash.
+import { GRIND_TREASURY_VAULT, BASE_USDC, breakdown, ethToUsdMicro } from './grindConfig.ts'
 import { applyTopup } from './state.ts'
+import { ethPrice } from './topupPrice.ts'
+export { ethPrice } from './topupPrice.ts'
+export { syncTopups, autoSyncTopups } from './topupSync.ts'
 
+type Eip1193 = { request(a: { method: string; params?: unknown[] }): Promise<unknown> }
+const provider = (): Eip1193 | undefined => (window as unknown as { ethereum?: Eip1193 }).ethereum
+const CHAIN = '0x2105'
 const RPC = 'https://mainnet.base.org'
-const usd = (micro: bigint) => `$${(Number(micro) / 1e6).toFixed(2)}`
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 const isAddr = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a)
-
-/** Chainlink ETH/USD latestRoundData via a plain eth_call (keeps viem out of the game bundle). 8 decimals. */
-export async function ethPrice(): Promise<bigint> {
-  const r = await fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: ETH_USD_FEED, data: '0xfeaf968c' }, 'latest'] }) })
-  const { result } = (await r.json()) as { result?: string }
-  if (!result || result.length < 130) throw new Error('no price')
-  return BigInt(`0x${result.slice(66, 130)}`)
-}
-
-/** Pull credited top-ups for this address from the server and add any not yet in the local balance. */
-export async function syncTopups(player: string, onChange: () => void): Promise<void> {
-  try {
-    const r = await fetch(`/api/topup-confirm?player=${player}`)
-    if (!r.ok) return
-    const { topups } = (await r.json()) as { topups: Array<{ hash: string; credit: number; asset: string }> }
-    let changed = false
-    for (const t of topups) changed = applyTopup(t.hash, t.credit, t.asset) || changed
-    if (changed) onChange()
-  } catch { /* offline */ }
-}
-
+const pad = (hex: string) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0')
+const usd = (micro: bigint) => `$${(Number(micro) / 1e6).toFixed(2)}`
 const WALLET_KEY = 'gd.topup.wallet'
-const savedFrom = () => { try { const s = localStorage.getItem(WALLET_KEY) ?? ''; return isAddr(s) ? s : '' } catch { return '' } }
 
-/** On load: re-sync credited top-ups for the sender address saved on this device. */
-export async function autoSyncTopups(onChange: () => void): Promise<void> {
-  const a = savedFrom()
-  if (a) await syncTopups(a.toLowerCase(), onChange)
+async function ensureBase(p: Eip1193) {
+  try {
+    await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN }] })
+  } catch (e) {
+    if ((e as { code?: number }).code !== 4902) throw e
+    await p.request({
+      method: 'wallet_addEthereumChain',
+      params: [{ chainId: CHAIN, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [RPC], blockExplorerUrls: ['https://basescan.org'] }],
+    })
+  }
+}
+
+async function connectWallet(): Promise<string> {
+  const p = provider()
+  if (!p) throw new Error('Install a Base wallet (e.g. MetaMask) to top up')
+  const accounts = (await p.request({ method: 'eth_requestAccounts' })) as string[]
+  const a = (accounts[0] ?? '').toLowerCase()
+  if (!isAddr(a)) throw new Error('No wallet account')
+  try { localStorage.setItem(WALLET_KEY, a) } catch { /* private */ }
+  await ensureBase(p)
+  return a
+}
+
+type Order = {
+  orderId: string
+  asset: 'USDC' | 'ETH'
+  amountRaw: string
+  amountLabel: string
+  status: string
+  creditUsd?: number | null
+  txHash?: string | null
+  message?: string
+  ok?: boolean
+  waiting?: boolean
+  error?: string
+  detected?: boolean
+}
+
+async function api(path: string, init?: RequestInit): Promise<Response> {
+  let token: string | null = null
+  try { token = await (await import('./login.ts')).accessToken() } catch { token = null }
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined), ...(token ? { authorization: `Bearer ${token}` } : {}) }
+  if (init?.body && !headers['content-type']) headers['content-type'] = 'application/json'
+  return fetch(path, { ...init, headers })
 }
 
 export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { demo?: boolean } = {}): void {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
-  const input = (label: string, ph: string, mode: string) => { const i = el('input') as HTMLInputElement; i.className = 'topup-input topup-mono'; i.placeholder = ph; i.inputMode = mode; i.autocomplete = 'off'; i.spellcheck = false; i.setAttribute('aria-label', label); return i }
   let asset: 'USDC' | 'ETH' = 'USDC'
+  let dollars = 10
+  let milliEth = 1
   let price = 0n
+  let busy = false
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+  let currentOrder: Order | null = null
+
   const box = el('div', '', 'topup')
   const tabs = el('div', '', 'topup-tabs')
-  const tUsdc = el('button', 'USDC', 'on'); const tEth = el('button', 'ETH')
+  const tUsdc = el('button', 'USDC', 'on') as HTMLButtonElement
+  const tEth = el('button', 'ETH') as HTMLButtonElement
   tUsdc.type = tEth.type = 'button'
   tabs.append(tUsdc, tEth)
-
-  const step1 = el('label', '1. The address you will send from', 'topup-label')
-  const from = input('Your sending address', '0x… your wallet address', 'text')
-  from.value = savedFrom()
-
-  const step2 = el('label', '2. Send USDC to this address', 'topup-label')
-  const addrBox = el('div', '', 'topup-addr')
-  const qr = el('div', '', 'topup-qr')
-  try { const q = qrcode(0, 'M'); q.addData(GRIND_TREASURY_VAULT); q.make(); qr.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) } catch { qr.remove() }
-  const addr = el('code', GRIND_TREASURY_VAULT, 'topup-mono')
-  addrBox.append(qr, addr)
-  const copy = el('button', 'Copy address', 'topup-go') as HTMLButtonElement
-  copy.type = 'button'
-  const base = el('p', 'Send only on Base. Other networks are lost.', 'topup-warn')
-  const rate = el('p', '', 'cc-muted')
+  const amtLabel = el('label', 'Amount', 'topup-label')
+  const presets = el('div', '', 'topup-presets')
   const table = el('dl', '', 'topup-break')
-
-  const step3 = el('label', '3. Paste your transaction hash', 'topup-label')
-  const hashIn = input('Transaction hash', '0x… transaction hash', 'text')
-  const go = el('button', 'Confirm', 'topup-go') as HTMLButtonElement
-  go.type = 'button'
+  const pay = el('button', 'Pay with wallet', 'topup-go') as HTMLButtonElement
+  pay.type = 'button'
   const status = el('p', '', 'topup-status')
   const testOnly = el('p', 'Test only — not a real deposit product. Do not send funds you cannot lose.', 'topup-warn')
-  const fine = el('p', 'Funds go to the Grind District treasury on Base, controlled by the team Safe. In-game $ is a game balance, not a withdrawable token.', 'cc-muted')
-  box.append(testOnly, tabs, step1, from, step2, addrBox, copy, base, rate, table, step3, hashIn, go, status, fine)
+  const fine = el('p', 'Pays the Grind District treasury on Base automatically. In-game $ is a game balance, not withdrawable. No address or hash to copy.', 'cc-muted')
+  box.append(testOnly, tabs, amtLabel, presets, table, pay, status, fine)
   root.append(box)
 
-  const paint = () => {
-    tUsdc.classList.toggle('on', asset === 'USDC'); tEth.classList.toggle('on', asset === 'ETH')
-    step2.textContent = `2. Send ${asset} to this address`
-    rate.textContent = asset === 'USDC' ? 'Rate: 1 USDC = $1.00 in-game, minus the 2% fee.'
-      : price ? `Rate: 1 ETH ≈ $${(Number(price) / 1e8).toFixed(2)} in-game (Chainlink ETH/USD on Base at your payment's block), minus the 2% fee.` : 'Loading live ETH price…'
-    table.replaceChildren()
-    const ex = asset === 'USDC' ? 10_000_000n : price ? ethToUsdMicro(5n * 10n ** 15n, price) : 0n
-    if (ex) { const b = breakdown(ex); table.append(el('dt', `Example: ${asset === 'USDC' ? '10 USDC' : '0.005 ETH'}`), el('dd', usd(ex)), el('dt', '2% fee'), el('dd', usd(b.fee)), el('dt', 'You receive', 'topup-get'), el('dd', usd(b.credit), 'topup-get')) }
-    const okFrom = isAddr(from.value.trim())
-    go.disabled = !okFrom || !/^0x[0-9a-fA-F]{64}$/.test(hashIn.value.trim())
+  const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
+
+  const paintPresets = () => {
+    presets.replaceChildren()
+    const list = asset === 'USDC' ? [5, 10, 25, 50, 100] : [1, 2, 5, 10]
+    for (const n of list) {
+      const b = el('button', '', '') as HTMLButtonElement
+      b.type = 'button'
+      b.textContent = asset === 'USDC' ? `$${n}` : `${(n / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')} ETH`
+      b.className = (asset === 'USDC' ? dollars === n : milliEth === n) ? 'on' : ''
+      b.onclick = () => { if (asset === 'USDC') dollars = n; else milliEth = n; paint() }
+      presets.append(b)
+    }
   }
+
+  const paint = () => {
+    tUsdc.classList.toggle('on', asset === 'USDC')
+    tEth.classList.toggle('on', asset === 'ETH')
+    paintPresets()
+    table.replaceChildren()
+    const ex = asset === 'USDC' ? BigInt(dollars) * 1_000_000n : price ? ethToUsdMicro(BigInt(milliEth) * 10n ** 15n, price) : 0n
+    if (ex) {
+      const b = breakdown(ex)
+      table.append(
+        el('dt', asset === 'USDC' ? `${dollars} USDC` : `${(milliEth / 1000).toFixed(3)} ETH`),
+        el('dd', usd(ex)),
+        el('dt', '2% fee'),
+        el('dd', usd(b.fee)),
+        el('dt', 'You receive', 'topup-get'),
+        el('dd', usd(b.credit), 'topup-get'),
+      )
+    } else if (asset === 'ETH') {
+      table.append(el('dt', 'ETH price'), el('dd', 'Loading…'))
+    }
+    pay.disabled = busy || !!opts.demo
+    pay.textContent = busy ? 'Working…' : currentOrder?.status === 'waiting' ? `Waiting for ${currentOrder.amountLabel}…` : 'Pay with wallet'
+  }
+
+  const onCredit = (hash: string, credit: number, a: string) => {
+    applyTopup(hash, credit, a)
+    onCredited()
+    status.textContent = `Credited $${credit.toFixed(2)} in-game.`
+    currentOrder = null
+    stopPoll()
+    paint()
+  }
+
+  const tick = async (orderId: string) => {
+    try {
+      const r = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify({ op: 'scan', orderId }) })
+      const j = (await r.json().catch(() => ({}))) as Order & { creditUsd?: number; asset?: string; txHash?: string }
+      if (j.ok && j.creditUsd && (j.txHash || currentOrder?.txHash)) {
+        onCredit((j.txHash || currentOrder?.txHash)!, j.creditUsd, j.asset ?? asset)
+        return
+      }
+      if (r.status === 410) {
+        status.textContent = j.error || 'Order expired. Start again.'
+        currentOrder = null
+        stopPoll()
+        busy = false
+        paint()
+        return
+      }
+      if (j.waiting || j.status === 'waiting') status.textContent = 'Waiting for payment…'
+      else if (j.detected || j.status === 'detected') status.textContent = 'Payment detected… confirming on Base…'
+      else if (j.error && r.status >= 400 && r.status !== 409) status.textContent = `Not credited: ${j.error}`
+      else {
+        const g = await api(`/api/topup-confirm?order=${orderId}`)
+        const o = (await g.json().catch(() => ({}))) as Order
+        if (o.status === 'credited' && o.creditUsd && o.txHash) onCredit(o.txHash, o.creditUsd, o.asset)
+        else if (o.status === 'waiting') status.textContent = 'Waiting for payment…'
+        else if (o.status === 'detected') status.textContent = 'Payment detected… confirming on Base…'
+      }
+    } catch {
+      status.textContent = 'Network hiccup; still watching for your payment…'
+    }
+  }
+
+  const pollOrder = (orderId: string) => {
+    stopPoll()
+    pollTimer = setInterval(() => { void tick(orderId) }, 3000)
+    void tick(orderId)
+  }
+
+  const payNow = async () => {
+    busy = true
+    paint()
+    status.textContent = 'Creating your top-up…'
+    try {
+      const from = await connectWallet()
+      const body = asset === 'USDC'
+        ? { op: 'create', asset: 'USDC', dollars, from }
+        : { op: 'create', asset: 'ETH', milliEth, from }
+      const cr = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify(body) })
+      const order = (await cr.json().catch(() => ({}))) as Order & { error?: string }
+      if (!cr.ok || !order.orderId) throw new Error(order.error || `Could not start top-up (${cr.status})`)
+      currentOrder = order
+      status.textContent = `Approve ${order.amountLabel} in your wallet…`
+      paint()
+      const p = provider()!
+      const amount = BigInt(order.amountRaw)
+      let hash: string
+      if (asset === 'USDC') {
+        const tx = { from, to: BASE_USDC, data: '0xa9059cbb' + pad(GRIND_TREASURY_VAULT) + amount.toString(16).padStart(64, '0') }
+        hash = (await p.request({ method: 'eth_sendTransaction', params: [tx] })) as string
+      } else {
+        const tx = { from, to: GRIND_TREASURY_VAULT, value: '0x' + amount.toString(16) }
+        hash = (await p.request({ method: 'eth_sendTransaction', params: [tx] })) as string
+      }
+      if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error('Wallet did not return a transaction')
+      status.textContent = 'Payment sent… confirming on Base…'
+      currentOrder = { ...order, txHash: hash.toLowerCase(), status: 'detected' }
+      for (let i = 0; i < 12; i += 1) {
+        const r = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify({ op: 'confirm', hash, from, orderId: order.orderId }) })
+        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; creditUsd?: number; asset?: string; error?: string }
+        if (j.ok && j.creditUsd) { onCredit(hash.toLowerCase(), j.creditUsd, j.asset ?? asset); busy = false; paint(); return }
+        if (r.status !== 409 && r.status !== 502) {
+          status.textContent = j.error ? `Checking: ${j.error}` : 'Waiting for Base to confirm…'
+          break
+        }
+        status.textContent = 'Waiting for Base to confirm…'
+        await new Promise((ok) => setTimeout(ok, 3000))
+      }
+      status.textContent = 'Waiting for payment…'
+      pollOrder(order.orderId)
+    } catch (e) {
+      status.textContent = (e as Error).message || 'Top-up cancelled'
+      if (currentOrder?.orderId) pollOrder(currentOrder.orderId)
+    } finally {
+      busy = false
+      paint()
+    }
+  }
+
   tUsdc.onclick = () => { asset = 'USDC'; paint() }
   tEth.onclick = () => { asset = 'ETH'; paint() }
-  from.oninput = () => { const v = from.value.trim(); if (isAddr(v)) { try { localStorage.setItem(WALLET_KEY, v) } catch { /* private */ } } paint() }
-  hashIn.oninput = paint
-  copy.onclick = async () => {
-    try { await navigator.clipboard.writeText(GRIND_TREASURY_VAULT); copy.textContent = 'Copied' } catch {
-      const r = document.createRange(); r.selectNodeContents(addr); getSelection()?.removeAllRanges(); getSelection()?.addRange(r); copy.textContent = 'Selected: copy it'
-    }
-    setTimeout(() => { copy.textContent = 'Copy address' }, 1800)
-  }
-  ethPrice().then((p) => { price = p; paint() }).catch(() => { rate.textContent = 'ETH price unavailable right now; USDC works.' })
+  pay.onclick = () => { if (!opts.demo) void payNow() }
+  ethPrice().then((p) => { price = p; paint() }).catch(() => { /* USDC still works */ })
   paint()
-  if (opts.demo) return
-
-  const confirm = async () => {
-    const hash = hashIn.value.trim().toLowerCase() as `0x${string}`
-    const sender = from.value.trim().toLowerCase()
-    let token: string | null = null
-    try { token = await (await import('./login.ts')).accessToken() } catch { token = null }
-    for (let i = 0; i < 10; i += 1) {
-      status.textContent = i ? 'Waiting for Base to confirm…' : 'Checking your payment on Base…'
-      const r = await fetch('/api/topup-confirm', { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ hash, from: sender }) })
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; creditUsd?: number; asset?: string; error?: string }
-      if (j.ok && j.creditUsd) { applyTopup(hash, j.creditUsd, j.asset ?? asset); onCredited(); status.textContent = `Credited $${j.creditUsd.toFixed(2)} in-game.`; hashIn.value = ''; return }
-      if (r.status !== 409 && r.status !== 502) { status.textContent = `Not credited: ${j.error ?? r.status}.`; return }
-      if (/already (pending|being)/.test(j.error ?? '') && i > 3) break
-      await new Promise((ok) => setTimeout(ok, 3000))
-    }
-    status.textContent = `Still confirming tx ${short(hash)}. Your payment is safe; tap Confirm again in a minute.`
-  }
-  go.onclick = () => {
-    go.disabled = true
-    confirm().catch((e: Error) => { status.textContent = e.message || 'Network error; try again.' }).finally(() => paint())
-  }
+  const obs = new MutationObserver(() => { if (!root.contains(box)) { stopPoll(); obs.disconnect() } })
+  obs.observe(root, { childList: true, subtree: true })
 }
