@@ -5,6 +5,7 @@ import {
   CHAIN_USD,
   CLIMATE_USD,
   COURSE_XP,
+  COURSE_CASH,
   DRONES,
   RESELL_USD,
   SAVE_KEY,
@@ -504,6 +505,14 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   const rankedUp = gainXp(gained + bonus)
   const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')
+  // One-time in-game $ per course pass (replaces SP/skill-point reward language). Already-passed courses return above.
+  {
+    const label = `Course bonus: ${SKILL_META[id].title}`
+    if (!save.activities.some((item) => item.label === label)) {
+      save.ledger = cents(save.ledger + COURSE_CASH)
+      log('money', label, `${money(COURSE_CASH)} in-game for passing the course.`)
+    }
+  }
   if (stipend) {
     save.ledger = cents(save.ledger + STIPEND_USD)
     save.earnings += 1

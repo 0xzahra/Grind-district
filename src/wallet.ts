@@ -1,5 +1,5 @@
 import { getSave, balanceSplit } from './state'
-import { COINS } from './logic'
+import { COINS, money, formatQty } from './logic.ts'
 import { TOPUP, TRANSFER_FEE_BPS, topupReady } from './economy'
 import { track } from './track'
 // Optional real wallet on Base (8453). Injected EIP-1193 only; the city never holds keys.
@@ -84,7 +84,7 @@ export function openWallet(): void {
   if (sv.unit.qty > 0) rows.push(['UNIT', 'City index', sv.unit.qty, sv.unit.qty * sv.unitPrice])
   if (sv.meme.qty > 0) rows.push(['MEME', 'Trench token', sv.meme.qty, sv.meme.qty * sv.memePrice])
   const practice = rows.reduce((a, r) => a + r[3], 0)
-  const usd = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const usd = (n: number) => money(n)
   const hero = el('div', '', 'wx-hero')
   hero.append(el('small', 'Total balance (in-game)'), el('b', usd(split.total + practice)), el('span', `Cash ${usd(split.total)} · Practice assets ${usd(practice)}`))
   const tabs = el('div', '', 'wx-tabs')
@@ -102,7 +102,7 @@ export function openWallet(): void {
       asset('Cash', 'Earned in the city', usd(split.earned), 'Spendable', 'In-game'),
       asset('Cash', 'Topped up (USDC on Base)', usd(split.toppedUp), 'Spendable', 'In-game'),
     )
-    for (const [sym, name, qty, val] of rows) pane.append(asset(sym, name, usd(val), `${qty.toFixed(qty < 1 ? 4 : 2)} units`, 'Practice — not real'))
+    for (const [sym, name, qty, val] of rows) pane.append(asset(sym, name, usd(val), `${formatQty(qty)} held`, 'Practice — not real'))
     if (!rows.length) pane.append(el('p', 'No practice holdings yet. Try the trading floor.', 'muted'))
     pane.append(el('p', 'Practice assets are simulated prices for learning. They are not real crypto and cannot be withdrawn.', 'muted'))
   }

@@ -2,6 +2,8 @@ import { EXTRA_BODIES_ENABLED, NFT_COLLECTIONS_ENABLED } from './nft.ts'
 export const ZAHRA = 'https://0xzahra.github.io'
 export const SAVE_KEY = 'grind-district-save-v1'
 export const COURSE_XP = 70
+/** One-time in-game dollar bonus when a course is first passed (not SP). */
+export const COURSE_CASH = 15
 export const TAX_USD = 8
 export const CHAIN_USD = 30
 export const RESELL_USD = 10
@@ -371,7 +373,15 @@ export function cents(value: number): number {
 
 export function money(value: number): string {
   const sign = value < 0 ? '-' : ''
-  return `${sign}$${Math.abs(value).toFixed(2)}`
+  return `${sign}$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/** Holding quantity for display (not dollars). Up to 6 dp, trim trailing zeros. */
+export function formatQty(qty: number): string {
+  if (!Number.isFinite(qty) || qty === 0) return '0'
+  const abs = Math.abs(qty)
+  const digits = abs >= 100 ? 2 : abs >= 1 ? 4 : 6
+  return Number(qty.toFixed(digits)).toLocaleString('en-US', { maximumFractionDigits: digits })
 }
 
 export function rankFor(xp: number): (typeof RANKS)[number] {
@@ -662,6 +672,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.ownedDrones = cleanOwnedDrones(row.ownedDrones)
   fresh.ownedVehicles = cleanOwnedVehicles(row.ownedVehicles)
   fresh.startTier = num(row.startTier, -1, RANKS.length - 1, -1)
+  // Legacy SP/skillPoints fields (if any) are ignored — rewards are in-game $ only; do not convert to ledger.
   const rawCoins = (row.coins && typeof row.coins === 'object' ? row.coins : {}) as Record<string, { qty?: unknown; avg?: unknown }>
   const rawPrices = (row.coinPrices && typeof row.coinPrices === 'object' ? row.coinPrices : {}) as Record<string, unknown>
   for (const coin of COINS) {
@@ -850,11 +861,19 @@ export function skillLines(save: Save): string[] {
   return SKILL_ORDER.flatMap((id) => (save.skills[id]?.passed ? [SKILL_META[id].cv] : []))
 }
 
+/** Activity that belongs in a wallet/ledger feed — not on CV, resume, or portfolio. */
+export function isWalletActivity(item: { kind: string; label: string; detail?: string }): boolean {
+  if (item.kind === 'money') return true
+  const blob = `${item.label} ${item.detail ?? ''}`.toLowerCase()
+  return /top-?up|topped up|wallet|sign-up bonus|starting balance|course bonus|campus stipend|event reward|withdraw|deposit|usdc|privy|balance|ledger|transfer fee/.test(blob)
+}
+
 export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: string; resume: string; portfolio: string } {
   const rank = rankFor(save.xp)
   const next = nextRank(save.xp)
   const skills = skillLines(save)
-  const proof = save.activities.slice(0, 8)
+  // CV/resume: courses, trades, social proof — never wallet/top-up/balance noise.
+  const proof = save.activities.filter((a) => !isWalletActivity(a)).slice(0, 8)
   const season = seasonLabel(seasonAt(now.getTime()))
   const header = [
     `${save.name}  ·  @${save.username}`,
@@ -865,7 +884,6 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
     `Reputation  ${save.reputation}`,
     `Streak      ${save.streak} day${save.streak === 1 ? '' : 's'}`,
     `Market      ${season} season`,
-    `Balance     ${money(save.ledger)} in-game`,
   ]
   const cv = [
     ...header,
@@ -881,7 +899,6 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
     'Holdings',
     holdingLine('UNIT', save.unit, save.unitPrice),
     holdingLine('MEME', save.meme, save.memePrice),
-    ...(save.taxOpen ? ['', `Open request: family transport, ${money(TAX_USD)}`] : []),
     '',
     'In-game profile. Not financial advice.',
   ].join('\n')
@@ -900,18 +917,26 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
     `Shows up consistently: ${save.streak}-day streak, reputation ${save.reputation}.`,
   ].join('\n')
 
+  // Portfolio: holdings and performance only — not the city activity feed / wallet lines.
+  const coinLines = COINS.flatMap((coin) => {
+    const h = save.coins?.[coin.id]
+    if (!h || h.qty <= 0) return [] as string[]
+    const price = save.coinPrices[coin.id] ?? coin.base
+    const pnl = positionPnl(h, price)
+    return [`- ${coin.label}: ${formatQty(h.qty)} @ avg ${money(h.avg)}, worth ${money(h.qty * price)}, open ${money(pnl)}`]
+  })
   const portfolio = [
     `${save.name} (@${save.username}) — portfolio`,
-    'Activity in Grind District.',
+    'Holdings and performance (in-game practice values).',
     '',
-    ...(save.activities.length
-      ? save.activities.slice(0, 16).map((item) => `- ${lagosStamp(item.at)} — ${item.label}. ${item.detail}`)
-      : ['- Nothing yet.']),
+    holdingLine('UNIT', save.unit, save.unitPrice),
+    holdingLine('MEME', save.meme, save.memePrice),
+    ...coinLines,
+    ...(coinLines.length || save.unit.qty > 0 || save.meme.qty > 0 ? [] : ['- No open positions yet.']),
     '',
     save.carbon.length
       ? `Climate pledges: ${save.carbon.map((note) => note.name).join(', ')}.`
       : 'Climate pledges: none.',
-    save.wants.length ? `Wants bought: ${save.wants.map((want) => want.label).join(', ')}.` : 'Wants bought: none.',
   ].join('\n')
 
   return { cv, resume, portfolio }
@@ -920,7 +945,7 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
 function holdingLine(symbol: string, holding: Holding, price: number): string {
   if (holding.qty <= 0) return `- ${symbol}: no position`
   const pnl = positionPnl(holding, price)
-  return `- ${symbol}: ${holding.qty.toFixed(4)} @ avg ${money(holding.avg)}, mark ${money(price)}, open ${money(pnl)}`
+  return `- ${symbol}: ${formatQty(holding.qty)} @ avg ${money(holding.avg)}, mark ${money(price)}, open ${money(pnl)}`
 }
 
 export function maybeOpenTax(save: Save, today: string): void {
@@ -1042,7 +1067,8 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
   const pos = (label: string, h: Holding, price: number) => {
     if (h.qty <= 0) return { section: 'Investments' as const, label, value: 'None held' }
     const pnl = (price - h.avg) * h.qty
-    return { section: 'Investments' as const, label, value: `${h.qty.toFixed(3)} @ ${money(h.avg)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }
+    const value = h.qty * price
+    return { section: 'Investments' as const, label, value: `${formatQty(h.qty)} @ ${money(h.avg)} · worth ${money(value)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }
   }
   rows.push(pos('UNIT · district coin', save.unit, save.unitPrice))
   rows.push(pos('MEME · new coin', save.meme, save.memePrice))
@@ -1050,9 +1076,8 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
     const h = save.coins?.[coin.id]
     if (h && h.qty > 0) {
       const price = save.coinPrices[coin.id] ?? coin.base
-      const pnl = (price - h.avg) * h.qty
       const cat = COIN_CATEGORIES.find((c) => c.id === coin.cat)!.label
-      rows.push({ section: 'Investments', label: `${coin.label} · ${cat}`, value: `${money(h.qty * price)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` })
+      rows.push(pos(`${coin.label} · ${cat}`, h, price))
     }
   }
   rows.push({ section: 'Investments', label: 'Stocks', value: 'None listed yet' })

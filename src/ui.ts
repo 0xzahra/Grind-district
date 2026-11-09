@@ -11,7 +11,7 @@ import { equippedFrame } from './career.ts'
 let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
 import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
-import { bookRows, publicDoc, type BookRow } from './logic.ts'
+import { bookRows, publicDoc, formatQty, type BookRow } from './logic.ts'
 import { getCareer } from './career.ts'
 import { JOBS } from './careerData.ts'
 import { track } from './track.ts'
@@ -29,6 +29,7 @@ import {
   CHAIN_USD,
   CLIMATE_USD,
   COURSE_XP,
+  COURSE_CASH,
   DRONES,
   VEHICLES,
   COINS,
@@ -216,7 +217,7 @@ export function mountUi(
   let shownLedger: number | null = null
   let ledgerAnim = 0
   const animateLedger = (target: number) => {
-    if (shownLedger === null || Math.abs(target - shownLedger) < 0.005) { shownLedger = target; pills.ledger.textContent = money(target); return }
+    if (shownLedger === null || Math.abs(target - shownLedger) < 0.005) { shownLedger = target; pills.ledger.textContent = `Balance ${money(target)}`; return }
     const from = shownLedger
     const delta = target - from
     shownLedger = target
@@ -232,7 +233,7 @@ export function mountUi(
     const t0 = performance.now()
     const stepFn = (t: number) => {
       const k = Math.min(1, (t - t0) / 700)
-      pills.ledger.textContent = money(from + delta * (1 - Math.pow(1 - k, 3)))
+      pills.ledger.textContent = `Balance ${money(from + delta * (1 - Math.pow(1 - k, 3)))}`
       if (k < 1) ledgerAnim = requestAnimationFrame(stepFn)
     }
     ledgerAnim = requestAnimationFrame(stepFn)
@@ -549,12 +550,12 @@ export function mountUi(
             showExercise(questionIndex + 1)
           }))
         } else {
-          const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP · +5 rep`, 'primary', () => {
+          const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP · +${money(COURSE_CASH)}`, 'primary', () => {
             const missing = picks.findIndex((pick) => pick === null)
             if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
             const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
             if (outcome.ok) {
-              const extra = outcome.stipend ? ' Campus put $25 practice on your ledger.' : ''
+              const extra = (outcome.stipend ? ' Campus put $25.00 practice on your ledger.' : '') + ` +${money(COURSE_CASH)} course bonus.`
               const focus = outcome.focus ? ' Focus added a quarter.' : ''
               const bonus = outcome.bonus ? ` Streak +${outcome.bonus} XP.` : ''
               finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
@@ -650,7 +651,7 @@ export function mountUi(
       const save = getSave()
       const view = describeTrade(symbol)
       price.textContent = `${name} ${money(view.price)} · ledger ${money(save.ledger)}`
-      book.textContent = view.qty > 0 ? `Position ${view.qty.toFixed(3)} @ ${money(view.avg)} · open ${money(view.pnl)}` : 'No open position.'
+      book.textContent = view.qty > 0 ? `Position ${formatQty(view.qty)} @ ${money(view.avg)} · open ${money(view.pnl)}` : 'No open position.'
       const ctx = canvas.getContext('2d')
       const hist = symbol === 'unit' ? save.unitHist : save.memeHist
       if (!ctx || hist.length < 2) return

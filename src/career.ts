@@ -8,7 +8,7 @@ import { schedule } from './events.ts'
 
 type FeedPost = { at: number; text: string; go?: string }
 type Career = {
-  week: string; weekCounts: Record<string, number>; seasonPts: number; seasonWeek: Record<string, string[]>
+  week: string; weekCounts: Record<string, number>; /** Season challenge progress (was shown as pts/SP). Not a spendable currency. */ seasonPts: number; seasonWeek: Record<string, string[]>
   track: Record<string, number>; trackDay: Record<string, string>
   job: string; jobXp: number; dutyDay: string; duties: string[]
   pins: SkillId[]; frame: string; houseItems: string[]; trades: number; events: number
@@ -67,7 +67,7 @@ function onAct(kind: string, label: string): void {
   const wk = weekly()
   for (const w of wk) if (matches(w.kind, got)) {
     const before = c.weekCounts[w.id] ?? 0
-    if (before < w.count) { c.weekCounts[w.id] = before + 1; if (before + 1 === w.count) { c.seasonPts += 1; earnCash(50, `Weekly challenge: ${w.text}`, 'Weekly challenge complete (once per week).'); toast(`Weekly done: ${w.text}. +$50 · Season +1`); grantRewards() } }
+    if (before < w.count) { c.weekCounts[w.id] = before + 1; if (before + 1 === w.count) { c.seasonPts += 1; earnCash(50, `Weekly challenge: ${w.text}`, 'Weekly challenge complete (once per week).'); toast(`Weekly done: ${w.text}. +$50.00`); grantRewards() } }
   }
   // Earn Path practice (once a day per track)
   for (const t of TRACKS) if (matches(t.task.kind, got, t.task.course) && c.trackDay[t.id] !== day()) {
@@ -191,11 +191,11 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   } else if (tab === 'weekly') {
     body.append(el('h3', `This week · ${c.week}`), el('p', 'Free season track. Cosmetic rewards only. Nothing to buy, nothing random.', 'cc-muted'))
     for (const w of weekly()) body.append(bar(w.text, c.weekCounts[w.id] ?? 0, w.count))
-    body.append(el('h3', `Season · ${c.seasonPts} pts`))
+    body.append(el('h3', `Season · ${c.seasonPts} of ${SEASON[SEASON.length - 1]?.at ?? 20} challenges`))
     const ol = el('ol', '', 'cr-season')
     for (const r of SEASON) {
       const got = c.seasonPts >= r.at
-      const li = el('li', '', got ? 'on' : ''); li.append(el('span', `${r.at} pts`), el('strong', r.label))
+      const li = el('li', '', got ? 'on' : ''); li.append(el('span', `${r.at}`), el('strong', r.label))
       if (got && r.kind === 'tint' && r.tint != null) li.append(btn(s.tint === r.tint ? 'Wearing' : 'Wear', () => { setTint(r.tint!); renderCareer(root, go, onPins, tab) }, 'cr-chip'))
       if (got && r.kind === 'frame') li.append(btn(c.frame === r.id ? 'Equipped' : 'Equip', () => { c.frame = r.id; store(); renderCareer(root, go, onPins, tab) }, 'cr-chip'))
       if (got && r.kind === 'house') li.append(el('small', 'In your house', 'cc-muted'))
