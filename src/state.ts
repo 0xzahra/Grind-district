@@ -134,18 +134,20 @@ function applyStarts(): void {
     const grant = RANK_START[RANKS[next].id] - prev
     save.startTier = next
     const label = RANKS[next].label
+    const grantId = next === 0 ? 'starter' : `start:${RANKS[next].id}`
+    const activityLabel = next === 0 ? 'Starting balance' : `${label} starting balance`
+    const detail = next === 0 ? `${money(grant)} in-game once per account (Shrimp).` : `+${money(grant)} in-game for reaching ${label}.`
     if (isAccountBound()) {
-      // Accounts: the server records each one-time grant; money lands only if this is the first time.
-      void serverGrant(`start:${RANKS[next].id}`, grant).then((fresh) => {
+      void serverGrant(grantId, grant).then((fresh) => {
         if (!fresh) return
         save.ledger = cents(save.ledger + grant)
-        log('money', `${label} starting balance`, `+${money(grant)} in-game for reaching ${label}.`)
+        log('money', activityLabel, detail)
         persist(); emit()
       })
       continue
     }
     save.ledger = cents(save.ledger + grant)
-    log('money', `${label} starting balance`, `+${money(grant)} in-game for reaching ${label}.`)
+    log('money', activityLabel, detail)
   }
 }
 
@@ -350,7 +352,8 @@ export function adoptAccount(privyUserId: string, handle: string, serverSave?: u
   const holds = save.startTier
   for (let t = 0; t <= holds; t++) {
     const id = RANKS[t]!.id, amt = RANK_START[id] - (t > 0 ? RANK_START[RANKS[t - 1]!.id] : 0)
-    void serverGrant(`start:${id}`, amt).then((fresh) => { if (!fresh && outcome === 'migrated') { save.ledger = cents(Math.max(0, save.ledger - amt)); persist(); emit() } })
+    const gid = t === 0 ? 'starter' : `start:${id}`
+    void serverGrant(gid, amt).then((fresh) => { if (!fresh && outcome === 'migrated') { save.ledger = cents(Math.max(0, save.ledger - amt)); persist(); emit() } })
   }
   applyStarts()
   persist()
@@ -832,10 +835,13 @@ async function syncProgress(json: string): Promise<void> {
 export const SIGNUP_BONUS = 1000
 /** One 1,000 in-game sign-up bonus per verified (Privy) login id. In-game money only. */
 export async function grantSignupBonus(_verifiedId: string): Promise<boolean> {
-  // Once per account, enforced server-side (player_grants), never per login or per device.
-  if (!(await serverGrant('signup', SIGNUP_BONUS))) return false
-  save.ledger = Math.round((save.ledger + SIGNUP_BONUS) * 100) / 100
-  log('social', 'Sign-up bonus', `$${SIGNUP_BONUS.toLocaleString()} in-game for a verified login.`)
+  // Shared with Shrimp starting balance (grant id `starter`) — one $1,000 per account.
+  if (!(await serverGrant('starter', SIGNUP_BONUS))) return false
+  if (save.startTier < 0) save.startTier = 0
+  save.ledger = cents(save.ledger + SIGNUP_BONUS)
+  if (!save.activities.some((a) => a.label === 'Starting balance' || a.label === 'Shrimp starting balance' || a.label === 'Sign-up bonus')) {
+    log('money', 'Starting balance', `${money(SIGNUP_BONUS)} in-game once per account (Shrimp).`)
+  }
   persist()
   emit()
   return true

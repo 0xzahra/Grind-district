@@ -30,10 +30,22 @@ export default async function handler(req: Req, res: Res) {
   if (!p.data) return res.status(404).json({ error: 'claim a username first' })
   if (req.query?.op === 'grant') {
     // One-time grants per Privy account. Insert-if-absent: fresh=true only the first time (idempotent).
-    const id = String(req.body?.id ?? '')
+    // `starter` is the single $1,000 new-player credit. Legacy ids `signup` and `start:shrimp` alias to it
+    // so accounts that already received either never get paid again.
+    let id = String(req.body?.id ?? '')
+    if (id === 'signup' || id === 'start:shrimp') id = 'starter'
     const START: Record<string, number> = { shrimp: 1000, crab: 500, fish: 1000, dolphin: 1500, shark: 2500, whale: 3500 }
-    const amount = id === 'signup' ? 1000 : id.startsWith('start:') ? START[id.slice(6)] : undefined
+    const amount = id === 'starter' ? 1000 : id.startsWith('start:') ? START[id.slice(6)] : undefined
     if (amount === undefined) return res.status(400).json({ error: 'unknown grant' })
+    // If a legacy signup / start:shrimp row already exists, treat starter as already paid.
+    if (id === 'starter') {
+      const legacy = await db.from('player_grants').select('grant_id').eq('privy_user_id', userId).in('grant_id', ['starter', 'signup', 'start:shrimp'])
+      if (!legacy.error && (legacy.data?.length ?? 0) > 0) {
+        // Ensure canonical starter row exists for future checks.
+        await db.from('player_grants').upsert({ privy_user_id: userId, grant_id: 'starter', amount: 1000 }, { onConflict: 'privy_user_id,grant_id', ignoreDuplicates: true })
+        return res.status(200).json({ fresh: false, amount: 1000 })
+      }
+    }
     const ins = await db.from('player_grants').upsert({ privy_user_id: userId, grant_id: id, amount }, { onConflict: 'privy_user_id,grant_id', ignoreDuplicates: true }).select('grant_id')
     if (ins.error) return res.status(503).json({ error: 'grants unavailable', fresh: false })
     return res.status(200).json({ fresh: (ins.data ?? []).length === 1, amount })
@@ -44,6 +56,28 @@ export default async function handler(req: Req, res: Res) {
     if (!req.body?.save || raw.length > 262_144) return res.status(400).json({ error: 'bad save' })
     const up = await db.from('player_progress').upsert({ privy_user_id: userId, save: req.body.save, updated_at: new Date().toISOString() }, { onConflict: 'privy_user_id' })
     return up.error ? res.status(503).json({ error: 'progress sync unavailable' }) : res.status(200).json({ ok: true })
+  }
+  if (req.query?.op === 'delete-account') {
+    const username = p.data.username
+    await db.from('player_progress').delete().eq('privy_user_id', userId)
+    await db.from('player_grants').delete().eq('privy_user_id', userId)
+    await db.from('public_profiles').delete().eq('username', username)
+    await db.from('reward_wallets').delete().eq('privy_user_id', userId)
+    await db.from('wallets').delete().eq('privy_user_id', userId)
+    try { await db.from('messages').delete().or(`from_username.eq.${username},to_username.eq.${username}`) } catch { /* */ }
+    try { await db.from('referrals').delete().or(`invitee_username.eq.${username},inviter_username.eq.${username}`) } catch { /* */ }
+    const del = await db.from('players').delete().eq('privy_user_id', userId)
+    if (del.error) return res.status(503).json({ error: 'could not delete player row' })
+    if (!userId.startsWith('near:')) {
+      try {
+        const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
+        const secret = process.env.PRIVY_APP_SECRET
+        if (appId && secret) await new PrivyClient(appId, secret).deleteUser(userId)
+      } catch (e) {
+        return res.status(502).json({ error: 'server data removed; Privy delete failed', detail: String((e as Error)?.message ?? e) })
+      }
+    }
+    return res.status(200).json({ ok: true })
   }
   if (req.query?.op === 'agent-code') {
     // One-time code (30 min) the player's AI agent sends to /api/agent-register to link itself to this profile.
