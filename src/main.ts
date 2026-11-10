@@ -9,13 +9,14 @@ import { createWeather } from './weather.ts'
 import { setMixerViewer, posedHuman } from './humans.ts'
 import { createMentorCard } from './mentor.ts'
 import { nextStep } from './objective.ts'
+import { FREE_WILL_PRICE, buyFreeWill, ownsFreeWill, settleAway, markSeen } from './freeWill.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { publishProfile } from './share.ts'
-import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer, setStepSource } from './career.ts'
+import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer, setStepSource, setUpgradeCard } from './career.ts'
 import { JOBS } from './careerData.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
@@ -23,7 +24,7 @@ import { tagPlayer } from './player.ts'
 import { assetUrl } from './assets.ts'
 import { startFlat } from './flat.ts'
 import { createInput } from './input.ts'
-import { decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics, type SkillId } from './logic.ts'
+import { money, decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics, type SkillId } from './logic.ts'
 import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
 import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
@@ -804,6 +805,26 @@ const apiAgents = createRemoteAgents(scene)
     goal.setAttribute('aria-label', `Next step: ${st.text}. ${sub}`)
   }
   window.setInterval(() => { try { paintGoal() } catch { /* city still booting: rooms are set up further down */ } }, 1000)
+  // Free Will upgrade: residents live their own day; your character keeps earning while you are away.
+  crowd.setFreeWill(ownsFreeWill())
+  window.addEventListener('gd:freewill', () => crowd.setFreeWill(ownsFreeWill()))
+  const awayCheck = () => { const line = settleAway(); if (line) notify('While you were away', line, `away-${Date.now()}`, 'balance') }
+  window.setTimeout(awayCheck, 4000)
+  window.setInterval(() => { if (document.visibilityState === 'visible') markSeen() }, 30_000)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') markSeen(); else awayCheck() })
+  window.addEventListener('pagehide', () => markSeen())
+  setUpgradeCard(() => {
+    const card = el('div', '', 'cr-card fw-card')
+    const owned = ownsFreeWill()
+    card.append(el('strong', `Free Will${owned ? ' · on' : ` · ${money(FREE_WILL_PRICE)} in-game`}`),
+      el('p', 'City people live their own day (work, lunch, prayer, home), have moods and talk to you. Your character keeps working or studying while you are offline (up to 8 h of modest in-game pay).', 'cc-muted'))
+    if (!owned) {
+      const b = el('button', `Unlock for ${money(FREE_WILL_PRICE)} in-game`, 'cr-btn primary')
+      b.onclick = () => { const r = buyFreeWill(); ui.toast(r.ok ? r.message : `${r.message} Earn it in the city or add funds with a top-up.`); if (r.ok) window.dispatchEvent(new CustomEvent('gd:career', { detail: 'overview' })) }
+      card.append(b, el('p', 'Paid from your in-game balance. Top up from Balance if you need more.', 'cc-muted'))
+    }
+    return card
+  })
   setStepSource(() => { const st = nextStep(); return { ...st, run: () => runStep(st.go) } })
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)

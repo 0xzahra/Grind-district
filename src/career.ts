@@ -134,6 +134,9 @@ type StepView = { text: string; sub: string; run: () => void }
 let stepSource: (() => StepView) | null = null
 /** main.ts hands in the HUD's next-step logic so the Career sheet always leads with the same single action. */
 export function setStepSource(f: () => StepView): void { stepSource = f }
+let upgradeCard: (() => HTMLElement) | null = null
+/** main.ts hands in the Free Will upgrade card for the Progress tab. */
+export function setUpgradeCard(f: () => HTMLElement): void { upgradeCard = f }
 function nextStepCard(): HTMLElement | null {
   if (!stepSource) return null
   const st = stepSource()
@@ -171,6 +174,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   if (tab === 'history') { renderFeed(body, go); return }
   if (tab === 'overview') {
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
+    if (upgradeCard) body.append(upgradeCard())
     body.append(el('h3', 'Progress'), bar('Learning · courses passed', passed.length, SKILL_ORDER.length), bar('Trading practice · sized trades', c.trades, 25), bar(`Jobs · ${c.job ? JOB_LEVELS[jobLevel()] : 'no job yet'}`, jobLevel() + (c.job ? 1 : 0), 10))
     body.append(el('h3', 'Pinned certificates'), el('p', 'Pin up to 3. They show on your /cv page and share card.', 'cc-muted'))
     if (!passed.length) body.append(el('p', 'Pass a course in the Campus to earn a certificate.', 'cc-muted'))

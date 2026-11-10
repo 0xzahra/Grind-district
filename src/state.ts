@@ -895,6 +895,15 @@ export function joinEvent(ev: { id: string; title: string; kind: string; xp: num
 }
 
 /** Generic in-game purchase (wardrobe, upgrades). Practice dollars only; logged as a want. */
+/** Spend in-game balance on an upgrade (logged as an activity, not a liability). */
+export function spendInGame(usd: number, label: string, detail: string): { ok: boolean; message: string } {
+  if (save.ledger < usd) return { ok: false, message: `Short ${money(usd - save.ledger)} in-game.` }
+  save.ledger = cents(save.ledger - usd)
+  log('money', label, `-${money(usd)} in-game. ${detail}`)
+  persist()
+  emit()
+  return { ok: true, message: label }
+}
 export function buyWant(label: string, usd: number): { ok: boolean; message: string } {
   if (save.ledger < usd) return { ok: false, message: `Short ${money(usd - save.ledger)}.` }
   save.ledger = cents(save.ledger - usd)

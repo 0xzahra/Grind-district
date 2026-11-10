@@ -138,7 +138,7 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
   return along > 0 ? along : null
 }
 
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury, people.length)
@@ -211,7 +211,23 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
   const live: Array<{ sp: THREE.Sprite; host: THREE.Object3D; ttl: number }> = []
   const still = new Set<number>()
   const gaze: Array<{ t: number; cool: number }> = []
+  // Free Will: each resident has a mood for the day and a routine by the hour, and talks to you up close.
+  let freeWill = false
+  const talked: number[] = []
+  const MOODS = ['upbeat', 'focused', 'tired', 'chatty', 'calm']
+  const moodOf = (i: number) => MOODS[(i * 7 + Math.floor(Date.now() / 864e5)) % MOODS.length]!
+  const routineNow = (i: number) => {
+    const h = new Date().getHours()
+    const per = PERSONAS[i % PERSONAS.length]!
+    if (h < 6) return 'Should be asleep, honestly'
+    if (h < 12) return `Work time: ${per.routine.split(',')[0]!.toLowerCase()}`
+    if (h < 14) return 'Lunch break at the Campus café'
+    if (h < 16) return 'Off to the prayer space, then back to work'
+    if (h < 19) return `After work: ${(per.routine.split(',')[1] ?? ' a walk by the water').trim().toLowerCase()}`
+    return 'Heading home for the night'
+  }
   const doing = (p: Person, i: number): string => {
+    if (freeWill) return `${moodOf(i)[0]!.toUpperCase()}${moodOf(i).slice(1)} · ${routineNow(i)}`
     const tgt = p.sim.spec.points[p.sim.index]
     if (!still.has(i) && tgt) return `Heading to ${placeName(tgt.x, tgt.z)}`
     const partner = people.find((o, j) => j !== i && still.has(j) && Math.hypot(o.sim.x - p.sim.x, o.sim.z - p.sim.z) < 2.6)
@@ -233,6 +249,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       }
       return best
     },
+    setFreeWill(on) { freeWill = on },
     nearest(x, z, r) { return people.some((p) => Math.hypot(p.sim.x - x, p.sim.z - z) < r) },
     debug() { return people.map((p, i) => ({ x: +p.sim.x.toFixed(2), z: +p.sim.z.toFixed(2), state: posed.some((q) => q.p === p) ? 'seated' : still.has(i) ? 'idle' : 'walking', body: p.sim.spec.body })) },
     tick(dt, player) {
@@ -246,6 +263,19 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const a = near[chatLine % Math.max(1, near.length)]
         if (a && live.length < 0) { const per = PERSONAS[people.indexOf(a) % PERSONAS.length]!; const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
         chatLine += 1
+      }
+      if (freeWill && player && live.length < 1) {
+        // Walk up to someone and they talk to you: their mood, what they are doing now, or one of their lines.
+        const now = performance.now() / 1000
+        const i = people.findIndex((p, k) => Math.hypot(p.sim.x - player.x, p.sim.z - player.z) < 2.6 && (talked[k] ?? -99) < now - 20)
+        if (i >= 0) {
+          talked[i] = now
+          const per = PERSONAS[i % PERSONAS.length]!
+          const turn = Math.floor(now) % 3
+          const text = turn === 0 ? `${per.name}: Feeling ${moodOf(i)} today.` : turn === 1 ? `${per.name}: ${routineNow(i)}.` : `${per.name}: ${per.lines[Math.floor(now) % per.lines.length]}`
+          const sp = bubble(text); people[i]!.avatar.object.add(sp); live.push({ sp, host: people[i]!.avatar.object, ttl: 3.6 })
+          gaze[i] = { t: 0, cool: 0 } // turn to face you while talking
+        }
       }
       // Look at the player only when very close (< 2.2 m) and only briefly (2 s, then 12 s cooldown).
       // Otherwise walkers face where they walk, and paused people face their nearest paused partner (chatting).
