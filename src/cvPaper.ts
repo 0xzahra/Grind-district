@@ -18,7 +18,7 @@ export function renderCvPaper(): HTMLElement {
   const page = el('div', 'cv-paper')
   const head = el('div', 'cv-head')
   head.append(el('div', 'cv-name', s.name || 'Player'), el('div', 'cv-role', job ? `${JOB_LEVELS[jobLevel()]} ${job.title}` : `${rank.label} · Grind District`))
-  head.append(el('div', 'cv-contact', [s.username ? `@${s.username}` : '', 'Grind District', 'grinddistrict.vercel.app'].filter(Boolean).join('  ·  ')))
+  head.append(el('div', 'cv-contact', [s.username ? `@${s.username}` : '', 'Grind District', 'grinddistrict.app'].filter(Boolean).join('  ·  ')))
   page.append(head)
   const section = (title: string) => { const sec = el('div', 'cv-sec'); sec.append(el('div', 'cv-h', title)); page.append(sec); return sec }
   const item = (sec: HTMLElement, title: string, where: string, when: string, lines: string[] = []) => {

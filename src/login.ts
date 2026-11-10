@@ -459,7 +459,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const loading = el('p', mode === 'signup' ? 'Loading sign up…' : 'Loading sign in…', 'muted')
   body.append(loading, msg)
 
-  const renderOptions = (opts: { google: boolean; twitter: boolean; email: boolean; domainOk: boolean } | null, privyError = '') => {
+  const renderOptions = (opts: { google: boolean; twitter: boolean; email: boolean; domainOk: boolean; alt?: string } | null, privyError = '') => {
     if (closed) return
     loading.remove()
     const parts: HTMLElement[] = []
@@ -494,7 +494,9 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     }
     const stack = el('div', '', 'login-providers')
     // Order: X, Google, NEAR (always), then compact email (Privy one-time code — email cannot verify without a code).
-    if (APP_ID && opts?.domainOk) {
+    // Never hide Google / X because of our own domain check: if Privy has them on, show them and let Privy's
+    // own error appear if this origin is not allowed in the dashboard.
+    if (APP_ID && opts) {
       if (opts.twitter) stack.append(social('twitter'))
       if (opts.google) stack.append(social('google'))
     }
@@ -506,8 +508,6 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
       parts.push(el('p', privyError, 'muted'))
     } else if (!opts) {
       parts.push(el('p', 'Could not load Google / X / email options. Try NEAR.', 'muted'))
-    } else if (!opts.domainOk) {
-      parts.push(el('p', `Google, X and email are not enabled for ${location.host} yet. You can use NEAR.`, 'muted'))
     } else if (opts.email) {
       const emailBox = el('div', '', 'login-email')
       emailBox.append(
@@ -518,6 +518,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     } else if (!opts.google && !opts.twitter && !opts.email) {
       parts.push(el('p', 'Google, X and email are off in the Privy dashboard. NEAR still works.', 'muted'))
     }
+    if (APP_ID && opts && !opts.domainOk && (opts.google || opts.twitter || opts.email)) parts.push(el('p', `If Google, X or email fails here, use NEAR${opts.alt ? ` or open ${opts.alt}` : ''}.`, 'muted login-domain-note'))
     parts.push(el('p', 'No funds or transactions are requested to sign in.', 'muted'))
     body.insertBefore(el('div', '', 'login-options'), msg).append(...parts)
   }
@@ -544,11 +545,11 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     try {
       const cfg = p.app.getConfig()
       if (!cfg) { renderOptions(null); return }
-      const allowed = (cfg.allowed_domains ?? []).map((d: string) => d.replace(/\/+$/, '').toLowerCase())
+      const allowed = (cfg.allowed_domains ?? []).map((d: string) => { const t = d.trim().replace(/\/+$/, '').toLowerCase(); return /^https?:\/\//.test(t) ? t : `https://${t}` })
       const here = location.origin.toLowerCase()
       const localDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
       const domainOk = localDev || allowed.length === 0 || allowed.some((d: string) => d === here || d === location.host.toLowerCase() || (d.startsWith('https://*.') && here.endsWith(d.slice(9))))
-      renderOptions({ google: !!cfg.google_oauth, twitter: !!cfg.twitter_oauth, email: !!cfg.email_auth, domainOk })
+      renderOptions({ google: !!cfg.google_oauth, twitter: !!cfg.twitter_oauth, email: !!cfg.email_auth, domainOk, alt: allowed.find((d: string) => !d.includes('*'))?.replace(/^https?:\/\//, '') })
     } catch {
       if (!closed) renderOptions(null)
     }
