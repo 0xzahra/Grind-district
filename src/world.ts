@@ -4,7 +4,7 @@ import type { Graphics, PanelId, Season, TimeOfDay } from './logic.ts'
 import { LOOK, lightBudget } from './lookPalette.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
-import { LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
+import { FOOTPRINTS, LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { createArchitecture, type Facade, type Style } from './architecture.ts'
 import { buildShowroom } from './showcase.ts'
@@ -970,6 +970,34 @@ export function createWorld(options: {
   })
   for (const m of [trunks, crowns, crowns2]) m.computeBoundingSphere()
   scene.add(trunks, crowns, crowns2)
+
+  // Baked contact shading: a soft dark halo on the ground round every building and under every tree. Phones
+  // run without shadow maps, so this is what seats the city on its ground there; with real shadows it reads
+  // as ambient occlusion. Painted once into the ground map (no per-frame cost).
+  {
+    const canvas = groundMap.image as HTMLCanvasElement
+    const g = canvas.getContext('2d')
+    if (g) {
+      const scale = canvas.width / SPAN, mid = canvas.width / 2
+      const FAR = canvas.width * 2 // the shape itself is drawn off-canvas; only its blurred shadow lands
+      g.save()
+      g.shadowOffsetX = FAR
+      g.fillStyle = '#000'
+      g.shadowColor = 'rgba(28, 22, 14, 0.42)'
+      g.shadowBlur = 1.5 * scale
+      for (const f of FOOTPRINTS) g.fillRect(mid + (f.x - f.w / 2 - 0.25) * scale - FAR, mid + (f.z - f.d / 2 - 0.25) * scale, (f.w + 0.5) * scale, (f.d + 0.5) * scale)
+      g.shadowColor = 'rgba(24, 30, 16, 0.34)'
+      for (const [x, z, base] of treeSpots) {
+        g.shadowBlur = base * 1.3 * scale
+        g.beginPath(); g.arc(mid + x * scale - FAR, mid + z * scale, base * 1.25 * scale, 0, Math.PI * 2); g.fill()
+      }
+      g.shadowColor = 'rgba(20, 16, 10, 0.5)'
+      g.shadowBlur = 0.9 * scale
+      g.beginPath(); g.arc(mid - FAR, mid, 2.75 * scale, 0, Math.PI * 2); g.fill() // drinks stand
+      g.restore()
+      groundMap.needsUpdate = true
+    }
+  }
 
   // Street lamps: a slim bronze post on a collared base, a swan-neck arm reaching over the kerb and a frosted
   // lantern under a flat cap. All posts merge into one mesh and all lanterns into another (two draw calls).
