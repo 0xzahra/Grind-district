@@ -2308,9 +2308,10 @@ body.online-open .goal-pill { visibility: hidden; }
 .goal-pill.folded > * { display: none; }
 .goal-pill.folded::before { left: 12px; top: 12px; }
 @media (max-width: 520px) {
-  #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 12px) !important; left: calc(max(12px, env(safe-area-inset-left)) + 62px) !important; transform: none !important; }
-  #online-card { left: calc(max(12px, env(safe-area-inset-left)) + 62px); transform: none; }
-  .goal-pill { top: calc(max(14px, env(safe-area-inset-top)) + 52px) !important; }
+  /* Phones: Online sits on its own line under the logo so a long Balance pill can never cover it. */
+  #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 36px) !important; left: calc(max(12px, env(safe-area-inset-left)) + 2px) !important; transform: none !important; }
+  #online-card { top: calc(max(14px, env(safe-area-inset-top)) + 62px); left: calc(max(12px, env(safe-area-inset-left)) + 2px); transform: none; }
+  .goal-pill { top: calc(max(14px, env(safe-area-inset-top)) + 66px) !important; }
 }
 /* CV as a printed page (one document; Resume and Portfolio merged/removed). */
 .cv-wrap { margin: 6px 0 4px; }
