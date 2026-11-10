@@ -37,47 +37,84 @@ export function agentJoinForm(): HTMLElement {
   wrap.className = 'stack agent-join'
   const prompt = document.createElement('pre')
   prompt.className = 'agent-prompt'
-  let text = AGENT_PROMPT.replaceAll('{{CLAIM}}', '<claim code: sign in first>')
-  prompt.textContent = text
+  // Signed out: the prompt is shown for reading only and the button never copies a placeholder
+  // (a tester's agent once got "claim code invalid" from a copied '<claim code: sign in first>').
+  prompt.textContent = AGENT_PROMPT.replaceAll('{{CLAIM}}', '••••••')
   const copyBtn = document.createElement('button')
-  copyBtn.type = 'button'; copyBtn.className = 'primary agent-copy'; copyBtn.textContent = 'Copy prompt'
+  copyBtn.type = 'button'; copyBtn.className = 'primary agent-copy'
   const status = document.createElement('p')
   status.className = 'muted'
   const current = getAgent()
-  status.textContent = current ? `Your agent: ${current.label}.` : 'Copy the prompt and paste it to your AI agent. It registers itself; this page updates when it joins.'
-  copyBtn.onclick = async () => {
-    const ok = await copyText(text)
-    copyBtn.textContent = ok ? 'Copied ✓' : 'Select and copy the text above'
-    if (!ok) { const r = document.createRange(); r.selectNodeContents(prompt); const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(r) }
-    window.setTimeout(() => { copyBtn.textContent = 'Copy prompt' }, 2000)
-  }
   const note = document.createElement('p')
   note.className = 'agent-note'
   note.textContent = CURRENCY_NOTE
   wrap.append(copyBtn, prompt, status, note)
-  // Signed-in players get a fresh one-time claim code baked into the prompt, then we watch for the link.
-  void (async () => {
-    if (!localStorage.getItem('gd.privy.username')) return
+  const signedIn = !!localStorage.getItem('gd.privy.username')
+  const nearOnly = (localStorage.getItem('gd.privy.userId') ?? '').startsWith('near:')
+  if (!signedIn || nearOnly) {
+    copyBtn.textContent = 'Sign in to get your agent code'
+    copyBtn.dataset.signin = '1'
+    status.textContent = nearOnly
+      ? 'Agent codes need a Google, X or email sign-in for now. NEAR sign-in cannot make one yet.'
+      : 'Sign in first. Your copied prompt then carries a one-time claim code that links the agent to you.'
+    copyBtn.onclick = () => { void import('./login.ts').then((l) => l.openLogin()) }
+    return wrap
+  }
+  copyBtn.textContent = 'Copy prompt'
+  status.textContent = current ? `Your agent: ${current.label}.` : 'Copy the prompt and paste it to your AI agent. It registers itself; this page updates when it joins.'
+  let watching = false
+  /** A fresh one-time code from the server (valid 30 min; each new code replaces the last). */
+  const freshPrompt = async (): Promise<{ text: string; username: string; agent: string | null }> => {
     const token = await (await import('./login.ts')).accessToken().catch(() => null)
-    if (!token) return
+    if (!token) throw new Error('Your sign-in expired. Sign in again to get a code.')
     const r = await fetch('/api/profile?op=agent-code', { method: 'POST', headers: { authorization: `Bearer ${token}` } }).catch(() => null)
     const j = r && r.ok ? await r.json().catch(() => null) as { code?: string; username?: string; agent?: { label?: string } | null } | null : null
-    if (!j?.code) return
-    text = AGENT_PROMPT.replaceAll('{{CLAIM}}', j.code)
-    prompt.textContent = text
-    if (j.agent?.label) { setAgent({ label: j.agent.label }); status.textContent = `Your agent: ${j.agent.label}. A new prompt links a new agent.`; return }
-    status.textContent = 'Prompt ready with your one-time claim code (valid 30 min). Waiting for your agent to register…'
+    if (!j?.code || !/^gdc_[\w-]{8,}$/.test(j.code)) throw new Error('Could not get an agent code. Try again.')
+    return { text: AGENT_PROMPT.replaceAll('{{CLAIM}}', j.code), username: j.username ?? '', agent: j.agent?.label ?? null }
+  }
+  const watch = (username: string) => {
+    if (watching) return
+    watching = true
     const until = Date.now() + 30 * 60_000
     const tick = async () => {
       if (!wrap.isConnected) return
-      if (Date.now() > until) { status.textContent = 'This claim code expired after 30 minutes. Close and reopen Agents for a fresh prompt.'; return }
-      const pr = await fetch(`/api/messages?op=profile&u=${encodeURIComponent(j.username ?? '')}`, { headers: { authorization: `Bearer ${await (await import('./login.ts')).accessToken().catch(() => '')}` } }).catch(() => null)
+      if (Date.now() > until) { status.textContent = 'This claim code expired after 30 minutes. Tap Copy prompt again for a fresh one.'; watching = false; return }
+      const pr = await fetch(`/api/messages?op=profile&u=${encodeURIComponent(username)}`, { headers: { authorization: `Bearer ${await (await import('./login.ts')).accessToken().catch(() => '')}` } }).catch(() => null)
       const pj = pr && pr.ok ? await pr.json().catch(() => null) as { profile?: { agent?: string | null } } | null : null
       if (pj?.profile?.agent) { setAgent({ label: pj.profile.agent }); status.textContent = `Agent joined: ${pj.profile.agent}. Your profile now shows the Agent label.`; return }
       window.setTimeout(() => void tick(), 8000)
     }
     window.setTimeout(() => void tick(), 8000)
-  })()
+  }
+  copyBtn.onclick = async () => {
+    copyBtn.disabled = true
+    copyBtn.textContent = 'Getting a fresh code…'
+    const pending = freshPrompt()
+    let ok = false
+    let got: Awaited<typeof pending> | null = null
+    try {
+      // ClipboardItem with a promise keeps the tap's permission while the code loads (iOS Safari).
+      const CI = (window as unknown as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem
+      if (CI && navigator.clipboard?.write && window.isSecureContext) {
+        await navigator.clipboard.write([new CI({ 'text/plain': pending.then((g) => new Blob([g.text], { type: 'text/plain' })) })])
+        ok = true
+      }
+    } catch { ok = false }
+    try { got = await pending } catch (e) {
+      copyBtn.disabled = false; copyBtn.textContent = 'Copy prompt'
+      status.textContent = (e as Error).message
+      return
+    }
+    prompt.textContent = got.text
+    if (!ok) ok = await copyText(got.text)
+    copyBtn.disabled = false
+    copyBtn.textContent = ok ? 'Copied ✓' : 'Select and copy the text above'
+    if (!ok) { const r = document.createRange(); r.selectNodeContents(prompt); const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(r) }
+    window.setTimeout(() => { copyBtn.textContent = 'Copy prompt' }, 2000)
+    if (got.agent) { setAgent({ label: got.agent }); status.textContent = `Your agent: ${got.agent}. This new code links a new agent (valid 30 min).` }
+    else status.textContent = 'Copied with a fresh one-time claim code (valid 30 min). Waiting for your agent to register…'
+    watch(got.username)
+  }
   return wrap
 }
 export const notificationsOn = () => localStorage.getItem(NOTIFY) !== '0'

@@ -1,9 +1,8 @@
-// Privy embedded wallets for Google / X / email players: an EVM wallet (Base) and a NEAR wallet, each
-// created automatically after sign-in when the account has none ("users-without-wallets"). The key material lives in Privy's hidden secure iframe;
+// Privy embedded EVM wallet (works on Base) for Google / X / email players, created automatically after
+// sign-in when the account has none ("users-without-wallets"). The key material lives in Privy's hidden secure iframe;
 // the game only keeps the public address (localStorage, not the save) to show it in the wallet panel.
 // Nothing here sends funds or touches top-up or payments. NEAR sign-in never calls this.
 export const GAME_WALLET_KEY = 'gd.privy.wallet'
-export const GAME_NEAR_KEY = 'gd.privy.near'
 const isAddr = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a)
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
@@ -38,56 +37,31 @@ function mountBridge(privy: PrivyLike): Promise<void> {
   return bridge
 }
 
-type Linked = { type?: string; chain_type?: string; chainType?: string; address?: string }
-const nearOf = (u: unknown) => {
-  const list = ((u as { linked_accounts?: Linked[]; linkedAccounts?: Linked[] } | null)?.linked_accounts ?? (u as { linkedAccounts?: Linked[] } | null)?.linkedAccounts ?? [])
-  return list.find((a) => a.type === 'wallet' && (a.chain_type ?? a.chainType) === 'near')?.address ?? ''
-}
-const isNear = (a: string) => /^[0-9a-f]{64}$/.test(a) || /^[a-z0-9._-]{2,64}$/.test(a)
 const keep = (key: string, a: string) => { try { localStorage.setItem(key, a) } catch { /* private mode */ } }
 
 /**
- * Find or create the player's embedded wallets: one EVM wallet (works on Base) and one NEAR wallet
- * (Privy "extended chain", implicit account). Single owner each (the player), no multisig.
- * Quiet: never throws, never blocks sign-in.
+ * Find or create the player's embedded EVM wallet (one owner: the player; works on Base).
+ * NEAR stays on NEAR connect. Quiet: never throws, never blocks sign-in.
  */
-export async function ensureEmbeddedWallet(privy: PrivyLike): Promise<{ evm: string; near: string }> {
-  const out = { evm: '', near: '' }
+export async function ensureEmbeddedWallet(privy: PrivyLike): Promise<string> {
   try {
     const mod = await import('@privy-io/js-sdk-core')
     const evmOf = (u: unknown) => (u ? (mod.getUserEmbeddedEthereumWallet(u as Parameters<typeof mod.getUserEmbeddedEthereumWallet>[0])?.address ?? '') : '')
-    const timeout = <T>(p: Promise<T>, ms: number, what: string) => Promise.race([p, new Promise<never>((_, r) => setTimeout(() => r(new Error(`${what} timed out`)), ms))])
-    let user = (await privy.user.get()).user
-    out.evm = evmOf(user); out.near = nearOf(user)
-    if (!out.evm || !out.near) await mountBridge(privy).catch((e) => console.warn('Privy wallet iframe:', (e as Error).message))
-    if (!out.evm) {
-      try {
-        const created = await timeout(privy.embeddedWallet.create({}), 25_000, 'EVM wallet create')
-        user = created.user ?? (await privy.user.get()).user
-        out.evm = evmOf(user)
-      } catch (e) { console.warn('Base wallet not created:', (e as Error).message) }
+    let addr = evmOf((await privy.user.get()).user)
+    if (!addr) {
+      await mountBridge(privy).catch((e) => console.warn('Privy wallet iframe:', (e as Error).message))
+      const created = await Promise.race([privy.embeddedWallet.create({}), new Promise<never>((_, r) => setTimeout(() => r(new Error('wallet create timed out')), 25_000))])
+      addr = evmOf(created.user) || evmOf((await privy.user.get()).user)
     }
-    if (!out.near) {
-      try {
-        // Same call Privy's SDK uses for its own TEE wallets, with chain_type 'near' (extended chain).
-        const w = await timeout(mod.create(privy as unknown as Parameters<typeof mod.create>[0], { request: { chain_type: 'near' } }), 25_000, 'NEAR wallet create')
-        out.near = (w as { address?: string }).address ?? nearOf((await privy.user.get()).user)
-      } catch (e) { console.warn('NEAR wallet not created:', (e as Error).message) }
-    }
-    if (isAddr(out.evm)) keep(GAME_WALLET_KEY, out.evm)
-    if (out.near && isNear(out.near)) keep(GAME_NEAR_KEY, out.near)
-    window.dispatchEvent(new Event('gd:game-wallet'))
+    if (isAddr(addr)) { keep(GAME_WALLET_KEY, addr); window.dispatchEvent(new Event('gd:game-wallet')) }
+    return addr
   } catch (e) {
-    console.warn('Game wallet not created:', (e as Error).message)
+    console.warn('Base wallet not created:', (e as Error).message)
+    return ''
   }
-  return out
 }
 
-export function gameNearAddress(): string {
-  try { const a = localStorage.getItem(GAME_NEAR_KEY) ?? ''; return a && isNear(a) ? a : '' } catch { return '' }
-}
-
-/** Small read-only lines for the wallet panel: short address and a copy button for each chain. */
+/** Small read-only lines for the wallet panel: short Base address and a copy button. */
 export function gameWalletChip(): HTMLElement[] {
   const rows: HTMLElement[] = []
   const line = (chain: string, a: string) => {
@@ -102,6 +76,5 @@ export function gameWalletChip(): HTMLElement[] {
     row.append(label, code, copy); rows.push(row)
   }
   const evm = gameWalletAddress(); if (evm) line('Base', evm)
-  const near = gameNearAddress(); if (near) line('NEAR', near)
   return rows
 }

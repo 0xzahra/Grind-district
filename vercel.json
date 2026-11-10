@@ -1,4 +1,28 @@
 {
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "grinddistrict.app"
+        }
+      ],
+      "destination": "https://www.grinddistrict.app/",
+      "permanent": false
+    },
+    {
+      "source": "/:path((?!api/).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "grinddistrict.app"
+        }
+      ],
+      "destination": "https://www.grinddistrict.app/:path",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/reward-wallet",
