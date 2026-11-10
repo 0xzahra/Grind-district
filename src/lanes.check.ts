@@ -33,27 +33,22 @@ if (failed) {
   ;(globalThis as unknown as { process: { exit(n: number): void } }).process.exit(1)
 }
 console.log('lanes ok: no lane point inside any building footprint')
-// Ring swing between arms (traffic.ts): from the inbound end of one arm round the plaza to the next arm's outbound start,
-// radius r(s) = lane radius - 2.5 sin(pi s). Cars stay visible and must clear every building.
+// Roundabout transfers (traffic.ts): every ring route stays on the ring asphalt and clear of every building.
 {
+  const { ringRoute, RING_IN, RING_OUT } = await import('./lanes.ts')
   let bad = 0
-  for (let arm = 0; arm < 4; arm += 1) for (const k of [1, 2]) {
-    const from = lanePoint(arm, 0, false)
-    const to = lanePoint((arm + k) % 4, 0, true)
-    const a0 = Math.atan2(from.z, from.x)
-    let a1 = Math.atan2(to.z, to.x)
-    while (a1 - a0 > Math.PI) a1 -= Math.PI * 2
-    while (a1 - a0 < -Math.PI) a1 += Math.PI * 2
-    const R = Math.hypot(to.x, to.z)
-    for (let s = 0; s <= 1; s += 0.01) {
-      const a = a0 + (a1 - a0) * s
-      const r = R - 2.5 * Math.sin(Math.PI * s)
-      const hit = insideFootprint(Math.cos(a) * r, Math.sin(a) * r, 1.0)
-      if (hit) { bad += 1; console.error(`ring swing arm ${arm}->${(arm + k) % 4} s=${s.toFixed(2)} touches ${hit.label}`) }
+  for (let from = 0; from < 4; from += 1) for (let to = 0; to < 4; to += 1) {
+    if (from === to) continue
+    for (const p of ringRoute(from, to)) {
+      const hit = insideFootprint(p.x, p.z, 1.0)
+      if (hit) { bad += 1; console.error(`ring ${from}->${to} at (${p.x.toFixed(1)}, ${p.z.toFixed(1)}) touches ${hit.label}`) }
+      const r = Math.hypot(p.x, p.z)
+      const onArm = Math.abs(p.x) < ROAD_HALF + 2 || Math.abs(p.z) < ROAD_HALF + 2 // flared entry mouths
+      if (r < RING_IN + 0.9 || (r > RING_OUT - 0.9 && !onArm)) { bad += 1; console.error(`ring ${from}->${to} leaves the ring asphalt at r=${r.toFixed(2)}`) }
     }
   }
   if (bad) (globalThis as unknown as { process: { exit(n: number): void } }).process.exit(1)
-  console.log('ring swing ok: cars stay visible and clear of buildings between arms')
+  console.log('ring ok: roundabout routes stay on the asphalt and clear of buildings')
 }
 
 // Side road (houses + city edge): both lanes stay clear of every footprint and join the east arm seamlessly.

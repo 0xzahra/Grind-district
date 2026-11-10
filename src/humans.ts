@@ -7,14 +7,23 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { ShrimpAvatar } from './shrimp.ts'
+import { abayaGeometry, rigFrame, skirtGeometry, type Frame } from './garments.ts'
 
 export const MEN = ['man1', 'man2', 'man3', 'man4'] as const
 export const WOMEN = ['woman1', 'woman2', 'woman3', 'woman4'] as const
 export type HumanModel = (typeof MEN)[number] | (typeof WOMEN)[number]
-export type Look = { skin?: number; hair?: number; top?: number; bottom?: number; shoes?: number }
+export type Look = {
+  skin?: number; hair?: number; top?: number; bottom?: number; shoes?: number
+  /** Arms and legs in the top colour (worn under an abaya). */
+  sleeves?: boolean
+  /** Abaya: a loose straight robe with wide sleeves and a hijab over the hair, head and neck. */
+  robe?: boolean
+  /** Floor-length skirt (a gown) instead of the default mid-calf one. */
+  gown?: boolean
+}
 export type Extras = { chain?: boolean; watch?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean }
 
-type Template = { scene: THREE.Group; clips: THREE.AnimationClip[]; parts: { name: string; start: number; count: number }[]; height: number }
+type Template = { scene: THREE.Group; clips: THREE.AnimationClip[]; parts: { name: string; start: number; count: number }[]; height: number; base: Float32Array; pos: Float32Array; limb: Uint8Array; headVerts: Uint32Array; frame?: Frame | null; garments: Map<string, THREE.BufferGeometry | null> }
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const cache = new Map<HumanModel, Promise<Template>>()
 const GOLD = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.9, roughness: 0.3 })
@@ -22,7 +31,8 @@ const PEARL = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.35 
 const STEEL = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.85, roughness: 0.3 })
 const SHADE = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 })
 const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
-const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0, envMapIntensity: 0.7 }) // matte cloth/skin: no plastic sheen
+// Faceted, matte low-poly people: flat shading shows every plane of the model (the art reference), no plastic sheen.
+const sharedMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.92, metalness: 0, envMapIntensity: 0.45 })
 
 function toFloat(attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, size: number): THREE.BufferAttribute {
   const out = new Float32Array(attr.count * size)
@@ -69,7 +79,22 @@ function load(name: HumanModel): Promise<Template> {
       for (const m of skinned) m.removeFromParent()
       scene.updateMatrixWorld(true)
       const box = new THREE.Box3().setFromObject(scene, true)
-      return { scene, clips: gltf.animations, parts, height: Math.max(0.1, box.max.y - box.min.y) }
+      // Which vertices sit on an arm (1) or a leg (2): lets an outfit cover them (long sleeves) by colour alone.
+      const limb = new Uint8Array(merged.getAttribute('position').count)
+      const names = first.skeleton.bones.map((b) => b.name)
+      const si = merged.getAttribute('skinIndex'), sw = merged.getAttribute('skinWeight')
+      const onHead: number[] = []
+      const skinPart = parts.find((p) => /skin/i.test(p.name))
+      for (let i = 0; i < limb.length; i++) {
+        let best = 0
+        for (let k = 1; k < 4; k++) if (sw.getComponent(i, k) > sw.getComponent(i, best)) best = k
+        const bone = names[si.getComponent(i, best)] ?? ''
+        limb[i] = /^(UpperArm|LowerArm|Shoulder)/.test(bone) ? 1 : /^(UpperLeg|LowerLeg)/.test(bone) ? 2 : 0
+        if (bone === 'Head' && skinPart && i >= skinPart.start && i < skinPart.start + skinPart.count) onHead.push(i)
+      }
+      const base = (merged.getAttribute('color').array as Float32Array).slice()
+      const pos = (merged.getAttribute('position').array as Float32Array).slice()
+      return { scene, clips: gltf.animations, parts, height: Math.max(0.1, box.max.y - box.min.y), base, pos, limb, headVerts: Uint32Array.from(onHead), garments: new Map() }
     })
     cache.set(name, p)
   }
@@ -134,19 +159,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
     person.scale.setScalar((opts.height ?? 1.74) / t.height)
     person.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false } })
     const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh
-    const recolor = (look: Look) => {
-      if (!mesh.userData.ownGeo) { mesh.geometry = mesh.geometry.clone(); mesh.userData.ownGeo = true }
-      const geo = mesh.geometry
-      const col = geo.getAttribute('color') as THREE.BufferAttribute
-      const c = new THREE.Color()
-      for (const p of t.parts) {
-        const hex = /skin/i.test(p.name) ? look.skin : /^hair/i.test(p.name) ? look.hair : /shirt\d?$|dress|jacket/i.test(p.name) ? look.top : /pants/i.test(p.name) ? look.bottom : /shoes|socks/i.test(p.name) ? look.shoes : undefined
-        if (hex === undefined) continue
-        c.setHex(hex) // vertex colours are linear; setHex converts from sRGB
-        for (let i = p.start; i < p.start + p.count; i++) col.setXYZ(i, c.r, c.g, c.b)
-      }
-      col.needsUpdate = true
-    }
+    const recolor = (look: Look) => paint(mesh, t, look)
     const look = (root.userData.look as Look | undefined) ?? opts.look
     if (look) recolor(look)
     root.userData.applyLook = recolor
@@ -209,68 +222,30 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
       root.userData.setExtras = setExtras
     }
-    // Full-length abaya/dress hem: woman4 dress mesh ends mid-thigh; extend a soft skirt to the ankles
-    // so modest outfits (abaya, wrap, blush, ankara) read as floor-length, not a short gown.
+    // Dresses and abayas (woman4): the model's own dress stops mid-thigh, so the outfit is completed with a
+    // skinned garment. A dress gets a skirt; an abaya gets a loose straight robe with wide sleeves and a hijab.
     if (model === 'woman4') {
-      // Geometry is in the unscaled rig frame (dress ends ~y 1.76; ankles ~0). Person.scale applies.
-      const hemMat = new THREE.MeshStandardMaterial({
-        color: look?.top ?? 0x1a1c22,
-        roughness: 0.88,
-        metalness: 0.02,
-        side: THREE.DoubleSide,
-      })
-      const hem = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.25, 1.85, 14, 1, true), hemMat)
-      hem.position.set(0, 0.98, 0.02)
-      hem.castShadow = true
-      hem.frustumCulled = false
-      person.add(hem)
-      root.userData.dressHem = hem
-      const prevLook = root.userData.applyLook as ((look: Look) => void) | undefined
-      root.userData.applyLook = (next: Look) => {
-        prevLook?.(next)
-        if (next.top != null) hemMat.color.setHex(next.top)
+      const wear = wardrobe(mesh, t, look?.top ?? 0x1a1c22)
+      if (wear) {
+        root.userData.dressHem = wear
+        const prevLook = root.userData.applyLook as ((look: Look) => void) | undefined
+        root.userData.applyLook = (next: Look) => { prevLook?.(next); wear(next) }
+        wear(look ?? {})
       }
     }
     root.userData.person = person
     root.userData.body = bodyRef
     bodyRef.visible = false
     root.add(person)
+    window.dispatchEvent(new Event('gd-avatar-ready'))
     const mixer = new THREE.AnimationMixer(person)
-    // Quaternius Idle often omits UpperArmR and leaves a raised A/T pose. Inject a mirrored
-    // UpperArmR track from UpperArmL, and a small adduct offset so arms hang by the sides.
-    const clips = t.clips.map((clip) => {
-      if (clip.name !== 'Idle') return clip
-      const hasR = clip.tracks.some((tr) => /UpperArmR\.quaternion/.test(tr.name))
-      const left = clip.tracks.find((tr) => /UpperArmL\.quaternion/.test(tr.name))
-      let next = clip
-      if (!hasR && left && left instanceof THREE.QuaternionKeyframeTrack) {
-        const vals = left.values.slice()
-        // Mirror X and Z of quaternion for opposite arm (approximate left→right)
-        for (let i = 0; i < vals.length; i += 4) {
-          vals[i] = -vals[i]!
-          vals[i + 2] = -vals[i + 2]!
-        }
-        const mirrored = new THREE.QuaternionKeyframeTrack('UpperArmR.quaternion', Array.from(left.times), vals)
-        next = new THREE.AnimationClip(clip.name, clip.duration, [...clip.tracks, mirrored])
-      }
-      return next
-    })
+    const clips = t.clips
     const act = (n: string) => { const c = clips.find((k) => k.name === n); return c ? mixer.clipAction(c) : null }
     const idle = act('Idle'), walk = act('Walk'), run = act('Run')
     for (const a of [idle, walk, run]) if (a) { a.play(); a.setEffectiveWeight(0) }
     idle?.setEffectiveWeight(1)
     const w = { idle: 1, walk: 0, run: 0 }
-    const armL = person.getObjectByName('UpperArmL') as THREE.Bone | null
-    const armR = person.getObjectByName('UpperArmR') as THREE.Bone | null
-    const foreL = person.getObjectByName('LowerArmL') as THREE.Bone | null
-    const foreR = person.getObjectByName('LowerArmR') as THREE.Bone | null
-    // Rest offsets: pull upper arms in toward the torso (fix raised Idle), slight elbow bend.
-    const restUL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0.05, 0.55))
-    const restUR = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, -0.05, -0.55))
-    const restFL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0, -0.2))
-    const restFR = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05, 0, 0.2))
-    const qIdle = new THREE.Quaternion()
-    const qIdent = new THREE.Quaternion()
+    const arms = armRig(person)
     const baseFace = avatar.face
     avatar.face = (x, z, dt, moving) => { baseFace(x, z, dt, moving); person.rotation.y = bodyRef.rotation.y }
     avatar.step = (dt, moving, speed) => {
@@ -286,15 +261,11 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       const lod = mixerLod(root)
       if (root.userData.acc < lod) return
       mixer.update(root.userData.acc)
+      root.userData.accLast = root.userData.acc
       root.userData.acc = 0
-      // Idle: hang arms naturally. Walk/Run: keep clip swing (only a light idle blend).
-      if (w.idle > 0.05) {
-        const tIdle = w.idle
-        if (armL) armL.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restUL, tIdle))
-        if (armR) armR.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restUR, tIdle))
-        if (foreL) foreL.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restFL, tIdle * 0.7))
-        if (foreR) foreR.quaternion.multiply(qIdle.slerpQuaternions(qIdent, restFR, tIdle * 0.7))
-      }
+      // The pack's clips leave the arms raised (Idle even lacks a right-arm track on some models), so the arms
+      // are posed here: they hang by the sides and swing against the opposite leg, in step with the clip.
+      if (arms) poseArms(person, arms, w.run, (root.userData.armT = ((root.userData.armT as number | undefined) ?? Math.random() * 6) + root.userData.accLast))
     }
   }).catch(() => { /* keep the procedural body */ })
 }
@@ -318,4 +289,216 @@ function mixerLod(root: THREE.Object3D): number {
   if (!viewFrustum.intersectsSphere(lodSphere)) return 0.5
   const d = lodSphere.center.distanceToSquared(viewPos)
   return d > 900 ? 0.12 : d > 324 ? 0.06 : 0
+}
+
+type ArmRig = { hips: THREE.Object3D; sides: Array<{ upper: THREE.Object3D; fore: THREE.Object3D; hand: THREE.Object3D; thigh: THREE.Object3D; knee: THREE.Object3D; side: number }> }
+function armRig(person: THREE.Object3D): ArmRig | null {
+  const get = (n: string) => person.getObjectByName(n)
+  const hips = get('Hips')
+  const sides: ArmRig['sides'] = []
+  // Each arm swings against the opposite leg.
+  for (const [arm, leg, side] of [['L', 'R', 1], ['R', 'L', -1]] as const) {
+    const upper = get(`UpperArm${arm}`), fore = get(`LowerArm${arm}`), hand = get(`Palm${arm}`), thigh = get(`UpperLeg${leg}`), knee = get(`LowerLeg${leg}`)
+    if (upper && fore && hand && thigh && knee) sides.push({ upper, fore, hand, thigh, knee, side })
+  }
+  return hips && sides.length === 2 ? { hips, sides } : null
+}
+
+const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vDir = new THREE.Vector3(), vWant = new THREE.Vector3()
+const vRight = new THREE.Vector3(), vFwd = new THREE.Vector3(), vUp = new THREE.Vector3(0, 1, 0)
+const qWorld = new THREE.Quaternion(), qParent = new THREE.Quaternion(), qTurn = new THREE.Quaternion()
+/** Turn `bone` so that the segment from it to `child` points along the world direction `want`. */
+function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): void {
+  bone.getWorldPosition(vA); child.getWorldPosition(vB)
+  vDir.subVectors(vB, vA).normalize()
+  qTurn.setFromUnitVectors(vDir, want)
+  bone.parent!.getWorldQuaternion(qParent)
+  // local' = parent^-1 * turn * parent * local
+  bone.quaternion.premultiply(qWorld.copy(qParent).invert().multiply(qTurn).multiply(qParent))
+  bone.updateMatrixWorld(true)
+}
+function poseArms(person: THREE.Object3D, rig: ArmRig, run: number, time: number): void {
+  person.updateMatrixWorld(true)
+  person.getWorldQuaternion(qWorld)
+  vRight.set(1, 0, 0).applyQuaternion(qWorld).normalize()
+  vFwd.set(0, 0, 1).applyQuaternion(qWorld).normalize()
+  for (const s of rig.sides) {
+    // Stride angle of the opposite thigh (forward positive) drives this arm.
+    s.thigh.getWorldPosition(vA); s.knee.getWorldPosition(vB)
+    vDir.subVectors(vB, vA).normalize()
+    const stride = Math.atan2(vDir.dot(vFwd), -vDir.y)
+    const reach = 0.5 + run * 0.35
+    const swing = THREE.MathUtils.clamp(stride * (0.6 + run * 0.4), -reach, reach) + Math.sin(time * 1.3 + s.side) * 0.025
+    const out = 0.13 + run * 0.05
+    vWant.copy(vUp).multiplyScalar(-Math.cos(swing)).addScaledVector(vFwd, Math.sin(swing)).addScaledVector(vRight, s.side * out).normalize()
+    aim(s.upper, s.fore, vWant)
+    // Elbow: a relaxed bend that opens on the back swing and closes on the forward swing (more when running).
+    const bend = swing + 0.2 + Math.max(0, swing) * 0.5 + run * 0.9
+    vWant.copy(vUp).multiplyScalar(-Math.cos(bend)).addScaledVector(vFwd, Math.sin(bend)).addScaledVector(vRight, s.side * (out - 0.07)).normalize()
+    aim(s.fore, s.hand, vWant)
+  }
+}
+
+/** Recolour a person's vertex colours for a look (skin, hair, top, bottom, shoes; optional covered limbs). */
+function paint(mesh: THREE.SkinnedMesh, t: Template, look: Look): void {
+  if (!mesh.userData.ownGeo) { mesh.geometry = mesh.geometry.clone(); mesh.userData.ownGeo = true }
+  const col = mesh.geometry.getAttribute('color') as THREE.BufferAttribute
+  ;(col.array as Float32Array).set(t.base)
+  const c = new THREE.Color()
+  for (const p of t.parts) {
+    const skin = /skin/i.test(p.name)
+    const hex = skin ? look.skin : /^hair/i.test(p.name) ? look.hair : /shirt\d?$|dress|jacket/i.test(p.name) ? look.top : /pants/i.test(p.name) ? look.bottom : /shoes|socks/i.test(p.name) ? look.shoes : undefined
+    if (hex !== undefined) {
+      c.setHex(hex) // vertex colours are linear; setHex converts from sRGB
+      for (let i = p.start; i < p.start + p.count; i++) col.setXYZ(i, c.r, c.g, c.b)
+    }
+    if (skin && look.sleeves && look.top !== undefined) {
+      c.setHex(look.top)
+      for (let i = p.start; i < p.start + p.count; i++) if (t.limb[i]) col.setXYZ(i, c.r, c.g, c.b)
+    }
+  }
+  col.needsUpdate = true
+}
+
+/** Garments for one person: returns a function that shows the right one for a look. Null if the rig cannot carry them. */
+function wardrobe(mesh: THREE.SkinnedMesh, t: Template, colour: number): ((look: Look) => void) | null {
+  if (t.frame === undefined) t.frame = rigFrame(mesh)
+  const frame = t.frame
+  if (!frame) return null
+  const mat = new THREE.MeshStandardMaterial({ color: colour, vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide, envMapIntensity: 0.4 })
+  const made = new Map<string, THREE.SkinnedMesh>()
+  const geometry = (key: string): THREE.BufferGeometry | null => {
+    if (!t.garments.has(key)) {
+      if (key === 'abaya') {
+        // Where the head is, from its own skin vertices, in the frame's (right, up, fwd) coordinates.
+        const box = new THREE.Box3(), v = new THREE.Vector3()
+        for (const i of t.headVerts) { v.fromArray(t.pos, i * 3).sub(frame.mid); box.expandByPoint(new THREE.Vector3(v.dot(frame.right), v.dot(frame.up), v.dot(frame.fwd))) }
+        t.garments.set(key, box.isEmpty() ? null : abayaGeometry(frame, box))
+      } else t.garments.set(key, skirtGeometry(frame, key === 'gown' ? 0.955 : 0.72))
+    }
+    return t.garments.get(key) ?? null
+  }
+  const show = (key: string) => {
+    if (!made.has(key)) {
+      const geo = geometry(key)
+      if (geo) {
+        const g = new THREE.SkinnedMesh(geo, mat)
+        g.name = key === 'abaya' ? 'Abaya' : 'Skirt'
+        g.position.copy(mesh.position); g.quaternion.copy(mesh.quaternion); g.scale.copy(mesh.scale)
+        mesh.parent!.add(g)
+        g.bind(mesh.skeleton, mesh.bindMatrix)
+        g.castShadow = true
+        g.frustumCulled = false
+        made.set(key, g)
+      }
+    }
+    for (const [k, g] of made) g.visible = k === key
+    return made.has(key)
+  }
+  // Under a hijab the hair is tucked away: its vertices fold into the head so none shows at the neck or back.
+  let tucked = false
+  const tuck = (on: boolean) => {
+    if (on === tucked) return
+    tucked = on
+    if (!mesh.userData.ownGeo) { mesh.geometry = mesh.geometry.clone(); mesh.userData.ownGeo = true }
+    const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute
+    const centre = new THREE.Vector3()
+    for (const i of t.headVerts) centre.add(new THREE.Vector3().fromArray(t.pos, i * 3))
+    centre.multiplyScalar(1 / Math.max(1, t.headVerts.length))
+    for (const p of t.parts) {
+      if (!/^hair/i.test(p.name)) continue
+      for (let i = p.start; i < p.start + p.count; i++) {
+        if (on) pos.setXYZ(i, centre.x, centre.y, centre.z)
+        else pos.setXYZ(i, t.pos[i * 3]!, t.pos[i * 3 + 1]!, t.pos[i * 3 + 2]!)
+      }
+    }
+    pos.needsUpdate = true
+  }
+  return (look) => {
+    if (look.top != null) mat.color.setHex(look.top)
+    const robed = !!look.robe && show('abaya')
+    if (!robed) show(look.gown ? 'gown' : 'skirt')
+    tuck(robed)
+  }
+}
+
+/**
+ * A still, posed person for a room (worshippers, shop mannequins): one skinned mesh, no animation mixer.
+ * `stand` hangs the arms; `pray` folds the hands over the chest (standing in prayer); `kneel` sits back on
+ * the heels with the hands on the thighs. Returns at once and fills in when the model has loaded.
+ */
+export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel'; look?: Look; height?: number; cap?: number; mono?: number }): THREE.Group {
+  const root = new THREE.Group()
+  void load(model).then((t) => {
+    const person = cloneSkinned(t.scene) as THREE.Group
+    person.scale.setScalar((o.height ?? 1.74) / t.height)
+    const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh
+    mesh.castShadow = true
+    mesh.frustumCulled = false
+    if (o.look) paint(mesh, t, o.look)
+    if (o.mono !== undefined) {
+      // Shop mannequin: one matte colour all over.
+      if (!mesh.userData.ownGeo) { mesh.geometry = mesh.geometry.clone(); mesh.userData.ownGeo = true }
+      const col = mesh.geometry.getAttribute('color') as THREE.BufferAttribute, c = new THREE.Color(o.mono)
+      for (let i = 0; i < col.count; i++) col.setXYZ(i, c.r, c.g, c.b)
+      col.needsUpdate = true
+    }
+    root.add(person)
+    if (model === 'woman4') wardrobe(mesh, t, o.look?.top ?? 0x1a1c22)?.(o.look ?? {})
+    root.updateMatrixWorld(true)
+    const rig = armRig(person)
+    if (!rig) return
+    person.getWorldQuaternion(qWorld)
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(qWorld).normalize()
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(qWorld).normalize()
+    const dir = (r: number, u: number, f: number) => new THREE.Vector3().addScaledVector(right, r).addScaledVector(vUp, u).addScaledVector(fwd, f).normalize()
+    if (o.pose === 'kneel') {
+      // Sit back on the heels: thighs forward and a little down, shins folded back under them along the floor.
+      for (const s of rig.sides) {
+        aim(s.thigh, s.knee, dir(-s.side * 0.05, -0.42, 0.9))
+        turn(s.knee, right, 2.62)
+      }
+      root.updateMatrixWorld(true)
+      // Rest the knees on the floor.
+      const knee = new THREE.Vector3()
+      rig.sides[0]!.knee.getWorldPosition(knee)
+      const base = new THREE.Vector3()
+      root.getWorldPosition(base)
+      person.position.y += (0.1 - (knee.y - base.y)) / (root.scale.y || 1)
+      root.updateMatrixWorld(true)
+    }
+    for (const s of rig.sides) {
+      if (o.pose === 'pray') {
+        aim(s.upper, s.fore, dir(s.side * 0.22, -0.93, 0.28))
+        aim(s.fore, s.hand, dir(-s.side * 0.86, 0.22, 0.46))
+      } else if (o.pose === 'kneel') {
+        aim(s.upper, s.fore, dir(s.side * 0.16, -0.9, 0.36))
+        aim(s.fore, s.hand, dir(-s.side * 0.12, -0.5, 0.86))
+      } else {
+        aim(s.upper, s.fore, dir(s.side * 0.13, -0.99, 0.04))
+        aim(s.fore, s.hand, dir(s.side * 0.07, -0.97, 0.22))
+      }
+    }
+    if (o.cap !== undefined) {
+      // Kufi: a small round cap on the crown, fixed to the head bone.
+      const head = person.getObjectByName('Head')
+      if (head) {
+        person.updateMatrixWorld(true)
+        const hp = new THREE.Vector3(); head.getWorldPosition(hp)
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.098, 0.07, 10), new THREE.MeshStandardMaterial({ color: o.cap, roughness: 0.9, flatShading: true }))
+        cap.position.copy(root.worldToLocal(hp.clone().add(new THREE.Vector3(0, 0.185, 0)).addScaledVector(fwd, 0.005)))
+        root.add(cap)
+        head.attach(cap)
+      }
+    }
+  }).catch(() => { /* the room simply has one figure fewer */ })
+  return root
+}
+
+/** Turn `bone` by `angle` about a world axis, whatever its own frame is. */
+function turn(bone: THREE.Object3D, axis: THREE.Vector3, angle: number): void {
+  bone.parent!.getWorldQuaternion(qParent)
+  qTurn.setFromAxisAngle(axis, angle)
+  bone.quaternion.premultiply(qWorld.copy(qParent).invert().multiply(qTurn).multiply(qParent))
+  bone.updateMatrixWorld(true)
 }

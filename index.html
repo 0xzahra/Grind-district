@@ -52,16 +52,17 @@
           <img class="hud-logo-new" src="/brand/logo-new.webp" width="733" height="453" alt="Grind District" />
           <p class="pills hud-cluster" id="hud-balance-cluster" aria-label="In-game status">
             <button id="pill-ledger" type="button" class="pill balance-chip" title="In-game balance (practice dollars)">Balance $0.00</button>
-            <button id="pill-rank" type="button" class="pill">Shrimp</button>
-            <button id="pill-place" type="button" class="pill" title="Open the City directory">The Plaza</button>
-            <button id="pill-season" type="button" class="pill">Bull</button>
+            <!-- Rank, district and season no longer sit beside the balance (HUD stays clear); they live in Profile, Map and Season. -->
+            <button id="pill-rank" type="button" class="pill" hidden>Shrimp</button>
+            <button id="pill-place" type="button" class="pill" title="Open the City directory" hidden>The Plaza</button>
+            <button id="pill-season" type="button" class="pill" hidden>Bull</button>
             <span id="pill-focus" class="pill" hidden>Focus</span>
           </p>
           <button id="rail-toggle" type="button" aria-label="Menu" aria-expanded="false" title="Menu"><span class="cc-dot" hidden></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
           <button id="shot" type="button" aria-label="Screenshot" title="Screenshot"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg></button>
           <div id="cam-dock" class="cam-dock" hidden>
-            <button id="cam-toggle" type="button" class="cam-toggle" aria-label="Camera" aria-expanded="false" aria-controls="cam-panel" title="Camera">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>
+            <button id="cam-toggle" type="button" class="cam-toggle" aria-label="Camera controls: turn, look around, zoom" aria-expanded="false" aria-controls="cam-panel" title="Camera controls">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.4"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4M12 3l-2 2M12 3l2 2M12 21l-2-2M12 21l2-2M3 12l2-2M3 12l2 2M21 12l-2-2M21 12l-2 2"/></svg>
             </button>
             <div id="cam-panel" class="cam-panel" hidden role="group" aria-label="Camera controls">
               <button id="cam-zoom-in" type="button" class="cam-btn" aria-label="Zoom in" title="Zoom in">
@@ -70,8 +71,11 @@
               <button id="cam-zoom-out" type="button" class="cam-btn" aria-label="Zoom out" title="Zoom out">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M16 16l5 5M7.5 10.5h6"/></svg>
               </button>
-              <button id="cam-orbit" type="button" class="cam-btn" aria-label="Look around" title="Look around">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/><path d="M19 5v3.5H15.5"/></svg>
+              <button id="cam-turn-left" type="button" class="cam-btn" aria-label="Turn left" title="Turn left">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15a8 8 0 1 0-13.6 3.4M4 20v-5h5"/></svg>
+              </button>
+              <button id="cam-orbit" type="button" class="cam-btn" aria-label="Turn right (look around)" title="Turn right">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15a8 8 0 1 1 13.6 3.4M20 20v-5h-5"/></svg>
               </button>
             </div>
           </div>

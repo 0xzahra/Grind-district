@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { createWorld } from './world.ts'
@@ -86,15 +85,12 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
 
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: coarse ? THREE.UnsignedByteType : THREE.HalfFloatType, samples: coarse ? 0 : 4 }))
   composer.addPass(new RenderPass(scene, camera))
-  let bokeh: BokehPass | null = null
   if (!coarse) {
     try {
       const ao = new GTAOPass(scene, camera, 1, 1)
       ao.blendIntensity = 0.8
       composer.addPass(ao)
     } catch { /* AO optional */ }
-    bokeh = new BokehPass(scene, camera, { focus: 45, aperture: 0.00012, maxblur: 0.006 })
-    composer.addPass(bokeh)
   }
   // Bloom barely on: Zahra MacBook showed blown-out white panels behind buildings.
   if (!coarse) composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.018, 0.55, 0.985))
@@ -128,7 +124,6 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     camera.position.set(Math.cos(a) * r, 20 + Math.sin(t * 0.11) * 3, Math.sin(a) * r)
     look.set(Math.cos(a + 2.4) * 6, 3, Math.sin(a + 2.4) * 6)
     camera.lookAt(look)
-    if (bokeh) (bokeh.uniforms as Record<string, { value: number }>).focus!.value = camera.position.distanceTo(look)
     focus.set(look.x, 0, look.z)
     world.tick(t, focus)
     const people = crowd.tick(dt)

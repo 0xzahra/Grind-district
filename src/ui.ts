@@ -309,6 +309,7 @@ export function mountUi(
       img.src = shot
       img.alt = `${save.name}, full body`
       hero.append(img)
+      window.setTimeout(() => { if (!img.isConnected) return; const next = hooks.portrait?.(); if (next) img.src = next }, 900)
     }
     // Nameplate under the portrait wears the equipped season frame (slate, brass, gold).
     const plate = document.createElement('div')
@@ -692,7 +693,7 @@ export function mountUi(
     const blurb = symbol === 'unit'
       ? `${season} season. A plan logged on the sell can count when the close is red.`
       : `${season} season. MEME is attention. Size small. Rank will not follow a crash.`
-    return frame(symbol === 'unit' ? 'Spot book' : 'Trenches book', stack(
+    return frame(symbol === 'unit' ? 'Spot book' : 'Meme book', stack(
       renderMarkets(),
       para(symbol === 'unit' ? 'UNIT · district coin' : 'MEME · new coin', 'kicker'),
       para(blurb, 'muted'),
@@ -729,7 +730,14 @@ export function mountUi(
     const wrap = stack(para('Clothes for your character. Tap a piece to try it on; owned pieces swap for free. Prices are in-game dollars.', 'muted'))
     { // Live outfit preview: a fresh portrait of your own avatar after every change.
       const shot = hooks.portrait?.() ?? null
-      if (shot) { const img = document.createElement('img'); img.src = shot; img.alt = 'Your current outfit'; img.className = 'outfit-preview'; wrap.append(img) }
+      if (shot) {
+        const img = document.createElement('img'); img.src = shot; img.alt = 'Your current outfit'; img.className = 'outfit-preview'; wrap.append(img)
+        // A new body or outfit swaps in its real model a moment later; retake the picture then, so the
+        // preview never shows the placeholder body.
+        const retake = () => { if (!img.isConnected) return; const next = hooks.portrait?.(); if (next) img.src = next }
+        window.addEventListener('gd-avatar-ready', () => window.setTimeout(retake, 60), { once: true })
+        window.setTimeout(retake, 900)
+      }
     }
     const bodies = document.createElement('div')
     bodies.className = 'tabs'
@@ -852,7 +860,7 @@ export function mountUi(
 
   const shopItem = (v: (typeof VEHICLES)[number], panel: 'gadgets' | 'dealer'): HTMLElement[] => {
     const owned = (getSave().ownedVehicles ?? []).includes(v.id)
-    return [itemPic(v.id), para(`${v.label} · ${v.blurb}`, 'muted'), button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
+    return [itemPic(v.id, v.label), para(`${v.label} · ${v.blurb}`, 'muted'), button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
       const outcome = buyVehicle(v.id)
       hooks.onStyle()
       finish(outcome.message)
@@ -874,7 +882,7 @@ export function mountUi(
       const owned = save.ownedDrones.includes(drone.id)
       const equipped = save.drone === drone.id
       const label = equipped ? `${drone.label} · flying` : owned ? `Equip ${drone.label}` : `Buy ${drone.label} · ${money(drone.price)}`
-      wrap.append(itemPic(drone.id), para(drone.blurb, 'muted'))
+      wrap.append(itemPic(drone.id, drone.label), para(drone.blurb, 'muted'))
       wrap.append(button(label, equipped ? 'primary' : 'ghost', () => {
         const outcome = buyDrone(drone.id)
         hooks.onStyle()

@@ -2157,3 +2157,98 @@ body:has(#menu:not([hidden])) .cam-dock { display: none !important; }
     height: 40px !important;
   }
 }
+
+/* ───────── Finish layer: in-game panels ─────────
+   One crisp, consistent treatment for the game sheet: surface, header, buttons, tabs, fields and shop
+   pictures. Scoped to #sheet; the top-up, wallet and login surfaces keep their own styles. */
+:root {
+  --gd-gold: #d9b26a;
+  --gd-line: rgba(255, 255, 255, 0.1);
+  --gd-line-strong: rgba(255, 255, 255, 0.2);
+  --gd-surface: rgba(255, 255, 255, 0.045);
+  --gd-surface-hi: rgba(255, 255, 255, 0.085);
+  --gd-radius: 12px;
+}
+#sheet .sheet-card {
+  background: linear-gradient(180deg, rgba(27, 28, 31, 0.88), rgba(14, 15, 17, 0.92)) !important;
+  border: 1px solid var(--gd-line) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 24px 60px rgba(0, 0, 0, 0.5) !important;
+}
+#sheet .sheet-head { border-bottom: 1px solid var(--gd-line); }
+#sheet .sheet-card .sheet-head h2 { font-weight: 500 !important; letter-spacing: 0.14em; }
+#sheet .sheet-card .sheet-head button {
+  background: var(--gd-surface) !important;
+  border: 1px solid var(--gd-line-strong) !important;
+  border-radius: 999px !important;
+  color: #f2efe8 !important;
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  outline-offset: 3px;
+}
+#sheet .sheet-card .kicker { color: var(--gd-gold); opacity: 0.92; }
+#sheet .sheet-card button.primary:not(.topup *),
+#sheet .sheet-card button.ghost:not(.topup *) {
+  border-radius: var(--gd-radius) !important;
+  padding: 10px 14px !important;
+  font-weight: 500 !important;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+#sheet .sheet-card button.primary:not(.topup *) {
+  background: linear-gradient(180deg, #e7c583, #cfa558) !important;
+  color: #17130c !important;
+  border: 1px solid rgba(255, 255, 255, 0.36) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 14px rgba(0, 0, 0, 0.32) !important;
+  font-weight: 600 !important;
+}
+#sheet .sheet-card button.ghost:not(.topup *) {
+  background: var(--gd-surface) !important;
+  border: 1px solid var(--gd-line) !important;
+  color: #ecd9ae !important;
+}
+#sheet .sheet-card button.ghost:not(.topup *):hover,
+#sheet .sheet-card button.ghost:not(.topup *):focus-visible {
+  background: var(--gd-surface-hi) !important;
+  border-color: var(--gd-line-strong) !important;
+  padding-left: 14px !important;
+}
+#sheet .sheet-card button:not(.topup *):active { transform: translateY(1px); }
+#sheet .sheet-card .tabs { gap: 8px; }
+#sheet .sheet-card .tabs:not(.swatches):not(.skin-tones) button { border-radius: 999px !important; padding: 8px 15px !important; }
+#sheet .sheet-card input[type='text'],
+#sheet .sheet-card input[type='search'],
+#sheet .sheet-card select,
+#sheet .sheet-card textarea {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid var(--gd-line-strong) !important;
+  border-radius: var(--gd-radius) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: #f5f2ea;
+}
+#sheet .sheet-card input[type='text']:focus-visible,
+#sheet .sheet-card select:focus-visible { border-color: var(--gd-gold) !important; outline: none; }
+/* Shop pictures: a photo of the real display model on its plinth, with a small brass-edged name tag. */
+.shop-pic {
+  position: relative;
+  height: auto !important;
+  aspect-ratio: 2 / 1;
+  border-radius: 14px !important;
+  border: 1px solid var(--gd-line);
+  background: #1d2023 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+.shop-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.shop-tag {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(20, 17, 13, 0.84);
+  border: 1px solid rgba(184, 149, 90, 0.75);
+  color: #f3e3c3;
+  font: 600 11px/1.2 Outfit, system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}

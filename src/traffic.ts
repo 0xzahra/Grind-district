@@ -1,582 +1,254 @@
 import * as THREE from 'three'
-import { ARMS as LANE_ARMS, lanePoint, uturnPoint, sidePoint, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS, insideFootprint } from './lanes.ts'
-
-/** Nudge a car pose out of any building footprint so vehicles never clip through walls. */
-function keepOffBuildings<T extends { x: number; z: number }>(pt: T, margin = 1.2): T {
-  for (let n = 0; n < 4; n++) {
-    const hit = insideFootprint(pt.x, pt.z, margin)
-    if (!hit) return pt
-    const dx = pt.x - hit.x, dz = pt.z - hit.z
-    const sx = Math.sign(dx) || 1, sz = Math.sign(dz) || 1
-    const ox = hit.w / 2 + margin - Math.abs(dx)
-    const oz = hit.d / 2 + margin - Math.abs(dz)
-    if (ox < oz) pt.x += sx * (ox + 0.05)
-    else pt.z += sz * (oz + 0.05)
-  }
-  return pt
-}
+import { ARMS, lanePoint, uturnPoint, sidePoint, ringRoute, insideFootprint, ROAD_HALF, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS } from './lanes.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-
-// Kenney Car Kit (CC0). Each model merges to one geometry -> one InstancedMesh per model.
-const CAR_MODELS = ['sedan', 'suv', 'taxi', 'sedan-sports', 'hatchback-sports', 'van', 'police']
-const CAR_SCALE = 1.5
+import { carLength, createFleet, type CarKind } from './cars.ts'
 
 /**
- * Ambient city: instanced pedestrians on the sidewalks and modern cars in lanes.
- * Two draw calls for people, three for cars. Counts scale with Settings > Graphics.
- * Cars stop at the plaza stop lines on a shared signal and for the car ahead, then turn back.
+ * Ambient traffic. Every car follows a leg (a polyline): out along an arm, U-turn in the bay, back in,
+ * round the plaza roundabout to another arm, or down the side road past the houses and out of town.
+ * Cars accelerate and brake smoothly, keep their distance, give way at the ring and stop for people.
  */
 
 type Lanes = { roadHalf: number; walk: number; inner: number; outer: number }
-type Arm = { ax: number; az: number } // unit vector pointing out from the plaza
-const ARMS: Arm[] = [...LANE_ARMS]
-const COUNTS: Record<Graphics, { people: number; cars: number }> = {
-  low: { people: 0, cars: 8 },
-  medium: { people: 0, cars: 16 },
-  high: { people: 0, cars: 22 },
-}
-const CAR_COLORS = [0xf2f4f7, 0x15181c, 0x8a96a3, 0x1a4cff, 0x3d4a3f, 0xb3122e, 0x2a2f36, 0xd9c7a1, 0xc9a227, 0x5c2a8a, 0xe8eef2, 0x1f6b4f]
-const SHIRTS = [0x1a4cff, 0x6b5a45, 0xf2f4f7, 0x2a1422, 0xff6f91, 0x5c6b80, 0xffb347, 0x3a3f47]
-const LOD = 70
-const SIGNAL_PERIOD = 14
+const COUNTS: Record<Graphics, number> = { low: 10, medium: 16, high: 22 }
+const ORDER: CarKind[] = ['sedan', 'hatchback', 'suv', 'taxi', 'pickup', 'minibus', 'van', 'sports', 'suv', 'sedan', 'hatchback', 'taxi', 'van', 'sports', 'sedan', 'pickup']
+const HIDE = 50 // cars only leave or re-enter the city edge when the player is this far away
 
-type Walker = { arm: number; side: number; t: number; dir: number; speed: number; phase: number }
-type Car = { side: boolean; s: number; sOut: boolean; goal: number; gone: number; park: number; arm: number; outbound: boolean; t: number; speed: number; wait: number; turn: number; swing: number; a0: number; a1: number }
+type LegKind = 'out' | 'u' | 'in' | 'ring' | 'sideOut' | 'sideU' | 'sideIn'
+type Leg = { kind: LegKind; arm: number; to: number; xs: Float32Array; zs: Float32Array; cum: Float32Array; len: number; part: 0 | 1 }
+type Car = {
+  id: number; kind: CarKind; len: number; leg: Leg; s: number; seg: number; v: number; cruise: number
+  x: number; z: number; px: number; pz: number; h: number; wait: number; park: number; goal: number; gone: number; hold: number; creep: number
+}
+
+function makeLeg(kind: LegKind, pts: { x: number; z: number }[], arm = 0, to = 0, part: 0 | 1 = 0): Leg {
+  const n = pts.length
+  const xs = new Float32Array(n), zs = new Float32Array(n), cum = new Float32Array(n)
+  pts.forEach((p, i) => { xs[i] = p.x; zs[i] = p.z; if (i) cum[i] = cum[i - 1]! + Math.hypot(p.x - pts[i - 1]!.x, p.z - pts[i - 1]!.z) })
+  return { kind, arm, to, xs, zs, cum, len: cum[n - 1]!, part }
+}
 
 export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphics): {
   tick: (dt: number, time: number, focus: { x: number; z: number }, people?: Obstacle[]) => Obstacle[]
 } {
+  void lanes
   const coarse = window.matchMedia('(pointer: coarse)').matches
-  const counts = COUNTS[coarse && graphics !== 'low' ? 'low' : graphics]
-  const dummy = new THREE.Object3D()
-  const color = new THREE.Color()
+  const count = COUNTS[coarse && graphics !== 'low' ? 'low' : graphics]
 
-  // People: fuller stylised bodies built from a few instanced parts (7 draw calls total).
-  const box = (w: number, h: number, d: number, y: number, z = 0) => new THREE.BoxGeometry(w, h, d).translate(0, y, z)
-  const torsoGeo = mergeGeometries([
-    new THREE.CylinderGeometry(0.2, 0.17, 0.56, 10).scale(1, 1, 0.62).translate(0, 1.18, 0), // chest -> waist
-    new THREE.SphereGeometry(0.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1.12, 0.45, 0.66).translate(0, 1.45, 0), // shoulders
-    new THREE.CylinderGeometry(0.18, 0.19, 0.16, 10).scale(1, 1, 0.68).translate(0, 0.88, 0), // hips
-    new THREE.CylinderGeometry(0.055, 0.06, 0.08, 6).translate(0, 1.53, 0), // neck
-  ])!
-  const legGeo = mergeGeometries([
-    new THREE.CylinderGeometry(0.085, 0.065, 0.82, 8).translate(0, -0.41, 0),
-    box(0.11, 0.07, 0.24, -0.84, 0.05), // shoe
-  ])!
-  const armGeo = mergeGeometries([
-    new THREE.CylinderGeometry(0.06, 0.048, 0.6, 8).translate(0, -0.3, 0),
-    new THREE.SphereGeometry(0.05, 6, 4).translate(0, -0.63, 0), // hand
-  ])!
-  const headGeo = mergeGeometries([
-    new THREE.IcosahedronGeometry(0.115, 1).scale(0.9, 1.12, 1).translate(0, 1.7, 0),
-  ])!
-  const hairGeo = new THREE.SphereGeometry(0.124, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55).scale(0.95, 1.05, 1.04).translate(0, 1.72, -0.008)
-  const cloth = new THREE.MeshStandardMaterial({ roughness: 0.78, flatShading: true })
-  const bodies = new THREE.InstancedMesh(torsoGeo, cloth, counts.people)
-  const armsL = new THREE.InstancedMesh(armGeo, cloth, counts.people)
-  const armsR = new THREE.InstancedMesh(armGeo, cloth, counts.people)
-  const trousers = new THREE.MeshStandardMaterial({ roughness: 0.85, flatShading: true })
-  const legsL = new THREE.InstancedMesh(legGeo, trousers, counts.people)
-  const legsR = new THREE.InstancedMesh(legGeo, trousers, counts.people)
-  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ roughness: 0.62, flatShading: true }), counts.people)
-  const hair = new THREE.InstancedMesh(hairGeo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), counts.people)
-  const skins = [0xf0c4a8, 0x8d5a3b, 0xc68a62, 0x5a3825, 0xe8b894]
-  const pants = [0x22262b, 0x3a3f47, 0x1d2a3a, 0x5b4a3a, 0x2b2b2b]
-  const hairs = [0x16110e, 0x3b2a1e, 0x0e0e10, 0x6b4a2e, 0xc9a66b]
-  const walkers: Walker[] = []
-  for (let i = 0; i < counts.people; i += 1) {
-    walkers.push({ arm: i % 4, side: i % 8 < 4 ? 1 : -1, t: Math.random(), dir: Math.random() < 0.5 ? 1 : -1, speed: 1.1 + Math.random() * 0.5, phase: Math.random() * 6 })
-    const shirt = color.setHex(SHIRTS[i % SHIRTS.length] ?? 0xffffff)
-    bodies.setColorAt(i, shirt)
-    armsL.setColorAt(i, shirt)
-    armsR.setColorAt(i, shirt)
-    const leg = color.setHex(pants[(i * 3) % pants.length] ?? 0x222222)
-    legsL.setColorAt(i, leg)
-    legsR.setColorAt(i, leg)
-    heads.setColorAt(i, color.setHex(skins[i % skins.length] ?? 0xf0c4a8))
-    hair.setColorAt(i, color.setHex(hairs[(i * 7) % hairs.length] ?? 0x111111))
-  }
-  // Style variety: distinct hair shapes and outfit pieces, each one instanced; unused slots get a zero matrix.
-  const hairShapes = [
-    hairGeo, // short crop
-    mergeGeometries([hairGeo.clone(), new THREE.SphereGeometry(0.07, 8, 6).translate(0, 1.86, -0.07)])!, // bun
-    new THREE.IcosahedronGeometry(0.17, 1).scale(1, 0.95, 1).translate(0, 1.76, -0.02), // afro
-    mergeGeometries([hairGeo.clone(), new THREE.BoxGeometry(0.22, 0.34, 0.08).translate(0, 1.56, -0.09)])!, // long
-    mergeGeometries([hairGeo.clone(), ...[-0.07, 0, 0.07].map((x) => new THREE.CylinderGeometry(0.025, 0.02, 0.36, 5).translate(x, 1.55, -0.1))])!, // locs
-    mergeGeometries([new THREE.SphereGeometry(0.125, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 1.73, 0), new THREE.CylinderGeometry(0.13, 0.13, 0.02, 10).scale(1, 1, 1.4).translate(0, 1.74, 0.07)])!, // cap
-  ]
-  const hairMat = hair.material as THREE.MeshStandardMaterial
-  hair.visible = false
-  const hairMeshes = hairShapes.map((g) => new THREE.InstancedMesh(g, hairMat, counts.people))
-  const hoodGeo = new THREE.SphereGeometry(0.15, 8, 6, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.4).scale(1, 1, 0.8).translate(0, 1.5, -0.08)
-  const skirtGeo = new THREE.CylinderGeometry(0.17, 0.3, 0.55, 10).scale(1, 1, 0.75).translate(0, 0.62, 0)
-  const coatGeo = new THREE.CylinderGeometry(0.21, 0.23, 0.5, 10).scale(1, 1, 0.66).translate(0, 0.78, 0)
-  const hoods = new THREE.InstancedMesh(hoodGeo, cloth, counts.people)
-  const skirts = new THREE.InstancedMesh(skirtGeo, cloth, counts.people)
-  const coats = new THREE.InstancedMesh(coatGeo, cloth, counts.people)
-  const hairKind = walkers.map((_, i) => (i * 5 + 1) % hairShapes.length)
-  const outfit = walkers.map((_, i) => ['jacket', 'hoodie', 'dress', 'suit', 'tee'][(i * 3) % 5] as string)
-  walkers.forEach((_, i) => {
-    const c = new THREE.Color()
-    bodies.getColorAt(i, c)
-    for (const m of [hoods, skirts, coats]) m.setColorAt(i, c)
-    if (outfit[i] === 'suit') { for (const m of [bodies, armsL, armsR, legsL, legsR, coats]) m.setColorAt(i, c.setHex([0x2a2d33, 0x3b3530, 0x1f2a3a][i % 3]!)) }
-    if (outfit[i] === 'tee') armsL.setColorAt(i, heads.getColorAt(i, c)), armsR.setColorAt(i, c)
-    hair.getColorAt(i, c)
-    for (const m of hairMeshes) m.setColorAt(i, c)
-  })
-  const zero = new THREE.Matrix4().makeScale(0, 0, 0)
-  const peopleMeshes = [bodies, armsL, armsR, legsL, legsR, heads, hair, ...hairMeshes, hoods, skirts, coats]
-  for (const mesh of peopleMeshes) {
-    mesh.castShadow = graphics === 'high'
-    mesh.frustumCulled = false
-    mesh.userData.ghost = true
-    mesh.raycast = () => undefined
-    scene.add(mesh)
-  }
-  const limb = new THREE.Object3D()
-  const limbAt = (mesh: THREE.InstancedMesh, i: number, x: number, y: number, swing: number) => {
-    limb.position.set(x, y, 0)
-    limb.rotation.set(swing, 0, 0)
-    limb.updateMatrix()
-    mesh.setMatrixAt(i, limb.matrix.premultiply(dummy.matrix))
-  }
-
-  // Cars: real variety (hatch / sedan / SUV / van / pickup / sports / taxi), each mesh merges
-  // body + cabin + FOUR wheels so a missing wheel draw can never happen. Instanced per style.
-  type CarStyle = { body: [number, number, number, number, number]; cabin: [number, number, number, number, number]; wheelBase: number; track: number }
-  // body: [w,h,d, y, zShift]; cabin similar; wheelBase = half-length to axle; track = half-width
-  const STYLES: CarStyle[] = [
-    { body: [1.7, 0.48, 3.4, 0.52, 0.05], cabin: [1.5, 0.48, 1.55, 1.0, -0.15], wheelBase: 1.15, track: 0.78 }, // hatch
-    { body: [1.85, 0.5, 4.1, 0.52, 0], cabin: [1.55, 0.5, 2.0, 1.05, -0.2], wheelBase: 1.4, track: 0.85 }, // sedan
-    { body: [1.95, 0.62, 4.3, 0.62, 0], cabin: [1.7, 0.58, 2.2, 1.2, -0.15], wheelBase: 1.45, track: 0.9 }, // suv
-    { body: [1.9, 0.85, 4.6, 0.75, 0], cabin: [1.75, 0.7, 2.6, 1.45, -0.1], wheelBase: 1.55, track: 0.88 }, // van / minibus
-    { body: [1.85, 0.55, 4.5, 0.55, 0.15], cabin: [1.55, 0.5, 1.5, 1.08, 0.55], wheelBase: 1.5, track: 0.86 }, // pickup
-    { body: [1.75, 0.42, 3.9, 0.48, 0.1], cabin: [1.5, 0.4, 1.4, 0.92, -0.35], wheelBase: 1.25, track: 0.8 }, // sports
-    { body: [1.8, 0.52, 4.0, 0.54, 0], cabin: [1.55, 0.5, 1.9, 1.06, -0.15], wheelBase: 1.35, track: 0.84 }, // taxi
-  ]
-  const paint = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.55 })
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0b1418, roughness: 0.1, metalness: 0.8 })
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.9 })
-  void rubber
-  const wheelUnit = new THREE.CylinderGeometry(0.32, 0.32, 0.24, 10)
-  wheelUnit.rotateZ(Math.PI / 2)
-  const styleMeshes: THREE.InstancedMesh[] = []
-  const styleGlass: THREE.InstancedMesh[] = []
-  const perStyle = STYLES.map(() => 0)
-  for (let i = 0; i < counts.cars; i++) perStyle[i % STYLES.length]!++
-  STYLES.forEach((st, k) => {
-    const [bw, bh, bd, by, bz] = st.body
-    const body = new THREE.BoxGeometry(bw, bh, bd)
-    body.translate(0, by, bz)
-    const whParts: THREE.BufferGeometry[] = []
-    for (const sx of [-1, 1] as const) for (const sz of [-1, 1] as const) {
-      const w = wheelUnit.clone()
-      w.translate(sx * st.track, 0.32, sz * st.wheelBase)
-      whParts.push(w)
-    }
-    const merged = mergeSimple([body, ...whParts])
-    const mesh = new THREE.InstancedMesh(merged, paint, Math.max(1, perStyle[k]!))
-    mesh.castShadow = graphics !== 'low'
-    mesh.frustumCulled = false
-    mesh.userData.ghost = true
-    mesh.raycast = () => undefined
-    scene.add(mesh)
-    styleMeshes.push(mesh)
-    const [cw, ch, cd, cy, cz] = st.cabin
-    const cabin = new THREE.BoxGeometry(cw, ch, cd)
-    cabin.translate(0, cy, cz)
-    const gMesh = new THREE.InstancedMesh(cabin, glass, Math.max(1, perStyle[k]!))
-    gMesh.frustumCulled = false
-    gMesh.userData.ghost = true
-    gMesh.raycast = () => undefined
-    scene.add(gMesh)
-    styleGlass.push(gMesh)
-  })
-  // Legacy names kept for Kenney swap block below (styles are hidden once GLBs load).
-  const bodiesCar = styleMeshes[0]!
-  const cabins = styleGlass[0]!
-  const wheels = styleMeshes[0]!
-  void bodiesCar; void cabins; void wheels
-  const cars: Car[] = []
-  const carStyleOf: number[] = []
-  const styleSlot: number[] = []
-  const usedSlot = STYLES.map(() => 0)
-  for (let i = 0; i < counts.cars; i += 1) {
-    const arm = i % 4
-    const outbound = i % 2 === 0
-    let t = (i * 0.29) % 1
-    for (let tries = 0; tries < 24; tries++) {
-      if (cars.every((o) => o.arm !== arm || o.outbound !== outbound || Math.abs(o.t - t) * (lanes.outer - lanes.inner) > 8)) break
-      t = (t + 0.11) % 1
-    }
-    cars.push({ side: false, s: 0, sOut: true, goal: 0, gone: 0, park: 0, arm, outbound, t, speed: 5.5 + (i % 4) * 0.6, wait: 0, turn: 0, swing: 0, a0: 0, a1: 0 })
-    const sk = i % STYLES.length
-    carStyleOf.push(sk)
-    styleSlot.push(usedSlot[sk]!)
-    styleMeshes[sk]!.setColorAt(usedSlot[sk]!, color.setHex(CAR_COLORS[i % CAR_COLORS.length] ?? 0xffffff))
-    // Taxi: force yellow
-    if (sk === 6) styleMeshes[sk]!.setColorAt(usedSlot[sk]!, color.setHex(0xe6c200))
-    usedSlot[sk]!++
-  }
-  for (const mesh of styleMeshes) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-
-  // Head and tail lights: two tiny instanced emissive strips that bloom at night.
-  const lightGeo = new THREE.BoxGeometry(1.3, 0.1, 0.05)
-  const headMat = new THREE.MeshBasicMaterial({ color: 0xfff6e0, toneMapped: false })
-  const tailMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false })
-  const heads2 = new THREE.InstancedMesh(lightGeo, headMat, counts.cars)
-  const tails = new THREE.InstancedMesh(lightGeo, tailMat, counts.cars)
-  for (const mesh of [heads2, tails]) {
-    mesh.frustumCulled = false
-    mesh.userData.ghost = true
-    mesh.raycast = () => undefined
-    scene.add(mesh)
-  }
-  const lightOffset = new THREE.Matrix4()
-  const headLocal = new THREE.Matrix4().makeTranslation(0, 0.66, 1.92)
-  // The Grind District logo lives only here: a small roof sign on every car (one instanced draw call).
-  const logoTex = new THREE.TextureLoader().load('/brand/logo-car.jpg')
-  logoTex.colorSpace = THREE.SRGBColorSpace
-  const roofSigns = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.34, 0.62), [
-    new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.5 }), new THREE.MeshStandardMaterial({ map: logoTex, roughness: 0.5 }),
-    new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }),
-    new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }),
-  ], counts.cars)
-  roofSigns.frustumCulled = false
-  roofSigns.userData.ghost = true
-  roofSigns.raycast = () => undefined
-  scene.add(roofSigns)
-  const roofLocal = new THREE.Matrix4().makeTranslation(0, 1.5, -0.3)
-  const tailLocal = new THREE.Matrix4().makeTranslation(0, 0.72, -1.92)
-
-  // Swap the box cars for Kenney models once they load; boxes stay as the instant fallback.
-  type Slot = { mesh: THREE.InstancedMesh; index: number }
-  let slots: Slot[] | null = null
-  const loader = new GLTFLoader()
-  const kinds = CAR_MODELS.slice(0, Math.max(3, Math.min(CAR_MODELS.length, counts.cars)))
-  Promise.all(kinds.map((name) => loader.loadAsync(`/models/cars/${name}.glb`))).then((gltfs) => {
-    const perKind = kinds.map(() => 0)
-    cars.forEach((_, i) => { perKind[i % kinds.length] = (perKind[i % kinds.length] ?? 0) + 1 })
-    const meshes = gltfs.map((gltf, k) => {
-      const parts: THREE.BufferGeometry[] = []
-      let material: THREE.Material | null = null
-      gltf.scene.updateMatrixWorld(true)
-      gltf.scene.traverse((o) => {
-        if (o instanceof THREE.Mesh) {
-          const g = (o.geometry as THREE.BufferGeometry).clone().applyMatrix4(o.matrixWorld)
-          for (const key of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(key)) g.deleteAttribute(key)
-          parts.push(g.index ? g.toNonIndexed() : g)
-          material ??= o.material as THREE.Material
-        }
-      })
-      const merged = mergeGeometries(parts)!
-      merged.scale(CAR_SCALE, CAR_SCALE, CAR_SCALE)
-      const mat = material as unknown as THREE.MeshStandardMaterial
-      mat.roughness = 0.35
-      mat.metalness = 0.4
-      const mesh = new THREE.InstancedMesh(merged, mat, Math.max(1, perKind[k] ?? 1))
-      mesh.castShadow = graphics === 'high'
-      mesh.frustumCulled = false
-      mesh.userData.ghost = true
-      mesh.raycast = () => undefined
-      scene.add(mesh)
-      return mesh
-    })
-    const used = kinds.map(() => 0)
-    slots = cars.map((_, i) => {
-      const k = i % kinds.length
-      return { mesh: meshes[k]!, index: used[k]!++ }
-    })
-    for (const m of [...styleMeshes, ...styleGlass]) m.visible = false
-  }).catch(() => { /* keep the box cars */ })
-
-  // Signals at the four plaza stop lines.
-  const signalMat = new THREE.MeshBasicMaterial({ color: 0x5fd27a, toneMapped: false })
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x20262a, roughness: 0.6 })
-  for (const arm of ARMS) {
-    const px = arm.ax * lanes.inner + (arm.az !== 0 ? lanes.roadHalf + 0.4 : 0) * (arm.az > 0 ? -1 : 1)
-    const pz = arm.az * lanes.inner + (arm.ax !== 0 ? lanes.roadHalf + 0.4 : 0) * (arm.ax > 0 ? 1 : -1)
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 2.6, 6), poleMat)
-    pole.position.set(px, 1.3, pz)
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.5, 0.22), signalMat)
-    lamp.position.set(px, 2.7, pz)
-    scene.add(pole, lamp)
-  }
-
-  const span = lanes.outer - lanes.inner
-  const obstacles: Obstacle[] = []
-  type Pt = { x: number; z: number; heading: number }
-  const HIDE = 50 // cars only leave or re-enter the city edge when the player is this far away (no popping in view)
-  const uAt = (sv: number, u: number): Pt => {
-    // U-turn across the side road at distance sv, from the outbound lane to the inbound lane.
-    const p = keepOffBuildings(sidePoint(sv, true))
+  // --- Legs -------------------------------------------------------------------------------------------
+  const sample = (f: (u: number) => { x: number; z: number }, n: number) => Array.from({ length: n + 1 }, (_, i) => f(i / n))
+  const armLeg = (kind: 'out' | 'in', a: number, t0: number, t1: number, part: 0 | 1) =>
+    makeLeg(kind, [lanePoint(a, t0, kind === 'out'), lanePoint(a, t1, kind === 'out')], a, a, part)
+  const outLegs = ARMS.map((_, a) => a === 0 ? [armLeg('out', 0, 0, SIDE_JOIN_T, 0), armLeg('out', 0, SIDE_JOIN_T, 1, 1)] : [armLeg('out', a, 0, 1, 1)])
+  const inLegs = ARMS.map((_, a) => a === 0 ? [armLeg('in', 0, 1, SIDE_JOIN_T, 0), armLeg('in', 0, SIDE_JOIN_T, 0, 1)] : [armLeg('in', a, 1, 0, 1)])
+  const uLegs = ARMS.map((_, a) => makeLeg('u', sample((u) => uturnPoint(a, u), 14), a, a))
+  const ringLegs = ARMS.map((_, a) => ARMS.map((__, b) => (a === b ? null : makeLeg('ring', ringRoute(a, b), a, b))))
+  const sideOut = makeLeg('sideOut', sample((u) => sidePoint(u * SIDE_LEN, true), Math.ceil(SIDE_LEN / 0.5)))
+  const sideIn = makeLeg('sideIn', sample((u) => sidePoint((1 - u) * SIDE_LEN, false), Math.ceil(SIDE_LEN / 0.5)))
+  const sideU = (s: number) => {
+    // U-turn across the side road at distance s, from the outbound lane to the inbound lane.
+    const p = sidePoint(s, true)
     const fx = Math.sin(p.heading), fz = Math.cos(p.heading)
     const rx = -Math.cos(p.heading), rz = Math.sin(p.heading)
-    const r = lanes.roadHalf * 0.5
+    const r = ROAD_HALF * 0.5
     const cx = p.x - rx * r, cz = p.z - rz * r
-    const a = u * Math.PI
-    const hx = fx * Math.cos(a) - rx * Math.sin(a), hz = fz * Math.cos(a) - rz * Math.sin(a)
-    return { x: cx + fx * Math.sin(a) * r + rx * Math.cos(a) * r, z: cz + fz * Math.sin(a) * r + rz * Math.cos(a) * r, heading: Math.atan2(hx, hz) }
+    return makeLeg('sideU', sample((u) => { const a = u * Math.PI; return { x: cx + fx * Math.sin(a) * r + rx * Math.cos(a) * r, z: cz + fz * Math.sin(a) * r + rz * Math.cos(a) * r } }, 12))
   }
-  /** Side road (houses + city edge). Returns the pose, or null while the car is out of town. */
-  const sideStep = (car: Car, dt: number, focus: { x: number; z: number }, people: Obstacle[]): Pt | null => {
-    if (car.gone > 0) {
-      car.gone -= dt
-      if (car.gone > 0) return null
-      const back = keepOffBuildings(sidePoint(SIDE_LEN, false))
-      const busy = cars.some((o) => o !== car && o.side && !o.gone && !o.sOut && SIDE_LEN - o.s < 7)
-      if (Math.hypot(back.x - focus.x, back.z - focus.z) < HIDE || busy) { car.gone = 1; return null }
-      car.sOut = false
-      car.s = SIDE_LEN
+  const firstOut = (a: number) => outLegs[a]![0]!
+  const firstIn = (a: number) => inLegs[a]![0]!
+
+  // --- Fleet ------------------------------------------------------------------------------------------
+  const kinds = Array.from({ length: count }, (_, i) => ORDER[i % ORDER.length]!)
+  const fleet = createFleet(scene, kinds, { shadows: graphics !== 'low' })
+  const cars: Car[] = []
+  const laneFill = new Map<Leg, number>()
+  kinds.forEach((kind, i) => {
+    const a = i % 4
+    const outbound = i % 2 === 0
+    const legs = outbound ? outLegs[a]! : inLegs[a]!
+    const leg = legs[legs.length - 1]!
+    const used = laneFill.get(leg) ?? 0
+    laneFill.set(leg, used + 1)
+    const s = Math.min(leg.len - 1, 1.5 + used * 10)
+    cars.push({ id: i, kind, len: carLength(kind), leg, s, seg: 0, v: 0, cruise: 6 + (i % 4) * 0.55, x: 0, z: 0, px: 0, pz: 0, h: 0, wait: 0, park: 0, goal: 0, gone: 0, hold: 0, creep: 0 })
+  })
+
+  const pose = (c: Car) => {
+    const L = c.leg
+    const s = Math.min(Math.max(c.s, 0), L.len)
+    while (c.seg < L.cum.length - 2 && L.cum[c.seg + 1]! < s) c.seg++
+    while (c.seg > 0 && L.cum[c.seg]! > s) c.seg--
+    const i = c.seg
+    const seg = Math.max(1e-6, L.cum[i + 1]! - L.cum[i]!)
+    const f = (s - L.cum[i]!) / seg
+    c.x = L.xs[i]! + (L.xs[i + 1]! - L.xs[i]!) * f
+    c.z = L.zs[i]! + (L.zs[i + 1]! - L.zs[i]!) * f
+    // Heading from a short chord around the car, so curves turn smoothly instead of snapping per segment.
+    const back = Math.max(0, s - 0.9), ahead = Math.min(L.len, s + 0.9)
+    const at = (d: number) => {
+      let j = 0
+      while (j < L.cum.length - 2 && L.cum[j + 1]! < d) j++
+      const g = Math.max(1e-6, L.cum[j + 1]! - L.cum[j]!), k = (d - L.cum[j]!) / g
+      return [L.xs[j]! + (L.xs[j + 1]! - L.xs[j]!) * k, L.zs[j]! + (L.zs[j + 1]! - L.zs[j]!) * k] as const
     }
-    let target = car.speed
+    const [bx, bz] = at(back), [ax, az] = at(ahead)
+    if (Math.hypot(ax - bx, az - bz) > 1e-4) c.h = Math.atan2(ax - bx, az - bz)
+  }
+  const setLeg = (c: Car, leg: Leg, s = 0) => { c.leg = leg; c.s = s; c.seg = 0 }
+
+  /** Is the ring busy just upstream of where arm `a` enters it? (ring traffic flows with angle decreasing) */
+  const ringBusy = (self: Car, a: number) => {
+    const entry = ringLegs[a]![(a + 1) % 4]!
+    const ex = entry.xs[0]!, ez = entry.zs[0]!
+    const ta = Math.atan2(ez, ex)
     for (const o of cars) {
-      if (o === car || !o.side || o.gone > 0 || o.wait > 0 || o.turn > 0 || o.sOut !== car.sOut) continue
-      const ahead = car.sOut ? o.s - car.s : car.s - o.s
-      if (ahead > 0 && ahead < 9) target = Math.min(target, Math.max(0, (ahead - 6.2) * 2))
+      if (o === self || o.gone > 0) continue
+      const r = Math.hypot(o.px, o.pz)
+      if (r > 21.5) continue
+      let d = Math.atan2(o.pz, o.px) - ta
+      while (d < 0) d += Math.PI * 2
+      while (d > Math.PI * 2) d -= Math.PI * 2
+      if (d < 0.95 || (Math.hypot(o.px - ex, o.pz - ez) < 5.5 && o.leg.kind === 'ring')) return true
     }
-    const here = keepOffBuildings(sidePoint(car.s, car.sOut))
-    const fx = Math.sin(here.heading), fz = Math.cos(here.heading)
-    const blocked = (x: number, z: number) => {
-      const f = (x - here.x) * fx + (z - here.z) * fz
-      const sd = Math.abs((x - here.x) * fz - (z - here.z) * fx)
-      return f > 0 && f < 5.5 && sd < 1.6
-    }
-    if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
-    if (car.turn > 0) {
-      car.turn += (Math.max(target, 2.5) * dt) / (Math.PI * lanes.roadHalf * 0.5)
-      if (car.turn >= 1) { car.turn = 0; car.sOut = false; return keepOffBuildings(sidePoint(car.s, false)) }
-      return uAt(car.s, car.turn)
-    }
-    if (car.wait > 0) {
-      car.wait -= dt
-      car.park = Math.min(1, car.park + dt / 1.5)
-      const off = 1.9 * Math.min(car.park, Math.max(0, car.wait) / 1.5)
-      if (car.wait <= 0) { car.wait = 0; car.park = 0; car.turn = 0.0001 }
-      return { x: here.x - Math.cos(here.heading) * off, z: here.z + Math.sin(here.heading) * off, heading: here.heading }
-    }
-    if (car.sOut) {
-      car.s = Math.min(car.goal, car.s + target * dt)
-      if (car.s >= car.goal) {
-        if (car.goal < SIDE_LEN) car.wait = 8 + Math.random() * 12 // at a house: park by the kerb and visit
-        else if (Math.hypot(here.x - focus.x, here.z - focus.z) > HIDE) { car.gone = 6 + Math.random() * 14; return null } // left the city
-        else car.turn = 0.0001 // player is watching the edge: turn back instead of vanishing
-      }
-    } else {
-      car.s = Math.max(0, car.s - target * dt)
-      if (car.s <= 0) {
-        // Rejoin the east arm heading into the plaza once the inbound lane is clear.
-        const clear = cars.every((o) => o === car || o.side || o.arm !== 0 || o.outbound || Math.abs(o.t - SIDE_JOIN_T) * span > 7)
-        if (clear) { car.side = false; car.arm = 0; car.outbound = false; car.t = SIDE_JOIN_T; return keepOffBuildings(lanePoint(0, SIDE_JOIN_T, false)) }
-      }
-    }
-    return keepOffBuildings(sidePoint(car.s, car.sOut))
+    return false
   }
 
+  const arrive = (c: Car, focus: { x: number; z: number }) => {
+    const L = c.leg
+    switch (L.kind) {
+      case 'out':
+        if (L.arm === 0 && L.part === 0) {
+          const sideClear = cars.every((o) => o === c || o.leg !== sideOut || o.s > 9)
+          if (Math.random() < 0.5 && sideClear) {
+            c.goal = Math.random() < 0.5 ? SIDE_LEN : SIDE_STOPS[Math.floor(Math.random() * SIDE_STOPS.length)]!.s
+            setLeg(c, sideOut)
+          } else setLeg(c, outLegs[0]![1]!)
+        } else {
+          setLeg(c, uLegs[L.arm]!)
+          c.s = 0
+        }
+        return
+      case 'u': setLeg(c, firstIn(L.arm)); return
+      case 'in':
+        if (L.arm === 0 && L.part === 0) { setLeg(c, inLegs[0]![1]!); return }
+        if (ringBusy(c, L.arm)) { c.s = L.len; c.v = 0; return }
+        {
+          const pick = [1, 2, 3].map((k) => (L.arm + k) % 4)
+          const to = pick[Math.floor(Math.random() * pick.length)]!
+          setLeg(c, ringLegs[L.arm]![to]!)
+        }
+        return
+      case 'ring': setLeg(c, firstOut(L.to)); return
+      case 'sideOut':
+        if (c.goal < SIDE_LEN - 1) { c.wait = 8 + Math.random() * 12; setLeg(c, sideU(c.goal)); return }
+        if (Math.hypot(c.x - focus.x, c.z - focus.z) > HIDE) { c.gone = 6 + Math.random() * 14; return }
+        setLeg(c, sideU(SIDE_LEN - 4))
+        c.goal = SIDE_LEN - 4
+        return
+      case 'sideU': setLeg(c, sideIn, SIDE_LEN - c.goal); return
+      case 'sideIn': setLeg(c, inLegs[0]![1]!); return
+    }
+  }
+
+  const obstacles: Obstacle[] = []
+  const blockers: number[][] = cars.map(() => [])
+  let first = true
   return {
     tick(dt, time, focus, people = []) {
+      void time
+      dt = Math.min(dt, 0.1)
       obstacles.length = 0
-      const green = Math.floor(time / SIGNAL_PERIOD) % 2 === 0 // true: x arms go, false: z arms go
-      signalMat.color.setHex(green ? 0x5fd27a : 0xffb347)
-
-      walkers.forEach((w, i) => {
-        w.t += (w.dir * w.speed * dt) / span
-        if (w.t > 1 || w.t < 0) {
-          w.dir *= -1
-          w.t = THREE.MathUtils.clamp(w.t, 0, 1)
+      if (first) { for (const c of cars) { pose(c); c.px = c.x; c.pz = c.z } first = false }
+      // Pass 1: who is in front of whom (from last frame's poses).
+      for (const c of cars) {
+        const list = blockers[c.id]!
+        list.length = 0
+        if (c.gone > 0) continue
+        const fx = Math.sin(c.h), fz = Math.cos(c.h)
+        for (const o of cars) {
+          if (o === c || o.gone > 0) continue
+          const rx = o.px - c.px, rz = o.pz - c.pz
+          const ahead = rx * fx + rz * fz
+          if (ahead <= 0 || ahead > 16) continue
+          const lat = Math.abs(rx * fz - rz * fx)
+          if (lat < 1.75) list.push(o.id)
         }
-        const arm = ARMS[w.arm] as Arm
-        const along = lanes.inner + w.t * span
-        const off = w.side * lanes.walk
-        const x = arm.ax * along + (arm.az !== 0 ? off : 0)
-        const z = arm.az * along + (arm.ax !== 0 ? off : 0)
-        const far = Math.hypot(x - focus.x, z - focus.z) > LOD
-        w.phase += dt * w.speed * 5
-        const heading = Math.atan2(arm.ax * w.dir, arm.az * w.dir)
-        const swing = Math.sin(w.phase) * 0.5
-        dummy.position.set(x, far ? -50 : Math.abs(Math.cos(w.phase)) * 0.04, z)
-        dummy.rotation.set(0, heading, 0)
-        dummy.scale.setScalar(far ? 0.001 : 1)
-        dummy.updateMatrix()
-        bodies.setMatrixAt(i, dummy.matrix)
-        heads.setMatrixAt(i, dummy.matrix)
-        hairMeshes.forEach((m, k) => m.setMatrixAt(i, k === hairKind[i] ? dummy.matrix : zero))
-        hoods.setMatrixAt(i, outfit[i] === 'hoodie' ? dummy.matrix : zero)
-        skirts.setMatrixAt(i, outfit[i] === 'dress' ? dummy.matrix : zero)
-        coats.setMatrixAt(i, outfit[i] === 'jacket' || outfit[i] === 'suit' ? dummy.matrix : zero)
-        limbAt(legsL, i, -0.09, 0.86, swing)
-        limbAt(legsR, i, 0.09, 0.86, -swing)
-        limbAt(armsL, i, -0.25, 1.46, -swing * 0.8)
-        limbAt(armsR, i, 0.25, 1.46, swing * 0.8)
-      })
-      for (const mesh of peopleMeshes) mesh.instanceMatrix.needsUpdate = true
-
-      cars.forEach((car, i) => {
-        let pt: Pt | null
-        if (car.side) pt = sideStep(car, dt, focus, people)
-        else {
-        const axisGo = car.arm < 2 ? green : !green
-        // Inbound cars stop at the stop line on red, and for any car ahead in the same lane.
-        let target = car.speed
-        if (!car.outbound) {
-          const gap = car.t * span
-          if (!axisGo && gap < 6) target = gap < 0.6 ? 0 : Math.min(car.speed, gap)
-        }
-        for (const other of cars) {
-          if (other === car || other.side || other.wait > 0 || other.arm !== car.arm || other.outbound !== car.outbound) continue
-          const ahead = car.outbound ? other.t - car.t : car.t - other.t
-          if (ahead > 0 && ahead * span < 9) target = Math.min(target, Math.max(0, (ahead * span - 6.2) * 2))
-        }
-        // Yield to the player and to anyone crossing in front.
-        {
-          const arm0 = ARMS[car.arm] as Arm
-          const along0 = lanes.inner + car.t * span
-          const lane0 = (car.outbound ? 1 : -1) * lanes.roadHalf * 0.5
-          const cx = arm0.ax * along0 - arm0.az * lane0
-          const cz = arm0.az * along0 + arm0.ax * lane0
-          const d = car.outbound ? 1 : -1
-          const blocked = (x: number, z: number) => {
-            const fx = (x - cx) * arm0.ax * d + (z - cz) * arm0.az * d
-            const sx = Math.abs((x - cx) * -arm0.az + (z - cz) * arm0.ax)
-            return fx > 0 && fx < 7 && sx < 2.0
+      }
+      for (const c of cars) {
+        if (c.gone > 0) {
+          c.gone -= dt
+          if (c.gone <= 0) {
+            const edge = sidePoint(SIDE_LEN, false)
+            const clear = cars.every((o) => o === c || o.leg !== sideIn || o.s > 9)
+            if (Math.hypot(edge.x - focus.x, edge.z - focus.z) < HIDE || !clear) c.gone = 1
+            else { setLeg(c, sideIn, 0); c.v = c.cruise * 0.6; c.goal = 0; pose(c) }
           }
-          if (blocked(focus.x, focus.z) || people.some((o) => o.kind === 'circle' && blocked(o.x, o.z))) target = 0
+          fleet.set(c.id, 0, 0, 0, 0, false)
+          continue
         }
-        const step = (target * dt) / span
-        if (car.swing > 0) {
-          const len = Math.abs(car.a1 - car.a0) * lanes.inner + 0.01
-          car.swing += (Math.max(target, 3) * dt) / len
-          if (car.swing >= 1) car.swing = 0
-        } else if (car.turn > 0) {
-          // U-turn in the turning bay at the arm end (never inside a building, never a lane jump).
-          car.turn += (Math.max(target, 2.5) * dt) / (Math.PI * lanes.roadHalf * 0.5)
-          if (car.turn >= 1) {
-            car.turn = 0
-            car.t = 1
-            car.outbound = false
-          }
-        } else if (car.wait > 0) {
-          // Parked in the bay at the arm end, resting; then pulls out and turns back.
-          car.wait -= dt
-          if (car.wait <= 0) { car.wait = 0; car.turn = 0.0001 }
-        } else if (car.outbound) {
-          const before = car.t
-          car.t += step
-          // Some drivers take the side road: to one of the houses, or out of the city at the edge.
-          if (car.arm === 0 && before < SIDE_JOIN_T && car.t >= SIDE_JOIN_T && Math.random() < 0.55 &&
-            cars.every((o) => o === car || !o.side || !o.sOut || o.s > 7)) {
-            car.side = true
-            car.sOut = true
-            car.s = 0
-            car.goal = Math.random() < 0.5 ? SIDE_LEN : (SIDE_STOPS[Math.floor(Math.random() * SIDE_STOPS.length)]?.s ?? SIDE_LEN)
-          }
-          if (car.t >= 1) {
-            car.t = 1
-            // Some drivers park and rest at the destination, others turn straight back.
-            if (Math.random() < 0.5) car.wait = 6 + Math.random() * 12
-            else car.turn = 0.0001
-          }
-        } else {
-          car.t -= step
-          if (car.t <= 0) {
-            // At the stop line on green: swing onto the next arm, heading out.
-            car.t = 0
-            if (axisGo) {
-              // Only swing onto the next arm if its outbound lane is clear for a car length plus margin.
-              const nextArm = (car.arm + 1 + (Math.random() < 0.5 ? 0 : 1)) % 4 // pick a destination: right or straight across
-              const clear = cars.every((o) => o === car || o.side || o.arm !== nextArm || !o.outbound || o.t * span > 6.5)
-              if (clear) {
-                // Drive round the plaza ring to the next arm instead of jumping across it.
-                const from = lanePoint(car.arm, 0, false)
-                const to = lanePoint(nextArm, 0, true)
-                car.a0 = Math.atan2(from.z, from.x)
-                let a1 = Math.atan2(to.z, to.x)
-                while (a1 - car.a0 > Math.PI) a1 -= Math.PI * 2
-                while (a1 - car.a0 < -Math.PI) a1 += Math.PI * 2
-                car.a1 = a1
-                car.swing = 0.0001
-                car.arm = nextArm
-                car.outbound = true
-              }
-            }
-          }
+        if (c.wait > 0) {
+          // Parked by the kerb: ease onto the shoulder, rest, ease back out.
+          c.wait -= dt
+          c.park = Math.min(1, c.park + dt / 1.5)
+          c.v = 0
         }
-        // Drive on the right: outbound lane is to the right of the outward direction.
-        pt = keepOffBuildings(car.turn > 0 ? uturnPoint(car.arm, car.turn) : lanePoint(car.arm, car.t, car.outbound))
-        if (car.swing > 0) {
-          const a = car.a0 + (car.a1 - car.a0) * car.swing
-          const r = Math.hypot(pt.x, pt.z) - 2.5 * Math.sin(Math.PI * car.swing)
-          const sgn = Math.sign(car.a1 - car.a0) || 1
-          pt = { x: Math.cos(a) * r, z: Math.sin(a) * r, heading: Math.atan2(-Math.sin(a) * sgn, Math.cos(a) * sgn) }
+        let target = c.wait > 0 ? 0 : c.leg.kind === 'u' || c.leg.kind === 'sideU' ? 2.8 : c.leg.kind === 'ring' ? 4.8 : c.cruise
+        const fx = Math.sin(c.h), fz = Math.cos(c.h)
+        // Keep distance: brake for any car in the lane ahead (mutual stand-offs: the lower id goes first).
+        if (c.creep > 0) c.creep -= dt
+        else for (const id of blockers[c.id]!) {
+          const o = cars[id]!
+          if (blockers[id]!.includes(c.id) && c.id < id) continue
+          const ahead = (o.px - c.px) * fx + (o.pz - c.pz) * fz
+          const need = (c.len + o.len) / 2 + 1.4
+          target = Math.min(target, Math.max(0, (ahead - need) * 1.3))
         }
+        // People and the player: slow when close in front, stop short of them.
+        const yieldTo = (x: number, z: number) => {
+          const rx = x - c.px, rz = z - c.pz
+          const ahead = rx * fx + rz * fz
+          if (ahead <= 0 || ahead > 10) return
+          if (Math.abs(rx * fz - rz * fx) > 1.7) return
+          target = Math.min(target, Math.max(0, (ahead - c.len / 2 - 1.6) * 1.1))
         }
-        const hidden = pt === null
-        if (!pt) pt = { x: 0, z: -400, heading: 0 }
-        let x = pt.x
-        let z = pt.z
-        if (!car.side && car.wait <= 0) car.park = 0
-        if (!car.side && car.wait > 0 && car.turn === 0 && car.swing === 0) {
-          // Ease onto the shoulder while parked (right of travel), so through traffic can pass.
-          car.park = Math.min(1, car.park + dt / 1.5)
-          const off = 1.9 * Math.min(car.park, car.wait / 1.5)
-          x += -Math.cos(pt.heading) * off
-          z += Math.sin(pt.heading) * off
+        yieldTo(focus.x, focus.z)
+        for (const p of people) if (p.kind === 'circle') yieldTo(p.x, p.z)
+        // Give way before the ring.
+        if (c.leg.kind === 'in' && c.leg.part === 1 && c.leg.len - c.s < 9 && ringBusy(c, c.leg.arm)) target = Math.min(target, Math.max(0, (c.leg.len - c.s - 0.4) * 1.2))
+        // Stuck behind something that is itself stopped for a long time: creep past (gridlock breaker).
+        c.hold = c.v < 0.05 && c.wait <= 0 ? c.hold + dt : 0
+        if (c.hold > 9 && blockers[c.id]!.length) { c.creep = 1.6; c.hold = 0 }
+        if (target < c.v) c.v = Math.max(target, c.v - 8 * dt)
+        else c.v = Math.min(target, c.v + 2.6 * dt)
+        const before = c.s
+        if (c.wait <= 0) {
+          c.s += c.v * dt
+          if (c.s >= c.leg.len) { const over = c.s - c.leg.len; const was = c.leg; arrive(c, focus); if (c.leg !== was) c.s = Math.min(c.leg.len, c.s + over) }
         }
-        // Final building clamp so shoulder park / plaza swing never clips a facade.
-        {
-          const clamped = keepOffBuildings({ x, z }, 1.45)
-          x = clamped.x; z = clamped.z
+        if (c.gone > 0) { fleet.set(c.id, 0, 0, 0, 0, false); continue }
+        pose(c)
+        let x = c.x, z = c.z
+        if (c.wait <= 0 && c.park > 0) c.park = Math.max(0, c.park - dt / 1.5)
+        if (c.park > 0) {
+          const off = 2.0 * (c.park * c.park * (3 - 2 * c.park))
+          x += -Math.cos(c.h) * off
+          z += Math.sin(c.h) * off
         }
-        // Cars are never hidden by distance (only ~10 instances): no popping at the arm-end entrances.
-        const far = Math.hypot(x - focus.x, z - focus.z) > LOD + 20
-        dummy.position.set(x, hidden ? -60 : 0, z)
-        dummy.rotation.set(0, pt.heading, 0)
-        dummy.scale.setScalar(hidden ? 0.001 : 1)
-        dummy.updateMatrix()
-        if (slots) {
-          const slot = slots[i]!
-          slot.mesh.setMatrixAt(slot.index, dummy.matrix)
-          slot.mesh.instanceMatrix.needsUpdate = true
-        } else {
-          const sk = carStyleOf[i]!
-          const si = styleSlot[i]!
-          styleMeshes[sk]!.setMatrixAt(si, dummy.matrix)
-          styleGlass[sk]!.setMatrixAt(si, dummy.matrix)
-          styleMeshes[sk]!.instanceMatrix.needsUpdate = true
-          styleGlass[sk]!.instanceMatrix.needsUpdate = true
+        const hit = insideFootprint(x, z, 1.3)
+        if (hit) {
+          // Never inside a wall: push straight out of the nearest face.
+          const ox = hit.w / 2 + 1.3 - Math.abs(x - hit.x), oz = hit.d / 2 + 1.3 - Math.abs(z - hit.z)
+          if (ox < oz) x += Math.sign(x - hit.x || 1) * ox
+          else z += Math.sign(z - hit.z || 1) * oz
         }
-        heads2.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, headLocal))
-        roofSigns.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, roofLocal))
-        tails.setMatrixAt(i, lightOffset.multiplyMatrices(dummy.matrix, tailLocal))
-        if (!far && !hidden) {
-          const hx = Math.sin(pt.heading)
-          const hz = Math.cos(pt.heading)
-          obstacles.push({ kind: 'circle', x: x + hx * 1.1, z: z + hz * 1.1, r: 1.05 })
-          obstacles.push({ kind: 'circle', x: x - hx * 1.1, z: z - hz * 1.1, r: 1.05 })
-        }
-      })
-      heads2.instanceMatrix.needsUpdate = true
-      tails.instanceMatrix.needsUpdate = true
-      roofSigns.instanceMatrix.needsUpdate = true
+        c.px = x; c.pz = z
+        fleet.set(c.id, x, z, c.h, Math.max(0, c.s - before), true)
+        obstacles.push({ kind: 'circle', x: x + fx * c.len * 0.25, z: z + fz * c.len * 0.25, r: 1.05 })
+        obstacles.push({ kind: 'circle', x: x - fx * c.len * 0.25, z: z - fz * c.len * 0.25, r: 1.05 })
+      }
+      fleet.commit()
       return obstacles
     },
   }
-}
-
-function mergeSimple(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
-  const positions: number[] = []
-  const normals: number[] = []
-  for (const part of parts) {
-    const geo = part.index ? part.toNonIndexed() : part
-    positions.push(...(geo.getAttribute('position').array as Float32Array))
-    normals.push(...(geo.getAttribute('normal').array as Float32Array))
-  }
-  const merged = new THREE.BufferGeometry()
-  merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  merged.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
-  return merged
 }

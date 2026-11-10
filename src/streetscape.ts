@@ -1,15 +1,15 @@
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { createFleet, type CarKind } from './cars.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
-import { ROAD_END, ROAD_HALF } from './lanes.ts'
+import { RING_IN, RING_OUT, ROAD_END, ROAD_HALF } from './lanes.ts'
 import { pbrSet } from './pbrTex.ts'
 
 /**
  * Street infrastructure, all instanced and sharing a few materials: granite kerbs, paver sidewalks (CC0 Poly Haven
  * concrete_pavers), zebra crossings + stop lines, traffic lights, street name signs, bus shelters, bollards,
  * manholes, kerb drains, timber power poles with wires, park grass (CC0 leafy_grass), hedges, flower beds,
- * a railing round the basin, and a few parked cars (Kenney CC0, lazy-loaded). Original geometry, no brands.
+ * a railing round the basin, roundabout kerbs and a few parked cars (instanced car kit). Original geometry, no brands.
  */
 export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]; graphics: Graphics }): void {
   const { obstacles, graphics } = o
@@ -28,7 +28,6 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     im.computeBoundingSphere()
     scene.add(im)
   }
-  const metal = new THREE.MeshStandardMaterial({ ...pbrSet('metal_plate', 1), color: 0x3a3d40, roughness: 1, metalness: 0.7 })
   const paint = new THREE.MeshStandardMaterial({ color: 0x2d3133, roughness: 0.45, metalness: 0.6 })
   const granite = new THREE.MeshStandardMaterial({ color: 0x9c9890, roughness: 0.85 })
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e7df, roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -2 })
@@ -36,9 +35,9 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
   const timber = new THREE.MeshStandardMaterial({ ...pbrSet('brown_planks_03', 1), color: 0x9a8670, roughness: 1 })
   const glass = new THREE.MeshStandardMaterial({ color: 0x9fb4bd, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.28, depthWrite: false })
 
-  // Arms of the cross road, from the plaza edge (r=15) to the turning bays.
+  // Arms of the cross road, from the roundabout's outer edge to the turning bays.
   const arms = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
-  const A0 = 15.5, A1 = ROAD_END, LEN = A1 - A0, MID = (A0 + A1) / 2
+  const A0 = RING_OUT + 1.6, A1 = ROAD_END, LEN = A1 - A0, MID = (A0 + A1) / 2
   const along = (dx: number, dz: number, t: number, side: number) => ({ x: dx * t - dz * side, z: dz * t + dx * side, ry: dx ? 0 : Math.PI / 2 })
 
   // Kerbs (granite, 15 cm) and paver sidewalks on both sides of every arm.
@@ -56,12 +55,20 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     inst(g, pavers, walks)
   }
 
-  // Zebra crossings + stop lines just outside the plaza on every arm; traffic lights on both kerbs.
+  // Roundabout: granite kerbs on both edges of the ring (gaps where the arms join), dashed give-way lines at
+  // every entry, zebra crossings on each arm just outside the ring, pedestrian signals beside them.
+  const ringKerb: T[] = []
+  for (const [r, n] of [[RING_IN - 0.05, 72], [RING_OUT + 0.05, 92]] as const) for (let a = 0; a < n; a++) {
+    const ang = ((a + 0.5) / n) * Math.PI * 2, x = Math.cos(ang) * r, z = Math.sin(ang) * r
+    if (r > RING_IN && (Math.abs(x) < ROAD_HALF + 1.4 || Math.abs(z) < ROAD_HALF + 1.4)) continue
+    ringKerb.push({ x, z, y: 0.07, ry: -ang, sx: 0.18, sz: (Math.PI * 2 * r) / n + 0.02 })
+  }
+  inst(new THREE.BoxGeometry(1, 0.15, 1), granite, ringKerb)
   const stripes: T[] = [], stops: T[] = [], lights: T[] = []
   for (const [dx, dz] of arms) {
-    for (let k = -2; k <= 2; k++) stripes.push({ ...along(dx, dz, 17.4, k * 1.1), y: 0.012, sx: dx ? 2.2 : 0.55, sz: dx ? 0.55 : 2.2, ry: 0 })
-    stops.push({ ...along(dx, dz, 19.2, -ROAD_HALF / 2), y: 0.012, sx: dx ? 0.3 : ROAD_HALF, sz: dx ? ROAD_HALF : 0.3, ry: 0 })
-    for (const s of [-1, 1]) { const p = along(dx, dz, 19.4, s * (ROAD_HALF + 0.45)); if (free(p.x, p.z, 0.3)) lights.push({ ...p, ry: Math.atan2(-dx, -dz) }) }
+    for (let k = -2; k <= 2; k++) stripes.push({ ...along(dx, dz, A0 + 1.6, k * 1.1), y: 0.012, sx: dx ? 2.2 : 0.55, sz: dx ? 0.55 : 2.2, ry: 0 })
+    for (let k = 0; k < 4; k++) stops.push({ ...along(dx, dz, RING_OUT + 0.5, -0.4 - k * 0.8), y: 0.012, sx: dx ? 0.25 : 0.5, sz: dx ? 0.5 : 0.25, ry: 0 })
+    for (const s of [-1, 1]) { const p = along(dx, dz, A0 + 3.2, s * (ROAD_HALF + 0.45)); if (free(p.x, p.z, 0.3)) lights.push({ ...p, ry: Math.atan2(-dx, -dz) }) }
   }
   inst(new THREE.BoxGeometry(1, 0.01, 1), white, [...stripes, ...stops])
   inst(new THREE.CylinderGeometry(0.06, 0.07, 3, 8).translate(0, 1.5, 0), paint, lights, true)
@@ -74,7 +81,7 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
   // Street name signs (generic names) on a post at each crossing.
   const names = ['Ledger Ave', 'Harbour St', 'Campus Rd', 'Market Way']
   arms.forEach(([dx, dz], i) => {
-    const p = along(dx, dz, 16.3, ROAD_HALF + 0.5)
+    const p = along(dx, dz, A0 + 0.3, ROAD_HALF + 0.5)
     if (!free(p.x, p.z, 0.2)) return
     const c = document.createElement('canvas'); c.width = 256; c.height = 64
     const g = c.getContext('2d')!; g.fillStyle = '#1f4d3a'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#e8e8e0'; g.lineWidth = 4; g.strokeRect(4, 4, 248, 56)
@@ -114,35 +121,28 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
 
   // Manholes in the lanes, kerb drains along the gutter.
   const holes: T[] = [], drains: T[] = []
-  for (const [dx, dz] of arms) for (let t = 22; t < A1 - 2; t += 9) {
+  for (const [dx, dz] of arms) for (let t = A0 + 3; t < A1 - 2; t += 9) {
     holes.push({ ...along(dx, dz, t, (t % 2 ? 1 : -1) * ROAD_HALF * 0.5), y: 0.013 })
     for (const s of [-1, 1]) drains.push({ ...along(dx, dz, t + 3, s * (ROAD_HALF - 0.25)), y: 0.013 })
   }
-  inst(new THREE.CylinderGeometry(0.38, 0.38, 0.02, 20), metal, holes)
-  inst(new THREE.BoxGeometry(0.7, 0.02, 0.32), metal, drains.map((d) => ({ ...d, ry: (d.ry ?? 0) })))
-
-  // Timber power poles with cross-arms and sagging wires along the outer arms (medium/high).
-  if (!low) {
-    const poles: T[] = []
-    for (const [dx, dz] of arms) for (let t = 24; t <= 36; t += 12) { const p = along(dx, dz, t, -(ROAD_HALF + 2.3)); if (free(p.x, p.z, 0.25)) poles.push({ ...p }) }
-    inst(new THREE.CylinderGeometry(0.11, 0.15, 7, 7).translate(0, 3.5, 0), timber, poles, true)
-    inst(new THREE.BoxGeometry(1.6, 0.1, 0.1).translate(0, 6.6, 0), timber, poles.map((p) => ({ ...p, ry: (p.ry ?? 0) + Math.PI / 2 })))
-    const pts: number[] = []
-    for (let i = 0; i + 1 < poles.length; i += 2) {
-      const a = poles[i]!, b = poles[i + 1]!
-      for (const off of [-0.65, 0.65]) {
-        const ox = a.ry ? off : 0, oz = a.ry ? 0 : off
-        for (let k = 0; k < 8; k++) {
-          const t0 = k / 8, t1 = (k + 1) / 8, sag = (t: number) => 6.65 - 0.5 * 4 * t * (1 - t)
-          pts.push(a.x + (b.x - a.x) * t0 + ox, sag(t0), a.z + (b.z - a.z) * t0 + oz, a.x + (b.x - a.x) * t1 + ox, sag(t1), a.z + (b.z - a.z) * t1 + oz)
-        }
-      }
-    }
-    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
-    const wires = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x1b1b1b })); wires.userData.ghost = true; wires.raycast = () => undefined
-    scene.add(wires)
-    for (const p of poles) obstacles.push({ kind: 'circle', x: p.x, z: p.z, r: 0.2 })
+  // Covers are painted so they read as what they are: a cast manhole lid with a ring and treads, a slotted kerb drain.
+  const cover = (draw: (g: CanvasRenderingContext2D) => void) => {
+    const c = document.createElement('canvas'); c.width = c.height = 128
+    const g = c.getContext('2d')!; draw(g)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
+    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, metalness: 0.35, transparent: true, alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -3 })
   }
+  const lid = cover((g) => {
+    g.fillStyle = '#5f6266'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill()
+    g.strokeStyle = '#3d4043'; g.lineWidth = 7; g.beginPath(); g.arc(64, 64, 54, 0, 7); g.stroke()
+    g.lineWidth = 5; for (let i = -3; i <= 3; i++) { const w = Math.sqrt(1 - (i / 4) ** 2) * 40; g.beginPath(); g.moveTo(64 - w, 64 + i * 11); g.lineTo(64 + w, 64 + i * 11); g.stroke() }
+  })
+  const grate = cover((g) => {
+    g.fillStyle = '#5f6266'; g.fillRect(2, 34, 124, 60)
+    g.fillStyle = '#26282a'; for (let x = 12; x < 116; x += 15) g.fillRect(x, 42, 8, 44)
+  })
+  inst(new THREE.PlaneGeometry(0.8, 0.8).rotateX(-Math.PI / 2), lid, holes)
+  inst(new THREE.PlaneGeometry(0.8, 0.8).rotateX(-Math.PI / 2), grate, drains.map((d) => ({ ...d, ry: (d.ry ?? 0) })))
 
   // Park (basin at -40,40): real grass, a clipped hedge ring, flower beds and a steel railing round the water.
   const grassSet = pbrSet('leafy_grass', 9)
@@ -180,15 +180,12 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
   if (!low) {
     const bays: T[] = []
     for (const [dx, dz] of arms) { const p = along(dx, dz, 31, ROAD_HALF + 2.6); if (free(p.x, p.z, 1.3)) bays.push({ ...p, ry: (dx ? Math.PI / 2 : 0) }) }
-    const kinds = ['sedan', 'suv', 'hatchback-sports', 'van']
+    const kinds: CarKind[] = ['sedan', 'suv', 'hatchback', 'van']
     const go = () => {
-      const loader = new GLTFLoader()
-      bays.forEach((b, i) => loader.loadAsync(`/models/cars/${kinds[i % kinds.length]}.glb`).then((gl) => {
-        const car = gl.scene; car.scale.setScalar(1.5); car.position.set(b.x, 0, b.z); car.rotation.y = b.ry!
-        car.traverse((m) => { if (m instanceof THREE.Mesh) { m.castShadow = graphics === 'high'; m.receiveShadow = true; m.userData.ghost = true } })
-        scene.add(car)
-      }).catch(() => undefined))
-      for (const b of bays) obstacles.push({ kind: 'box', x: b.x, z: b.z, hx: b.ry ? 1.2 : 0.6, hz: b.ry ? 0.6 : 1.2 })
+      const fleet = createFleet(scene, bays.map((_, i) => kinds[i % kinds.length]!), { shadows: graphics === 'high', colours: [0x2b2e33, 0xc8b48f, 0x8e1b22, 0xf1f1ee] })
+      bays.forEach((b, i) => fleet.set(i, b.x, b.z, b.ry!, 0))
+      fleet.commit()
+      for (const b of bays) obstacles.push({ kind: 'box', x: b.x, z: b.z, hx: b.ry ? 2.3 : 1.0, hz: b.ry ? 1.0 : 2.3 })
     }
     ;(window.requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 1500)))(go)
   }

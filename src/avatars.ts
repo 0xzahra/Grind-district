@@ -173,7 +173,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     const topPiece = own ? piece(w.top) : undefined
     const ownModel = female ? (topPiece?.model === 'casual' ? 'woman3' : 'woman4') : (topPiece && topPiece.model !== 'suit' ? 'man1' : 'man4')
     const model = own ? ownModel : female ? WOMEN[variant! % WOMEN.length]! : MEN[variant! % MEN.length]!
-    const outfit = () => { const v = worn(); return { top: piece(v.top)?.hex, bottom: piece(v.bottom)?.hex, shoes: piece(v.shoes)?.hex } }
+    const outfit = () => { const v = worn(); return { top: piece(v.top)?.hex, bottom: piece(v.bottom)?.hex, shoes: piece(v.shoes)?.hex, sleeves: female && /^abaya/.test(String(v.top ?? '')), robe: female && /^abaya/.test(String(v.top ?? '')), gown: female && /ankara/.test(String(v.top ?? '')) } }
     const extras = (lux: boolean): Extras => { const a = worn().acc; return { chain: lux, watch: a.includes('watch-steel'), shades: a.includes('shades'), cap: a.includes('cap'), pearls: a.includes('pearls') } }
     if (own) avatar.object.userData.extras = extras(luxury)
     const mo = getMorph()
@@ -199,7 +199,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         const head = avatar.object.getObjectByName('Head') as { scale: { set: (x:number,y:number,z:number)=>void } } | undefined
         if (head?.scale) head.scale.set(now.f ?? 1, 1, now.f ?? 1)
         const o = outfit()
-        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t }
+        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t, sleeves: o.sleeves, robe: o.robe, gown: o.gown }
         avatar.object.userData.extras = extras(lux)
         ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))
         avatar.object.userData.look = look
