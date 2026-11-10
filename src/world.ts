@@ -1145,16 +1145,16 @@ export function createWorld(options: {
 
   let seasonBear = false
   const nightSky = new THREE.Color(0x0a1430)
-  const nightLow = new THREE.Color(0x1a2438)
+  const nightLow = new THREE.Color(0x141c2e)
   const duskSky = new THREE.Color(0x4a3568)
-  const duskLow = new THREE.Color(0xf0a060)
+  const duskLow = new THREE.Color(0xe8955a)
   const daySky = new THREE.Color(0x2f86ea)
   const dayLow = new THREE.Color(0x9aacba)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
-  const sunDay = new THREE.Color(0xffd8a6)
-  const sunDusk = new THREE.Color(0xf6ad7c)
-  const moonLight = new THREE.Color(0xa7b2d4)
+  const sunDay = new THREE.Color(0xffd29c)
+  const sunDusk = new THREE.Color(0xff9a5c)
+  const moonLight = new THREE.Color(0x93a6d8)
   const setDaylight = (phase: number) => {
     const angle = (phase - 0.25) * Math.PI * 2
     const elev = Math.sin(angle)
@@ -1174,13 +1174,14 @@ export function createWorld(options: {
     sunOffset.set(side * 20, 8 + up * 18, 10)
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.85)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
-    sun.intensity = (elev >= 0 ? 0.2 + day * 0.88 : 0.1) * (seasonBear ? 0.88 : 1) // soft key: the fill does more of the work
+    // Warmer key with less flat fill: deeper shadows by day, a low orange sun at dusk, cool moonlight at night.
+    sun.intensity = (elev >= 0 ? 0.22 + day * 0.98 + dusk * 0.12 : 0.1) * (seasonBear ? 0.88 : 1)
     sun.castShadow = day > 0.2
-    hemi.intensity = 0.16 + day * 0.6
-    hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.35)
+    hemi.intensity = 0.08 + day * 0.54
+    hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.5)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
-    fill.intensity = 0.02 + day * 0.13
-    lampMat.emissiveIntensity = 0.06 + night * 1.45
+    fill.intensity = 0.02 + day * 0.1
+    lampMat.emissiveIntensity = 0.06 + night * 1.7
     trimPulse = 0.12 + night * 0.18
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.04 + night * 0.07
@@ -1188,9 +1189,9 @@ export function createWorld(options: {
     groundMat.metalness = 0.02 + night * 0.12
     architecture.setNight(night)
     drinkStand.setNight(night)
-    for (const light of glow) light.intensity = Number(light.userData.night) * 1.15 * Math.max(0, night - 0.1)
+    for (const light of glow) light.intensity = Number(light.userData.night) * 1.4 * Math.max(0, night - 0.1) // warm street-light pools
     poolNight = night
-    decalMat.opacity = 0.9 * Math.max(0, night - 0.15)
+    decalMat.opacity = Math.min(1, 1.05 * Math.max(0, night - 0.15))
     if (!decals && lampSpots.length) buildDecals()
     moon.visible = night > 0.25
     moon.position.set(-Math.cos(angle) * 40, Math.max(12, -elev * 40), -24)

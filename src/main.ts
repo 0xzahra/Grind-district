@@ -6,14 +6,16 @@ import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
 import { setAmbientPlace, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
-import { setMixerViewer } from './humans.ts'
+import { setMixerViewer, posedHuman } from './humans.ts'
+import { createMentorCard } from './mentor.ts'
+import { nextStep } from './objective.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { publishProfile } from './share.ts'
-import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer } from './career.ts'
+import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer, setStepSource } from './career.ts'
 import { JOBS } from './careerData.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
 import { createDrone, releaseDrone, spinDrone } from './drones.ts'
@@ -35,7 +37,7 @@ import { setShopRenderer } from './itemPics.ts'
 import { createStreetProps } from './props.ts'
 import { createStreetscape } from './streetscape.ts'
 import { applyPrefs } from './prefs.ts'
-import { createCrowd } from './npcs.ts'
+import { createCrowd, label as nameLabel } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
@@ -253,7 +255,8 @@ const apiAgents = createRemoteAgents(scene)
   const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
   phoneFill.visible = matchMedia('(pointer: coarse)').matches
   scene.add(phoneFill)
-  scene.add(new THREE.AmbientLight(0xffe2c0, 0.11)) // warmer fill, toned down (Zahra: too bright)
+  const warmAmbient = new THREE.AmbientLight(0xffe2c0, 0.11) // warmer fill, toned down (Zahra: too bright)
+  scene.add(warmAmbient)
   let lightAcc = 1
   // First task (GDD onboarding): until a course is passed, a floating gold marker hangs over the Campus door
   // and a prompt points there; walking up to the door opens the courses.
@@ -268,13 +271,24 @@ const apiAgents = createRemoteAgents(scene)
     halo.position.y = -4.15
     firstMarker.add(gem, halo); firstMarker.position.set(0, 4.2, -40.4)
   }
+  // Ada, the Campus mentor, stands beside the marker: walking up to her starts the first lesson in the street.
+  const ada = posedHuman('woman2', { pose: 'stand', height: 1.7, look: { top: 0x2f5d50, bottom: 0x2b2f36, shoes: 0x1a1c1f } })
+  ada.position.set(1.9, 0, -40.9)
+  ada.rotation.y = -0.35
+  {
+    const tag = nameLabel('Ada', 'Campus mentor')
+    tag.position.y = 2.25
+    ada.add(tag)
+  }
+  ada.userData.ghost = true
+  scene.add(ada)
   resumeMusicOnFirstTap()
   ensureAmbientOnGesture()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
-  let firstOpened = false
+  let firstOpened = false // re-armed when the player walks away from Ada, so closing the card is never a dead end
   if (needsFirstCourse()) {
     scene.add(firstMarker)
-    window.setTimeout(() => { if (needsFirstCourse()) notify('Campus marker', 'The gold ring north of the plaza marks Campus. Walk there, finish one short course — it files to your CV. The marker leaves once you pass.', 'first-task', 'place:Campus') }, 2500)
+    window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Ada at Campus', 'Follow the gold marker north of the plaza. Ada gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
@@ -409,6 +423,14 @@ const apiAgents = createRemoteAgents(scene)
       return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
     } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
     portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
+  })
+  const mentor = createMentorCard({
+    toast: (m) => ui.toast(m),
+    onRank: () => world.setRank(rankFor(getSave().xp).label),
+    fullLesson: (course) => ui.open('learn', { course }),
+    next: () => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'jobs' })),
+    // Camera sits on the far side of the player from Ada, so she and the Campus door are in frame.
+    face: () => { camYaw = Math.atan2(pos.x - ada.position.x, pos.z - ada.position.z) },
   })
   function hooksTeleport(x: number, z: number) {
       pos.x = x
@@ -750,6 +772,37 @@ const apiAgents = createRemoteAgents(scene)
     window.setTimeout(() => ui.open('learn', { course }), 0)
   })
   careerOpeners.career = openCareer; careerOpeners.feed = openFeed
+  // Next step: one always-visible line on the HUD so a new player knows what to do now.
+  const goal = document.createElement('button')
+  goal.type = 'button'; goal.id = 'goal'; goal.className = 'goal-pill'
+  const goalText = document.createElement('b'); const goalSub = document.createElement('small')
+  const goalKick = document.createElement('span'); goalKick.className = 'goal-kick'; goalKick.textContent = 'Next step'
+  goal.append(goalKick, goalText, goalSub)
+  document.body.append(goal)
+  let goalGo = ''
+  const runStep = (go: string) => {
+    if (go === 'mentor') {
+      if (interiors.inside) leaveRoom()
+      if (Math.hypot(pos.x, pos.z + 40.4) < 4) { firstOpened = true; mentor.start(SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0]) }
+      else { firstOpened = false; travelHook('Campus', false) }
+      return
+    }
+    if (go.startsWith('career:')) { window.dispatchEvent(new CustomEvent('gd:career', { detail: go.slice(7) })); return }
+    if (go.startsWith('course:')) { window.dispatchEvent(new CustomEvent('gd:course', { detail: go.slice(7) })); return }
+    follow(go)
+  }
+  goal.addEventListener('click', () => runStep(goalGo))
+  const paintGoal = () => {
+    const st = nextStep()
+    goalGo = st.go
+    let sub = st.sub
+    if (st.go === 'mentor' && !interiors.inside) { const d = Math.round(Math.hypot(pos.x, pos.z + 40.4)); if (d > 4) sub = `${d} m away · tap to go` }
+    if (goalText.textContent !== st.text) goalText.textContent = st.text
+    if (goalSub.textContent !== sub) goalSub.textContent = sub
+    goal.setAttribute('aria-label', `Next step: ${st.text}. ${sub}`)
+  }
+  window.setInterval(() => { try { paintGoal() } catch { /* city still booting: rooms are set up further down */ } }, 1000)
+  setStepSource(() => { const st = nextStep(); return { ...st, run: () => runStep(st.go) } })
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
   onCareer(() => { paintStatus(); if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
@@ -1223,8 +1276,10 @@ const apiAgents = createRemoteAgents(scene)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
-      scene.environmentIntensity = 0.45 * (1 - nightLevel) + 0.18 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.74, 0.9, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
+      scene.environmentIntensity = 0.38 * (1 - nightLevel) + 0.07 * nightLevel
+      // Night: let the street lamps do the lighting (deeper blue between the warm pools).
+      warmAmbient.intensity = 0.1 * (1 - nightLevel) + 0.035 * nightLevel
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.7, 0.86, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.15 * (1 - nightLevel) + 0.06 : 0
     }
@@ -1236,7 +1291,7 @@ const apiAgents = createRemoteAgents(scene)
     try { setAmbientPlace(Boolean(interiors.inside), Math.hypot(pos.x, pos.z)) } catch { /* */ }
 
     const frame = input.read()
-    const paused = ui.isOpen()
+    const paused = ui.isOpen() || mentor.isOpen()
     if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
@@ -1363,7 +1418,11 @@ const apiAgents = createRemoteAgents(scene)
       // Slow spin + tiny bob so it reads as a Campus waypoint, not a clipping toy.
       firstMarker.children[0]!.position.y = Math.sin(performance.now() / 900) * 0.08
       if (!needsFirstCourse()) scene.remove(firstMarker)
-      else if (!firstOpened && !interiors.inside && Math.hypot(pos.x, pos.z + 42.2) < 3.2) { firstOpened = true; ui.open('learn', { course: SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0] }) }
+      else if (!interiors.inside) {
+        const near = Math.hypot(pos.x, pos.z + 40.4) < 3.2 || Math.hypot(pos.x - ada.position.x, pos.z - ada.position.z) < 2.4
+        if (near && !firstOpened && !ui.isOpen()) { firstOpened = true; mentor.start(SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0]) }
+        else if (!near && Math.hypot(pos.x, pos.z + 40.4) > 6) firstOpened = false
+      }
     }
     tickTvs(dt, pos.x, pos.z, camera)
     tickWater(dt, camera)

@@ -236,7 +236,7 @@ export function createPlayer(): ShrimpAvatar {
   const shadowContext = shadowCanvas.getContext('2d')
   if (!shadowContext) throw new Error('Could not paint the contact shadow.')
   const gradient = shadowContext.createRadialGradient(64, 64, 10, 64, 64, 64)
-  gradient.addColorStop(0, 'rgba(0,0,0,0.45)')
+  gradient.addColorStop(0, 'rgba(0,0,0,0.3)')
   gradient.addColorStop(1, 'rgba(0,0,0,0)')
   shadowContext.fillStyle = gradient
   shadowContext.fillRect(0, 0, 128, 128)

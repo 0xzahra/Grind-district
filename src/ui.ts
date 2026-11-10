@@ -18,6 +18,7 @@ import { track } from './track.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
+import { biteCards } from './mentor.ts'
 import { courseArt } from './courseArt.ts'
 import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
@@ -508,12 +509,29 @@ export function mountUi(
       // Each view replaces the whole body and scrolls the sheet to the top, so an exercise never sits on top of lesson text.
       const toTop = () => { let n: HTMLElement | null = body; while (n) { if (n.scrollHeight > n.clientHeight + 1) n.scrollTop = 0; n = n.parentElement } }
       const showLesson = () => {
-        const wrap = stack(button('← Your path', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'), para(`${total} exercises. A miss names the idea to reread.`, 'muted'))
+        const wrap = stack(button('← Your path', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'))
         if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
         if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
         if (passed && nearPassportOn()) wrap.append(nearPassportPanel(id, passed))
-        for (const paragraph of course.paragraphs) wrap.append(para(paragraph))
-        wrap.append(button(passed ? 'Review the exercises' : `Start exercises · ${total}`, 'primary', () => showExercise(0)), advice())
+        // Bite-size cards (one or two sentences, large type) instead of a wall of small text.
+        const cards = biteCards(course.paragraphs)
+        const sources = course.paragraphs.find((p) => /^Sources?:/i.test(p.trim()))
+        const cardBox = document.createElement('div')
+        cardBox.className = 'bite'
+        const paint = (i: number) => {
+          const dots = document.createElement('div')
+          dots.className = 'bite-dots'
+          for (let k = 0; k < cards.length; k++) { const d = document.createElement('i'); if (k < i) d.className = 'on'; else if (k === i) d.className = 'now'; dots.append(d) }
+          const nav = document.createElement('div')
+          nav.className = 'ex-nav'
+          if (i > 0) nav.append(button('← Back', 'ghost', () => paint(i - 1)))
+          if (i < cards.length - 1) nav.append(button(`Next · ${i + 1}/${cards.length}`, 'primary', () => paint(i + 1)))
+          else nav.append(button(passed ? 'Review the exercises' : `Quick check · ${total}`, 'primary', () => showExercise(0)))
+          cardBox.replaceChildren(dots, para(cards[i] ?? '', 'bite-say'), nav)
+          if (i === cards.length - 1 && sources) cardBox.append(para(sources, 'muted'))
+        }
+        paint(0)
+        wrap.append(cardBox, button(passed ? 'Jump to the exercises' : 'Skip to the quick check', 'ghost', () => showExercise(0)), advice())
         body.replaceChildren(wrap)
         toTop()
       }
@@ -1182,10 +1200,10 @@ export function mountUi(
   const render = (panel: PanelId): HTMLElement => {
     switch (panel) {
       case 'intro':
-        return renderSimple('You start at zero', [
-          para('You are a shrimp in a shared city. The practice ledger is empty. Rank does not read it.'),
-          para('Walk north to the learning hall, or east to the houses. Music stays off until you want Market Velocity.'),
-          button("I'm here", 'primary', close),
+        return renderSimple('Welcome to Grind District', [
+          para('Everyone starts at zero here.'),
+          para('Your first step: follow the gold marker north to Campus. Ada gives you a 1-minute lesson.'),
+          button("Let's go", 'primary', close),
         ])
       case 'profile':
         return renderProfile()

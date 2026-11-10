@@ -12,7 +12,8 @@ export function contactShadow(radius = 0.55): THREE.Mesh {
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Could not paint a contact shadow.')
   const gradient = context.createRadialGradient(64, 64, 8, 64, 64, 64)
-  gradient.addColorStop(0, 'rgba(0,0,0,0.45)')
+  gradient.addColorStop(0, 'rgba(0,0,0,0.3)')
+  gradient.addColorStop(0.5, 'rgba(0,0,0,0.12)')
   gradient.addColorStop(1, 'rgba(0,0,0,0)')
   context.fillStyle = gradient
   context.fillRect(0, 0, 128, 128)

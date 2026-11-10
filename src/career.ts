@@ -130,6 +130,19 @@ const bar = (label: string, v: number, max: number) => { const w = el('div', '',
 const btn = (text: string, on: () => void, cls = 'cr-btn') => { const b = el('button', text, cls); b.type = 'button'; b.onclick = on; return b }
 
 
+type StepView = { text: string; sub: string; run: () => void }
+let stepSource: (() => StepView) | null = null
+/** main.ts hands in the HUD's next-step logic so the Career sheet always leads with the same single action. */
+export function setStepSource(f: () => StepView): void { stepSource = f }
+function nextStepCard(): HTMLElement | null {
+  if (!stepSource) return null
+  const st = stepSource()
+  const b = el('button', '', 'cr-next'); b.type = 'button'
+  b.append(el('small', 'Your next step'), el('strong', st.text), el('span', st.sub))
+  b.onclick = st.run
+  return b
+}
+
 /** One lesson row: title, status, and a Start/Review button that opens that exact course. */
 function lessonRow(id: SkillId, passed: boolean, next: boolean): HTMLElement {
   const row = el('div', '', 'cr-lesson' + (passed ? ' done' : next ? ' next' : ''))
@@ -146,6 +159,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   const T: Array<[string, string]> = [['courses', 'Lessons'], ['paths', 'Careers'], ['overview', 'Progress'], ['history', 'History'], ['weekly', 'Weekly'], ['jobs', 'Jobs']]
   for (const [id, label] of T) { const b = btn(label, () => renderCareer(root, go, onPins, id), 'cr-tab' + (id === tab ? ' on' : '')); tabs.append(b) }
   root.replaceChildren(tabs, body)
+  { const n = nextStepCard(); if (n) body.append(n) }
   if (tab === 'courses') {
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed).length
     body.append(el('h3', 'Courses on Campus'), bar('Courses passed', passed, SKILL_ORDER.length), el('p', 'Each pass is filed to your CV, resume and portfolio with a certificate.', 'cc-muted'),
@@ -170,16 +184,19 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     }
     body.append(list)
   } else if (tab === 'paths') {
-    body.append(el('p', DISCLAIMER, 'cc-muted'))
+    body.append(el('h3', 'Careers in the city'), el('p', 'Pick one. Do its task at the building once a day to rank up.', 'cc-muted'))
+    const first = (txt: string) => (txt.match(/^[^.!?]+[.!?]/)?.[0] ?? txt)
     for (const t of TRACKS) {
       const n = c.track[t.id] ?? 0; const r = rankIdx(n)
-      const card = el('details', '', 'cr-card'); if (t === TRACKS[0]) card.open = true
-      const sum = el('summary'); sum.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]} · ${t.topics}`, 'cr-sub')); card.append(sum)
-      card.append(el('p', t.lesson), el('p', `Risk: ${t.risk}`, 'cr-risk'))
-      const ladder = el('ol', '', 'cr-ladder'); RANKS_LADDER.forEach((name, i) => ladder.append(el('li', `${name} · ${RANK_STEPS[i]}`, i <= r ? 'on' : ''))); card.append(ladder)
+      const card = el('details', '', 'cr-card')
       const done = c.trackDay[t.id] === day()
-      card.append(el('p', `Practice ${done ? '(done today)' : '(once a day)'}: ${t.task.text}`, 'cr-task'))
-      if (t.place) card.append(btn(`Go to ${t.place} ›`, () => go(`place:${t.place}`)))
+      const sum = el('summary'); sum.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]}${done ? ' · done today ✓' : ''}`, 'cr-sub')); card.append(sum)
+      card.append(el('p', first(t.lesson), 'cr-say'))
+      card.append(el('p', `Today: ${t.task.text}`, 'cr-task'))
+      if (t.place) card.append(btn(`Walk to ${t.place} ›`, () => go(`place:${t.place}`), 'cr-btn primary'))
+      const nextR = RANK_STEPS[r + 1]
+      card.append(nextR != null ? bar(`Next rank: ${RANKS_LADDER[r + 1]}`, n, nextR) : el('p', `Top rank: ${RANKS_LADDER[r]}`, 'cc-muted'))
+      const more = el('details', '', 'cr-more'); const ms = el('summary', 'More about this career'); more.append(ms, el('p', t.lesson), el('p', `Risk: ${t.risk}`, 'cr-risk'), el('p', DISCLAIMER, 'cc-muted')); card.append(more)
       if (t.courses.length) {
         const nextId = t.courses.find((id) => !s.skills[id]?.passed)
         const doneN = t.courses.filter((id) => s.skills[id]?.passed).length
