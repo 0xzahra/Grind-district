@@ -1,5 +1,5 @@
 // NEP-413 signed-message verification for NEAR login. Underscore = not a Vercel function.
-import { createPublicKey, verify as cryptoVerify, randomBytes } from 'crypto'
+import { createPublicKey, createHash, verify as cryptoVerify, randomBytes } from 'crypto'
 
 const TAG = 2147484061 // 2^31 + 413
 const MAX_AGE_MS = 10 * 60 * 1000
@@ -69,11 +69,19 @@ export function verifyNearLogin(p: NearProof): { ok: true; accountId: string } |
     const bytes = nep413Bytes(p.message, nonce, p.recipient, p.callbackUrl ?? null)
     const pub = b58decode(p.publicKey.slice('ed25519:'.length))
     if (pub.length !== 32) return { ok: false, error: 'Bad public key' }
-    const sig = Buffer.from(p.signature, 'base64')
-    if (sig.length !== 64) return { ok: false, error: 'Bad signature' }
+    // Wallets send the signature as base64 (NEP-413) or, in some wallets, base58 / "ed25519:" base58.
+    const raw = p.signature.startsWith('ed25519:') ? p.signature.slice(8) : p.signature
+    const sigs: Buffer[] = []
+    try { sigs.push(Buffer.from(raw, 'base64')) } catch { /* not base64 */ }
+    try { sigs.push(b58decode(raw)) } catch { /* not base58 */ }
+    const candidates = sigs.filter((b) => b.length === 64)
+    if (!candidates.length) return { ok: false, error: 'Bad signature' }
     const spki = Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), pub])
     const key = createPublicKey({ key: spki, format: 'der', type: 'spki' })
-    if (!cryptoVerify(null, bytes, key, sig)) return { ok: false, error: 'Signature mismatch' }
+    // NEP-413: the wallet signs SHA-256 of the Borsh payload (raw payload kept as a fallback).
+    const hashed = createHash('sha256').update(bytes).digest()
+    const good = candidates.some((sig) => cryptoVerify(null, hashed, key, sig) || cryptoVerify(null, bytes, key, sig))
+    if (!good) return { ok: false, error: 'Signature mismatch' }
     return { ok: true, accountId: p.accountId.toLowerCase() }
   } catch (e) {
     return { ok: false, error: (e as Error).message || 'Could not verify' }
