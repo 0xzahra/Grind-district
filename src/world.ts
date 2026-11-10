@@ -1148,8 +1148,8 @@ export function createWorld(options: {
   const nightLow = new THREE.Color(0x141c2e)
   const duskSky = new THREE.Color(0x4a3568)
   const duskLow = new THREE.Color(0xe8955a)
-  const daySky = new THREE.Color(0x2f86ea)
-  const dayLow = new THREE.Color(0x9aacba)
+  const daySky = new THREE.Color(0x4a9df0)
+  const dayLow = new THREE.Color(0xd6e4ee)
   const tmpA = new THREE.Color()
   const tmpB = new THREE.Color()
   const sunDay = new THREE.Color(0xffd29c)
@@ -1167,7 +1167,7 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.0064 - day * 0.0019 + dusk * 0.0016 // soft aerial haze by day, thicker at dusk
+    fog.density = 0.0064 - day * 0.0036 + dusk * 0.0016 // lighter haze by day // soft aerial haze by day, thicker at dusk
     // Day: softer sun (Zahra: too bright). Night: lamps. Dusk: warm amber.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
@@ -1175,12 +1175,13 @@ export function createWorld(options: {
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.85)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
     // Warmer key with less flat fill: deeper shadows by day, a low orange sun at dusk, cool moonlight at night.
-    sun.intensity = (elev >= 0 ? 0.22 + day * 0.98 + dusk * 0.12 : 0.1) * (seasonBear ? 0.88 : 1)
+    sun.intensity = (elev >= 0 ? 0.25 + day * 1.5 + dusk * 0.12 : 0.1) * (seasonBear ? 0.88 : 1)
     sun.castShadow = day > 0.2
-    hemi.intensity = 0.08 + day * 0.54
+    hemi.intensity = 0.08 + day * 1.0 // bright sky fill by day lifts the dark shadow around the player
     hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.5)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
-    fill.intensity = 0.02 + day * 0.1
+    fill.intensity = 0.02 + day * 0.25
+    sun.shadow.intensity = 1 - day * 0.45 // soft daytime shadows, full at night
     lampMat.emissiveIntensity = 0.06 + night * 1.7
     trimPulse = 0.12 + night * 0.18
     trim.emissiveIntensity = trimPulse

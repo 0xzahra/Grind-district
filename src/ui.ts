@@ -1045,11 +1045,11 @@ export function mountUi(
       open('settings')
     }))
     const support = document.createElement('a')
-    support.href = 'https://x.com/0xarewah'
+    support.href = 'https://t.me/flowerflowchat'
     support.target = '_blank'
     support.rel = 'noopener noreferrer'
     support.className = 'help-link'
-    support.textContent = 'Get help'
+    support.textContent = 'Suggestions & feedback'
     const soundRow = document.createElement('div')
     soundRow.className = 'tabs'
     const slider = (value: number, label: string, set: (v: number) => void) => { const r = document.createElement('input'); r.type = 'range'; r.min = '0'; r.max = '100'; r.value = String(value); r.setAttribute('aria-label', label); r.oninput = () => set(Number(r.value)); return r }

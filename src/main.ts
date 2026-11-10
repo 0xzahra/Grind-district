@@ -1347,10 +1347,10 @@ const apiAgents = createRemoteAgents(scene)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
       post.setNight(nightLevel)
       // Ease everything with the same curve: env map and exposure fall away after dusk.
-      scene.environmentIntensity = 0.38 * (1 - nightLevel) + 0.07 * nightLevel
+      scene.environmentIntensity = 0.5 * (1 - nightLevel) + 0.07 * nightLevel
       // Night: let the street lamps do the lighting (deeper blue between the warm pools).
-      warmAmbient.intensity = 0.1 * (1 - nightLevel) + 0.035 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.7, 0.86, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
+      warmAmbient.intensity = 0.3 * (1 - nightLevel) + 0.035 * nightLevel
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.95, 0.86, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.15 * (1 - nightLevel) + 0.06 : 0
     }
