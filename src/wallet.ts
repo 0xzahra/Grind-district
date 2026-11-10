@@ -2,6 +2,7 @@ import { getSave, balanceSplit } from './state'
 import { COINS, money, formatQty } from './logic.ts'
 import { TOPUP, TRANSFER_FEE_BPS, topupReady } from './economy'
 import { track } from './track'
+import { gameWalletChip } from './privyWallet.ts'
 // Optional real wallet on Base (8453). Injected EIP-1193 only; the city never holds keys.
 // WalletConnect is not wired (needs a project ID). Lazy-loaded from Settings.
 import qrcode from 'qrcode-generator'
@@ -86,7 +87,7 @@ export function openWallet(): void {
   const practice = rows.reduce((a, r) => a + r[3], 0)
   const usd = (n: number) => money(n)
   const hero = el('div', '', 'wx-hero')
-  hero.append(el('small', 'Total balance (in-game)'), el('b', usd(split.total + practice)), el('span', `Cash ${usd(split.total)} · Practice assets ${usd(practice)}`))
+  hero.append(el('small', 'Total balance (in-game)'), el('b', usd(split.total + practice)), el('span', `Cash ${usd(split.total)} · Practice assets ${usd(practice)}`), ...gameWalletChip())
   const tabs = el('div', '', 'wx-tabs')
   const pane = el('div', '', 'wx-pane')
   const asset = (sym: string, name: string, right: string, sub: string, tag?: string) => {

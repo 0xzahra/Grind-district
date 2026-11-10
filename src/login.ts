@@ -2,6 +2,7 @@ import { trackFunnelOnce } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
 import { needsAvatarCreator, mountAvatarCreator } from './creator.ts'
+import { ensureEmbeddedWallet, GAME_WALLET_KEY, GAME_NEAR_KEY } from './privyWallet.ts'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,20}$/
 export const CLAIMED_KEY = 'gd.privy.username'
@@ -23,6 +24,8 @@ async function client() {
 type Social = 'google' | 'twitter'
 const SOCIAL_LABEL: Record<Social, string> = { google: 'Google', twitter: 'X' }
 const OAUTH_KEY = 'gd.oauth.provider'
+/** Privy: create an embedded Ethereum wallet on login for users who have none. */
+const WALLET_ON_LOGIN = { embedded: { ethereum: { createOnLogin: 'users-without-wallets' as const } } }
 const NEAR_RECIPIENT = 'grinddistrict.vercel.app'
 
 // Warm the NEAR wallet library and its wallet list while the sign-in card is open,
@@ -79,7 +82,7 @@ export async function resumeOAuth(): Promise<void> {
   try { if (sessionStorage.getItem(OAUTH_KEY) === 'twitter') provider = 'twitter'; sessionStorage.removeItem(OAUTH_KEY) } catch { /* private mode */ }
   try {
     const privy = await client()
-    await privy.auth.oauth.loginWithCode(code, state, provider)
+    await privy.auth.oauth.loginWithCode(code, state, provider, undefined, undefined, WALLET_ON_LOGIN)
     openLogin()
   } catch (e) {
     openLogin(`${SOCIAL_LABEL[provider]} sign-in did not complete: ${(e as Error).message || 'unknown error'}. Try again or use another option.`)
@@ -279,6 +282,8 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const token = await privy.getAccessToken()
     if (closed) return
     if (!token) { msg.textContent = 'Sign in failed'; return }
+    // Google / X / email players get Privy embedded wallets (Base + NEAR) if they have none (in the background).
+    void ensureEmbeddedWallet(privy as unknown as Parameters<typeof ensureEmbeddedWallet>[0])
     body.replaceChildren(el('p', 'Signing you in…', 'muted'))
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: '{}' }).catch(() => null)
     const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string } : {}
@@ -449,7 +454,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     try {
       const privy = await client()
       if (closed) return
-      await privy.auth.email.loginWithCode(email.value.trim(), code.value.trim())
+      await privy.auth.email.loginWithCode(email.value.trim(), code.value.trim(), undefined, WALLET_ON_LOGIN)
       if (closed) return
       await afterLogin(privy)
     } catch (e) { if (!closed) msg.textContent = (e as Error).message }
@@ -597,7 +602,7 @@ export async function signOut(): Promise<void> {
     const w = await c.wallet().catch(() => null)
     if (w) await w.signOut().catch(() => {})
   } catch { /* no near session */ }
-  for (const k of [CLAIMED_KEY, NEAR_KEY, 'gd.privy.userId', 'grind-district-save-v1']) {
+  for (const k of [CLAIMED_KEY, NEAR_KEY, 'gd.privy.userId', GAME_WALLET_KEY, GAME_NEAR_KEY, 'grind-district-save-v1']) {
     try { localStorage.removeItem(k) } catch { /* ignore */ }
   }
   location.assign(location.pathname)

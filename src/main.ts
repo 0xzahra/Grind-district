@@ -1,5 +1,6 @@
 import { nextMission } from './worlds.ts'
 import { RANKS } from './logic.ts'
+import { gameWalletChip } from './privyWallet.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
 import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
@@ -691,7 +692,7 @@ const apiAgents = createRemoteAgents(scene)
     const split = el('p', '', 'cc-split')
     const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toFixed(2)}`)); split.append(c) } }
     paintSplit()
-    head.append(big, split)
+    head.append(big, split, ...gameWalletChip())
     sheetBody.replaceChildren(head, el('p', 'In-game virtual balance. Top up with ETH or USDC on Base below.', 'cc-muted'))
     const tick = window.setInterval(() => {
       if (ccSheet.hidden || sheetTitle.textContent !== 'Balance' || !big.isConnected) { clearInterval(tick); return }
