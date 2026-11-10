@@ -7,7 +7,7 @@ import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
-import { MEN, WOMEN, upgradeToHuman, type Extras } from './humans.ts'
+import { MEN, WOMEN, upgradeToHuman, type Extras, type Look } from './humans.ts'
 import { worn, piece } from './wardrobe.ts'
 
 export type Avatar = ShrimpAvatar
@@ -163,6 +163,19 @@ function createSignal(): Avatar {
   })
 }
 
+// The crowd reuses eight figures. The first copy of each wears the figure's own clothes; later copies are
+// re-dressed (top, trousers, skin tone, hair) so the same person is not seen twice on one street.
+const CROWD_TOPS = [0x2f4a44, 0x8a3b2e, 0x1d2a44, 0xc4a574, 0x5d6b3a, 0x6b2d4a, 0xe8dcc4, 0x33363b, 0x1f6b4f, 0xb5553a]
+const CROWD_BOTTOMS = [0x16171a, 0x2b3a67, 0xcdb48a, 0x3a3f47, 0x4a3a2c]
+const CROWD_SKINS = [0x6f4329, 0xa8714b, 0x55321f, 0x8d5a3b, 0xbf8a62, 0x3b2316]
+const CROWD_HAIR = [0x15110e, 0x2a1a12, 0x15110e, 0x5a3622]
+function crowdLook(variant: number): Look | undefined {
+  const round = variant >> 3
+  if (round === 0) return undefined
+  const k = variant * 5 + round * 3
+  return { top: CROWD_TOPS[k % CROWD_TOPS.length], bottom: CROWD_BOTTOMS[k % CROWD_BOTTOMS.length], skin: CROWD_SKINS[k % CROWD_SKINS.length], hair: CROWD_HAIR[k % CROWD_HAIR.length] }
+}
+
 export function createAvatar(body: BodyId, tint: number, luxury: boolean, variant?: number): Avatar {
   const avatar = createProcedural(body, tint, luxury)
   // Real animated people replace the human bodies (player, Zuri, citizens). Masked players keep the procedural body.
@@ -171,9 +184,16 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     const own = variant === undefined
     const w = worn()
     const topPiece = own ? piece(w.top) : undefined
-    const ownModel = female ? (topPiece?.model === 'casual' ? 'woman3' : 'woman4') : (topPiece && topPiece.model !== 'suit' ? 'man1' : 'man4')
-    const model = own ? ownModel : female ? WOMEN[variant! % WOMEN.length]! : MEN[variant! % MEN.length]!
-    const outfit = () => { const v = worn(); return { top: piece(v.top)?.hex, bottom: piece(v.bottom)?.hex, shoes: piece(v.shoes)?.hex, sleeves: female && /^abaya/.test(String(v.top ?? '')), robe: female && /^abaya/.test(String(v.top ?? '')), gown: female && /ankara/.test(String(v.top ?? '')) } }
+    // The figure follows the outfit: a dress, a casual look or a suit each have their own; an abaya or a kaftan
+    // swaps to the covered or long-shirt figure inside humans.ts (see `figure`).
+    const ownModel = female ? (topPiece?.model === 'casual' ? 'woman3' : 'woman4') : (topPiece?.model === 'suit' ? 'man4' : 'man1')
+    const pick = variant === undefined ? 0 : (variant >> 1) % 4
+    const model = own ? ownModel : female ? WOMEN[pick]! : MEN[pick]!
+    const outfit = () => {
+      const v = worn(), t = piece(v.top), id = String(v.top ?? '')
+      // A suit is one cloth: the trousers match the jacket unless other trousers are worn.
+      return { top: t?.hex, bottom: piece(v.bottom)?.hex ?? (!female && t?.model === 'suit' ? t.hex : undefined), shoes: piece(v.shoes)?.hex, sleeves: female && /^abaya/.test(id), robe: female && /^abaya/.test(id), kaftan: !female && /kaftan|agbada/.test(id), gown: female && /ankara/.test(id) }
+    }
     const extras = (lux: boolean): Extras => { const a = worn().acc; return { chain: lux, watch: a.includes('watch-steel'), shades: a.includes('shades'), cap: a.includes('cap'), pearls: a.includes('pearls') } }
     if (own) avatar.object.userData.extras = extras(luxury)
     const mo = getMorph()
@@ -184,8 +204,9 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       glasses: own && !female,
       makeup: undefined, // no makeup (Zahra: free modest creator, no makeup)
       extras: own ? extras(luxury) : undefined,
-      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().top ?? tint } : undefined,
+      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().top ?? tint } : crowdLook(variant!),
       height: female ? 1.68 : 1.78,
+      detail: own ? 1 : 0.5,
     })
     if (own) {
       const head0 = avatar.object.getObjectByName('Head')
@@ -199,7 +220,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         const head = avatar.object.getObjectByName('Head') as { scale: { set: (x:number,y:number,z:number)=>void } } | undefined
         if (head?.scale) head.scale.set(now.f ?? 1, 1, now.f ?? 1)
         const o = outfit()
-        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t, sleeves: o.sleeves, robe: o.robe, gown: o.gown }
+        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown }
         avatar.object.userData.extras = extras(lux)
         ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))
         avatar.object.userData.look = look

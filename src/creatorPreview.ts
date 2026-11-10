@@ -119,7 +119,7 @@ export function mountCreatorPreview(host: HTMLElement, getBody: () => BodyId): C
     const tint = bodyId === 'zuri' ? 0xc4a574 : 0x5c6b80
     avatar = createAvatar(bodyId, tint, false)
     avatar.object.position.set(0, 0, 0)
-    // Front-facing: Quaternius rig faces +Z toward camera at yaw 0 (Math.PI showed the back).
+    // Front-facing: the figures face +Z toward the camera at yaw 0 (Math.PI showed the back).
     avatar.object.rotation.y = 0
     scene.add(avatar.object)
     avatar.setStyle(tint, false)

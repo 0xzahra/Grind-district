@@ -292,6 +292,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const g = gaze[index] ?? (gaze[index] = { t: 0, cool: 0 })
         g.cool = Math.max(0, g.cool - dt)
         if (moving) { person.avatar.face(dx, dz, dt, true); still.delete(index); g.t = 0 } else still.add(index)
+        let chatting = false
         if (!moving) {
           const close = player && Math.hypot(player.x - person.sim.x, player.z - person.sim.z) < 2.2
           if (close && g.cool <= 0 && g.t < 2) { g.t += dt; person.avatar.face(player!.x - person.sim.x, player!.z - person.sim.z, dt, true); if (g.t >= 2) g.cool = 12 }
@@ -300,8 +301,11 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
             let best: Person | null = null, bd = 2.6
             for (const [j, o] of people.entries()) { if (j === index || !still.has(j)) continue; const d = Math.hypot(o.sim.x - person.sim.x, o.sim.z - person.sim.z); if (d < bd) { bd = d; best = o } }
             if (best) person.avatar.face(best.sim.x - person.sim.x, best.sim.z - person.sim.z, dt * 0.6, true)
+            // Two people stopped together take turns talking (the talk clip) while the other listens.
+            chatting = !!best && (Math.floor(poseClock / 6) + index) % 2 === 0
           }
         }
+        person.avatar.object.userData.chat = chatting
         const seated = posed.some((o) => o.p === person)
         person.avatar.step(dt, moving && !seated, person.sim.spec.speed)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)

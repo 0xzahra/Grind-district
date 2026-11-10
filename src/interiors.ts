@@ -492,14 +492,17 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Soft natural light: tall arched windows on the side walls, warm skylight.
       const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.55, roughness: 0.2 })
       for (let x = -5; x <= 5; x += 2.5) for (const side of [-1, 1]) box(1.0, 2.0, 0.04, glass, x, side * (d / 2 - 0.02), 0.9, false)
-      // Worshippers: real people from the city's own kit, seated on their heels in two rows facing the qibla,
-      // in plain thobes, some with a kufi. Still figures (no animation), one draw call each.
+      // Worshippers: real people from the city's own cast, seated on their heels in two rows facing the qibla.
+      // Still figures (no animation), one draw call each.
       const robes = [0xf2efe8, 0xe4dccd, 0x4a4f57, 0x7a6a55, 0x2f3f5c, 0xd9d2c6]
       const skins = [0x8d5a3b, 0xc68a62, 0x5a3825, 0xe0b08e, 0x6f4329, 0xbf8a62]
       let n = 0
       for (const x of [3.2, 1.6]) for (let z = -4.2; z <= 4.2; z += 1.4) {
         const robe = robes[n % robes.length]!
-        const man = posedHuman(MEN[n % MEN.length]!, { pose: 'kneel', height: 1.76, look: { top: robe, bottom: robe, skin: skins[(n * 5) % skins.length]!, hair: 0x16110e, shoes: robe }, cap: n % 3 === 1 ? undefined : n % 2 ? 0xf2efe8 : 0x3a3f47 })
+        // Two in three wear a kufi and long shirt in their own colour; the rest came in from the street as they are.
+        const man = n % 3 === 2
+          ? posedHuman(MEN[(n >> 1) % MEN.length]!, { pose: 'kneel', height: 1.76, look: n % 2 ? { skin: skins[(n * 5) % skins.length]!, hair: 0x16110e } : undefined })
+          : posedHuman('kurta', { pose: 'kneel', height: 1.76, look: { top: robe, skin: skins[(n * 5) % skins.length]! } })
         man.position.set(x, 0, z)
         man.rotation.y = Math.PI / 2
         group.add(man)

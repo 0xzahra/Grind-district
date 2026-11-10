@@ -1,18 +1,33 @@
 import * as THREE from 'three'
 
 // Sitting: a seat is a spot on the floor plan, the direction the sitter faces, and the seat-top height.
-// The Quaternius pack only ships Idle/Walk/Run, so the sit pose is layered on the rig after the mixer runs:
+// The sit pose is layered on the rig after the mixer runs (it works from any standing clip):
 // thighs forward, shins down, hands on the lap, and the body lowered until the hips rest on the seat.
 export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' }
 export type SeatSpot = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; use: () => void }
 
-type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hipDrop: number }
+type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hands: THREE.Object3D[]; hipDrop: number }
 
 const axis = new THREE.Vector3()
 const qParent = new THREE.Quaternion()
 const qDelta = new THREE.Quaternion()
 const qPerson = new THREE.Quaternion()
 const v = new THREE.Vector3()
+const vFrom = new THREE.Vector3(), vTo = new THREE.Vector3(), vWant = new THREE.Vector3(), vFwd = new THREE.Vector3()
+const qIdentity = new THREE.Quaternion()
+
+/** Swing `bone` so the segment to `child` points along `want` (world), by the fraction `t`. */
+function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3, t: number) {
+  if (!bone.parent) return
+  bone.getWorldPosition(vFrom); child.getWorldPosition(vTo)
+  vTo.sub(vFrom).normalize()
+  qDelta.setFromUnitVectors(vTo, want)
+  if (t < 1) qDelta.slerpQuaternions(qIdentity, qDelta.clone(), t)
+  bone.parent.getWorldQuaternion(qParent)
+  const inv = qParent.clone().invert()
+  bone.quaternion.premultiply(inv.multiply(qDelta).multiply(qParent))
+  bone.updateMatrixWorld(true)
+}
 
 /** Turn a bone about the sitter's own left-right axis by `angle`, whatever the bone's local frame is. */
 function bend(bone: THREE.Object3D, angle: number) {
@@ -30,18 +45,19 @@ function findBones(root: THREE.Object3D): Bones | null {
   if (!person) return null
   if (person.userData.sitBones) return person.userData.sitBones as Bones
   const by = (re: RegExp) => { let hit: THREE.Object3D | null = null; person.traverse((o) => { if (!hit && (o as THREE.Bone).isBone && re.test(o.name)) hit = o }); return hit as THREE.Object3D | null }
-  const hips = by(/^Hips$/i)
-  const legL = by(/^UpperLeg\.?L$/i), legR = by(/^UpperLeg\.?R$/i)
-  const kneeL = by(/^LowerLeg\.?L$/i), kneeR = by(/^LowerLeg\.?R$/i)
-  const armL = by(/^UpperArm\.?L$/i), armR = by(/^UpperArm\.?R$/i)
-  const foreL = by(/^LowerArm\.?L$/i), foreR = by(/^LowerArm\.?R$/i)
+  const hips = by(/^Bip01_Pelvis$/)
+  const legL = by(/^Bip01_L_Thigh$/), legR = by(/^Bip01_R_Thigh$/)
+  const kneeL = by(/^Bip01_L_Calf$/), kneeR = by(/^Bip01_R_Calf$/)
+  const armL = by(/^Bip01_L_UpperArm$/), armR = by(/^Bip01_R_UpperArm$/)
+  const foreL = by(/^Bip01_L_Forearm$/), foreR = by(/^Bip01_R_Forearm$/)
+  const handL = by(/^Bip01_L_Hand$/), handR = by(/^Bip01_R_Hand$/)
   if (!hips || !legL || !legR || !kneeL || !kneeR) return null
   person.updateMatrixWorld(true)
   // Standing hip height above the feet, and thigh length: sitting drops the hips by about one thigh.
   const hipY = legL.getWorldPosition(v).y
   const kneeY = kneeL.getWorldPosition(new THREE.Vector3()).y
   const rootY = root.getWorldPosition(new THREE.Vector3()).y
-  const bones: Bones = { person, hips, legs: [legL, legR], knees: [kneeL, kneeR], arms: [armL, armR].filter(Boolean) as THREE.Object3D[], fores: [foreL, foreR].filter(Boolean) as THREE.Object3D[], hipDrop: hipY - rootY }
+  const bones: Bones = { person, hips, legs: [legL, legR], knees: [kneeL, kneeR], arms: [armL, armR].filter(Boolean) as THREE.Object3D[], fores: [foreL, foreR].filter(Boolean) as THREE.Object3D[], hands: [handL, handR].filter(Boolean) as THREE.Object3D[], hipDrop: hipY - rootY }
   void kneeY
   person.userData.sitBones = bones
   return bones
@@ -110,12 +126,19 @@ export function createSeating() {
       // Thighs level and forward, shins straight down: hips on the seat, knees bent at a right angle.
       for (const l of b.legs) bend(l, -1.52 * t)
       for (const k of b.knees) bend(k, 1.52 * t)
-      // Arms start from the hanging pose (humans.ts): elbows stay by the sides and the forearms come
-      // forward to lie along the thighs, so the hands rest on the lap or near the knees (never into the body).
+      // Arms: elbows stay by the sides and the forearms come forward and a little inward, so each hand rests
+      // on its own thigh (mid-thigh, or nearer the knee on the other variant). Aimed, so any standing clip works.
       const variant = Math.abs(Math.round((seat?.x ?? 0) * 3) + Math.round((seat?.z ?? 0) * 5) + Math.round((seat?.yaw ?? 0) * 7)) % 2
-      const [upper, fore] = variant === 0 ? [-0.3, -1.22] : [-0.42, -1.05]
-      for (const a of b.arms) bend(a, upper * t)
-      for (const f of b.fores) bend(f, fore * t)
+      vFwd.set(0, 0, 1).applyQuaternion(qPerson).normalize()
+      const want = (r: number, u: number, f: number) => vWant.set(0, u, 0).addScaledVector(axis, r).addScaledVector(vFwd, f).normalize()
+      for (let i = 0; i < b.arms.length; i++) {
+        const arm = b.arms[i]!, fore = b.fores[i], hand = b.hands[i]
+        if (!fore || !hand) continue
+        // Which side this arm is on, from where it actually is.
+        const side = Math.sign(arm.getWorldPosition(vFrom).sub(b.hips.getWorldPosition(vTo)).dot(axis)) || 1
+        aim(arm, fore, variant === 0 ? want(side * 0.1, -0.95, 0.26) : want(side * 0.08, -0.9, 0.4), t)
+        aim(fore, hand, variant === 0 ? want(-side * 0.33, -0.5, 0.8) : want(-side * 0.3, -0.36, 0.88), t)
+      }
       // Rest the hips on the seat top (scaled person: work in world units then convert).
       const seatY = seat?.y ?? 0.46
       const drop = Math.max(0, b.hipDrop - (seatY + 0.06))
