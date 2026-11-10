@@ -2307,12 +2307,6 @@ body.online-open .goal-pill { visibility: hidden; }
 .goal-pill.folded { width: 34px; height: 34px; min-height: 34px !important; max-width: 34px !important; padding: 0 !important; border-radius: 50%; overflow: hidden; }
 .goal-pill.folded > * { display: none; }
 .goal-pill.folded::before { left: 12px; top: 12px; }
-@media (max-width: 520px) {
-  /* Phones: Online sits on its own line under the logo so a long Balance pill can never cover it. */
-  #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 36px) !important; left: calc(max(12px, env(safe-area-inset-left)) + 2px) !important; transform: none !important; }
-  #online-card { top: calc(max(14px, env(safe-area-inset-top)) + 62px); left: calc(max(12px, env(safe-area-inset-left)) + 2px); transform: none; }
-  .goal-pill { top: calc(max(14px, env(safe-area-inset-top)) + 66px) !important; }
-}
 /* CV as a printed page (one document; Resume and Portfolio merged/removed). */
 .cv-wrap { margin: 6px 0 4px; }
 .cv-paper { background: #fff; color: #1d1f23; border-radius: 4px; padding: 26px 24px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.06); font: 400 12.5px/1.5 'Helvetica Neue', Arial, system-ui, sans-serif; text-align: left; max-width: 640px; margin: 0 auto; aspect-ratio: auto; }
@@ -2359,3 +2353,8 @@ body.online-open .goal-pill { visibility: hidden; }
 .lx-map-b summary { font-weight: 500; color: #ddd5c6; }
 .lx-map ul { margin: 4px 0 6px 18px; padding: 0; font-size: 12.5px; color: #b8b0a2; line-height: 1.6; }
 .lx-map-warn { font-size: 12px; color: #e8a68f; margin: 8px 0 0; }
+
+/* HUD v2 (Zahra): no Balance pill on the HUD (balance stays in Control Centre/wallet); Online sits just left of the screenshot button. */
+#hud-balance-cluster { display: none !important; }
+#online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 10px) !important; left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 112px) !important; transform: none !important; }
+#online-card { top: calc(max(14px, env(safe-area-inset-top)) + 48px); left: auto; right: calc(max(12px, env(safe-area-inset-right)) + 64px); transform: none; }
