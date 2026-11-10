@@ -25,6 +25,49 @@ const SOCIAL_LABEL: Record<Social, string> = { google: 'Google', twitter: 'X' }
 const OAUTH_KEY = 'gd.oauth.provider'
 const NEAR_RECIPIENT = 'grinddistrict.vercel.app'
 
+// Warm the NEAR wallet library and its wallet list while the sign-in card is open,
+// so the selector can appear as soon as the player taps Continue with NEAR.
+type NearLoginConnector = {
+  whenManifestLoaded: Promise<void>
+  disconnect?: () => Promise<unknown> | void
+  once: (
+    event: 'wallet:signInAndSignMessage',
+    cb: (p: { success: boolean; accounts: { accountId: string; publicKey?: string; signedMessage?: { accountId: string; publicKey: string; signature: string } }[] }) => void,
+  ) => void
+  connect: (opts: { signMessageParams: { message: string; recipient: string; nonce: Uint8Array } }) => Promise<{
+    getAccounts: () => Promise<{ accountId: string }[]>
+    signMessage: (p: { message: string; recipient: string; nonce: Uint8Array }) => Promise<{ accountId?: string; publicKey: string; signature: string }>
+  }>
+}
+const NEAR_LOGIN_OPTS = { network: 'testnet' as const, features: { signMessage: true, signInAndSignMessage: true } }
+let nearLoginWarm: Promise<NearLoginConnector> | null = null
+
+function preconnectNearManifestHosts(): void {
+  for (const href of ['https://raw.githubusercontent.com', 'https://cdn.jsdelivr.net']) {
+    if (document.querySelector(`link[data-gd-near-preconnect][href="${href}"]`)) continue
+    const l = document.createElement('link')
+    l.rel = 'preconnect'
+    l.href = href
+    l.crossOrigin = 'anonymous'
+    l.dataset.gdNearPreconnect = '1'
+    document.head.append(l)
+  }
+}
+
+function warmNearLoginConnector(): Promise<NearLoginConnector> {
+  preconnectNearManifestHosts()
+  if (!nearLoginWarm) {
+    nearLoginWarm = import('@hot-labs/near-connect').then(async ({ NearConnector }) => {
+      const connector = new NearConnector(NEAR_LOGIN_OPTS) as unknown as NearLoginConnector
+      await connector.whenManifestLoaded.catch(() => { /* connect() waits again if needed */ })
+      return connector
+    })
+    nearLoginWarm.catch(() => { nearLoginWarm = null })
+  }
+  return nearLoginWarm
+}
+
+
 /** Finish a Google or X redirect if we came back from one. */
 export async function resumeOAuth(): Promise<void> {
   const q = new URLSearchParams(location.search)
@@ -118,6 +161,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const mo = new MutationObserver(() => { if (document.body.classList.contains('sheet-open')) { mo.disconnect(); dismiss() } })
   mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
   document.body.append(dlg)
+  void warmNearLoginConnector()
   const msg = el('p', notice, 'muted')
 
   const bind = async (token: string | null, j: { username?: string | null; userId?: string; save?: unknown }, nearProof?: unknown, opts?: { firstClaim?: boolean }) => {
@@ -300,6 +344,9 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
 
   const nearButton = () => {
     const b = el('button', 'Continue with NEAR', 'glass-btn primary')
+    // Backup warmup if the card-open preload has not finished or was skipped.
+    b.addEventListener('pointerdown', () => { void warmNearLoginConnector() })
+    b.addEventListener('focus', () => { void warmNearLoginConnector() })
     b.onclick = async () => {
       if (closed) return
       if (mode === 'signup' && !ensureGameId()) return
@@ -317,8 +364,14 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
           await afterNearLogin(await mock({ message, recipient: NEAR_RECIPIENT, nonce, nonceB64 }))
           return
         }
-        const { NearConnector } = await import('@hot-labs/near-connect')
-        const connector = new NearConnector({ network: 'testnet', features: { signMessage: true, signInAndSignMessage: true } })
+        let connector: NearLoginConnector
+        try {
+          connector = await warmNearLoginConnector()
+        } catch {
+          // Preload failed: same path as before — import and construct on tap.
+          const { NearConnector } = await import('@hot-labs/near-connect')
+          connector = new NearConnector(NEAR_LOGIN_OPTS) as unknown as NearLoginConnector
+        }
         nearConnector = connector as { disconnect?: () => Promise<unknown> | void }
         if (closed) { try { void nearConnector.disconnect?.() } catch { /* ignore */ }; return }
         type Acc = { accountId: string; publicKey?: string; signedMessage?: { accountId: string; publicKey: string; signature: string } }
