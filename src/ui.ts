@@ -7,6 +7,7 @@ import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { renderCvPaper, printCv } from './cvPaper.ts'
+import { lockReason, worldOf } from './worlds.ts'
 import { equippedFrame } from './career.ts'
 // Signed-in players: the look saves to the account through the existing profile upsert (debounced).
 let lookTimer = 0
@@ -487,6 +488,8 @@ export function mountUi(
     const showCourse = (id: SkillId) => {
       const course = COURSES.find((item) => item.id === id)
       if (!course) return
+      const lock = lockReason(id)
+      if (lock) { const w = worldOf(id); body.replaceChildren(stack(button('← Your worlds', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'), para(`🔒 ${lock}.${w ? ` This mission is in World ${w.n}: ${w.title}.` : ''}`))); return }
       const save = getSave()
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
@@ -540,9 +543,22 @@ export function mountUi(
         bar.className = 'ex-bar'
         bar.style.setProperty('--p', String((questionIndex + 1) / total))
         head.append(bar)
-        wrap.append(head, para(question.prompt, 'ex-prompt'))
+        if (question.kind) wrap.append(head, para(question.kind === 'sort' ? 'Sort it' : question.kind === 'match' ? 'Match it' : 'Slide it', 'ex-kind'), para(question.prompt, 'ex-prompt'))
+        else wrap.append(head, para(question.prompt, 'ex-prompt'))
         const result = para('', 'result')
-        question.choices.forEach((choice, choiceIndex) => {
+        if (question.kind === 'slider') {
+          // Slider check: drag along the options (timeline / trilemma tightrope); the stop you leave it on is your answer.
+          const val = picks[questionIndex] ?? Math.floor((question.choices.length - 1) / 2)
+          const range = document.createElement('input'); range.type = 'range'; range.min = '0'; range.max = String(question.choices.length - 1); range.step = '1'; range.value = String(val); range.className = 'ex-slider'; range.disabled = Boolean(passed)
+          const ticks = document.createElement('div'); ticks.className = 'ex-ticks'
+          const paintTicks = () => { ticks.replaceChildren(...question.choices.map((c, k) => { const t = document.createElement('span'); t.textContent = c; if (String(k) === range.value) t.className = 'on'; return t })) }
+          range.oninput = () => { picks[questionIndex] = Number(range.value); paintTicks(); result.textContent = '' }
+          if (picks[questionIndex] === null) picks[questionIndex] = val
+          paintTicks(); wrap.append(range, ticks)
+          range.addEventListener('change', () => { picks[questionIndex] = Number(range.value) })
+          range.addEventListener('pointerup', () => { picks[questionIndex] = Number(range.value) })
+        }
+        if (question.kind !== 'slider') question.choices.forEach((choice, choiceIndex) => {
           const node = button(choice, 'ghost choice', () => {
             if (passed) return
             picks[questionIndex] = choiceIndex

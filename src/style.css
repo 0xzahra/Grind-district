@@ -2340,3 +2340,21 @@ body.online-open .goal-pill { visibility: hidden; }
   #print-cv .cv-paper { box-shadow: none; max-width: none; padding: 0; border-radius: 0; font-size: 11pt; }
   @page { size: A4; margin: 18mm; }
 }
+/* Six worlds: lock states, boss cards, interactive checks, Earning Map. */
+.lx-world.locked { opacity: .55; }
+.lx-world.won .lx-unit-h b::after { content: ' 🏅'; }
+.lx-world .lx-badge { display: block; color: #d9b26a; font-size: 11px; margin-top: 2px; }
+.lx-card.locked { opacity: .5; cursor: not-allowed; }
+.lx-card.boss { border-color: rgba(217,178,106,.7) !important; box-shadow: inset 0 0 0 1px rgba(217,178,106,.35); }
+.ex-kind { display: inline-block; width: fit-content; font-size: 10px !important; letter-spacing: .1em; text-transform: uppercase; color: #12140f !important; background: #d9b26a; border-radius: 999px; padding: 2px 9px; margin: 4px 0 0 !important; font-weight: 700; }
+.ex-slider { width: 100%; accent-color: #d9b26a; margin: 14px 0 4px; height: 28px; }
+.ex-ticks { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: #b8b0a2; }
+.ex-ticks span { flex: 1; text-align: center; } .ex-ticks span:first-child { text-align: left; } .ex-ticks span:last-child { text-align: right; }
+.ex-ticks span.on { color: #f5f2ea; font-weight: 700; }
+.lx-map { margin: 10px 0 4px; border: 1px solid rgba(217,178,106,.4); border-radius: 14px; padding: 10px 12px; background: rgba(217,178,106,.06); }
+.lx-map summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.lx-map > summary { color: #e8c98f; }
+.lx-map-g { margin: 6px 0 0 4px; } .lx-map-b { margin: 2px 0 0 14px; font-size: 13px; }
+.lx-map-b summary { font-weight: 500; color: #ddd5c6; }
+.lx-map ul { margin: 4px 0 6px 18px; padding: 0; font-size: 12.5px; color: #b8b0a2; line-height: 1.6; }
+.lx-map-warn { font-size: 12px; color: #e8a68f; margin: 8px 0 0; }

@@ -1,4 +1,4 @@
-import { SKILL_ORDER } from './logic.ts'
+import { nextMission } from './worlds.ts'
 import { RANKS } from './logic.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
@@ -787,7 +787,7 @@ const apiAgents = createRemoteAgents(scene)
   const runStep = (go: string) => {
     if (go === 'mentor') {
       if (interiors.inside) leaveRoom()
-      if (Math.hypot(pos.x, pos.z + 40.4) < 4) { firstOpened = true; mentor.start(SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0]) }
+      if (Math.hypot(pos.x, pos.z + 40.4) < 4) { firstOpened = true; mentor.start(nextMission() ?? 'internet') }
       else { firstOpened = false; travelHook('Campus', false) }
       return
     }
@@ -1490,7 +1490,7 @@ const apiAgents = createRemoteAgents(scene)
       if (!needsFirstCourse()) scene.remove(firstMarker)
       else if (!interiors.inside) {
         const near = Math.hypot(pos.x, pos.z + 40.4) < 3.2 || Math.hypot(pos.x - ada.position.x, pos.z - ada.position.z) < 2.4
-        if (near && !firstOpened && !ui.isOpen()) { firstOpened = true; mentor.start(SKILL_ORDER.find((id) => !getSave().skills[id]?.passed) ?? SKILL_ORDER[0]) }
+        if (near && !firstOpened && !ui.isOpen()) { firstOpened = true; mentor.start(nextMission() ?? 'internet') }
         else if (!near && Math.hypot(pos.x, pos.z + 40.4) > 6) firstOpened = false
       }
     }

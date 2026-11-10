@@ -1,4 +1,5 @@
 import { MORE_COURSES } from './coursesMore.ts'
+import { WORLD_COURSES } from './worldCourses.ts'
 import { SKILL_ORDER, type Season, type SkillId } from './logic.ts'
 
 export type Question = {
@@ -6,6 +7,8 @@ export type Question = {
   choices: string[]
   answer: number
   hint: string
+  /** Presentation only: sort / match chips or a slider. Graded like any other choice. */
+  kind?: 'sort' | 'match' | 'slider'
 }
 
 export type Course = {
@@ -477,7 +480,7 @@ const BEAR = [
   'The houses stay open when the marks fall.',
 ]
 
-export const COURSES: Course[] = [...BASE_COURSES, ...MORE_COURSES]
+export const COURSES: Course[] = [...BASE_COURSES, ...MORE_COURSES, ...WORLD_COURSES]
 
 export function courseById(id: SkillId): Course | undefined {
   return COURSES.find((course) => course.id === id)

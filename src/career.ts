@@ -3,6 +3,7 @@
 import { partySize } from './messages.ts'
 import { getSave, onActivity, addReputation, earnCash, setTint, slotKey } from './state.ts'
 import { SKILL_META, SKILL_ORDER, COURSE_CASH, type SkillId } from './logic.ts'
+import { WORLDS, worldDone, nextMission, lockReason, careersOpen, tradingOpen } from './worlds.ts'
 import { TRACKS, JOBS, JOB_LEVELS, JOB_XP_PER_LEVEL, WEEKLY_POOL, SEASON, RANKS_LADDER, RANK_STEPS, DISCLAIMER, type TaskKind } from './careerData.ts'
 import { schedule } from './events.ts'
 
@@ -150,8 +151,11 @@ function nextStepCard(): HTMLElement | null {
 function lessonRow(id: SkillId, passed: boolean, next: boolean): HTMLElement {
   const row = el('div', '', 'cr-lesson' + (passed ? ' done' : next ? ' next' : ''))
   const info = el('div', '', 'cr-lesson-info')
-  info.append(el('strong', SKILL_META[id].title), el('small', passed ? 'Passed · on your CV' : `${next ? 'Up next' : 'Not started'} · +$${COURSE_CASH} on pass`))
-  row.append(info, btn(passed ? 'Review' : 'Start', () => window.dispatchEvent(new CustomEvent('gd:course', { detail: id })), passed ? 'cr-btn' : 'cr-btn primary'))
+  const lock = lockReason(id)
+  info.append(el('strong', SKILL_META[id].title), el('small', passed ? 'Passed · on your CV' : lock ? `🔒 ${lock}` : `${next ? 'Up next' : 'Not started'} · +$${COURSE_CASH} on pass`))
+  const b = btn(passed ? 'Review' : lock ? 'Locked' : 'Start', () => { if (!lock) window.dispatchEvent(new CustomEvent('gd:course', { detail: id })) }, passed || lock ? 'cr-btn' : 'cr-btn primary')
+  if (lock) b.setAttribute('aria-disabled', 'true')
+  row.append(info, b)
   return row
 }
 export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins: () => void, tab = 'overview'): void {
@@ -167,8 +171,11 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed).length
     body.append(el('h3', 'Courses on Campus'), bar('Courses passed', passed, SKILL_ORDER.length), el('p', 'Each pass is filed to your CV, resume and portfolio with a certificate.', 'cc-muted'),
       btn('Walk to Campus to study in person', () => go('place:Campus')))
-    const firstOpen = SKILL_ORDER.find((id) => !s.skills[id]?.passed)
-    for (const id of SKILL_ORDER) body.append(lessonRow(id, !!s.skills[id]?.passed, id === firstOpen))
+    const firstOpen = nextMission()
+    for (const w of WORLDS) {
+      body.append(el('h4', `World ${w.n} · ${w.title} · ${worldDone(w.n) && w.n < 6 ? `${w.reward} ✓` : w.reward}`))
+      for (const id of [...w.missions, ...(w.boss ? [w.boss] : []), ...(w.extra?.missions ?? [])]) body.append(lessonRow(id, !!s.skills[id]?.passed, id === firstOpen))
+    }
     return
   }
   if (tab === 'history') { renderFeed(body, go); return }
@@ -187,6 +194,8 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
       }, 'cr-chip' + (on ? ' on' : '')))
     }
     body.append(list)
+  } else if (tab === 'paths' && !careersOpen()) {
+    body.append(el('h3', 'Careers in the city'), el('p', '🔒 Careers open with the Pathfinder badge: finish World 5, The Earning Map, on Campus.', 'cc-muted'), btn('Go to my next mission', () => { const m = nextMission(); if (m) window.dispatchEvent(new CustomEvent('gd:course', { detail: m })) }, 'cr-btn primary'))
   } else if (tab === 'paths') {
     body.append(el('h3', 'Careers in the city'), el('p', 'Pick one. Do its task at the building once a day to rank up.', 'cc-muted'))
     const first = (txt: string) => (txt.match(/^[^.!?]+[.!?]/)?.[0] ?? txt)
@@ -197,6 +206,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
       const sum = el('summary'); sum.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]}${done ? ' · done today ✓' : ''}`, 'cr-sub')); card.append(sum)
       card.append(el('p', first(t.lesson), 'cr-say'))
       card.append(el('p', `Today: ${t.task.text} · +$10 once a day`, 'cr-task'))
+      if (t.id === 'trading' && !tradingOpen()) { card.append(el('p', '🔒 Trading opens after Worlds 1 to 5. Learn the map and the scams first.', 'cr-risk')); body.append(card); continue }
       if (t.place) card.append(btn(`Walk to ${t.place} ›`, () => go(`place:${t.place}`), 'cr-btn primary'))
       const nextR = RANK_STEPS[r + 1]
       card.append(nextR != null ? bar(`Next rank: ${RANKS_LADDER[r + 1]}`, n, nextR) : el('p', `Top rank: ${RANKS_LADDER[r]}`, 'cc-muted'))
@@ -225,7 +235,9 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     body.append(ol)
   } else {
     const job = JOBS.find((j) => j.id === c.job)
-    if (!job) {
+    if (!job && !careersOpen()) {
+      body.append(el('p', '🔒 Jobs open with the Pathfinder badge (World 5, The Earning Map). Until then, your missions on Campus pay +$' + COURSE_CASH + ' each.', 'cc-muted'))
+    } else if (!job) {
       body.append(el('p', 'Pick a job. Each daily duty at a city building pays +$5 or more in-game, raises Reputation and levels you through 10 ranks.', 'cc-muted'))
       for (const j of JOBS) body.append(btn(j.title, () => { c.job = j.id; c.jobXp = 0; store(); post(`Started work as ${JOB_LEVELS[0]} ${j.title}.`); renderCareer(root, go, onPins, tab) }, 'cr-btn wide'))
     } else {

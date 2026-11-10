@@ -3,11 +3,19 @@
 // through the same submitCourse() as the Campus panel, so save, certificate and CV data are unchanged.
 import { COURSES, type Course } from './courses.ts'
 import { getSave, submitCourse, slotKey, type CourseResult } from './state.ts'
-import { SKILL_META, SKILL_ORDER, type SkillId } from './logic.ts'
+import { SKILL_META, type SkillId } from './logic.ts'
+import { nextMission } from './worlds.ts'
 import { track } from './track.ts'
 
 /** Hand-written first-lesson cards. Other courses fall back to bite-size chunks of their paragraphs. */
 const FIRST_CARDS: Partial<Record<SkillId, string[]>> = {
+  internet: [
+    "Hi, I'm Zahra. Welcome to World 1: The Internet. Your first mission takes a minute, right here.",
+    'The internet is computers talking to computers. Your phone is one. Servers stay on and answer requests.',
+    'Open a page and your phone asks a server for it. The answer comes back in small packets.',
+    'Nobody owns the whole internet. It works because everyone follows the same rules, called protocols.',
+    'Two quick checks and this mission goes on your CV.',
+  ],
   spot: [
     "Hi, I'm Zahra. Everyone in this city starts at zero. Let's do your first lesson right here. It takes a minute.",
     'A spot trade buys the real thing, right now. Buy UNIT on the spot desk and you hold UNIT.',
@@ -19,17 +27,14 @@ const FIRST_CARDS: Partial<Record<SkillId, string[]>> = {
 const QUICK = 2
 
 // Placement: Zahra asks three quick questions once. Normie (beginner) starts with the basics lesson;
-// Homie (already knows the space) skips ahead to the advanced lessons and can still revisit the basics.
+// Homie (already knows the space) gets the label, but everyone plays World 1 from the start.
 // Stored per save slot beside the save (not inside it), so save and account formats are unchanged.
 export type Level = 'normie' | 'homie'
 const levelKey = () => `${slotKey()}.level`
 export function getLevel(): Level | null { try { const v = localStorage.getItem(levelKey()); return v === 'homie' || v === 'normie' ? v : null } catch { return null } }
 function setLevel(l: Level): void { try { localStorage.setItem(levelKey(), l) } catch { /* private mode */ } }
-/** Advanced lessons start at Unit 3 (liquidity onward). */
-export function advancedNext(): SkillId | undefined {
-  const s = getSave()
-  return SKILL_ORDER.slice(10).find((id) => !s.skills[id]?.passed) ?? SKILL_ORDER.find((id) => !s.skills[id]?.passed)
-}
+/** Everyone starts at World 1 (Homie is a label only); this is just the next mission on the path. */
+export function advancedNext(): SkillId | undefined { return nextMission() }
 const PLACEMENT = [
   { prompt: 'Someone asks for your seed phrase to "verify" your wallet. What can they do with it?', choices: ['Nothing, it is just a backup word list', 'Take everything in the wallet', 'Only see your balance'], answer: 1 },
   { prompt: 'You add two tokens to a liquidity pool and one price doubles. What usually happens?', choices: ['You end up with less of the token that went up (impermanent loss)', 'The pool pays you double', 'Nothing changes in the pool'], answer: 0 },
@@ -123,9 +128,9 @@ export function createMentorCard(hooks: MentorHooks) {
       const adv = advancedNext()
       const [head] = shell('You placed as a Homie', total0, 0)
       const nav = h('div', 'mentor-nav')
-      nav.append(btn('Do the basics anyway', 'ghost', () => showCard(1)))
-      if (adv) nav.append(btn('Start advanced', 'primary', () => { close(); hooks.fullLesson(adv) }))
-      root.replaceChildren(head, h('p', 'mentor-say', adv ? `Homie. You know the basics, so skip ahead: start with ${SKILL_META[adv].title}. The basics stay open any time.` : 'Homie. Every lesson is already on your CV.'), nav)
+      if (adv === id) nav.append(btn('Start World 1', 'primary', () => showCard(1)))
+      else if (adv) nav.append(btn(`Continue: ${SKILL_META[adv].title}`, 'primary', () => { close(); hooks.fullLesson(adv) }))
+      root.replaceChildren(head, h('p', 'mentor-say', adv ? 'Homie. Nice. Everyone in this city still starts at World 1, so it should go fast for you.' : 'Homie. Every mission is already on your CV.'), nav)
     }
     const intro = () => {
       const [head, dots] = shell('Campus mentor', total0, 0)
@@ -164,7 +169,7 @@ export function createMentorCard(hooks: MentorHooks) {
       }
       const nav = h('div', 'mentor-nav')
       nav.append(btn('Read the full lesson', 'ghost', () => { close(); hooks.fullLesson(id) }), btn('What next?', 'primary', () => { close(); hooks.next() }))
-      root.replaceChildren(head, h('p', 'mentor-say', 'Nice. That\u2019s on your CV with a certificate. Next, pick a job so the city pays you for showing up.'), nav)
+      root.replaceChildren(head, h('p', 'mentor-say', 'Nice. That\u2019s on your CV with a certificate. Finish World 1\u2019s missions and its boss to earn the Netizen badge.'), nav)
     }
     const lvl = getLevel()
     if (lvl === 'homie') homie()

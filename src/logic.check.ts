@@ -33,7 +33,7 @@ function check(condition: boolean, message: string): void {
 check(everySkillHasCourse(), 'every skill needs one course')
 const spot = courseById('spot')
 check(!!spot, 'spot course exists')
-check(COURSES.length === 20 && COURSES.every((course) => course.paragraphs.length >= 4 && course.questions.length >= 3 && course.questions.length <= 5), 'twenty courses, each with a lesson and four exercises')
+check(COURSES.length === 42 && COURSES.every((course) => course.paragraphs.length >= 4 && course.questions.length >= 3 && course.questions.length <= (/Boss$/.test(course.id) ? 8 : 5)), 'forty-two missions, each with a lesson and three to five exercises (bosses up to eight)')
 if (spot) {
   const good = grade(spot, spot.questions.map((question) => question.answer))
   check(good.ok, 'spot answers pass')

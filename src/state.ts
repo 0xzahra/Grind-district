@@ -209,6 +209,8 @@ export function bonusXp(n: number, label: string, detail: string): void {
   emit(up)
 }
 /** Small in-game cash rewards (never real money). Credits the in-game balance and logs it in history; XP stays internal for rank. */
+/** In-game balance for beating the World 1 boss (not a deposit, not withdrawable as a payment). */
+export const WORLD1_REWARD = 50
 export function earnCash(usd: number, label: string, detail: string, xp = 0): void {
   const amt = cents(Math.max(0, usd))
   if (amt > 0) save.ledger = cents(save.ledger + amt)
@@ -520,7 +522,7 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   track('course_complete', { course: id, tries, first, cv: true })
   if (first) trackFunnelOnce('first_lesson', { course: id })
   const rankedUp = gainXp(gained + bonus)
-  const stipend = id === 'spot' && !save.activities.some((item) => item.label === 'Campus stipend')
+  const stipend = (id === 'spot' || id === 'internet') && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')
   // One-time in-game $ per course pass (replaces SP/skill-point reward language). Already-passed courses return above.
   {
@@ -529,6 +531,11 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
       save.ledger = cents(save.ledger + COURSE_CASH)
       log('money', label, `${money(COURSE_CASH)} in-game for passing the course.`)
     }
+  }
+  // World 1 reward (Zahra's six worlds): in-game balance once, when the World 1 boss is beaten.
+  if (id === 'w1Boss' && !save.activities.some((item) => item.label === 'World 1 reward')) {
+    save.ledger = cents(save.ledger + WORLD1_REWARD)
+    log('money', 'World 1 reward', `${money(WORLD1_REWARD)} in-game for finishing World 1: The Internet.`)
   }
   if (stipend) {
     save.ledger = cents(save.ledger + STIPEND_USD)
@@ -673,7 +680,7 @@ export function pledge(projectName: string): { message: string; rankedUp?: RankI
   const day = today()
   if (save.dailies.climate) return { already: true, message: 'One pledge a day. The grove does not retire a real credit either way.' }
   if (save.ledger < CLIMATE_USD) {
-    return { already: false, message: `The desk asks ${money(CLIMATE_USD)} practice. Pass Spot for a stipend, or post on the row.` }
+    return { already: false, message: `The desk asks ${money(CLIMATE_USD)} practice. Pass your first Campus mission for a stipend, or post on the row.` }
   }
   const bonus = markDaily(save, day, 'climate')
   save.ledger = cents(save.ledger - CLIMATE_USD)
