@@ -209,16 +209,16 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       detail: own ? 1 : 0.5,
     })
     if (own) {
-      const head0 = avatar.object.getObjectByName('Head')
-      if (head0) head0.scale.set(mo.f ?? 1, 1, mo.f ?? 1)
+      // Face shape: the figure applies it to its head once loaded (humans.ts), and again on every style change.
+      avatar.object.userData.face = mo.f ?? 1
       // Boutique colours (blue, mint, sand, coral, ice) recolour the rigged model's top, not just the hidden procedural body.
       const setStyle = avatar.setStyle
       const base: { hair: number; skin?: number } = female ? { hair } : { hair, skin: 0xe8c3a6 }
       avatar.setStyle = (t, lux) => {
         setStyle(t, lux)
         const now = getMorph(); avatar.object.scale.set(now.b, now.h, now.b)
-        const head = avatar.object.getObjectByName('Head') as { scale: { set: (x:number,y:number,z:number)=>void } } | undefined
-        if (head?.scale) head.scale.set(now.f ?? 1, 1, now.f ?? 1)
+        avatar.object.userData.face = now.f ?? 1
+        ;(avatar.object.userData.setFace as ((f: number) => void) | undefined)?.(now.f ?? 1)
         const o = outfit()
         const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown }
         avatar.object.userData.extras = extras(lux)

@@ -7,6 +7,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
 import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
+import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 import type { Graphics } from './logic.ts'
@@ -55,10 +56,67 @@ const Grade = {
   }`,
 }
 
-/** Visual-only post stack: bloom on medium/high so neon windows and signs glow. */
+/**
+ * Depth effect (High only): things far behind the subject go gently out of focus, like a long lens.
+ * Far field only, and a sample is taken only if it is itself out of focus and is not the sky, so nothing sharp
+ * smears and the bright sky never bleeds over roof lines (the old depth-of-field pass did both).
+ */
+class DepthBlurPass extends Pass {
+  focus = 6
+  private readonly material: THREE.ShaderMaterial
+  private readonly quad: FullScreenQuad
+  private readonly camera: THREE.PerspectiveCamera
+  constructor(camera: THREE.PerspectiveCamera) {
+    super()
+    this.camera = camera
+    this.material = new THREE.ShaderMaterial({
+      uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2() }, near: { value: 0.1 }, far: { value: 100 }, focus: { value: 6 }, maxBlur: { value: 4 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `#include <packing>
+      uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 texel; uniform float near; uniform float far; uniform float focus; uniform float maxBlur; varying vec2 vUv;
+      float blurAt(float d){ float dist = -perspectiveDepthToViewZ(d, near, far); return d >= 0.99999 ? 0.0 : clamp((dist - focus - 14.0) / 70.0, 0.0, 1.0); }
+      void main(){
+        vec4 c = texture2D(tDiffuse, vUv);
+        float r = blurAt(texture2D(tDepth, vUv).x) * maxBlur;
+        if (r < 0.4) { gl_FragColor = c; return; }
+        vec3 sum = c.rgb; float n = 1.0;
+        for (int i = 0; i < 12; i++) {
+          // Twelve taps on a golden-angle spiral.
+          float a = float(i) * 2.399963, k = sqrt((float(i) + 0.5) / 12.0);
+          vec2 uv = vUv + vec2(cos(a), sin(a)) * k * r * texel;
+          float w = clamp(blurAt(texture2D(tDepth, uv).x) * 4.0, 0.0, 1.0);
+          sum += texture2D(tDiffuse, uv).rgb * w; n += w;
+        }
+        gl_FragColor = vec4(sum / n, c.a);
+      }`,
+      depthTest: false, depthWrite: false,
+    })
+    this.quad = new FullScreenQuad(this.material)
+  }
+  override render(renderer: THREE.WebGLRenderer, writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget): void {
+    const u = this.material.uniforms
+    u.tDiffuse!.value = readBuffer.texture
+    u.tDepth!.value = readBuffer.depthTexture
+    u.texel!.value.set(1 / readBuffer.width, 1 / readBuffer.height)
+    u.near!.value = this.camera.near
+    u.far!.value = this.camera.far
+    u.focus!.value = this.focus
+    u.maxBlur!.value = 4.5 * readBuffer.height / 900
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer)
+    this.quad.render(renderer)
+  }
+  override dispose(): void { this.material.dispose(); this.quad.dispose() }
+}
+
+/**
+ * Visual-only post stack. Low: none. Medium: colour grade and edge smoothing. High: also glow on lamps, lit
+ * windows and signs, the depth effect, and ambient occlusion on desktop. Phones default to Low or Medium.
+ */
 export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
   let composer: EffectComposer | null = null
   let bloom: UnrealBloomPass | null = null
+  let depth: DepthBlurPass | null = null
+  let builtFor: Graphics | null = null
   let level: Graphics = 'low'
   let grade: ShaderPass | null = null
   let broken = false
@@ -79,9 +137,17 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     const target = new THREE.WebGLRenderTarget(1, 1, {
       type: coarse || !gl2 ? THREE.UnsignedByteType : THREE.HalfFloatType,
       samples: coarse || !gl2 ? 0 : level === 'high' ? 4 : 2,
+      // The depth effect reads the scene's own depth, so High keeps it as a texture.
+      ...(level === 'high' && gl2 ? { depthTexture: new THREE.DepthTexture(1, 1) } : {}),
     })
     composer = new EffectComposer(renderer, target)
     composer.addPass(new RenderPass(scene, camera))
+    bloom = null
+    depth = null
+    if (level === 'high' && gl2 && (camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+      depth = new DepthBlurPass(camera as THREE.PerspectiveCamera)
+      composer.addPass(depth)
+    }
     // Ambient occlusion on High, desktop only (too heavy for phone GPUs).
     if (level === 'high' && !coarse && gl2) {
       try {
@@ -93,9 +159,11 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         console.warn('[grind] AO unavailable', error)
       }
     }
-    // No depth of field: blurring the bright sky over building silhouettes read as a white glow behind them.
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.04, 0.55, 0.98)
-    composer.addPass(bloom)
+    // Glow on High only: lamps, lit windows and signs at night; by day only true highlights.
+    if (level === 'high') {
+      bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.1, 0.55, 1)
+      composer.addPass(bloom)
+    }
     composer.addPass(new OutputPass())
     grade = new ShaderPass(Grade)
     composer.addPass(grade)
@@ -111,26 +179,35 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       level = graphics
       setSurfaceTier(graphics)
       if (graphics === 'low') return
-      if (!composer) build()
-      // Bloom runs at reduced resolution on medium to stay cheap on phones.
+      if (!composer || builtFor !== graphics) {
+        // Each tier has its own pass list, so changing the setting rebuilds the stack.
+        if (composer) { for (const p of composer.passes) p.dispose?.(); composer.dispose() }
+        build()
+        builtFor = graphics
+        broken = false
+        checks = 0
+      }
       base = ratio
       w = width
       h = height
       composer!.setPixelRatio(ratio * scale)
       composer!.setSize(width, height)
-      // Bloom at half resolution.
-      bloom!.resolution.set(width / 2, height / 2)
+      // Glow at half resolution.
+      bloom?.resolution.set(width / 2, height / 2)
       grade!.uniforms.grain.value = 0
     },
+    /** Distance from the camera to what it is looking at (the player): the depth effect starts well behind it. */
     setFocus(d: number) {
-      void d
+      if (depth && Number.isFinite(d)) depth.focus = d
     },
     /** Night lifts bloom so neon strips read; day keeps it subtle. */
     setNight(night: number) {
       if (bloom) {
-        // Premium, not neon: only true highlights (lamps, sun glints) bloom, and barely.
-        bloom.threshold = 0.99 - night * 0.02
-        bloom.strength = 0.006 + night * 0.012 // Zahra: no white glow behind buildings
+        // By day only true highlights pass (the sky stays under the threshold: no white glow behind buildings);
+        // at night lamps, lit windows and signs carry a soft halo.
+        bloom.threshold = 1 - night * 0.22
+        bloom.strength = 0.08 + night * 0.34
+        bloom.radius = 0.5 + night * 0.15
       }
     },
     /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */

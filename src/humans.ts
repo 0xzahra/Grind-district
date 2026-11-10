@@ -242,16 +242,21 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
   const bodyRef = body
   const detail = opts.detail ?? 1
   let mounted: HumanModel | null = null
+  let pending: HumanModel | null = null
   let step: ((dt: number, moving: boolean, speed: number) => void) | null = null
   const baseFace = avatar.face
   const baseStep = avatar.step
   avatar.face = (x, z, dt, moving) => { baseFace(x, z, dt, moving); const p = root.userData.person as THREE.Object3D | undefined; if (p) p.rotation.y = bodyRef.rotation.y }
   avatar.step = (dt, moving, speed) => { if (step) step(dt, moving, speed); else baseStep(dt, moving, speed) }
 
-  const mount = (name: HumanModel, look: Look | undefined) => {
+  const mount = (name: HumanModel, first: Look | undefined) => {
+    pending = name
     void load(name).then((t) => {
+      if (pending === name) pending = null
       if (root.userData.masked) return
-      if (figure(model, (root.userData.look as Look | undefined) ?? look) !== name) return // the outfit changed again while loading
+      // The outfit may have changed while the figure loaded: wear the latest, or stand down for the right figure.
+      const look = (root.userData.look as Look | undefined) ?? first
+      if (figure(model, look) !== name) return
       const old = root.userData.person as THREE.Object3D | undefined
       const person = cloneSkinned(t.scene) as THREE.Group
       person.scale.setScalar((opts.height ?? 1.74) / t.height)
@@ -269,6 +274,17 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       }
       const eye = t.eye ?? [0, 0.095, 0.12, 0.062]
       if (opts.glasses) at(B.head, wireGlasses(eye[3]), eye[0], eye[1], eye[2] + 0.012)
+      {
+        // Face shape from the creator: widen or narrow the head across and front to back, never its height.
+        const head = person.getObjectByName(B.head)
+        if (head) {
+          const up = new THREE.Vector3(0, 1, 0).applyQuaternion(head.getWorldQuaternion(new THREE.Quaternion()).invert())
+          const ax = Math.abs(up.x) > Math.abs(up.y) && Math.abs(up.x) > Math.abs(up.z) ? 'x' : Math.abs(up.y) > Math.abs(up.z) ? 'y' : 'z'
+          const setFace = (f = 1) => head.scale.set(ax === 'x' ? 1 : f, ax === 'y' ? 1 : f, ax === 'z' ? 1 : f)
+          setFace(root.userData.face as number | undefined)
+          root.userData.setFace = setFace
+        }
+      }
       {
         // Accessories on the rig's bones (gold chain, pearls, watch, shades, cap): a handful of tiny meshes, one shared material each.
         const torus = (r: number, w: number, m: THREE.Material) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, w, 6, 24), m); o.rotation.x = Math.PI / 2.75; o.scale.set(1, 1.18, 1); return o }
@@ -335,13 +351,15 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         mixer.update(root.userData.acc)
         root.userData.acc = 0
       }
-    }).catch(() => { /* keep the procedural body */ })
+    }).catch(() => { if (pending === name) pending = null /* keep the procedural body */ })
   }
 
   const first = (root.userData.look as Look | undefined) ?? opts.look
   root.userData.applyLook = (next: Look) => {
+    root.userData.look = next
     const want = figure(model, next)
     const person = root.userData.person as THREE.Object3D | undefined
+    if (pending === want) return // already on its way: it will wear root.userData.look, or this look
     if (want !== mounted || !person) { mount(want, next); return }
     const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh | undefined
     if (mesh) paint(mesh, mesh.userData.template as Template, next, detail)
