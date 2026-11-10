@@ -1040,7 +1040,9 @@ export function publicDoc(text: string): string {
   return text.split('\n').filter((l) => !/open request|family request|cousin/i.test(l)).join('\n').slice(0, 1800)
 }
 
-export type BookRow = { section: 'Assets' | 'Liabilities' | 'Investments'; label: string; value: string }
+export type BookRow = { section: 'Assets' | 'Liabilities' | 'Coins' | 'Tokens' | 'Stocks'; label: string; value: string }
+/** Coins run on their own chain; tokens are issued on another chain (or are this city's practice tokens). */
+const TOKEN_IDS = new Set(['link', 'wif', 'bonk'])
 
 /** Books: assets, liabilities (luxury rewards with upkeep), investments (coins, new coins, stocks).
  *  isPublic hides family requests and spending wants. */
@@ -1064,22 +1066,25 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
   if (!isPublic) for (const want of save.wants) lux.push({ section: 'Liabilities', label: want.label, value: `${money(want.spent)} spent` })
   if (!isPublic && save.taxOpen) lux.push({ section: 'Liabilities', label: 'Family request (private)', value: money(TAX_USD) })
   rows.push(...(lux.length ? lux : [{ section: 'Liabilities' as const, label: 'No cars, jets, drones or houses yet', value: 'None' }]))
-  const pos = (label: string, h: Holding, price: number) => {
-    if (h.qty <= 0) return { section: 'Investments' as const, label, value: 'None held' }
+  const pos = (section: 'Coins' | 'Tokens', label: string, h: Holding, price: number): BookRow => {
+    if (h.qty <= 0) return { section, label, value: 'None held' }
     const pnl = (price - h.avg) * h.qty
     const value = h.qty * price
-    return { section: 'Investments' as const, label, value: `${formatQty(h.qty)} @ ${money(h.avg)} · worth ${money(value)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }
+    return { section, label, value: `${formatQty(h.qty)} @ ${money(h.avg)} · worth ${money(value)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }
   }
-  rows.push(pos('UNIT · district coin', save.unit, save.unitPrice))
-  rows.push(pos('MEME · new coin', save.meme, save.memePrice))
+  const coins: BookRow[] = []
+  const tokens: BookRow[] = [pos('Tokens', 'UNIT · district token', save.unit, save.unitPrice), pos('Tokens', 'MEME · new token', save.meme, save.memePrice)]
   for (const coin of COINS) {
     const h = save.coins?.[coin.id]
     if (h && h.qty > 0) {
       const price = save.coinPrices[coin.id] ?? coin.base
       const cat = COIN_CATEGORIES.find((c) => c.id === coin.cat)!.label
-      rows.push(pos(`${coin.label} · ${cat}`, h, price))
+      if (TOKEN_IDS.has(coin.id)) tokens.push(pos('Tokens', `${coin.label} · ${cat}`, h, price))
+      else coins.push(pos('Coins', `${coin.label} · ${cat}`, h, price))
     }
   }
-  rows.push({ section: 'Investments', label: 'Stocks', value: 'None listed yet' })
+  rows.push(...(coins.length ? coins : [{ section: 'Coins' as const, label: 'BTC, ETH, SOL and more on the Markets desk', value: 'None held' }]))
+  rows.push(...tokens)
+  rows.push({ section: 'Stocks', label: 'Stocks', value: 'None listed yet' })
   return rows
 }

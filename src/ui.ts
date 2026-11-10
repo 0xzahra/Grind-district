@@ -458,7 +458,7 @@ export function mountUi(
 
   const renderBooks = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Assets earn. Liabilities (cars, jets, houses, chains) cost upkeep. Investments are coins, new coins and stocks. In-game values only.', 'muted'))
+    const wrap = stack(para('Assets earn. Liabilities (cars, jets, houses, chains) cost upkeep. Investments are split into coins, tokens and stocks. In-game values only.', 'muted'))
     wrap.append(renderBookRows(bookRows(save)))
     const split = balanceSplit()
     wrap.append(para(`Balance history: $${split.total.toFixed(2)} spendable · $${split.earned.toFixed(2)} earned · $${split.toppedUp.toFixed(2)} topped up. Earned is spent first.`, 'muted'))

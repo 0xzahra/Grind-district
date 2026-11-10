@@ -170,11 +170,16 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     localStorage.setItem('gd.privy.userId', j.userId)
     if (j.userId.startsWith('near:')) localStorage.setItem(NEAR_KEY, j.userId.slice(5))
     trackFunnelOnce('account_created', { userIdPrefix: j.userId.startsWith('near:') ? 'near' : 'privy' })
-    const { adoptAccount } = await import('./state.ts')
+    const { adoptAccount, holdNearProof } = await import('./state.ts')
+    if (nearProof) holdNearProof(nearProof)
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
     const st = await import('./state.ts')
-    // Sign-up bonus only on a true first username claim — never again on Continue / re-login.
-    const bonus = opts?.firstClaim ? await st.grantSignupBonus('') : false
+    // Sign-up bonus on a first username claim. NEAR accounts also check on login: their starter grant used to
+    // need a Privy token and never landed. The server pays it once per account (fresh only the first time).
+    // Never hold the sign-in on this network call (it made entering after a NEAR login feel frozen):
+    // wait at most 1.5 s to show the line here; the credit still lands in the background either way.
+    const bonusP = opts?.firstClaim || nearProof ? st.grantSignupBonus('') : Promise.resolve(false)
+    const bonus = await Promise.race([bonusP, new Promise<boolean>((r) => setTimeout(() => r(false), 1500))])
     if (token) void syncProgress(token)
     else if (nearProof) void syncProgressNear(nearProof)
     const howLine = how === 'fresh'
@@ -554,6 +559,9 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
 
 export async function accessToken(): Promise<string | null> {
   if (!APP_ID) return null
+  // NEAR accounts have no Privy session: don't boot the Privy SDK (iframe + heavy JS) in the city for them.
+  // It ran on every profile/progress/grant call and made the game stall right after a NEAR sign-in.
+  try { if ((localStorage.getItem('gd.privy.userId') ?? '').startsWith('near:')) return null } catch { /* private mode */ }
   try {
     return (await (await client()).getAccessToken()) ?? null
   } catch {

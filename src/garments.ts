@@ -153,11 +153,19 @@ export function abayaGeometry(f: Frame, head: THREE.Box3): THREE.BufferGeometry 
     const u = f.up.clone().addScaledVector(dir, -f.up.dot(dir)).normalize()
     const v = dir.clone().cross(u).normalize()
     const m = f.unit
-    const r0 = cloth.ring(p0.clone().addScaledVector(dir, -0.05 * m), u, 0.1 * m, v, 0.1 * m, 8, () => [[upper, 1]], ROBE)
-    const r1 = cloth.ring(p1.clone(), u, 0.095 * m, v, 0.095 * m, 8, () => [[upper, 0.5], [lower, 0.5]], ROBE)
-    const r2 = cloth.ring(p2.clone().addScaledVector(dir, -0.02 * m), u, 0.125 * m, v, 0.115 * m, 8, () => [[lower, 1]], ROBE)
+    // Five rings (shoulder, mid upper arm, elbow, mid forearm, cuff) so the sleeve bends smoothly with the arm
+    // instead of pinching and stretching at the elbow and shoulder when walking. The shoulder ring blends a little
+    // into the torso so it does not swing out of the robe; the elbow is roomier so the arm never pokes through.
+    const mid = (a: THREE.Vector3, b: THREE.Vector3) => a.clone().lerp(b, 0.5)
+    const r0 = cloth.ring(p0.clone().addScaledVector(dir, -0.03 * m), u, 0.105 * m, v, 0.105 * m, 8, () => [[upper, 0.8], [torso, 0.2]], ROBE)
+    const r1 = cloth.ring(mid(p0, p1), u, 0.1 * m, v, 0.1 * m, 8, () => [[upper, 1]], ROBE)
+    const r2 = cloth.ring(p1.clone(), u, 0.11 * m, v, 0.11 * m, 8, () => [[upper, 0.5], [lower, 0.5]], ROBE)
+    const r3 = cloth.ring(mid(p1, p2), u, 0.112 * m, v, 0.108 * m, 8, () => [[lower, 1]], ROBE)
+    const r4 = cloth.ring(p2.clone().addScaledVector(dir, -0.02 * m), u, 0.125 * m, v, 0.115 * m, 8, () => [[lower, 1]], ROBE)
     cloth.strip(r0, r1)
     cloth.strip(r1, r2)
+    cloth.strip(r2, r3)
+    cloth.strip(r3, r4)
   }
   // Hijab: a close cap round the head with an oval opening for the face, then a drape over neck and shoulders.
   const size = head.getSize(new THREE.Vector3()), c0 = head.getCenter(new THREE.Vector3())

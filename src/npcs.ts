@@ -194,10 +194,15 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
   unit.object.position.set(unit.x, 0, unit.z)
   scene.add(unit.object)
   let robotLeg = 0
+  // Unit 4 tends its corner: a few stops around its post with a pause at each (no more endless pacing).
   const robotEnds = [
     { x: 10, z: 6 },
     { x: 10, z: 9.2 },
+    { x: 11.6, z: 7.6 },
+    { x: 8.6, z: 7.4 },
   ]
+  let robotWait = 0
+  let robotHops = 0
   let robotIndex = 1
   let robotX = robotEnds[0]?.x ?? 10
   let robotZ = robotEnds[0]?.z ?? 6
@@ -281,8 +286,13 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const dx = goal.x - robotX
         const dz = goal.z - robotZ
         const dist = Math.hypot(dx, dz)
-        if (dist < 0.2) robotIndex = (robotIndex + 1) % robotEnds.length
-        else {
+        if (robotWait > 0) robotWait -= dt
+        else if (dist < 0.2) {
+          robotHops += 1
+          const r = Math.abs(Math.sin(robotHops * 91.7) * 1000) % 1
+          robotWait = 3 + r * 7
+          robotIndex = (robotIndex + 1 + Math.floor(r * (robotEnds.length - 1))) % robotEnds.length
+        } else {
           const step = Math.min(dist, 0.7 * dt)
           robotX += (dx / dist) * step
           robotZ += (dz / dist) * step

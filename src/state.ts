@@ -138,8 +138,10 @@ function applyStarts(): void {
     const activityLabel = next === 0 ? 'Starting balance' : `${label} starting balance`
     const detail = next === 0 ? `${money(grant)} in-game once per account (Shrimp).` : `+${money(grant)} in-game for reaching ${label}.`
     if (isAccountBound()) {
-      void serverGrant(grantId, grant).then((fresh) => {
-        if (!fresh) return
+      void serverGrantStatus(grantId, grant).then((st) => {
+        // Could not reach the grant server (or no sign-in proof this session): retry this level next time.
+        if (st === 'error') { if (save.startTier >= next) { save.startTier = next - 1; persist() } return }
+        if (st !== 'fresh') return
         save.ledger = cents(save.ledger + grant)
         log('money', activityLabel, detail)
         persist(); emit()
@@ -153,14 +155,26 @@ function applyStarts(): void {
 
 /** Server-enforced one-time grant (player_grants). true = first time for this account; false = already had it or offline. */
 export async function serverGrant(id: string, amount: number): Promise<boolean> {
+  return (await serverGrantStatus(id, amount)) === 'fresh'
+}
+// NEAR accounts have no Privy token: grants are proven with this session's signed NEAR login instead
+// (the server already accepts { near } on /api/profile). Kept in memory only; it expires server-side.
+let nearProof: unknown = null
+export function holdNearProof(p: unknown): void { nearProof = p }
+async function serverGrantStatus(id: string, amount: number): Promise<'fresh' | 'paid' | 'error'> {
   try {
     const { accessToken } = await import('./login.ts')
     const t = await accessToken()
-    if (!t) return false
-    const r = await fetch('/api/profile?op=grant', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify({ id, amount }) })
+    if (!t && !nearProof) return 'error'
+    const r = await fetch('/api/profile?op=grant', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(t ? { authorization: `Bearer ${t}` } : {}) },
+      body: JSON.stringify(t ? { id, amount } : { id, amount, near: nearProof }),
+    })
     const j = await r.json().catch(() => ({})) as { fresh?: boolean }
-    return r.ok && j.fresh === true
-  } catch { return false }
+    if (!r.ok) return 'error'
+    return j.fresh === true ? 'fresh' : 'paid'
+  } catch { return 'error' }
 }
 
 export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): { ok: boolean; message: string } {

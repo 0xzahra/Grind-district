@@ -225,6 +225,8 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     greetToast(tips[Math.floor(Date.now() / 8000) % tips.length]!)
   })
   let greetToast: (m: string) => void = () => {}
+  let greetShown = 0
+  let greetAway = 99
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
   const physSky = createPhysicalSky(scene)
@@ -1109,6 +1111,28 @@ const apiAgents = createRemoteAgents(scene)
   resize()
   window.addEventListener('resize', resize)
 
+  // Backstop for the raycast boom: march from the player to the camera over the building footprints
+  // (the same boxes the player collides with) and stop short of the first wall, so a thin or single-sided
+  // facade can never let the camera slip inside a building.
+  const keepOutOfBuildings = (from: THREE.Vector3, cam: THREE.Vector3) => {
+    const dx = cam.x - from.x, dz = cam.z - from.z
+    const len = Math.hypot(dx, dz)
+    if (len < 0.3) return
+    const steps = Math.ceil(len / 0.25)
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps
+      const x = from.x + dx * t, z = from.z + dz * t
+      for (const o of world.obstacles) {
+        if (o.kind !== 'box' || Math.min(o.hx, o.hz) < 1.6) continue
+        if (Math.abs(x - o.x) < o.hx + 0.2 && Math.abs(z - o.z) < o.hz + 0.2) {
+          const back = Math.max(0, (i - 1) / steps - 0.05)
+          cam.x = from.x + dx * back; cam.z = from.z + dz * back
+          cam.y = Math.max(cam.y, from.y + 0.6)
+          return
+        }
+      }
+    }
+  }
   const pullCamera = (origin: THREE.Vector3, desired: THREE.Vector3) => {
     rayDirection.subVectors(desired, origin)
     const dist = rayDirection.length()
@@ -1260,7 +1284,13 @@ const apiAgents = createRemoteAgents(scene)
       ui.refresh()
     }
     crowdObstacles = crowd.tick(dt, interiors.inside ? undefined : { x: avatar.object.position.x, z: avatar.object.position.z })
-    greetBtn.hidden = ui.isOpen() || !!interiors.inside || !crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.6)
+    {
+      // Greet: appears beside a resident, leaves 1.5 s after you walk off, and steps aside after 6 s even if
+      // you linger in a crowd (comes back the next time you walk up to someone).
+      const near = !ui.isOpen() && !interiors.inside && crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.4)
+      if (near) { greetAway = 0; greetShown += dt } else { greetAway += dt; if (greetAway > 1.5) greetShown = 0 }
+      greetBtn.hidden = !(near || (greetAway < 1.5 && greetShown > 0)) || greetShown > 6 || ui.isOpen()
+    }
     agentBot.tick(dt, avatar.object.position)
   apiAgents.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
@@ -1538,6 +1568,7 @@ const apiAgents = createRemoteAgents(scene)
     }
     const safe = indoors ? pulledCam.copy(smoothCam) : pullCamera(lookTarget, smoothCam)
     if (safe.y < 0.4) safe.y = 0.4
+    if (!indoors) keepOutOfBuildings(lookTarget, safe)
     if (indoors) cutAway(safe)
     camera.position.copy(safe)
     { // Very subtle walk sway (off with reduced motion).

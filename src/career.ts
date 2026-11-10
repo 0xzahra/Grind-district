@@ -2,7 +2,7 @@
 // localStorage per save slot (same pattern as the save); pins sync to Supabase via the existing /api/profile.
 import { partySize } from './messages.ts'
 import { getSave, onActivity, addReputation, earnCash, setTint, slotKey } from './state.ts'
-import { SKILL_META, SKILL_ORDER, type SkillId } from './logic.ts'
+import { SKILL_META, SKILL_ORDER, COURSE_CASH, type SkillId } from './logic.ts'
 import { TRACKS, JOBS, JOB_LEVELS, JOB_XP_PER_LEVEL, WEEKLY_POOL, SEASON, RANKS_LADDER, RANK_STEPS, DISCLAIMER, type TaskKind } from './careerData.ts'
 import { schedule } from './events.ts'
 
@@ -147,7 +147,7 @@ function nextStepCard(): HTMLElement | null {
 function lessonRow(id: SkillId, passed: boolean, next: boolean): HTMLElement {
   const row = el('div', '', 'cr-lesson' + (passed ? ' done' : next ? ' next' : ''))
   const info = el('div', '', 'cr-lesson-info')
-  info.append(el('strong', SKILL_META[id].title), el('small', passed ? 'Passed · on your CV' : next ? 'Up next' : 'Not started'))
+  info.append(el('strong', SKILL_META[id].title), el('small', passed ? 'Passed · on your CV' : `${next ? 'Up next' : 'Not started'} · +$${COURSE_CASH} on pass`))
   row.append(info, btn(passed ? 'Review' : 'Start', () => window.dispatchEvent(new CustomEvent('gd:course', { detail: id })), passed ? 'cr-btn' : 'cr-btn primary'))
   return row
 }
@@ -192,7 +192,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
       const done = c.trackDay[t.id] === day()
       const sum = el('summary'); sum.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]}${done ? ' · done today ✓' : ''}`, 'cr-sub')); card.append(sum)
       card.append(el('p', first(t.lesson), 'cr-say'))
-      card.append(el('p', `Today: ${t.task.text}`, 'cr-task'))
+      card.append(el('p', `Today: ${t.task.text} · +$10 once a day`, 'cr-task'))
       if (t.place) card.append(btn(`Walk to ${t.place} ›`, () => go(`place:${t.place}`), 'cr-btn primary'))
       const nextR = RANK_STEPS[r + 1]
       card.append(nextR != null ? bar(`Next rank: ${RANKS_LADDER[r + 1]}`, n, nextR) : el('p', `Top rank: ${RANKS_LADDER[r]}`, 'cc-muted'))
@@ -207,7 +207,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     }
   } else if (tab === 'weekly') {
     body.append(el('h3', `This week · ${c.week}`), el('p', 'Free season track. Cosmetic rewards only. Nothing to buy, nothing random.', 'cc-muted'))
-    for (const w of weekly()) body.append(bar(w.text, c.weekCounts[w.id] ?? 0, w.count))
+    for (const w of weekly()) body.append(bar(`${w.text} · +$50`, c.weekCounts[w.id] ?? 0, w.count))
     body.append(el('h3', `Season · ${c.seasonPts} of ${SEASON[SEASON.length - 1]?.at ?? 20} challenges`))
     const ol = el('ol', '', 'cr-season')
     for (const r of SEASON) {
@@ -222,12 +222,12 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   } else {
     const job = JOBS.find((j) => j.id === c.job)
     if (!job) {
-      body.append(el('p', 'Pick a job. Daily duties at city buildings raise Reputation and level you through 10 ranks.', 'cc-muted'))
+      body.append(el('p', 'Pick a job. Each daily duty at a city building pays +$5 or more in-game, raises Reputation and levels you through 10 ranks.', 'cc-muted'))
       for (const j of JOBS) body.append(btn(j.title, () => { c.job = j.id; c.jobXp = 0; store(); post(`Started work as ${JOB_LEVELS[0]} ${j.title}.`); renderCareer(root, go, onPins, tab) }, 'cr-btn wide'))
     } else {
       if (c.dutyDay !== day()) { c.dutyDay = day(); c.duties = []; store() }
       body.append(el('h3', `${JOB_LEVELS[jobLevel()]} ${job.title}`), bar(`Level ${jobLevel() + 1} of 10`, c.jobXp % JOB_XP_PER_LEVEL, JOB_XP_PER_LEVEL), el('p', `Reputation ${s.reputation}`, 'cc-muted'), el('h3', 'Today\u2019s duties'))
-      for (const d of job.duties) { const row = el('div', '', 'cr-duty' + (c.duties.includes(d.id) ? ' on' : '')); row.append(el('span', (c.duties.includes(d.id) ? '✓ ' : '') + d.text)); row.append(btn('Go ›', () => go(`place:${d.place}`), 'cr-chip')); body.append(row) }
+      for (const d of job.duties) { const row = el('div', '', 'cr-duty' + (c.duties.includes(d.id) ? ' on' : '')); row.append(el('span', (c.duties.includes(d.id) ? '✓ ' : '') + d.text + ` · +$${5 + jobLevel()}`)); row.append(btn('Go ›', () => go(`place:${d.place}`), 'cr-chip')); body.append(row) }
       body.append(el('p', 'Ladder: ' + JOB_LEVELS.join(' → '), 'cc-muted'))
       body.append(btn('Change job (keeps reputation)', () => { c.job = ''; c.jobXp = 0; store(); renderCareer(root, go, onPins, tab) }, 'cc-link'))
     }

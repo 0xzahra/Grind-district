@@ -2,8 +2,8 @@
 // A few short cards (one or two sentences each), then two quick questions, then the pass files to the CV
 // through the same submitCourse() as the Campus panel, so save, certificate and CV data are unchanged.
 import { COURSES, type Course } from './courses.ts'
-import { getSave, submitCourse, type CourseResult } from './state.ts'
-import { SKILL_META, type SkillId } from './logic.ts'
+import { getSave, submitCourse, slotKey, type CourseResult } from './state.ts'
+import { SKILL_META, SKILL_ORDER, type SkillId } from './logic.ts'
 import { track } from './track.ts'
 
 /** Hand-written first-lesson cards. Other courses fall back to bite-size chunks of their paragraphs. */
@@ -17,6 +17,24 @@ const FIRST_CARDS: Partial<Record<SkillId, string[]>> = {
   ],
 }
 const QUICK = 2
+
+// Placement: Ada asks three quick questions once. Normie (beginner) starts with the basics lesson;
+// Homie (already knows the space) skips ahead to the advanced lessons and can still revisit the basics.
+// Stored per save slot beside the save (not inside it), so save and account formats are unchanged.
+export type Level = 'normie' | 'homie'
+const levelKey = () => `${slotKey()}.level`
+export function getLevel(): Level | null { try { const v = localStorage.getItem(levelKey()); return v === 'homie' || v === 'normie' ? v : null } catch { return null } }
+function setLevel(l: Level): void { try { localStorage.setItem(levelKey(), l) } catch { /* private mode */ } }
+/** Advanced lessons start at Unit 3 (liquidity onward). */
+export function advancedNext(): SkillId | undefined {
+  const s = getSave()
+  return SKILL_ORDER.slice(10).find((id) => !s.skills[id]?.passed) ?? SKILL_ORDER.find((id) => !s.skills[id]?.passed)
+}
+const PLACEMENT = [
+  { prompt: 'Someone asks for your seed phrase to "verify" your wallet. What can they do with it?', choices: ['Nothing, it is just a backup word list', 'Take everything in the wallet', 'Only see your balance'], answer: 1 },
+  { prompt: 'You add two tokens to a liquidity pool and one price doubles. What usually happens?', choices: ['You end up with less of the token that went up (impermanent loss)', 'The pool pays you double', 'Nothing changes in the pool'], answer: 0 },
+  { prompt: 'In most DAOs, what decides a vote?', choices: ['The founder alone', 'Governance tokens or membership held by voters', 'Whoever posts first'], answer: 1 },
+]
 
 /** Split lesson paragraphs into cards of at most two sentences (sources are dropped from the cards). */
 export function biteCards(paragraphs: string[]): string[] {
@@ -85,6 +103,36 @@ export function createMentorCard(hooks: MentorHooks) {
     try { if (!localStorage.getItem('gd.firstCourseStarted')) localStorage.setItem('gd.firstCourseStarted', '1') } catch { /* private mode */ }
     track('course_start', { course: id, first: true, where: 'mentor' })
 
+    const total0 = total
+    const placement = (qi: number, right: number) => {
+      const q = PLACEMENT[qi]!
+      const [head, dots] = shell(`Quick check ${qi + 1} of ${PLACEMENT.length} · Normie or Homie?`, PLACEMENT.length, qi)
+      const list = h('div', 'mentor-choices')
+      q.choices.forEach((choice, ci) => list.append(btn(choice, 'choice', () => {
+        const r = right + (ci === q.answer ? 1 : 0)
+        if (qi + 1 < PLACEMENT.length) { placement(qi + 1, r); return }
+        const lvl: Level = r >= 2 ? 'homie' : 'normie'
+        setLevel(lvl)
+        track('course_start', { course: id, placement: lvl, score: r })
+        if (lvl === 'normie') { showCard(1); return }
+        homie()
+      })))
+      root.replaceChildren(head, dots, h('p', 'mentor-say', q.prompt), list)
+    }
+    const homie = () => {
+      const adv = advancedNext()
+      const [head] = shell('You placed as a Homie', total0, 0)
+      const nav = h('div', 'mentor-nav')
+      nav.append(btn('Do the basics anyway', 'ghost', () => showCard(1)))
+      if (adv) nav.append(btn('Start advanced', 'primary', () => { close(); hooks.fullLesson(adv) }))
+      root.replaceChildren(head, h('p', 'mentor-say', adv ? `Homie. You know the basics, so skip ahead: start with ${SKILL_META[adv].title}. The basics stay open any time.` : 'Homie. Every lesson is already on your CV.'), nav)
+    }
+    const intro = () => {
+      const [head, dots] = shell('Campus mentor', total0, 0)
+      const nav = h('div', 'mentor-nav')
+      nav.append(btn("I'm new", 'ghost', () => { setLevel('normie'); showCard(1) }), btn('Test me (3 questions)', 'primary', () => placement(0, 0)))
+      root.replaceChildren(head, dots, h('p', 'mentor-say', "Hi, I'm Ada. Are you new to crypto (a Normie) or already a Homie? Three quick questions and I'll start you at the right lesson."), nav)
+    }
     const showCard = (i: number) => {
       const [head, dots] = shell(`Campus mentor · ${SKILL_META[id].title}`, total, i)
       const nav = h('div', 'mentor-nav')
@@ -118,7 +166,10 @@ export function createMentorCard(hooks: MentorHooks) {
       nav.append(btn('Read the full lesson', 'ghost', () => { close(); hooks.fullLesson(id) }), btn('What next?', 'primary', () => { close(); hooks.next() }))
       root.replaceChildren(head, h('p', 'mentor-say', 'Nice. That\u2019s on your CV with a certificate. Next, pick a job so the city pays you for showing up.'), nav)
     }
-    showCard(0)
+    const lvl = getLevel()
+    if (lvl === 'homie') homie()
+    else if (lvl === 'normie') showCard(0)
+    else intro()
   }
   return { start, close, isOpen: () => open }
 }

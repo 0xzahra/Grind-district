@@ -11,6 +11,8 @@ export type CitizenSpec = {
   points: { x: number; z: number }[]
   /** Pause at each waypoint (plaza strollers). */
   pause?: boolean
+  /** Plaza pair id: partners pick the same next stop and idle time, so they keep meeting. */
+  pair?: number
 }
 
 export type CitizenSim = {
@@ -21,6 +23,7 @@ export type CitizenSim = {
   /** Seconds left standing at the current waypoint (idle: chatting, looking around). */
   wait?: number
   rested?: boolean
+  visits?: number
 }
 
 export const CITIZENS: CitizenSpec[] = [
@@ -56,7 +59,10 @@ export const CITIZENS: CitizenSpec[] = [
     const base = pair * 1.9 + 0.4
     c.speed = 0.9 + (i % 3) * 0.08
     c.pause = true
+    c.pair = pair
+    // Three spots on the ring plus one stop in toward the stall, so pairs drift about instead of circling.
     c.points = [0, 2.1, 4.2].map((k) => { const p = ring(base + k, 7.5 + (pair % 3) * 2); const t = ring(base + k + Math.PI / 2, side); return { x: p.x + t.x * 1, z: p.z + t.z * 1 } })
+    { const p = ring(base + 1.05, 5.4 + (pair % 2) * 0.6); const t = ring(base + 1.05 + Math.PI / 2, side); c.points.push({ x: p.x + t.x, z: p.z + t.z }) }
   })
 }
 
@@ -82,6 +88,8 @@ export function bootCitizens(): CitizenSim[] {
   })
 }
 
+const pairHash = (a: number, b: number) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x) }
+
 export function stepCitizens(people: CitizenSim[], dt: number): void {
   for (const person of people) {
     if (person.spec.points.length < 2) continue
@@ -93,9 +101,21 @@ export function stepCitizens(people: CitizenSim[], dt: number): void {
     if ((person.wait ?? 0) > 0) { person.wait! -= dt; continue }
     if (dist < 0.3) {
       // Plaza strollers pause at each stop (3-9 s) so the square has people chatting, not just marching.
-      if (person.spec.pause && !person.rested) { person.wait = 3 + Math.random() * 6; person.rested = true; continue }
+      if (person.spec.pause && !person.rested) {
+        // Idle a varied while (chat, look around), sometimes a long stop; partners share the same numbers.
+        const v = person.visits ?? 0
+        const h = pairHash(person.spec.pair ?? 0, v)
+        person.wait = h < 0.25 ? 14 + h * 40 : 4 + h * 8
+        person.rested = true
+        continue
+      }
       person.rested = false
-      person.index = (person.index + 1) % person.spec.points.length
+      if (person.spec.pause) {
+        // Pick the next stop instead of looping the ring forever (never the same spot twice in a row).
+        const n = person.spec.points.length
+        const v = (person.visits = (person.visits ?? 0) + 1)
+        person.index = (person.index + 1 + Math.floor(pairHash((person.spec.pair ?? 0) + 17, v) * (n - 1))) % n
+      } else person.index = (person.index + 1) % person.spec.points.length
       const next = person.spec.points[person.index]
       if (!next) continue
       dx = next.x - person.x
