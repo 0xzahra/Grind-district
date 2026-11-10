@@ -26,10 +26,15 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
     const prevClear = renderer.getClearColor(new THREE.Color())
     const prevAlpha = renderer.getClearAlpha()
     const env = studio.environment
+    // The avatar root never turns in the city: the body inside it does (it faces wherever the player last
+    // walked). Zero that inner turn for the shot, or the portrait shows whichever side happens to face +z,
+    // often the back.
+    const inner = obj.children.map((child) => ({ child, yaw: child.rotation.y }))
     try {
       studio.add(obj)
       obj.position.set(0, 0, 0)
-      obj.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0) // front-facing toward camera
+      obj.quaternion.identity()
+      for (const { child } of inner) child.rotation.y = 0 // rig faces +z: toward the camera
       obj.updateMatrixWorld(true)
       box.setFromObject(obj)
       box.getSize(size)
@@ -60,6 +65,7 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
       return null
     } finally {
       studio.environment = env
+      for (const { child, yaw } of inner) child.rotation.y = yaw
       parent?.add(obj)
       obj.position.copy(pos)
       obj.quaternion.copy(quat)

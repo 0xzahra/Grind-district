@@ -1,4 +1,79 @@
-// Inline SVG illustrations for shop items (no network, crisp on phones).
+// Shop pictures. Each item is the real low-poly display model from the showroom (showcase.ts), photographed
+// once on a small lit pedestal with the game's own renderer and cached. The inline SVGs below remain as the
+// instant fallback (flat mode, or before the city's renderer exists).
+import * as THREE from 'three'
+import { itemModel } from './showcase.ts'
+
+let shoot: ((id: string) => string | null) | null = null
+const shots = new Map<string, string | null>()
+
+/** Give the shop a renderer to photograph items with (the city's own: no second WebGL context). */
+export function setShopRenderer(renderer: THREE.WebGLRenderer, environment: () => THREE.Texture | null): void {
+  const W = 960, H = 480 // rendered at 2x and scaled down for clean edges
+  const scene = new THREE.Scene()
+  const backdrop = document.createElement('canvas'); backdrop.width = 16; backdrop.height = 256
+  const bg = backdrop.getContext('2d')
+  if (bg) { const gr = bg.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#191c1f'); gr.addColorStop(0.62, '#2c3034'); gr.addColorStop(0.63, '#3a3d40'); gr.addColorStop(1, '#25282b'); bg.fillStyle = gr; bg.fillRect(0, 0, 16, 256) }
+  const bgTex = new THREE.CanvasTexture(backdrop); bgTex.colorSpace = THREE.SRGBColorSpace
+  scene.background = bgTex
+  const key = new THREE.DirectionalLight(0xfff1dc, 1.05); key.position.set(-2.2, 3.4, 2.6)
+  const rim = new THREE.DirectionalLight(0xbfd8ff, 0.55); rim.position.set(2.6, 1.8, -2.4)
+  scene.add(key, rim, new THREE.HemisphereLight(0xf2ede4, 0x3a3630, 0.5))
+  scene.environmentIntensity = 0.25
+  const stone = new THREE.MeshStandardMaterial({ color: 0xbdb5a8, roughness: 0.6, flatShading: true })
+  const brass = new THREE.MeshStandardMaterial({ color: 0xb8955a, roughness: 0.35, metalness: 0.85 })
+  const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.86, 0.2, 24), stone); plinth.position.y = -0.1
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.83, 0.014, 6, 48).rotateX(Math.PI / 2), brass)
+  const shade = new THREE.Mesh(new THREE.CircleGeometry(0.62, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22 })); shade.position.y = 0.002
+  scene.add(plinth, ring, shade)
+  const camera = new THREE.PerspectiveCamera(26, W / H, 0.1, 30)
+  camera.position.set(2.0, 1.25, 3.25)
+  camera.lookAt(0, 0.26, 0)
+  const target = new THREE.WebGLRenderTarget(W, H)
+  target.texture.colorSpace = THREE.SRGBColorSpace
+  const pixels = new Uint8Array(W * H * 4)
+  const box = new THREE.Box3(), size = new THREE.Vector3(), centre = new THREE.Vector3()
+  shoot = (id) => {
+    const model = itemModel(id)
+    if (!model.children.length) return null
+    // Fit every item to the plinth: longest side about 1.25 units, standing on the top, turned three-quarters.
+    box.setFromObject(model); box.getSize(size); box.getCenter(centre)
+    const k = 1.3 / Math.max(size.x, size.z, size.y * 1.3, 0.001)
+    model.scale.setScalar(k)
+    model.position.set(-centre.x * k, -box.min.y * k, -centre.z * k)
+    // Vehicles show their side in a three-quarter view; screens face the camera.
+    const turn = new THREE.Group(); turn.rotation.y = /saloon|tourer|jet|skydrone/.test(id) ? -0.75 : 0.2; turn.add(model)
+    scene.add(turn)
+    scene.environment = environment()
+    const prev = renderer.getRenderTarget()
+    renderer.setRenderTarget(target)
+    renderer.clear()
+    renderer.render(scene, camera)
+    renderer.readRenderTargetPixels(target, 0, 0, W, H, pixels)
+    renderer.setRenderTarget(prev)
+    scene.remove(turn)
+    turn.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.() })
+    const full = document.createElement('canvas'); full.width = W; full.height = H
+    const g = full.getContext('2d'); if (!g) return null
+    const image = g.createImageData(W, H)
+    for (let y = 0; y < H; y++) image.data.set(pixels.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4)
+    g.putImageData(image, 0, 0)
+    const out = document.createElement('canvas'); out.width = W / 2; out.height = H / 2
+    const og = out.getContext('2d'); if (!og) return null
+    og.imageSmoothingQuality = 'high'
+    og.drawImage(full, 0, 0, W / 2, H / 2)
+    return out.toDataURL('image/png')
+  }
+  shots.clear()
+}
+
+function photo(id: string): string | null {
+  if (!shoot) return null
+  if (!shots.has(id)) { try { shots.set(id, shoot(id)) } catch { shots.set(id, null) } }
+  return shots.get(id) ?? null
+}
+
+// Fallback: inline SVG illustrations (no network, crisp on phones).
 const S = (body: string) => `<svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="100" fill="#0d1512"/>${body}</svg>`
 // Shared gradients: brushed metal, glass and soft shadow so items read as real hardware, not blocks.
 const DEFS = '<defs><linearGradient id="mt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9ecef"/><stop offset="1" stop-color="#9aa1a8"/></linearGradient><linearGradient id="dk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4046"/><stop offset="1" stop-color="#15181b"/></linearGradient><linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b5c9e"/><stop offset=".55" stop-color="#16263d"/><stop offset="1" stop-color="#0b1320"/></linearGradient><radialGradient id="sh" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>'
@@ -26,8 +101,14 @@ const PICS: Record<string, string> = {
   longjet: S('<path d="M10 50l170-6c10 0 14 4 14 6s-4 6-14 6L10 54z" fill="#f2f2f2"/><path d="M80 50l-28-34h14l40 34zM80 54l-28 34h14l40-34zM14 50l-8-20h8l14 20z" fill="#3d5a80"/>'),
   skydrone: S('<ellipse cx="100" cy="60" rx="34" ry="16" fill="#e6e6e6"/><rect x="86" y="48" width="28" height="10" rx="4" fill="#9cc"/><g fill="#2b3a33"><ellipse cx="45" cy="30" rx="22" ry="4"/><ellipse cx="155" cy="30" rx="22" ry="4"/></g><g stroke="#9fb3a8" stroke-width="4"><line x1="45" y1="30" x2="80" y2="55"/><line x1="155" y1="30" x2="120" y2="55"/></g>'),
 }
-export function itemPic(id: string): HTMLElement {
-  const d = document.createElement('div'); d.className = 'shop-pic'; d.setAttribute('role', 'img'); d.setAttribute('aria-label', id)
-  d.innerHTML = PICS[id] ?? S('')
+/** A shop picture for `id`. With `label`, a small name tag sits on the picture like a showroom plaque. */
+export function itemPic(id: string, label?: string): HTMLElement {
+  const d = document.createElement('div'); d.className = 'shop-pic'; d.setAttribute('role', 'img'); d.setAttribute('aria-label', label ?? id)
+  const url = photo(id)
+  if (url) {
+    const img = document.createElement('img'); img.src = url; img.alt = ''; img.decoding = 'async'
+    d.classList.add('shop-pic-photo'); d.append(img)
+  } else d.innerHTML = PICS[id] ?? S('')
+  if (label) { const tag = document.createElement('span'); tag.className = 'shop-tag'; tag.textContent = label; d.append(tag) }
   return d
 }

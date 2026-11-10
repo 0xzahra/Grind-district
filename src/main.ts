@@ -31,6 +31,7 @@ import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
 import { createSkyline } from './skyline.ts'
+import { setShopRenderer } from './itemPics.ts'
 import { createStreetProps } from './props.ts'
 import { createStreetscape } from './streetscape.ts'
 import { applyPrefs } from './prefs.ts'
@@ -320,6 +321,7 @@ const apiAgents = createRemoteAgents(scene)
     lightAcc = 1 // re-run the eased exposure/env update on the next frame
   }
   applyEnvironment(renderer, scene)
+  setShopRenderer(renderer, () => scene.environment)
   const post = createPost(renderer, scene, camera)
   const probe = createProbe(() => getSave().graphics, (g) => { setGraphics(g); applyGraphics() })
   const applyGraphics = () => {
@@ -520,12 +522,16 @@ const apiAgents = createRemoteAgents(scene)
     const menuBtn = document.getElementById('rail-toggle')
     if (!menuBtn) return
     const r = menuBtn.getBoundingClientRect()
+    if (r.width < 4) { camDock.style.top = ''; camDock.style.right = ''; return } // not laid out yet: the stylesheet default applies
     camDock.style.top = `${Math.round(r.bottom + 8)}px`
     camDock.style.right = `${Math.round(window.innerWidth - r.right)}px`
     camDock.style.left = 'auto'
   }
   placeCamDock()
   window.addEventListener('resize', placeCamDock)
+  // The menu button has no size while the title screen covers the HUD, so the first measure put the dock
+  // off-screen for good. Re-place it whenever the button gets its real box.
+  { const menuBtn = document.getElementById('rail-toggle'); if (menuBtn && 'ResizeObserver' in window) new ResizeObserver(placeCamDock).observe(menuBtn) }
   camToggle?.addEventListener('click', (e) => {
     e.stopPropagation()
     if (!camPanel || !camToggle) return
@@ -543,6 +549,7 @@ const apiAgents = createRemoteAgents(scene)
   document.querySelector('#cam-zoom-in')?.addEventListener('click', () => input.nudgeZoom(-260))
   document.querySelector('#cam-zoom-out')?.addEventListener('click', () => input.nudgeZoom(260))
   document.querySelector('#cam-orbit')?.addEventListener('click', () => input.nudgeLook(-150))
+  document.querySelector('#cam-turn-left')?.addEventListener('click', () => input.nudgeLook(150))
   // Dock active state follows whichever panel is open.
   const navButtons = [...document.querySelectorAll<HTMLButtonElement>('#nav .icon-btn')]
   for (const b of navButtons) b.addEventListener('click', () => { for (const o of navButtons) o.classList.toggle('active', o === b) })
@@ -1159,7 +1166,7 @@ const apiAgents = createRemoteAgents(scene)
   setTimeout(tryBake, 4000)
   void baked
   let debugView: [number[], number[]] | null = null
-  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __pick: (sx: number, sy: number) => {
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined

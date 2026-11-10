@@ -9,6 +9,7 @@ import { createTvScreen } from './tv.ts'
 import { animateWater } from './water.ts'
 import { RANKS, rankFor } from './logic.ts'
 import { buildHomeFurniture } from './homeFurniture.ts'
+import { MEN, posedHuman } from './humans.ts'
 import { paintSchedule } from './events.ts'
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
@@ -254,32 +255,60 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
 
     if (id === 'house') {
-      // Large family house (Lagos Life cutaway reference): garage, living room, kitchen + stairs,
+      // Large family house (Lagos Life cutaway reference): entry hall, living room, kitchen + stairs,
       // dining, bedroom with a round bed, indoor pool. Brick perimeter, warm ceiling lights.
       const brick = std(0x8a4a36, 0.9)
       for (const z of [-d / 2 + 0.06, d / 2 - 0.06]) box(w, 0.35, 0.06, brick, 0, z, 0, false)
       for (const x of [-w / 2 + 0.06, w / 2 - 0.06]) box(0.06, 0.35, d, brick, x, 0, 0, false)
       const part = std(0xe9e0d0, 0.9)
       // Partitions with doorways (blocking).
-      box(0.15, H, 4.0, part, -5.5, -5.5)            // garage | living
+      box(0.15, H, 4.0, part, -5.5, -5.5)            // hall | living
       box(0.15, H, 4.0, part, 4.5, -5.5)             // living | kitchen
-      box(5.0, H, 0.15, part, -7.5, 0.6)             // garage/dining split (west)
+      box(5.0, H, 0.15, part, -7.5, 0.6)             // hall/dining split (west)
       box(6.0, H, 0.15, part, 0.5, 1.2)              // living | bedroom (doorway at x 4)
       box(3.0, H, 0.15, part, 8.5, -0.8)             // kitchen | pool
       box(0.15, H, 5.0, part, -2.6, 4.9)             // dining | bedroom
       box(0.15, H, 5.0, part, 4.6, 4.9)              // bedroom | pool
-      // Garage (NW) with a parked car.
-      box(4.0, 0.02, 5.2, std(0x5d5f62, 0.9), -7.8, -4.4, 0, false)
-      box(1.8, 0.55, 3.8, std(0x7a1f24, 0.35, 0.5), -7.8, -4.6, 0.25)
-      box(1.5, 0.45, 1.9, std(0x1d2226, 0.1, 0.6), -7.8, -4.9, 0.8, false)
+      // Entry hall (NW). No car indoors: cars belong on the street and at the dealership. A runner rug, a
+      // bench with a shoe shelf under coat pegs, and a console with a plant.
+      { const rug = add(new THREE.PlaneGeometry(2.0, 3.8), std(0x8a5a44, 1), -7.8, 0.015, -4.4); rug.rotation.x = -Math.PI / 2; rug.castShadow = false }
+      { const inset = add(new THREE.PlaneGeometry(1.7, 3.5), std(0xd8cbb6, 1), -7.8, 0.02, -4.4); inset.rotation.x = -Math.PI / 2; inset.castShadow = false }
+      const hallWood = std(0x8a6a4c, 0.65)
+      box(1.7, 0.06, 0.42, hallWood, -7.8, -d / 2 + 0.36, 0.42)
+      for (const sx of [-0.82, 0.82]) box(0.05, 0.42, 0.4, hallWood, -7.8 + sx, -d / 2 + 0.36, 0, false)
+      box(1.6, 0.03, 0.36, hallWood, -7.8, -d / 2 + 0.36, 0.14, false)
+      for (const [sx, col] of [[-0.5, 0x2a2c2f], [0, 0x8c5240], [0.5, 0xe8e2d8]] as const) for (const dx of [-0.07, 0.07]) box(0.1, 0.07, 0.26, std(col, 0.8), -7.8 + sx + dx, -d / 2 + 0.36, 0.17, false)
+      box(1.7, 0.1, 0.03, hallWood, -7.8, -d / 2 + 0.05, 1.6, false)
+      for (const sx of [-0.6, -0.2, 0.2, 0.6]) add(new THREE.CylinderGeometry(0.015, 0.015, 0.09, 6).rotateX(Math.PI / 2), trim, -7.8 + sx, 1.65, -d / 2 + 0.1)
+      for (const [sx, col] of [[-0.6, 0x3d5a80], [0.2, 0x6b5a45]] as const) { box(0.34, 0.75, 0.1, std(col, 0.95), -7.8 + sx, -d / 2 + 0.14, 0.86, false); box(0.44, 0.12, 0.1, std(col, 0.95), -7.8 + sx, -d / 2 + 0.14, 1.5, false) }
+      seat('hall', 'Hall bench', -7.8, -d / 2 + 0.5, 0, 0.48)
+      box(1.1, 0.04, 0.34, hallWood, -9.6, -3.2, 0.78, true, Math.PI / 2)
+      for (const sz of [-0.48, 0.48]) box(0.04, 0.78, 0.3, hallWood, -9.6, -3.2 + sz, 0, false, 0)
+      add(new THREE.CylinderGeometry(0.11, 0.09, 0.2, 10), std(0xa8664a, 0.9), -9.6, 0.92, -3.2)
+      { const leaf = add(new THREE.IcosahedronGeometry(0.2, 0), std(0x4f6b3e, 0.8), -9.6, 1.18, -3.2); leaf.scale.set(1, 1.3, 1) }
       // Living room: rug, L sofa, coffee table, TV wall.
       // Furniture itself is tiered by ladder rank: see homeFurniture.ts (rebuilt on enter).
       use({ id: 'lights', x: -4.8, z: -1.2, r: 0.8, title: 'Light switch', body: 'Dim the house for the evening.', enter: 'Lights to night', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
       // Kitchen (NE): counters, island, fridge, stove; stairs up.
-      box(4.6, 0.9, 0.7, std(0xe7e2d8, 0.45), 7.4, -d / 2 + 0.45)
-      box(0.7, 0.04, 0.6, std(0x1b1c1e, 0.3, 0.6), 6.4, -d / 2 + 0.45, 0.9, false)
-      box(0.9, 2.0, 0.75, std(0xd9dde0, 0.3, 0.5), w / 2 - 0.55, -4.5)
-      box(1.8, 0.9, 0.9, std(0x3a2a20, 0.45), 7.0, -4.2)
+      const steel = std(0xc9ccd0, 0.3, 0.7), dark = std(0x2a2c2f, 0.4, 0.4), worktop = std(0x8a8d90, 0.35, 0.1)
+      box(4.6, 0.86, 0.7, std(0xe7e2d8, 0.45), 7.4, -d / 2 + 0.45)
+      box(4.66, 0.04, 0.74, worktop, 7.4, -d / 2 + 0.45, 0.86, false)
+      for (let k = 0; k < 4; k++) { box(0.02, 0.7, 0.02, dark, 5.7 + k * 1.15, -d / 2 + 0.81, 0.08, false); box(0.16, 0.02, 0.03, steel, 6.2 + k * 1.15, -d / 2 + 0.82, 0.72, false) } // door gaps and pulls
+      // Hob: glass plate with four ringed burners. Sink: steel basin with a tap.
+      box(0.7, 0.012, 0.56, std(0x1b1c1e, 0.15, 0.6), 6.4, -d / 2 + 0.45, 0.9, false)
+      for (const [bx, bz] of [[-0.17, -0.13], [0.17, -0.13], [-0.17, 0.13], [0.17, 0.13]] as const) { const ring = add(new THREE.TorusGeometry(0.085, 0.012, 6, 16), steel, 6.4 + bx, 0.915, -d / 2 + 0.45 + bz); ring.rotation.x = Math.PI / 2 }
+      box(0.6, 0.02, 0.44, steel, 8.3, -d / 2 + 0.45, 0.895, false)
+      box(0.5, 0.012, 0.34, dark, 8.3, -d / 2 + 0.45, 0.906, false)
+      box(0.03, 0.22, 0.03, steel, 8.3, -d / 2 + 0.2, 0.9, false); box(0.03, 0.03, 0.16, steel, 8.3, -d / 2 + 0.27, 1.1, false)
+      // Fridge-freezer: two doors, bar handles, a dark plinth.
+      box(0.9, 2.0, 0.75, steel, w / 2 - 0.55, -4.5)
+      box(0.84, 0.012, 0.012, dark, w / 2 - 0.55, -4.118, 1.3, false)
+      for (const [hy, hh] of [[1.4, 0.45], [0.55, 0.6]] as const) box(0.03, hh, 0.04, dark, w / 2 - 0.86, -4.1, hy, false)
+      box(0.9, 0.08, 0.02, dark, w / 2 - 0.55, -4.12, 0, false)
+      // Island: timber base, stone top with an overhang and two stools tucked under it.
+      box(1.8, 0.86, 0.9, std(0x5a4030, 0.55), 7.0, -4.2)
+      box(2.0, 0.05, 1.1, std(0xe9e3d8, 0.3), 7.0, -4.2, 0.86, false)
+      for (const sx of [6.55, 7.45]) { add(new THREE.CylinderGeometry(0.17, 0.17, 0.05, 14), std(0x3a2a20, 0.7), sx, 0.64, -3.5); add(new THREE.CylinderGeometry(0.02, 0.02, 0.62, 6), dark, sx, 0.31, -3.5); add(new THREE.CylinderGeometry(0.15, 0.17, 0.02, 14), dark, sx, 0.01, -3.5) }
       const steps: Array<[number, number, number, number?]> = []
       for (let k = 0; k < 7; k++) steps.push([5.3, 0.12 + k * 0.24, -1.6 - k * 0.32])
       inst(new THREE.BoxGeometry(1.0, 0.24, 0.32), std(0x6b4e37, 0.6), steps, undefined)
@@ -289,6 +318,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Dining (SW): round table and four chairs.
       // Closet + key hook by the front door.
       box(1.4, 2.2, 0.6, std(0x6b4b36, 0.7), -8.6, 2.0, 0, true, Math.PI / 2)
+      // Wardrobe doors: a centre gap, two brass pulls and a cornice so the block reads as a closet.
+      box(0.012, 2.05, 0.012, std(0x2e2018, 0.8), -8.295, 2.0, 0.08, false)
+      for (const dz of [-0.06, 0.06]) box(0.03, 0.22, 0.02, trim, -8.28, 2.0 + dz, 1.05, false)
+      box(0.66, 0.06, 1.46, std(0x4a3426, 0.7), -8.6, 2.0, 2.2, false)
       use({ id: 'closet', x: -8.0, z: 2.0, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
       use({ id: 'key', x: -8.4, z: -1.0, r: 0.8, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
       // Bedroom (S middle): round bed, side tables, desk with the live CV laptop.
@@ -347,7 +380,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       }
       station('treadmill', 'Treadmill', -4.5, -3.2, -4.5, -1.8)
       // Bench press.
-      box(0.4, 0.45, 1.5, black, 1.0, -3.0)
+      box(0.36, 0.08, 1.45, black, 1.0, -3.0, 0.4) // padded bench on a steel frame
+      for (const bz of [-3.6, -2.4]) { box(0.3, 0.4, 0.05, steel, 1.0, bz, 0, false); box(0.5, 0.04, 0.08, steel, 1.0, bz, 0, false) }
       box(2.0, 0.06, 0.06, steel, 1.0, -3.6, 1.05, false)
       for (const x of [0.15, 1.85]) add(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 16), black, x, 1.08, -3.6).rotation.z = Math.PI / 2
       box(0.08, 1.1, 0.08, steel, 0.4, -3.6, 0, false); box(0.08, 1.1, 0.08, steel, 1.6, -3.6, 0, false)
@@ -373,12 +407,28 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (id === 'boutique') {
       const rail = std(0xc9a25e, 0.4, 0.85)
       // Fashion-house palette: ivory, blush, champagne, noir, nude, wine, dove grey.
-      const colours = [0xf3ece2, 0xe4b9b4, 0xd8c3a0, 0x151515, 0xc9a08a, 0x6e2533, 0xb8b4b0]
+      const colours = [0xf3ece2, 0xe4b9b4, 0xd8c3a0, 0x2a2a2e, 0xc9a08a, 0x6e2533, 0xb8b4b0]
+      const garments: Array<{ x: number; z: number; c: number; long: boolean }> = []
       for (const z of [-2.4, 0.4, 3.0]) {
         box(2.6, 0.05, 0.05, rail, 1.2, z, 1.6, false)
         box(0.05, 1.6, 0.05, rail, 0.0, z, 0, false); box(0.05, 1.6, 0.05, rail, 2.4, z, 0, false)
         obstacles.push({ kind: 'box', x: o.x + 1.2, z: o.z + z, hx: 1.35, hz: 0.35 })
-        for (let i = 0; i < 7; i++) box(0.12, 0.9, 0.55, std(colours[(i * 3 + Math.round(z) + 14) % 7] ?? 0x555555, 0.95), 0.2 + i * 0.33, z, 0.65, false)
+        for (let i = 0; i < 7; i++) garments.push({ x: 0.2 + i * 0.33, z, c: colours[(i * 3 + Math.round(z) + 14) % 7] ?? 0x555555, long: (i + Math.round(z)) % 3 === 0 })
+      }
+      {
+        // Each garment: sloped shoulders, a nipped waist and a flared hem, hanging from a brass hook.
+        const cut = (hem: number) => {
+          const sh = new THREE.Shape([[-0.25, 0.84], [-0.07, 0.9], [0.07, 0.9], [0.25, 0.84], [0.19, 0.55], [0.26, hem], [-0.26, hem], [-0.19, 0.55]].map(([px, py]) => new THREE.Vector2(px!, py!)))
+          return new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: false }).translate(0, 0, -0.035).rotateY(Math.PI / 2)
+        }
+        const cloth = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true })
+        const tint = new THREE.Color()
+        for (const long of [false, true]) {
+          const list = garments.filter((g) => g.long === long)
+          const im = inst(cut(long ? -0.25 : 0.12), cloth, list.map((g) => [g.x, 0.66, g.z]))
+          list.forEach((g, i) => im.setColorAt(i, tint.setHex(g.c)))
+        }
+        inst(new THREE.TorusGeometry(0.03, 0.006, 5, 10, Math.PI * 1.4).rotateY(Math.PI / 2), rail, garments.map((g) => [g.x, 1.58, g.z]))
       }
       const mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, roughness: 0.03, metalness: 1 })
       box(0.06, 2.0, 1.2, mirror, w / 2 - 0.05, -1.5, 0.3, false)
@@ -406,12 +456,17 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Counter.
       box(2.4, 1.0, 0.7, std(0x3a2a20, 0.5), -3.0, -3.6)
       box(2.4, 0.04, 0.75, rail, -3.0, -3.6, 1.0, false)
-      // Mannequins.
-      for (const x of [-3.6, -2.0]) {
-        add(new THREE.CylinderGeometry(0.22, 0.18, 0.9, 10), std(0xe8e2d8, 0.6), x, 1.3, 2.4)
-        add(new THREE.SphereGeometry(0.16, 12, 10), std(0xe8e2d8, 0.6), x, 1.95, 2.4)
-        add(new THREE.CylinderGeometry(0.03, 0.03, 0.85, 6), rail, x, 0.42, 2.4)
-        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + 2.4, r: 0.3 })
+      // Mannequins: full figures on brass bases, dressed from the rails (an abaya with its hijab, and a suit).
+      const figures: Array<[number, THREE.Group]> = [
+        [-3.6, posedHuman('woman4', { pose: 'stand', height: 1.7, mono: 0xd9d2c6, look: { top: 0xd4a0b0, robe: true, sleeves: true } })],
+        [-2.0, posedHuman('man4', { pose: 'stand', height: 1.8, look: { top: 0x2e3136, bottom: 0x2e3136, shoes: 0x1a1c1f, skin: 0xd9d2c6, hair: 0xd9d2c6 } })],
+      ]
+      for (const [x, figure] of figures) {
+        add(new THREE.CylinderGeometry(0.34, 0.36, 0.05, 20), rail, x, 0.025, 2.4)
+        figure.position.set(x, 0.05, 2.4)
+        figure.rotation.y = -Math.PI / 2
+        group.add(figure)
+        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + 2.4, r: 0.36 })
       }
     }
     if (id === 'mosque') {
@@ -430,25 +485,20 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Soft natural light: tall arched windows on the side walls, warm skylight.
       const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.55, roughness: 0.2 })
       for (let x = -5; x <= 5; x += 2.5) for (const side of [-1, 1]) box(1.0, 2.0, 0.04, glass, x, side * (d / 2 - 0.02), 0.9, false)
-      // Modest low-poly worshippers in rows facing the qibla: standing, bowing, prostrating. No faces.
-      const robes = [0xf2efe8, 0xe4dccd, 0x3a3f47, 0x6b5a45, 0x2a3b5c]
-      const pose = (x: number, z: number, kind: number, c: number) => {
-        const m = std(c, 0.95)
-        const g = new THREE.Group()
-        g.position.set(x, 0, z)
-        g.rotation.y = Math.PI / 2
-        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.8, 8), m)
-        const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.8, 8), m)
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), std(0xffffff, 0.9))
-        if (kind === 0) { legs.position.y = 0.4; torso.position.y = 1.2; head.position.y = 1.72 }
-        else if (kind === 1) { legs.position.y = 0.4; torso.position.set(0, 0.95, 0.35); torso.rotation.x = Math.PI / 2; head.position.set(0, 0.95, 0.82) }
-        else { legs.position.set(0, 0.22, -0.2); legs.rotation.x = Math.PI / 2.4; torso.position.set(0, 0.3, 0.35); torso.rotation.x = Math.PI / 2.2; head.position.set(0, 0.14, 0.82) }
-        g.add(torso, legs, head)
-        group.add(g)
-        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.35 })
-      }
+      // Worshippers: real people from the city's own kit, seated on their heels in two rows facing the qibla,
+      // in plain thobes, some with a kufi. Still figures (no animation), one draw call each.
+      const robes = [0xf2efe8, 0xe4dccd, 0x4a4f57, 0x7a6a55, 0x2f3f5c, 0xd9d2c6]
+      const skins = [0x8d5a3b, 0xc68a62, 0x5a3825, 0xe0b08e, 0x6f4329, 0xbf8a62]
       let n = 0
-      for (const x of [3.2, 1.6]) for (let z = -4; z <= 4; z += 1.0) { pose(x, z, n % 3 === 0 ? 0 : n % 3 === 1 ? 1 : 2, robes[n % robes.length]!); n++ }
+      for (const x of [3.2, 1.6]) for (let z = -4.2; z <= 4.2; z += 1.4) {
+        const robe = robes[n % robes.length]!
+        const man = posedHuman(MEN[n % MEN.length]!, { pose: 'kneel', height: 1.76, look: { top: robe, bottom: robe, skin: skins[(n * 5) % skins.length]!, hair: 0x16110e, shoes: robe }, cap: n % 3 === 1 ? undefined : n % 2 ? 0xf2efe8 : 0x3a3f47 })
+        man.position.set(x, 0, z)
+        man.rotation.y = Math.PI / 2
+        group.add(man)
+        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.4 })
+        n++
+      }
       use({ id: 'pray', x: -1.0, z: 0, r: 1.4, title: 'Prayer rows', body: 'Join the back row. Quiet focus for your next course.', enter: 'Pray', run: () => {
         hooks.busy(2.2, o.x - 0.6, o.z, Math.PI / 2)
         hooks.toast(sitPrayer().message)
@@ -595,13 +645,33 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       box(5.0, 0.04, 2.6, std(0x6a5a4c, 1), 2.0, -d / 2 + 1.6, 0, false)
       const soft = new THREE.MeshStandardMaterial({ color: 0xfff6e8, emissive: 0xfff1dc, emissiveIntensity: 0.6, roughness: 0.6 })
       const stand = std(0x1a1c1f, 0.4, 0.6)
+      const tripod = (x: number, z: number, h: number) => {
+        // Three splayed legs under a short centre column.
+        for (let k = 0; k < 3; k++) {
+          const a = (k / 3) * Math.PI * 2 + 0.5
+          const leg = add(new THREE.CylinderGeometry(0.014, 0.014, h * 0.8, 6), stand, x + Math.sin(a) * 0.19, h * 0.36, z + Math.cos(a) * 0.19)
+          leg.rotation.set(Math.cos(a) * 0.5, 0, -Math.sin(a) * 0.5)
+        }
+        box(0.035, h * 0.34, 0.035, stand, x, z, h * 0.66, false)
+      }
       for (const x of [-0.6, 4.6]) {
-        box(0.04, 1.9, 0.04, stand, x, -d / 2 + 2.8, 0, false)
-        box(0.9, 0.9, 0.06, soft, x, -d / 2 + 2.8, 1.9, false, x < 2 ? 0.5 : -0.5)
+        const ry = x < 2 ? 0.5 : -0.5
+        tripod(x, -d / 2 + 2.8, 1.95)
+        // Softbox: black housing tapering back from a glowing diffuser.
+        const sb = add(new THREE.CylinderGeometry(0.16, 0.62, 0.36, 4, 1, true).rotateY(Math.PI / 4).rotateX(Math.PI / 2), stand, x - Math.sin(ry) * 0.2, 2.35, -d / 2 + 2.8 + Math.cos(ry) * 0.2, false, ry)
+        ;(sb.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide
+        box(0.86, 0.86, 0.03, soft, x - Math.sin(ry) * 0.02, -d / 2 + 2.8 + Math.cos(ry) * 0.02 - 0.0, 1.92, false, ry)
         obstacles.push({ kind: 'circle', x: o.x + x, z: o.z - d / 2 + 2.8, r: 0.3 })
       }
-      box(0.3, 0.2, 0.25, stand, 2.0, -d / 2 + 4.2, 1.45, false)
-      box(0.04, 1.45, 0.04, stand, 2.0, -d / 2 + 4.2, 0, false)
+      // Cinema camera: body, lens with a glass front, matte box, top handle and a small monitor, on a tripod.
+      tripod(2.0, -d / 2 + 4.2, 1.45)
+      box(0.2, 0.2, 0.34, stand, 2.0, -d / 2 + 4.2, 1.45, false)
+      add(new THREE.CylinderGeometry(0.075, 0.085, 0.24, 14).rotateX(Math.PI / 2), std(0x2c2f33, 0.35, 0.7), 2.0, 1.55, -d / 2 + 3.92)
+      add(new THREE.CircleGeometry(0.068, 14).rotateY(Math.PI), new THREE.MeshStandardMaterial({ color: 0x20324a, roughness: 0.05, metalness: 0.9 }), 2.0, 1.55, -d / 2 + 3.798)
+      box(0.26, 0.2, 0.03, stand, 2.0, -d / 2 + 3.8, 1.45, false)
+      box(0.03, 0.05, 0.22, stand, 2.0, -d / 2 + 4.2, 1.67, false)
+      box(0.16, 0.1, 0.015, new THREE.MeshStandardMaterial({ color: 0x0c1014, emissive: 0x9fd4ff, emissiveIntensity: 0.5, roughness: 0.3 }), 2.14, -d / 2 + 4.38, 1.62, false, 0.5)
+      add(new THREE.SphereGeometry(0.012, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3b30 }), 1.9, 1.62, -d / 2 + 4.38)
       obstacles.push({ kind: 'circle', x: o.x + 2.0, z: o.z - d / 2 + 4.2, r: 0.3 })
       // Podcast table with three mics on arms.
       add(new THREE.CylinderGeometry(1.0, 1.0, 0.06, 32), std(0x3a2a20, 0.4), -3.2, 0.76, 2.2)
@@ -634,6 +704,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (id === 'lounge') {
       // Members' lounge: quiet walnut, leather and brass. Stations unlock by the visitor's rank; friends and guests may walk in.
       const walnut = std(0x4e3626, 0.55), leather = std(0x3a2a20, 0.7), brass = std(0xb08d57, 0.35, 0.6), rugM = std(0x6b4b3a, 0.95)
+      const lampGlass = new THREE.MeshStandardMaterial({ color: 0x1f6b4f, emissive: 0x2fae7a, emissiveIntensity: 0.45, roughness: 0.25, side: THREE.DoubleSide })
       const rug = add(new THREE.PlaneGeometry(7, 4.5), rugM, 0, 0.02, 0); rug.rotation.x = -Math.PI / 2
       // Each station opens a real tool: study, practice trading, certificates, Career / Earn Paths.
       const STATIONS: Array<{ sid: string; title: string; rank: number; x: number; z: number; text: string; go: () => void }> = [
@@ -650,7 +721,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inst(new THREE.BoxGeometry(0.45, 0.6, 0.66), walnut, STATIONS.map((st) => [st.x - 0.5, 0.33, st.z]))
       inst(new THREE.BoxGeometry(0.3, 0.025, 0.02), brass, STATIONS.flatMap((st) => [[st.x - 0.5, 0.5, st.z + 0.335], [st.x - 0.5, 0.25, st.z + 0.335]] as Array<[number, number, number]>))
       for (const st of STATIONS) {
-        box(0.12, 0.35, 0.12, brass, st.x + 0.55, st.z, 0.75, false)
+        // Banker's lamp: brass foot and stem, green glass shade.
+        add(new THREE.CylinderGeometry(0.07, 0.085, 0.025, 12), brass, st.x + 0.55, 0.763, st.z)
+        add(new THREE.CylinderGeometry(0.012, 0.012, 0.26, 6), brass, st.x + 0.55, 0.9, st.z)
+        add(new THREE.CylinderGeometry(0.06, 0.06, 0.26, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2), lampGlass, st.x + 0.55, 1.03, st.z)
         use({ id: `lounge-${st.sid}`, x: st.x, z: st.z + 1, r: 1.2, title: st.title, body: st.rank ? `${RN[st.rank]}+ · ${st.text}` : st.text, enter: 'Open', run: () => {
           const lvl = hooks.rankIndex?.() ?? 0
           if (lvl >= st.rank) st.go()

@@ -68,11 +68,12 @@ export function itemModel(id: string): THREE.Group {
     case 'phonepro': {
       const pro = id === 'phonepro'
       const body = mesh(rounded(0.075, 0.155, 0.012, 0.007), pro ? M.titanium : M.graphite, 0, 0.0775, 0)
-      const screen = mesh(rounded(0.069, 0.149, 0.01, 0.001, 0), lit(screenTex.phone), 0, 0.0775, 0.0048)
+      // Screen sits just proud of the front glass; camera island and lenses just proud of the back.
+      const screen = mesh(new THREE.PlaneGeometry(0.067, 0.147), lit(screenTex.phone), 0, 0.0775, 0.0079)
       g.add(body, screen)
-      const island = mesh(rounded(0.03, 0.03, 0.008, 0.002), M.graphite, -0.018, 0.13, -0.005)
+      const island = mesh(rounded(0.03, 0.03, 0.008, 0.002), pro ? M.graphite : M.black, 0.018, 0.13, -0.0085)
       g.add(island)
-      for (const [x, y] of pro ? [[-0.025, 0.137], [-0.011, 0.137], [-0.025, 0.123]] : [[-0.025, 0.137], [-0.025, 0.123]]) g.add(mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.004, 12).rotateX(Math.PI / 2), M.black, x!, y!, -0.0075))
+      for (const [x, y] of pro ? [[0.025, 0.137], [0.011, 0.137], [0.025, 0.123]] : [[0.025, 0.137], [0.025, 0.123]]) g.add(mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.004, 12).rotateX(Math.PI / 2), M.glass, x!, y!, -0.0112))
       g.rotation.x = -0.18
       break
     }
@@ -95,7 +96,7 @@ export function itemModel(id: string): THREE.Group {
     case 'watch': {
       g.add(mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.05, 20), M.white, 0, 0.025, 0))
       const face = new THREE.Group(); face.position.set(0, 0.07, 0); face.rotation.x = -0.35
-      face.add(mesh(rounded(0.042, 0.05, 0.011, 0.012), M.alu), mesh(rounded(0.036, 0.044, 0.009, 0.001, 0), lit(screenTex.watch), 0, 0, 0.0065))
+      face.add(mesh(rounded(0.042, 0.05, 0.011, 0.012), M.alu), mesh(new THREE.PlaneGeometry(0.035, 0.043), lit(screenTex.watch), 0, 0, 0.0104))
       face.add(mesh(new THREE.BoxGeometry(0.024, 0.06, 0.004), M.strap, 0, 0.05, -0.004), mesh(new THREE.BoxGeometry(0.024, 0.06, 0.004), M.strap, 0, -0.05, -0.004))
       g.add(face)
       break
