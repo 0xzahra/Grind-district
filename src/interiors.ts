@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { ownedHouseItems } from './career.ts'
-import { pbrSet } from './pbrTex.ts'
+import { floorFinish, glossFloor, wallFinish, type FloorKind } from './surfaces.ts'
 import type { Obstacle } from './physics.ts'
 import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
 import { passedCount } from './certs.ts'
@@ -107,12 +107,14 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const uses: Use[] = []
     const mk = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.receiveShadow = true; group.add(m); return m }
     const { w, d } = UP
-    // Same oak boards and plaster grain as the ground floor (the upstairs room was flat colour; 8 Nov recording).
-    const upFloor = std(0x8a6243, 0.6)
-    Object.assign(upFloor, pbrSet('wood_floor', 4), { roughness: 1 })
-    mk(new THREE.PlaneGeometry(w, d), upFloor, 0, 0.01, 0).rotation.x = -Math.PI / 2
+    // Same oak boards and plaster as the ground floor.
+    const upFloor = std(0xe9d6bf, 0.7)
+    floorFinish(upFloor, 'wood', w, d)
+    const upBoards = mk(new THREE.PlaneGeometry(w, d), upFloor, 0, 0.01, 0)
+    upBoards.rotation.x = -Math.PI / 2
+    glossFloor(upBoards, 0.2)
     const wall = std(0xe9e0d0, 0.92)
-    wall.map = pbrSet('plastered_wall_04', 2).map
+    wallFinish(wall)
     mk(new THREE.BoxGeometry(w + 0.5, 3.2, 0.25), wall, 0, 1.6, -d / 2 - 0.125); mk(new THREE.BoxGeometry(w + 0.5, 3.2, 0.25), wall, 0, 1.6, d / 2 + 0.125)
     mk(new THREE.BoxGeometry(0.25, 3.2, d), wall, -w / 2 - 0.125, 1.6, 0); mk(new THREE.BoxGeometry(0.25, 3.2, d), wall, w / 2 + 0.125, 1.6, 0)
     mk(new THREE.BoxGeometry(1.8, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.12, roughness: 0.1 }), 1.5, 1.5, -d / 2 + 0.02)
@@ -186,15 +188,22 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
 
     // Shell: floor, skirting, four walls, ceiling beams, exit door on the west wall.
-    const floorMat = id === 'gym' ? std(0x2b2d30, 0.95) : id === 'trading' ? std(0x23262a, 0.5, 0.1) : id === 'campus' ? std(0x9a7550, 0.62) : id === 'conference' ? std(0x5b4636, 0.7) : std(id === 'house' ? 0x8a6243 : 0xd9d2c6, 0.6)
-    // Real oak boards (Poly Haven wood_floor, CC0) on the warm floors; plaster grain on the walls.
-    if (id === 'house' || id === 'campus' || id === 'conference') Object.assign(floorMat, pbrSet('wood_floor', Math.max(2, Math.round(w / 3))), { roughness: 1 })
+    // Real finishes (surfaces.ts): oak boards, stone tiles, dark polished tile or rubber, each tinted by the
+    // room's colour; polished floors mirror the room on High. Walls are plain paint over trowelled plaster.
+    const FLOOR: Record<RoomId, [FloorKind, number, number]> = {
+      house: ['wood', 0xe9d6bf, 0.17], campus: ['wood', 0xf3e6d2, 0.22], conference: ['wood', 0x9c8672, 0.26], lounge: ['wood', 0x8f7862, 0.26],
+      boutique: ['stone', 0xfff6ea, 0.3], studio: ['stone', 0xcfd0d2, 0.26], mosque: ['stone', 0xf2ead8, 0], trading: ['tile', 0x23262a, 0.34], gym: ['rubber', 0x2b2d30, 0],
+    }
+    const [floorKind, floorTint, floorGloss] = FLOOR[id]
+    const floorMat = std(floorTint, 0.7, floorKind === 'tile' ? 0.1 : 0)
+    floorFinish(floorMat, floorKind, w, d)
     const floor = add(new THREE.PlaneGeometry(w, d), floorMat, 0, 0.01, 0)
     floor.rotation.x = -Math.PI / 2
+    floor.castShadow = false
+    if (floorGloss > 0) glossFloor(floor, floorGloss)
     const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : id === 'boutique' ? 0xeedfd6 : 0xf1ebe2, 0.92)
     // Home: cutaway-height walls and no beams, so the phone's high follow camera sees over them.
-    // Faceted plaster: big soft planes of tone on every wall (flat colour, no photo texture).
-    wallMat.map = pbrSet('plastered_wall_04', 2).map
+    wallFinish(wallMat)
     const H = id === 'house' ? 2.6 : 3.2
     const T = 0.25
     box(w + T * 2, H, T, wallMat, 0, -d / 2 - T / 2)
@@ -479,6 +488,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (id === 'mosque') {
       // Qibla wall is the east wall (+x). Carpet rows run north-south, worshippers face +x.
       const carpet = std(0x7a1f2b, 1)
+      floorFinish(carpet, 'carpet', w - 1.2, d - 1.2)
       const stripe = std(0xc9a25e, 0.9)
       box(w - 1.2, 0.02, d - 1.2, carpet, 0.3, 0, 0, false)
       for (let x = -5; x <= 5; x += 1.6) box(0.05, 0.025, d - 1.4, stripe, x, 0, 0, false)

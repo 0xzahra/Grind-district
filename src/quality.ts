@@ -10,6 +10,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 import type { Graphics } from './logic.ts'
+import { setSurfaceTier } from './surfaces.ts'
 
 /** One-time PMREM env map so metal, glass and cars have something to reflect. */
 export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Scene): void {
@@ -108,6 +109,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   return {
     configure(graphics: Graphics, width: number, height: number, ratio: number) {
       level = graphics
+      setSurfaceTier(graphics)
       if (graphics === 'low') return
       if (!composer) build()
       // Bloom runs at reduced resolution on medium to stay cheap on phones.
