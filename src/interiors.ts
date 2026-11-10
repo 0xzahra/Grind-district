@@ -18,6 +18,7 @@ export type Use = { id: string; x: number; z: number; r: number; title: string; 
 type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
+const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2 }
 const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 }, conference: { w: 18, d: 14 }, lounge: { w: 16, d: 12 } }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
@@ -203,16 +204,19 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const trim = std(0xc9a25e, 0.45, 0.8)
     for (const z of [-d / 2 + 0.03, d / 2 - 0.03]) box(w, 0.12, 0.04, trim, 0, z, 0, false)
     if (id !== 'house') for (let x = -w / 2 + 2; x < w / 2; x += 3) box(0.22, 0.25, d, std(0x5a4636, 0.8), x, 0, H - 0.25, false)
-    // Exit door (double leaf) with brass handle.
+    // Exit door (double leaf) with brass handle. Home: in the middle of the entry hall's west wall, clear of partitions.
+    const DZ = DOOR_Z[id] ?? 0
     const doorMat = std(0x4a3426, 0.6)
-    box(0.08, 2.3, 0.75, doorMat, -w / 2 + 0.04, -0.4, 0, false)
-    box(0.08, 2.3, 0.75, doorMat, -w / 2 + 0.04, 0.4, 0, false)
-    box(0.06, 0.06, 0.3, trim, -w / 2 + 0.12, 0, 1.05, false)
+    box(0.08, 2.3, 0.75, doorMat, -w / 2 + 0.04, DZ - 0.4, 0, false)
+    box(0.08, 2.3, 0.75, doorMat, -w / 2 + 0.04, DZ + 0.4, 0, false)
+    box(0.06, 0.06, 0.3, trim, -w / 2 + 0.12, DZ, 1.05, false)
+    box(0.1, 0.12, 1.9, doorMat, -w / 2 + 0.05, DZ, 2.3, false) // lintel
+    for (const s of [-1, 1]) box(0.1, 2.42, 0.1, doorMat, -w / 2 + 0.05, DZ + s * 0.85, 0, false) // jambs
     const exitSign = add(new THREE.PlaneGeometry(0.9, 0.3), new THREE.MeshBasicMaterial({ map: canvasTex(256, 86, (g) => {
       g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 86); g.fillStyle = '#f2ece0'; g.font = '700 44px Inter, sans-serif'; g.textAlign = 'center'; g.fillText(id === 'house' ? 'EXIT' : 'STREET', 128, 60)
-    }) }), -w / 2 + 0.06, Math.min(2.6, H - 0.2), 0)
+    }) }), -w / 2 + 0.06, Math.min(2.6, H - 0.2), DZ)
     exitSign.rotation.y = Math.PI / 2
-    use({ id: `${id}-exit`, x: -w / 2 + 0.9, z: 0, r: 0.9, title: 'Door', body: 'Back to the street.', enter: 'Go outside', run: () => {}, exit: true })
+    use({ id: `${id}-exit`, x: -w / 2 + 0.9, z: DZ, r: 0.9, title: 'Door', body: 'Back to the street.', enter: 'Go outside', run: () => {}, exit: true })
 
     // Repeated furniture uses InstancedMesh: one draw call per part, however many seats.
     const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, spots: Array<[number, number, number, number?]>, blockHalf?: [number, number]) => {
@@ -282,10 +286,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const sx of [-0.6, -0.2, 0.2, 0.6]) add(new THREE.CylinderGeometry(0.015, 0.015, 0.09, 6).rotateX(Math.PI / 2), trim, -7.8 + sx, 1.65, -d / 2 + 0.1)
       for (const [sx, col] of [[-0.6, 0x3d5a80], [0.2, 0x6b5a45]] as const) { box(0.34, 0.75, 0.1, std(col, 0.95), -7.8 + sx, -d / 2 + 0.14, 0.86, false); box(0.44, 0.12, 0.1, std(col, 0.95), -7.8 + sx, -d / 2 + 0.14, 1.5, false) }
       seat('hall', 'Hall bench', -7.8, -d / 2 + 0.5, 0, 0.48)
-      box(1.1, 0.04, 0.34, hallWood, -9.6, -3.2, 0.78, true, Math.PI / 2)
-      for (const sz of [-0.48, 0.48]) box(0.04, 0.78, 0.3, hallWood, -9.6, -3.2 + sz, 0, false, 0)
-      add(new THREE.CylinderGeometry(0.11, 0.09, 0.2, 10), std(0xa8664a, 0.9), -9.6, 0.92, -3.2)
-      { const leaf = add(new THREE.IcosahedronGeometry(0.2, 0), std(0x4f6b3e, 0.8), -9.6, 1.18, -3.2); leaf.scale.set(1, 1.3, 1) }
+      box(1.1, 0.04, 0.34, hallWood, -9.6, -5.4, 0.78, true, Math.PI / 2)
+      for (const sz of [-0.48, 0.48]) box(0.04, 0.78, 0.3, hallWood, -9.6, -5.4 + sz, 0, false, 0)
+      add(new THREE.CylinderGeometry(0.11, 0.09, 0.2, 10), std(0xa8664a, 0.9), -9.6, 0.92, -5.4)
+      { const leaf = add(new THREE.IcosahedronGeometry(0.2, 0), std(0x4f6b3e, 0.8), -9.6, 1.18, -5.4); leaf.scale.set(1, 1.3, 1) }
       // Living room: rug, L sofa, coffee table, TV wall.
       // Furniture itself is tiered by ladder rank: see homeFurniture.ts (rebuilt on enter).
       use({ id: 'lights', x: -4.8, z: -1.2, r: 0.8, title: 'Light switch', body: 'Dim the house for the evening.', enter: 'Lights to night', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
@@ -316,14 +320,15 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       use({ id: 'stairs', x: 5.3, z: -0.6, r: 0.9, title: 'Stairs', body: 'Up to the second floor.', enter: 'Go upstairs', run: () => goFloor(1) })
       use({ id: 'kitchen', x: 7.0, z: -3.0, r: 1.2, title: 'Kitchen', body: 'Water and a hot plate. Food is free here.', enter: 'Cook', run: () => hooks.toast('You cooked jollof. Free, and it does not move a chart.') })
       // Dining (SW): round table and four chairs.
-      // Closet + key hook by the front door.
-      box(1.4, 2.2, 0.6, std(0x6b4b36, 0.7), -8.6, 2.0, 0, true, Math.PI / 2)
+      // Wardrobe inside the bedroom, against the dining|bedroom partition; key hook by the front door.
+      const WX = -2.2, WZ = 4.4
+      box(1.4, 2.2, 0.6, std(0x6b4b36, 0.7), WX, WZ, 0, true, Math.PI / 2)
       // Wardrobe doors: a centre gap, two brass pulls and a cornice so the block reads as a closet.
-      box(0.012, 2.05, 0.012, std(0x2e2018, 0.8), -8.295, 2.0, 0.08, false)
-      for (const dz of [-0.06, 0.06]) box(0.03, 0.22, 0.02, trim, -8.28, 2.0 + dz, 1.05, false)
-      box(0.66, 0.06, 1.46, std(0x4a3426, 0.7), -8.6, 2.0, 2.2, false)
-      use({ id: 'closet', x: -8.0, z: 2.0, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
-      use({ id: 'key', x: -8.4, z: -1.0, r: 0.8, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
+      box(0.012, 2.05, 0.012, std(0x2e2018, 0.8), WX + 0.305, WZ, 0.08, false)
+      for (const dz of [-0.06, 0.06]) box(0.03, 0.22, 0.02, trim, WX + 0.32, WZ + dz, 1.05, false)
+      box(0.66, 0.06, 1.46, std(0x4a3426, 0.7), WX, WZ, 2.2, false)
+      use({ id: 'closet', x: WX + 0.75, z: WZ, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
+      use({ id: 'key', x: -9.2, z: -3.4, r: 0.8, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
       // Bedroom (S middle): round bed, side tables, desk with the live CV laptop.
       use({ id: 'bed', x: 1.0, z: 4.6, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep', run: () => {
         hooks.sit({ x: ORIGIN.house.x + 1.0, z: ORIGIN.house.z + 4.6, yaw: 0, y: 0.5, pose: 'lie' })
@@ -334,15 +339,17 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         window.setTimeout(() => { setTime('day'); hooks.onLook(); dim.style.opacity = '0'; hooks.toast('Morning. You feel rested.'); window.setTimeout(() => dim.remove(), 1300) }, 3500)
       } })
       const deskWood = std(0x8a6a4c, 0.65)
-      box(1.4, 0.04, 0.6, deskWood, -1.4, 2.0, 0.71)
-      for (const sx of [-0.66, 0.66]) box(0.05, 0.71, 0.56, deskWood, -1.4 + sx, 2.0, 0, false)
-      obstacles.push({ kind: 'box', x: o.x - 1.4, z: o.z + 2.0, hx: 0.75, hz: 0.35 })
-      box(0.6, 0.03, 0.42, std(0x9aa0a6, 0.3, 0.8), -1.4, 2.0, 0.76, false)
+      // Desk on the north wall, mid-room: both doorways (dining at x -2.6, living at x 4) stay clear.
+      const DX = 1.3
+      box(1.4, 0.04, 0.6, deskWood, DX, 1.65, 0.71)
+      for (const sx of [-0.66, 0.66]) box(0.05, 0.71, 0.56, deskWood, DX + sx, 1.65, 0, false)
+      obstacles.push({ kind: 'box', x: o.x + DX, z: o.z + 1.65, hx: 0.75, hz: 0.35 })
+      box(0.6, 0.03, 0.42, std(0x9aa0a6, 0.3, 0.8), DX, 1.65, 0.76, false)
       cvTex = canvasTex(512, 320, paintCv)
-      const screen = add(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshBasicMaterial({ map: cvTex }), -1.4, 0.97, 1.83)
+      const screen = add(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshBasicMaterial({ map: cvTex }), DX, 0.97, 1.48)
       screen.rotation.y = Math.PI
       screen.rotation.x = 0.18
-      use({ id: 'desk', x: -1.4, z: 3.0, r: 1.0, title: 'Desk · laptop', body: 'Your CV, live on the screen.', enter: 'Open my CV', run: () => hooks.openPanel('profile') })
+      use({ id: 'desk', x: DX, z: 2.6, r: 1.0, title: 'Desk · laptop', body: 'Your CV, live on the screen.', enter: 'Open my CV', run: () => hooks.openPanel('profile') })
       // Indoor pool (SE) with a stone deck.
       box(4.6, 0.04, 5.8, std(0xd8d0c2, 0.7), 7.4, 3.8, 0, false)
       const water = new THREE.MeshStandardMaterial({ color: 0x3f8fb8, emissive: 0x1d5f80, emissiveIntensity: 0.35, roughness: 0.05, metalness: 0.1 })
@@ -854,7 +861,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       roomFill.intensity = id === 'house' ? 0.22 : 0.28
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
-      if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.6, z: o.z - 0.3, yaw: Math.PI / 2 }
+      if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.2, z: o.z + DOOR_Z.house!, yaw: Math.PI / 2 }
       return { x: o.x - SIZE[id].w / 2 + 2.0, z: o.z, yaw: -Math.PI / 2 }
     },
     exit(doorX: number, doorZ: number): { x: number; z: number } {

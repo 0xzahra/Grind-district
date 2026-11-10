@@ -6,14 +6,13 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
+import { renderCvPaper, printCv } from './cvPaper.ts'
 import { equippedFrame } from './career.ts'
 // Signed-in players: the look saves to the account through the existing profile upsert (debounced).
 let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
 import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, formatQty, type BookRow } from './logic.ts'
-import { getCareer } from './career.ts'
-import { JOBS } from './careerData.ts'
 import { track } from './track.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
@@ -45,7 +44,6 @@ import {
   TAX_USD,
   TINTS,
   TINT_STYLE,
-  documents,
   money,
   nextRank,
   progressToNext,
@@ -323,13 +321,9 @@ export function mountUi(
     const glass = document.createElement('section')
     glass.className = 'glass'
     const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
-    const docs = documents(save, new Date(), (() => { const id = getCareer().job; return id ? (JOBS.find(j => j.id === id)?.title ?? '') : '' })())
-    const doc = (text: string) => { const pre = document.createElement('pre'); pre.className = 'doc doc-card'; pre.textContent = text; return pre }
     glass.append(
       renderLuxury(),
-      head('CV'), doc(docs.cv), document.createElement('hr'),
-      head('Resume'), doc(docs.resume), document.createElement('hr'),
-      head('Portfolio'), doc(docs.portfolio), document.createElement('hr'),
+      head('CV'), (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper)), button('Share CV link', 'ghost', () => void shareCv())); wrap.append(paper, bar); return wrap })(), document.createElement('hr'),
       head('Books'), renderBooks(),
     )
     const share = document.createElement('section')
@@ -1202,7 +1196,7 @@ export function mountUi(
       case 'intro':
         return renderSimple('Welcome to Grind District', [
           para('Everyone starts at zero here.'),
-          para('Your first step: follow the gold marker north to Campus. Ada gives you a 1-minute lesson.'),
+          para('Your first step: follow the gold marker north to Campus. Zahra gives you a 1-minute lesson.'),
           button("Let's go", 'primary', close),
         ])
       case 'profile':
@@ -1445,7 +1439,7 @@ export function mountUi(
           g.className = 'glass'
           const h = (t: string) => { const e = document.createElement('h3'); e.textContent = t; return e }
           const d = (t: string) => { const e = document.createElement('pre'); e.className = 'doc'; e.textContent = publicDoc(t) || 'Not filed yet.'; return e }
-          if (p.d) g.append(h('CV'), d(p.d.c), h('Resume'), d(p.d.r), h('Portfolio'), d(p.d.p))
+          if (p.d) g.append(h('CV'), d(p.d.c))
           g.append(h('Books'), renderBookRows((p.b ?? []).map(([section, label, value]) => ({ section: section as BookRow['section'], label, value }))))
           body.append(intro, g)
         }

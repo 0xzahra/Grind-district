@@ -158,13 +158,13 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
   const coffeeTable = () => table(0.9, 0.5, 0.4, 'walnut')
   const art = () => { b('walnut', 0.8, 0.6, 0.03, 0, 1.4, 0); b('rug2', 0.68, 0.48, 0.01, 0, 1.46, 0.02); b('pot', 0.3, 0.18, 0.012, 0.1, 1.55, 0.025) }
 
-  // ---- Ladder unlocks (house is 20 x 15; door on the west wall at z 0; walk lane z -1..0.4 kept clear) ----
+  // ---- Ladder unlocks (house is 20 x 15; door on the west wall at z -2.2; hall to bedroom lane kept clear) ----
   const T: Array<{ items: string[]; place: () => void }> = [
     { items: ['Twin bed', 'Nightstand + table lamp', 'Desk chair', 'Bedroom rug', 'Armchair corner'], place: () => {
       piece(1.0, 6.35, Math.PI, 0.6, 1.05, () => bed(1.0))
       piece(2.0, 7.0, 0, 0.25, 0.22, () => { nightstand(); tableLamp(0.54) })
       piece(1.0, 4.4, 0, 0, 0, () => rug(2.0, 1.3), false)
-      piece(-1.4, 2.75, Math.PI, 0.24, 0.24, () => chair()); sit('desk', 'Desk chair', -1.4, 2.75, Math.PI, 0.48)
+      piece(1.3, 2.35, Math.PI, 0.24, 0.24, () => chair()); sit('desk', 'Desk chair', 1.3, 2.35, Math.PI, 0.48)
       // Starter living corner: an armchair, side table with a lamp, a rug and a plant, so the first home reads as lived-in.
       piece(-2.6, -3.0, 0, 0, 0, () => rug(2.2, 1.6), false)
       piece(-3.4, -3.3, Math.PI / 2, 0.42, 0.42, () => armchair()); sit('arm0', 'Armchair', -3.4, -3.3, Math.PI / 2, 0.48)
@@ -194,7 +194,7 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
       piece(-3.2, 7.0, 0, 0.2, 0.2, () => plant(1.2))
     } },
     { items: ['Full-size bed upgrade', 'Dresser', 'Framed wall art'], place: () => {
-      piece(3.9, 3.0, -Math.PI / 2, 0.57, 0.25, () => dresser())
+      piece(3.9, 6.95, Math.PI, 0.57, 0.25, () => dresser())
       piece(-0.5, 1.1, Math.PI, 0, 0, () => art(), false) // on the living|bedroom partition, living side
     } },
   ]
@@ -204,7 +204,7 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
       piece(1.0, 6.35, Math.PI, 0.8, 1.05, () => bed(1.4))
       piece(2.2, 7.0, 0, 0.25, 0.22, () => { nightstand(); tableLamp(0.54) })
       piece(1.0, 4.4, 0, 0, 0, () => rug(2.2, 1.3), false)
-      piece(-1.4, 2.75, Math.PI, 0.24, 0.24, () => chair()); sit('desk', 'Desk chair', -1.4, 2.75, Math.PI, 0.48)
+      piece(1.3, 2.35, Math.PI, 0.24, 0.24, () => chair()); sit('desk', 'Desk chair', 1.3, 2.35, Math.PI, 0.48)
       piece(-2.6, -3.0, 0, 0, 0, () => rug(2.2, 1.6), false)
       piece(-3.4, -3.3, Math.PI / 2, 0.42, 0.42, () => armchair()); sit('arm0', 'Armchair', -3.4, -3.3, Math.PI / 2, 0.48)
       piece(-3.4, -4.3, 0, 0.22, 0.22, () => { table(0.4, 0.4, 0.5, 'walnut'); tableLamp(0.5) })

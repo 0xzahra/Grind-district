@@ -107,12 +107,13 @@ export function createSeating() {
         b.person.position.y = -0.32 * k / (root.scale.y || 1)
         return
       }
-      for (const l of b.legs) bend(l, -1.45 * t)
-      for (const k of b.knees) bend(k, 1.5 * t)
-      // Arms start from the hanging pose (humans.ts), so these are small forward bends: hands in the lap,
-      // hands on the knees, or loosely folded.
-      const variant = Math.abs(Math.round((seat?.x ?? 0) * 3) + Math.round((seat?.z ?? 0) * 5) + Math.round((seat?.yaw ?? 0) * 7)) % 3
-      const [upper, fore] = variant === 0 ? [-0.2, -0.75] : variant === 1 ? [-0.45, -0.35] : [-0.3, -1.1]
+      // Thighs level and forward, shins straight down: hips on the seat, knees bent at a right angle.
+      for (const l of b.legs) bend(l, -1.52 * t)
+      for (const k of b.knees) bend(k, 1.52 * t)
+      // Arms start from the hanging pose (humans.ts): elbows stay by the sides and the forearms come
+      // forward to lie along the thighs, so the hands rest on the lap or near the knees (never into the body).
+      const variant = Math.abs(Math.round((seat?.x ?? 0) * 3) + Math.round((seat?.z ?? 0) * 5) + Math.round((seat?.yaw ?? 0) * 7)) % 2
+      const [upper, fore] = variant === 0 ? [-0.3, -1.22] : [-0.42, -1.05]
       for (const a of b.arms) bend(a, upper * t)
       for (const f of b.fores) bend(f, fore * t)
       // Rest the hips on the seat top (scaled person: work in world units then convert).

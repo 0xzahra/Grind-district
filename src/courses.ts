@@ -389,7 +389,7 @@ const BASE_COURSES: Course[] = [
     id: 'liquidity',
     minutes: '9 min',
     paragraphs: [
-      'A constant-product pool, the Uniswap v2 shape, holds two reserves. Call them x and y. A swap adds one asset and removes the other so that x times y stays about the same, before the fee. The price you see is the ratio of those reserves.',
+      'A liquidity pool is a shared pot holding two tokens, for example ETH and USDC. When you swap, you put one token in and take the other out. A simple rule keeps the pot balanced (in the Uniswap v2 design, the amount of one times the amount of the other stays about the same), so the price you get is just the ratio of what is in the pot.',
       'A small swap barely moves the ratio. A large swap walks it. The fill lands away from the price you were looking at. That gap is slippage, the same idea as a thin order book on the spot desk.',
       'People who deposit both assets earn a share of the fees. If the traded price diverges, the pool rebalances them toward more of the asset that fell. That inventory change is called impermanent loss. It becomes a real loss when they withdraw and the fees did not cover the move.',
       'A pool is not a savings account. The deposit can shrink from the price move, from a hostile token in the pair, or from a fee that was too small. This city has no pool. Practice trades sit on the spot desk and in the trenches.',

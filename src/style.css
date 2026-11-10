@@ -2253,7 +2253,7 @@ body:has(#menu:not([hidden])) .cam-dock { display: none !important; }
   pointer-events: none;
 }
 
-/* ===== Next step pill (HUD), Ada's in-world lesson card, bite-size lesson cards ===== */
+/* ===== Next step pill (HUD), Zahra's in-world lesson card, bite-size lesson cards ===== */
 .goal-pill { position: fixed; z-index: 5; top: calc(max(14px, env(safe-area-inset-top)) + 50px); left: max(12px, env(safe-area-inset-left)); max-width: min(330px, calc(100vw - 96px)); display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 12px 8px 30px; border: 1px solid rgba(217,178,106,.55); border-radius: 14px; background: rgba(12,14,13,.78); color: #f5f2ea; text-align: left; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 .goal-pill::before { content: ''; position: absolute; left: 11px; top: 13px; width: 9px; height: 9px; background: #e8c27a; transform: rotate(45deg); box-shadow: 0 0 0 3px rgba(232,194,122,.22); }
 .goal-pill .goal-kick { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #d9b26a; font-weight: 700; }
@@ -2293,4 +2293,50 @@ body.mentor-on .goal-pill, body.cc-sheet-on .goal-pill, body.sheet-open .goal-pi
   #hud-balance-cluster #pill-ledger { font-size: 11px !important; padding: 5px 9px !important; }
   #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 50px) !important; }
   .goal-pill { top: calc(max(14px, env(safe-area-inset-top)) + 80px) !important; }
+}
+/* HUD round 3 (Zahra): online = small green dot + count; Next step folds to a diamond after a few seconds. */
+#online-chip { padding: 3px 9px 3px 8px !important; font-size: 12px !important; display: inline-flex; align-items: center; gap: 5px; min-height: 0 !important; line-height: 1.2; }
+#online-chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #34d27a; box-shadow: 0 0 0 2px rgba(52,210,122,.25), 0 0 6px #34d27a; }
+#online-card { position: fixed; z-index: 7; top: calc(max(14px, env(safe-area-inset-top)) + 40px); left: 50%; transform: translateX(-50%); min-width: 168px; padding: 8px 12px; border-radius: 12px; background: rgba(12,14,13,.9); border: 1px solid rgba(255,255,255,.14); color: #e8f1ea; font: 500 12px/1.5 Inter, system-ui, sans-serif; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+#online-card[hidden] { display: none; }
+#online-card div { display: flex; justify-content: space-between; gap: 14px; } #online-card b { font-variant-numeric: tabular-nums; }
+body.online-open .goal-pill { visibility: hidden; }
+.goal-pill { max-width: min(260px, calc(100vw - 130px)) !important; padding: 6px 10px 6px 28px !important; border-radius: 12px; transition: max-width .25s, padding .25s; }
+.goal-pill b { font-size: 13px; } .goal-pill small { font-size: 11px; } .goal-pill .goal-kick { font-size: 9px; }
+.goal-pill::before { left: 10px; top: 11px; }
+.goal-pill.folded { width: 34px; height: 34px; min-height: 34px !important; max-width: 34px !important; padding: 0 !important; border-radius: 50%; overflow: hidden; }
+.goal-pill.folded > * { display: none; }
+.goal-pill.folded::before { left: 12px; top: 12px; }
+@media (max-width: 520px) {
+  #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 12px) !important; left: calc(max(12px, env(safe-area-inset-left)) + 62px) !important; transform: none !important; }
+  #online-card { left: calc(max(12px, env(safe-area-inset-left)) + 62px); transform: none; }
+  .goal-pill { top: calc(max(14px, env(safe-area-inset-top)) + 52px) !important; }
+}
+/* CV as a printed page (one document; Resume and Portfolio merged/removed). */
+.cv-wrap { margin: 6px 0 4px; }
+.cv-paper { background: #fff; color: #1d1f23; border-radius: 4px; padding: 26px 24px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.06); font: 400 12.5px/1.5 'Helvetica Neue', Arial, system-ui, sans-serif; text-align: left; max-width: 640px; margin: 0 auto; aspect-ratio: auto; }
+.cv-paper .cv-name { font: 700 26px/1.1 Georgia, 'Times New Roman', serif !important; margin: 0; color: #111; letter-spacing: .01em; }
+.cv-paper .cv-role { margin: 4px 0 2px; font-size: 13px; color: #3a3d44; font-weight: 600; }
+.cv-paper .cv-contact { margin: 0; font-size: 11.5px; color: #5b5f67; }
+.cv-paper .cv-head { border-bottom: 2px solid #1d1f23; padding-bottom: 10px; margin-bottom: 6px; }
+.cv-paper .cv-sec { margin-top: 12px; }
+.cv-paper .cv-h { font: 700 11px/1.2 'Helvetica Neue', Arial, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #8a6a2e; margin: 0 0 6px; padding-bottom: 3px; border-bottom: 1px solid #e3ded4; }
+.cv-paper .cv-p { margin: 0 0 4px; color: #2a2d33; font-size: 12.5px; line-height: 1.5; }
+.cv-paper .cv-item { margin: 0 0 8px; }
+.cv-paper .cv-item-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.cv-paper .cv-item strong { font-size: 13px; color: #15171a; }
+.cv-paper .cv-when { font-size: 11px; color: #6b6f77; white-space: nowrap; }
+.cv-paper em { display: block; font-style: italic; font-size: 11.5px; color: #5b5f67; }
+.cv-paper ul { margin: 3px 0 0; padding-left: 16px; } .cv-paper li { margin: 1px 0; color: #2a2d33; }
+.cv-paper .cv-muted { color: #7a7e86; font-style: italic; }
+.cv-paper .cv-skills { line-height: 1.7; }
+.cv-paper .cv-foot { margin-top: 14px; padding-top: 6px; border-top: 1px solid #e3ded4; font-size: 10px; color: #8a8e96; }
+.cv-actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+#print-cv { display: none; }
+@media print {
+  body.printing-cv > *:not(#print-cv) { display: none !important; }
+  body.printing-cv { background: #fff !important; overflow: visible !important; }
+  #print-cv { display: block !important; }
+  #print-cv .cv-paper { box-shadow: none; max-width: none; padding: 0; border-radius: 0; font-size: 11pt; }
+  @page { size: A4; margin: 18mm; }
 }

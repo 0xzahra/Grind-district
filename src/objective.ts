@@ -11,7 +11,7 @@ export function nextStep(): Step {
   const s = getSave()
   const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
   if (!passed.length && getLevel() === 'homie') { const adv = advancedNext(); if (adv) return { text: `Next lesson: ${SKILL_META[adv].title}`, sub: `Homie track · +$${COURSE_CASH} on pass · basics stay open`, go: `course:${adv}` } }
-  if (!passed.length) return { text: 'Walk to the gold marker at Campus', sub: `Ada's 1-minute first lesson · +$${COURSE_CASH} + $25 practice funds`, go: 'mentor' }
+  if (!passed.length) return { text: 'Walk to the gold marker at Campus', sub: `Zahra's 1-minute first lesson · +$${COURSE_CASH} + $25 practice funds`, go: 'mentor' }
   const c = getCareer()
   const job = JOBS.find((j) => j.id === c.job)
   if (!job) return { text: 'Pick your first job', sub: 'Each daily duty pays +$5 or more in-game', go: 'career:jobs' }

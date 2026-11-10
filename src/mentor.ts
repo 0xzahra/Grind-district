@@ -1,4 +1,4 @@
-// Ada, the Campus mentor: the first lesson happens in the street, not in a quiz app.
+// Zahra, the Campus mentor: the first lesson happens in the street, not in a quiz app.
 // A few short cards (one or two sentences each), then two quick questions, then the pass files to the CV
 // through the same submitCourse() as the Campus panel, so save, certificate and CV data are unchanged.
 import { COURSES, type Course } from './courses.ts'
@@ -9,7 +9,7 @@ import { track } from './track.ts'
 /** Hand-written first-lesson cards. Other courses fall back to bite-size chunks of their paragraphs. */
 const FIRST_CARDS: Partial<Record<SkillId, string[]>> = {
   spot: [
-    "Hi, I'm Ada. Everyone in this city starts at zero. Let's do your first lesson right here. It takes a minute.",
+    "Hi, I'm Zahra. Everyone in this city starts at zero. Let's do your first lesson right here. It takes a minute.",
     'A spot trade buys the real thing, right now. Buy UNIT on the spot desk and you hold UNIT.',
     'Buyers bid. Sellers ask. The gap between the best bid and the best ask is the spread.',
     'Crossing the spread costs you before any fee. A wide spread usually means few people are trading.',
@@ -18,7 +18,7 @@ const FIRST_CARDS: Partial<Record<SkillId, string[]>> = {
 }
 const QUICK = 2
 
-// Placement: Ada asks three quick questions once. Normie (beginner) starts with the basics lesson;
+// Placement: Zahra asks three quick questions once. Normie (beginner) starts with the basics lesson;
 // Homie (already knows the space) skips ahead to the advanced lessons and can still revisit the basics.
 // Stored per save slot beside the save (not inside it), so save and account formats are unchanged.
 export type Level = 'normie' | 'homie'
@@ -59,7 +59,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): 
 }
 
 export type MentorHooks = {
-  /** Turn the camera so Ada is in view while she talks. */
+  /** Turn the camera so Zahra is in view while she talks. */
   face?: () => void
   toast: (m: string) => void
   onRank: () => void
@@ -71,7 +71,7 @@ export function createMentorCard(hooks: MentorHooks) {
   const root = h('div', 'mentor')
   root.hidden = true
   root.setAttribute('role', 'dialog')
-  root.setAttribute('aria-label', 'Ada, Campus mentor')
+  root.setAttribute('aria-label', 'Zahra, Campus mentor')
   document.body.append(root)
   let open = false
 
@@ -79,7 +79,7 @@ export function createMentorCard(hooks: MentorHooks) {
   const shell = (step: string, total: number, at: number) => {
     const head = h('div', 'mentor-head')
     const face = h('span', 'mentor-face', 'A')
-    const who = h('div', 'mentor-who'); who.append(h('b', '', 'Ada'), h('small', '', step))
+    const who = h('div', 'mentor-who'); who.append(h('b', '', 'Zahra'), h('small', '', step))
     const x = h('button', 'mentor-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.onclick = close
     head.append(face, who, x)
     const dots = h('div', 'mentor-dots')
@@ -131,7 +131,7 @@ export function createMentorCard(hooks: MentorHooks) {
       const [head, dots] = shell('Campus mentor', total0, 0)
       const nav = h('div', 'mentor-nav')
       nav.append(btn("I'm new", 'ghost', () => { setLevel('normie'); showCard(1) }), btn('Test me (3 questions)', 'primary', () => placement(0, 0)))
-      root.replaceChildren(head, dots, h('p', 'mentor-say', "Hi, I'm Ada. Are you new to crypto (a Normie) or already a Homie? Three quick questions and I'll start you at the right lesson."), nav)
+      root.replaceChildren(head, dots, h('p', 'mentor-say', "Hi, I'm Zahra. Are you new to crypto (a Normie) or already a Homie? Three quick questions and I'll start you at the right lesson."), nav)
     }
     const showCard = (i: number) => {
       const [head, dots] = shell(`Campus mentor · ${SKILL_META[id].title}`, total, i)

@@ -274,12 +274,12 @@ const apiAgents = createRemoteAgents(scene)
     halo.position.y = -4.15
     firstMarker.add(gem, halo); firstMarker.position.set(0, 4.2, -40.4)
   }
-  // Ada, the Campus mentor, stands beside the marker: walking up to her starts the first lesson in the street.
-  const ada = posedHuman('woman2', { pose: 'stand', height: 1.7, look: { top: 0x2f5d50, bottom: 0x2b2f36, shoes: 0x1a1c1f } })
+  // Zahra, the Campus mentor, stands beside the marker: walking up to her starts the first lesson in the street.
+  const ada = posedHuman('woman4', { pose: 'stand', height: 1.68, look: { top: 0x2f4a44, robe: true, sleeves: true, shoes: 0x1a1c1f } })
   ada.position.set(1.9, 0, -40.9)
   ada.rotation.y = -0.35
   {
-    const tag = nameLabel('Ada', 'Campus mentor')
+    const tag = nameLabel('Zahra', 'Campus mentor')
     tag.position.y = 2.25
     ada.add(tag)
   }
@@ -288,10 +288,10 @@ const apiAgents = createRemoteAgents(scene)
   resumeMusicOnFirstTap()
   ensureAmbientOnGesture()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
-  let firstOpened = false // re-armed when the player walks away from Ada, so closing the card is never a dead end
+  let firstOpened = false // re-armed when the player walks away from Zahra, so closing the card is never a dead end
   if (needsFirstCourse()) {
     scene.add(firstMarker)
-    window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Ada at Campus', 'Follow the gold marker north of the plaza. Ada gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
+    window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Zahra at Campus', 'Follow the gold marker north of the plaza. Zahra gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
 
@@ -432,7 +432,7 @@ const apiAgents = createRemoteAgents(scene)
     onRank: () => world.setRank(rankFor(getSave().xp).label),
     fullLesson: (course) => ui.open('learn', { course }),
     next: () => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'jobs' })),
-    // Camera sits on the far side of the player from Ada, so she and the Campus door are in frame.
+    // Camera sits on the far side of the player from Zahra, so she and the Campus door are in frame.
     face: () => { camYaw = Math.atan2(pos.x - ada.position.x, pos.z - ada.position.z) },
   })
   function hooksTeleport(x: number, z: number) {
@@ -470,6 +470,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   // Test hook: ?room=<hotspot id|action> walks you into that room after boot. Only moves the local player.
   const roomParam = new URLSearchParams(location.search).get('room')
+  if (roomParam) Object.assign(window, { __roomObstacles: () => ({ obs: interiors.obstacles(), r: PLAYER_R, at: { ...pos } }) }) // read-only, for the walk-path check
   if (roomParam) window.setTimeout(() => {
     const spot = world.hotspots.find((h) => (h.id === roomParam || h.action === roomParam) && interiors.roomFor(h.id))
     if (spot) { travelTo(spot); enterRoom(spot) }
@@ -794,13 +795,22 @@ const apiAgents = createRemoteAgents(scene)
     if (go.startsWith('course:')) { window.dispatchEvent(new CustomEvent('gd:course', { detail: go.slice(7) })); return }
     follow(go)
   }
-  goal.addEventListener('click', () => runStep(goalGo))
+  // Compact Next step: shows for a few seconds, then folds to a small diamond. Tap the diamond to open it,
+  // tap the open pill to go. A new step opens it again briefly.
+  let goalTimer = 0, goalArmed = false
+  const foldGoal = (ms = 5000) => { window.clearTimeout(goalTimer); goalTimer = window.setTimeout(() => goal.classList.add('folded'), ms) }
+  goal.addEventListener('click', () => {
+    if (goal.classList.contains('folded')) { goal.classList.remove('folded'); foldGoal(6000); return }
+    runStep(goalGo); foldGoal(2500)
+  })
   const paintGoal = () => {
     const st = nextStep()
     goalGo = st.go
     let sub = st.sub
     if (st.go === 'mentor' && !interiors.inside) { const d = Math.round(Math.hypot(pos.x, pos.z + 40.4)); if (d > 4) sub = `${d} m away · tap to go` }
-    if (goalText.textContent !== st.text) goalText.textContent = st.text
+    if (goalText.textContent !== st.text) { goal.classList.remove('folded'); goalArmed = false; goalText.textContent = st.text }
+    // Fold timer starts only once the pill is actually on screen (not behind the welcome sheet).
+    if (!goalArmed && goal.getClientRects().length > 0 && !document.body.classList.contains('sheet-open') && getComputedStyle(goal).visibility !== 'hidden') { goalArmed = true; foldGoal(6000) }
     if (goalSub.textContent !== sub) goalSub.textContent = sub
     goal.setAttribute('aria-label', `Next step: ${st.text}. ${sub}`)
   }
@@ -861,12 +871,21 @@ const apiAgents = createRemoteAgents(scene)
   const onlineChip = document.createElement('button')
   onlineChip.type = 'button'; onlineChip.id = 'online-chip'; onlineChip.className = 'pill'; onlineChip.hidden = true
   let onlineNow = 1
+  // Tap: a small card right under the dot (not a toast), so it never lands on the Next step pill.
+  const onlineCard = document.createElement('div'); onlineCard.id = 'online-card'; onlineCard.hidden = true
+  let onlineCardTimer = 0
+  const closeOnlineCard = () => { onlineCard.hidden = true; document.body.classList.remove('online-open') }
   onlineChip.onclick = async () => {
+    if (!onlineCard.hidden) { closeOnlineCard(); return }
     // Public stats: online now (live presence) + registered and active today (/api/track?op=stats).
     const st = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null) as { registered?: number; activeToday?: number; agentsOnline?: number } | null
-    ui.toast(st ? `Online now ${onlineNow} · Active today ${st.activeToday} · Registered ${st.registered}${st.agentsOnline ? ` · Agents ${st.agentsOnline}` : ''}` : (onlineChip.title || 'Players online'))
+    const row = (k: string, v: string | number) => { const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = String(v); d.append(a, b); return d }
+    onlineCard.replaceChildren(row('Online now', onlineNow), ...(st ? [row('Active today', st.activeToday ?? 0), row('Registered', st.registered ?? 0), ...(st.agentsOnline ? [row('Agents', st.agentsOnline)] : [])] : []))
+    onlineCard.hidden = false; document.body.classList.add('online-open')
+    window.clearTimeout(onlineCardTimer); onlineCardTimer = window.setTimeout(closeOnlineCard, 5000)
   }
   document.querySelector('#hud header')?.append(onlineChip)
+  document.body.append(onlineCard)
   const net = createNet({
     scene,
     me: identity(),
@@ -905,7 +924,7 @@ const apiAgents = createRemoteAgents(scene)
     },
     onCount: (n) => {
       onlineNow = n
-      onlineChip.textContent = `● ${n} online`
+      onlineChip.textContent = String(n); onlineChip.setAttribute('aria-label', `${n} online`)
       onlineChip.title = n > 1 ? `${n - 1} other player${n > 2 ? 's' : ''} in the city. Real players have a gold ring and a name tag.` : 'Only you right now.'
     },
   })
