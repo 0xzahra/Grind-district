@@ -2,6 +2,10 @@
 import { GRIND_TREASURY_VAULT, BASE_USDC, breakdown, ethToUsdMicro } from './grindConfig.ts'
 import { applyTopup } from './state.ts'
 import { ethPrice } from './topupPrice.ts'
+import { gameWalletAddress, payUsdcFromGameWallet, checkGameWalletUsdc, WalletNotSent, GAS_SPONSOR } from './privyWallet.ts'
+/** Custom top-up range (mirrors api/_topupAuto.ts MIN_USDC / MAX_USDC). Default stays 5 USDC. */
+const MIN_USDC = 1
+const MAX_USDC = 1000
 export { ethPrice } from './topupPrice.ts'
 export { syncTopups, autoSyncTopups } from './topupSync.ts'
 
@@ -64,6 +68,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
   let asset: 'USDC' | 'ETH' = 'USDC'
   let dollars = 5
+  const usdcOk = () => Number.isFinite(dollars) && dollars >= MIN_USDC && dollars <= MAX_USDC && Math.abs(dollars * 100 - Math.round(dollars * 100)) < 1e-6
   let milliEth = 1
   let price = 0n
   let busy = false
@@ -81,9 +86,17 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const table = el('dl', '', 'topup-break')
   const pay = el('button', 'Pay with wallet', 'topup-go') as HTMLButtonElement
   pay.type = 'button'
+  // Built-in Privy wallet (Google / X / email players): pays the same treasury, same detection.
+  const payGame = el('button', 'Pay from my game wallet', 'topup-go') as HTMLButtonElement
+  payGame.type = 'button'
+  const custom = el('input', '', 'topup-custom') as HTMLInputElement
+  custom.type = 'number'; custom.inputMode = 'decimal'; custom.min = String(MIN_USDC); custom.max = String(MAX_USDC); custom.step = '0.01'; custom.value = '5'
+  custom.setAttribute('aria-label', 'Custom USDC amount')
+  custom.placeholder = 'Other amount'
+  custom.style.cssText = 'width:100%;margin-top:6px'
   const status = el('p', '', 'topup-status')
   const fine = el('p', 'Pays the Grind District treasury on Base automatically. In-game $ is a game balance, not withdrawable. No address or hash to copy.', 'cc-muted')
-  box.append(tabs, amtLabel, presets, table, pay, status, fine)
+  box.append(tabs, amtLabel, presets, custom, table, pay, payGame, status, fine)
   root.append(box)
 
   const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
@@ -96,7 +109,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
       b.type = 'button'
       b.textContent = asset === 'USDC' ? `$${n}` : `${(n / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')} ETH`
       b.className = (asset === 'USDC' ? dollars === n : milliEth === n) ? 'on' : ''
-      b.onclick = () => { if (asset === 'USDC') dollars = n; else milliEth = n; paint() }
+      b.onclick = () => { if (asset === 'USDC') { dollars = n; custom.value = String(n) } else milliEth = n; paint() }
       presets.append(b)
     }
   }
@@ -106,11 +119,11 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     tEth.classList.toggle('on', asset === 'ETH')
     paintPresets()
     table.replaceChildren()
-    const ex = asset === 'USDC' ? BigInt(dollars) * 1_000_000n : price ? ethToUsdMicro(BigInt(milliEth) * 10n ** 15n, price) : 0n
+    const ex = asset === 'USDC' ? (usdcOk() ? BigInt(Math.round(dollars * 100)) * 10_000n : 0n) : price ? ethToUsdMicro(BigInt(milliEth) * 10n ** 15n, price) : 0n
     if (ex) {
       const b = breakdown(ex)
       table.append(
-        el('dt', asset === 'USDC' ? `$${dollars}` : `${(milliEth / 1000).toFixed(3)} ETH`),
+        el('dt', asset === 'USDC' ? `$${dollars.toFixed(2).replace(/\.00$/, '')}` : `${(milliEth / 1000).toFixed(3)} ETH`),
         el('dd', usd(ex)),
         el('dt', '2% fee'),
         el('dd', usd(b.fee)),
@@ -119,8 +132,13 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
       )
     } else if (asset === 'ETH') {
       table.append(el('dt', 'ETH price'), el('dd', 'Loading…'))
+    } else {
+      table.append(el('dt', `Enter ${MIN_USDC} to ${MAX_USDC} USDC`), el('dd', ''))
     }
-    pay.disabled = busy || !!opts.demo
+    custom.hidden = asset !== 'USDC'
+    payGame.hidden = asset !== 'USDC' || !gameWalletAddress()
+    payGame.disabled = busy || !!opts.demo || !usdcOk()
+    pay.disabled = busy || !!opts.demo || (asset === 'USDC' && !usdcOk())
     pay.textContent = busy ? 'Working…' : currentOrder?.status === 'waiting' ? `Waiting for ${currentOrder.amountLabel}…` : 'Pay with wallet'
   }
 
@@ -170,12 +188,16 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     void tick(orderId)
   }
 
-  const payNow = async () => {
+  const payNow = async (source: 'external' | 'game' = 'external') => {
+    if (asset === 'USDC' && !usdcOk()) { status.textContent = `Enter between ${MIN_USDC} and ${MAX_USDC} USDC (up to 2 decimals).`; return }
+    if (source === 'game' && asset !== 'USDC') return
     busy = true
     paint()
     status.textContent = 'Creating your top-up…'
     try {
-      const from = await connectWallet()
+      const from = source === 'game' ? gameWalletAddress().toLowerCase() : await connectWallet()
+      if (!isAddr(from)) throw new Error('No game wallet yet. Sign in with Google, X or email to create it.')
+      if (source === 'game') await checkGameWalletUsdc(BASE_USDC, BigInt(Math.round(dollars * 100)) * 10_000n)
       const body = asset === 'USDC'
         ? { op: 'create', asset: 'USDC', dollars, from }
         : { op: 'create', asset: 'ETH', milliEth, from }
@@ -183,15 +205,25 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
       const order = (await cr.json().catch(() => ({}))) as Order & { error?: string }
       if (!cr.ok || !order.orderId) throw new Error(order.error || `Could not start top-up (${cr.status})`)
       currentOrder = order
-      status.textContent = `Approve ${order.amountLabel} in your wallet…`
+      status.textContent = source === 'game' ? `Sending ${order.amountLabel} from your game wallet…` : `Approve ${order.amountLabel} in your wallet…`
       paint()
-      const p = provider()!
       const amount = BigInt(order.amountRaw)
       let hash: string
-      if (asset === 'USDC') {
+      if (source === 'game') {
+        const sent = await payUsdcFromGameWallet(BASE_USDC, GRIND_TREASURY_VAULT, amount)
+        if (!sent.hash) {
+          // Sponsored send still settling: the order scan finds the USDC transfer from this wallet.
+          status.textContent = 'Payment sent (gas covered)… confirming on Base…'
+          pollOrder(order.orderId)
+          return
+        }
+        hash = sent.hash
+      } else if (asset === 'USDC') {
+        const p = provider()!
         const tx = { from, to: BASE_USDC, data: '0xa9059cbb' + pad(GRIND_TREASURY_VAULT) + amount.toString(16).padStart(64, '0') }
         hash = (await p.request({ method: 'eth_sendTransaction', params: [tx] })) as string
       } else {
+        const p = provider()!
         const tx = { from, to: GRIND_TREASURY_VAULT, value: '0x' + amount.toString(16) }
         hash = (await p.request({ method: 'eth_sendTransaction', params: [tx] })) as string
       }
@@ -213,7 +245,9 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
       pollOrder(order.orderId)
     } catch (e) {
       status.textContent = (e as Error).message || 'Top-up cancelled'
-      if (currentOrder?.orderId) pollOrder(currentOrder.orderId)
+      // Game wallet sent nothing (no USDC, no gas, or an error before sending): don't keep watching.
+      if (e instanceof WalletNotSent) currentOrder = null
+      else if (currentOrder?.orderId) pollOrder(currentOrder.orderId)
     } finally {
       busy = false
       paint()
@@ -222,7 +256,10 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
 
   tUsdc.onclick = () => { asset = 'USDC'; paint() }
   tEth.onclick = () => { asset = 'ETH'; paint() }
-  pay.onclick = () => { if (!opts.demo) void payNow() }
+  pay.onclick = () => { if (!opts.demo) void payNow('external') }
+  payGame.onclick = () => { if (!opts.demo) void payNow('game') }
+  custom.oninput = () => { const v = Number(custom.value); dollars = Number.isFinite(v) ? v : 0; paint() }
+  if (GAS_SPONSOR) fine.textContent += ' Game wallet gas is covered by Grind District while the monthly allowance lasts.'
   ethPrice().then((p) => { price = p; paint() }).catch(() => { /* USDC still works */ })
   paint()
   const obs = new MutationObserver(() => { if (!root.contains(box)) { stopPoll(); obs.disconnect() } })

@@ -15,11 +15,12 @@ type PrivyLike = {
   embeddedWallet: { getURL(): string; onMessage(e: unknown): void; create(o: object): Promise<{ user: unknown }> }
   user: { get(): Promise<{ user: unknown }> }
 }
-let bridge: Promise<void> | null = null
-/** Mount Privy's secure context once and wire up messages (Privy vanilla JS SDK recipe). */
+const bridges = new WeakMap<object, Promise<void>>()
+/** Mount Privy's secure context once per client and wire up messages (Privy vanilla JS SDK recipe). */
 function mountBridge(privy: PrivyLike): Promise<void> {
-  if (bridge) return bridge
-  bridge = new Promise<void>((resolve, reject) => {
+  const had = bridges.get(privy)
+  if (had) return had
+  const bridge = new Promise<void>((resolve, reject) => {
     const iframe = document.createElement('iframe')
     iframe.src = privy.embeddedWallet.getURL()
     iframe.style.display = 'none'
@@ -33,7 +34,8 @@ function mountBridge(privy: PrivyLike): Promise<void> {
       if (e.source !== iframe.contentWindow) return
       try { privy.embeddedWallet.onMessage(typeof e.data === 'string' ? JSON.parse(e.data) : e.data) } catch { /* not a Privy message */ }
     })
-  }).catch((e) => { bridge = null; throw e })
+  }).catch((e) => { bridges.delete(privy); throw e })
+  bridges.set(privy, bridge)
   return bridge
 }
 
@@ -77,4 +79,107 @@ export function gameWalletChip(): HTMLElement[] {
   }
   const evm = gameWalletAddress(); if (evm) line('Base', evm)
   return rows
+}
+
+// ---- Paying from the game wallet (Base) ----------------------------------------------------------
+// Used by Top up to send the exact USDC amount to the treasury; the server's existing detection
+// credits it (it matches the USDC Transfer from this address, so bundler-sent sponsored txs work too).
+// Gas: sponsored by Privy only when VITE_GAS_SPONSOR=1 (off until Zahra enables Fee sponsorship in the
+// Privy dashboard). Otherwise, or if sponsorship is refused (cap reached), the wallet pays its own gas.
+export const GAS_SPONSOR = import.meta.env.VITE_GAS_SPONSOR === '1'
+const BASE_RPC = 'https://mainnet.base.org'
+const BASE_CAIP2 = 'eip155:8453'
+const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
+
+type Eip1193 = { request(a: { method: string; params?: unknown[] }): Promise<unknown> }
+type WalletPrivy = PrivyLike & {
+  initialize?(): Promise<void>
+  embeddedWallet: PrivyLike['embeddedWallet'] & {
+    getEthereumProvider(o: object): Promise<Eip1193>
+    signWithUserSigner(o: { message: string }): Promise<{ signature: string }>
+  }
+}
+let walletPrivy: Promise<{ mod: typeof import('@privy-io/js-sdk-core'); p: WalletPrivy }> | null = null
+function walletClient() {
+  if (!APP_ID) return Promise.reject(new Error('Game wallet is not set up on this build.'))
+  walletPrivy ??= (async () => {
+    const mod = await import('@privy-io/js-sdk-core')
+    const p = new mod.default({ appId: APP_ID, storage: new mod.LocalStorage() }) as unknown as WalletPrivy
+    await p.initialize?.()
+    await mountBridge(p)
+    return { mod, p }
+  })().catch((e) => { walletPrivy = null; throw e })
+  return walletPrivy
+}
+
+async function baseRpc<T = string>(method: string, params: unknown[]): Promise<T> {
+  const r = await fetch(BASE_RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })
+  const j = (await r.json()) as { result?: T; error?: { message: string } }
+  if (j.error || j.result === undefined) throw new Error(j.error?.message ?? 'Base RPC error')
+  return j.result
+}
+const pad32 = (hex: string) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0')
+export const usdcTransferData = (to: string, amount: bigint) => '0xa9059cbb' + pad32(to) + amount.toString(16).padStart(64, '0')
+
+/** The game wallet did not send anything (shown as-is in the Top up status line; stop watching the order). */
+export class WalletNotSent extends Error {}
+/** Not enough USDC, or no ETH for gas while sponsorship is off or used up. */
+export class WalletNeedsFunds extends WalletNotSent {}
+
+/** Before opening an order: does the game wallet hold at least `amount` USDC on Base? Throws WalletNeedsFunds if not. */
+export async function checkGameWalletUsdc(usdc: string, amount: bigint): Promise<void> {
+  const from = gameWalletAddress()
+  if (!from) throw new WalletNotSent('No game wallet yet. Sign in with Google, X or email to create it.')
+  const bal = BigInt(await baseRpc('eth_call', [{ to: usdc, data: '0x70a08231' + pad32(from) }, 'latest']))
+  if (bal < amount) throw new WalletNeedsFunds(`Your game wallet has ${(Number(bal) / 1e6).toFixed(2)} USDC on Base. Send at least ${(Number(amount) / 1e6).toFixed(2)} USDC on Base to ${from} first, then tap again.`)
+}
+
+/**
+ * Send `amount` (6-decimal USDC units) of Base USDC from the player's game wallet to `to`.
+ * Returns the tx hash when known; a sponsored send may only return once Privy has a hash (or '' if
+ * still pending), in which case the caller keeps polling the order. Never sends anything else.
+ */
+export async function payUsdcFromGameWallet(usdc: string, to: string, amount: bigint): Promise<{ hash: string; sponsored: boolean; from: string }> {
+  try { return await payUsdcInner(usdc, to, amount) } catch (e) {
+    if (e instanceof WalletNotSent) throw e
+    throw new WalletNotSent(`Game wallet could not send: ${((e as Error).message || 'unknown error').replace(/\.$/, '')}. Nothing was charged.`)
+  }
+}
+async function payUsdcInner(usdc: string, to: string, amount: bigint): Promise<{ hash: string; sponsored: boolean; from: string }> {
+  const { mod, p } = await walletClient()
+  const user = (await p.user.get()).user as Parameters<typeof mod.getUserEmbeddedEthereumWallet>[0]
+  const wallet = mod.getUserEmbeddedEthereumWallet(user)
+  if (!wallet || !isAddr(wallet.address)) throw new Error('No game wallet yet. Sign in again with Google, X or email to create it.')
+  const from = wallet.address
+  const data = usdcTransferData(to, amount)
+  const bal = BigInt(await baseRpc('eth_call', [{ to: usdc, data: '0x70a08231' + pad32(from) }, 'latest']))
+  if (bal < amount) {
+    throw new WalletNeedsFunds(`Your game wallet has ${(Number(bal) / 1e6).toFixed(2)} USDC on Base. Send at least ${(Number(amount) / 1e6).toFixed(2)} USDC on Base to ${from} first, then tap again.`)
+  }
+  const walletId = (wallet as { id?: string | null }).id
+  if (GAS_SPONSOR && walletId) {
+    try {
+      const sign = (i: { message: string }) => p.embeddedWallet.signWithUserSigner({ message: i.message })
+      const res = await mod.rpc(p as unknown as Parameters<typeof mod.rpc>[0], sign, {
+        wallet_id: walletId, method: 'eth_sendTransaction', caip2: BASE_CAIP2, sponsor: true,
+        params: { transaction: { to: usdc, data: data as `0x${string}`, chain_id: 8453 } },
+      } as Parameters<typeof mod.rpc>[2])
+      const hash = ((res as { data?: { hash?: string } }).data?.hash ?? '').toLowerCase()
+      return { hash: /^0x[0-9a-f]{64}$/.test(hash) ? hash : '', sponsored: true, from }
+    } catch (e) {
+      // Not enabled, chain not configured, or the sponsorship cap ran out: fall back to paying own gas.
+      console.warn('Sponsored send refused, paying own gas:', (e as Error).message)
+    }
+  }
+  const gas = BigInt(await baseRpc('eth_estimateGas', [{ from, to: usdc, data }]))
+  const price = BigInt(await baseRpc('eth_gasPrice', []))
+  const need = gas * price * 2n
+  const eth = BigInt(await baseRpc('eth_getBalance', [from, 'latest']))
+  if (eth < need) {
+    throw new WalletNeedsFunds(`Your game wallet needs a little ETH on Base for gas (under $0.05). Send a small amount of ETH on Base to ${from}, then tap again.`)
+  }
+  const provider = await p.embeddedWallet.getEthereumProvider({ wallet, ...mod.getEntropyDetailsFromUser(user) })
+  try { await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] }) } catch { /* already on Base or not needed */ }
+  const hash = String(await provider.request({ method: 'eth_sendTransaction', params: [{ from, to: usdc, data, chainId: '0x2105' }] })).toLowerCase()
+  return { hash, sponsored: false, from }
 }

@@ -19,6 +19,16 @@ export function encodeUsdcAmount(dollars: number): bigint {
   return BigInt(dollars) * 1_000_000n
 }
 
+export const MIN_USDC = 1
+export const MAX_USDC = 1000
+/** Custom USDC amount (player's choice, up to 2 decimals, MIN_USDC..MAX_USDC) → 6-decimal units. */
+export function encodeUsdcCustom(dollars: number): bigint {
+  if (!Number.isFinite(dollars) || dollars < MIN_USDC || dollars > MAX_USDC) throw new Error(`pick between ${MIN_USDC} and ${MAX_USDC} USDC`)
+  const cents = Math.round(dollars * 100)
+  if (Math.abs(dollars * 100 - cents) > 1e-6) throw new Error('use at most 2 decimals')
+  return BigInt(cents) * 10_000n
+}
+
 /** Exact milli-ETH → wei (e.g. 1 → 1e15 = 0.001 ETH). */
 export function encodeEthAmount(milliEth: number): bigint {
   if (!Number.isInteger(milliEth) || milliEth < 1 || milliEth > 100) throw new Error('bad eth')

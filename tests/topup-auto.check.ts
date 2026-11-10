@@ -1,6 +1,6 @@
 // Exact-amount + payer matching for automatic top-up. No chain, no money.
 import {
-  encodeUsdcAmount, encodeEthAmount, formatUsdc, amountLabel, matchPaymentLogs, pickOrderForPayment,
+  encodeUsdcAmount, encodeUsdcCustom, encodeEthAmount, formatUsdc, amountLabel, matchPaymentLogs, pickOrderForPayment,
   TREASURY, USDC, TRANSFER_TOPIC, ETH_DEPOSITED,
 } from '../api/_topupAuto.ts'
 
@@ -82,6 +82,15 @@ const self = pickOrderForPayment({
   ordersByTx: { [hash]: o1.id },
 })
 ok(self.ok && self.orderId === o1.id, 'owner of tx can proceed')
+
+// Custom amounts: default 5, min 1, max 1000, cents allowed, sub-cent rejected
+ok(encodeUsdcCustom(5) === 5_000_000n, 'custom 5 = default preset')
+ok(encodeUsdcCustom(7.25) === 7_250_000n, 'custom 7.25')
+ok(encodeUsdcCustom(1) === 1_000_000n, 'custom minimum 1')
+const bad = (d: number) => { try { encodeUsdcCustom(d); return false } catch { return true } }
+ok(bad(0.99) && bad(0) && bad(-5) && bad(1000.01) && bad(NaN) && bad(1.234), 'custom out of range / 3 decimals rejected')
+const c725 = encodeUsdcCustom(7.25)
+ok(!!matchPaymentLogs({ logs: [{ ...usdcLog, data: '0x' + c725.toString(16).padStart(64, '0') }], asset: 'USDC', amountRaw: c725, from }), 'custom 7.25 payment matched')
 
 console.log(`\ntopup-auto: ${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

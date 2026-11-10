@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { PrivyClient } from '@privy-io/server-auth'
 import { confirmTopup, type Store } from './_grind.js'
 import {
-  ORDER_TTL_MS, PRESET_USDC, PRESET_MILLI_ETH, encodeUsdcAmount, encodeEthAmount, matchPaymentLogs, pickOrderForPayment, orderPublic,
+  ORDER_TTL_MS, PRESET_MILLI_ETH, encodeUsdcCustom, encodeEthAmount, matchPaymentLogs, pickOrderForPayment, orderPublic,
   TRANSFER_TOPIC, ETH_DEPOSITED, TREASURY, USDC, type ChainLog,
 } from './_topupAuto.js'
 
@@ -96,10 +96,11 @@ export default async function handler(req: Req, res: Res) {
       let amountRaw: bigint
       let tag: string
       if (asset === 'USDC') {
+        // Any amount the player chooses (default 5 in the UI), 1..1000 USDC, up to 2 decimals.
+        // Credit = the USDC actually received in the tx minus the 2% fee (confirmTopup reads the Transfer).
         const dollars = Number(body.dollars)
-        if (!PRESET_USDC.includes(dollars as (typeof PRESET_USDC)[number])) return res.status(400).json({ error: 'pick 5, 10, 25, 50 or 100 USDC' })
-        amountRaw = encodeUsdcAmount(dollars)
-        tag = String(dollars).padStart(6, '0') // legacy column; not used for matching
+        amountRaw = encodeUsdcCustom(dollars)
+        tag = String(Math.round(dollars * 100)).padStart(6, '0') // legacy column; not used for matching
       } else {
         const milliEth = Number(body.milliEth)
         if (!PRESET_MILLI_ETH.includes(milliEth as (typeof PRESET_MILLI_ETH)[number])) return res.status(400).json({ error: 'pick 0.001, 0.005 or 0.01 ETH' })
