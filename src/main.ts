@@ -36,6 +36,7 @@ import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
 import { createSkyline } from './skyline.ts'
 import { setShopRenderer } from './itemPics.ts'
+import { setLookRenderer } from './lookShots.ts'
 import { createStreetProps } from './props.ts'
 import { createStreetscape } from './streetscape.ts'
 import { applyPrefs } from './prefs.ts'
@@ -340,6 +341,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   applyEnvironment(renderer, scene)
   setShopRenderer(renderer, () => scene.environment)
+  setLookRenderer(renderer, () => scene.environment)
   const post = createPost(renderer, scene, camera)
   const probe = createProbe(() => getSave().graphics, (g) => { setGraphics(g); applyGraphics() })
   const applyGraphics = () => {

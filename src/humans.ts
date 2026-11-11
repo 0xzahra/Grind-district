@@ -215,12 +215,12 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
 }
 
 /** Wear a look: the person gets its own material with the recoloured texture (or goes back to the shared one). */
-function paint(mesh: THREE.SkinnedMesh, t: Template, look: Look | undefined, detail: number): void {
+function paint(mesh: THREE.SkinnedMesh, t: Template, look: Look | undefined, detail: number): Promise<void> {
   const stamp = (mesh.userData.paint = ((mesh.userData.paint as number | undefined) ?? 0) + 1)
   // A texture nobody wears any more is freed once the wardrobe has grown past a handful.
   const release = () => { const s = mesh.userData.skin as Skin | undefined; if (!s) return; s.users -= 1; mesh.userData.skin = undefined; if (s.users <= 0 && skins.size > 14) { s.texture.dispose(); skins.delete(s.key) } }
-  if (!wants(t, look)) { release(); if (mesh.material !== t.material) { (mesh.material as THREE.Material).dispose(); mesh.material = t.material } return }
-  void dress(t, look!, detail).then((skin) => {
+  if (!wants(t, look)) { release(); if (mesh.material !== t.material) { (mesh.material as THREE.Material).dispose(); mesh.material = t.material } return Promise.resolve() }
+  return dress(t, look!, detail).then((skin) => {
     if (!skin || mesh.userData.paint !== stamp) return
     release()
     skin.users += 1
@@ -595,7 +595,7 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): 
  * chest; `kneel` sits back on the heels with the hands on the thighs. `mono` paints skin and hair one colour
  * (a shop mannequin). Returns at once and fills in when the model has loaded.
  */
-export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel'; look?: Look; height?: number; cap?: number; mono?: number; detail?: number }): THREE.Group {
+export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel'; look?: Look; height?: number; cap?: number; mono?: number; detail?: number; extras?: Extras; onReady?: () => void }): THREE.Group {
   const root = new THREE.Group()
   const look: Look | undefined = o.mono !== undefined ? { skin: o.mono, hair: o.mono, ...o.look } : o.look
   void load(figure(model, look)).then((t) => {
@@ -604,7 +604,8 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
     const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh
     mesh.castShadow = true
     mesh.frustumCulled = false
-    paint(mesh, t, look, o.detail ?? 0.5)
+    mesh.userData.template = t
+    const painted = paint(mesh, t, look, o.detail ?? 0.5)
     root.add(person)
     // Start from a moment of the idle clip: weight on both feet, arms hanging naturally.
     const idle = t.clips.find((c) => c.name === 'Idle')
@@ -654,7 +655,16 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
         head.attach(cap)
       }
     }
+    if (o.extras) jewels(person, t, o.extras)
     window.dispatchEvent(new Event('gd-avatar-ready'))
-  }).catch(() => { /* the room simply has one figure fewer */ })
+    void painted.then(() => o.onReady?.())
+  }).catch(() => { o.onReady?.() /* the room simply has one figure fewer */ })
   return root
+}
+
+/** Let go of a posed figure's own texture (shop photographs make many and keep none). */
+export function releaseHuman(root: THREE.Object3D): void {
+  const mesh = root.getObjectByName('Person') as THREE.SkinnedMesh | undefined
+  const t = mesh?.userData.template as Template | undefined
+  if (mesh && t) void paint(mesh, t, undefined, 1)
 }

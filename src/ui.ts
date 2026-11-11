@@ -24,6 +24,8 @@ import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
+import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
+import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
   BODIES,
@@ -151,6 +153,23 @@ function stack(...nodes: Array<Node | string>): HTMLDivElement {
   node.className = 'stack'
   node.append(...nodes)
   return node
+}
+
+/** Which figure, colours and framing photograph a boutique piece (the same choice the avatar itself makes). */
+function shotFor(pc: Piece, lady: boolean): { key: string; model: HumanModel; look?: Look; frame: Frame; extras?: Extras } | null {
+  const key = `${pc.id}:${lady ? 'f' : 'm'}`
+  if (pc.slot === 'look') return pc.figure ? { key, model: pc.figure as HumanModel, look: pc.palette, frame: 'full' } : null
+  if (pc.slot === 'top') {
+    const model: HumanModel = lady ? (/^abaya/.test(pc.id) ? 'abaya' : pc.model === 'casual' ? 'woman3' : 'woman4') : /kaftan|agbada/.test(pc.id) ? 'kurta' : pc.model === 'suit' ? 'man4' : 'man1'
+    return { key, model, look: { top: pc.hex, ...(pc.model === 'suit' ? { bottom: pc.hex } : {}) }, frame: 'full' }
+  }
+  if (pc.slot === 'bottom') return { key, model: lady ? 'woman3' : 'man1', look: { bottom: pc.hex }, frame: 'legs' }
+  if (pc.slot === 'shoes') return { key, model: lady ? 'woman3' : 'man1', look: { shoes: pc.hex }, frame: 'feet' }
+  // Jewellery on the neck, ear, hand or wrist it is measured to.
+  const on: HumanModel = lady ? 'look_gown' : 'look_navy'
+  if (pc.kind === 'earrings') return { key, model: 'look_skirtsuit', frame: 'face', extras: { earrings: pc.id === 'ear-drops' ? 'drops' : pc.id === 'ear-hoops' ? 'hoops' : 'studs' } }
+  if (pc.kind === 'necklace') return { key, model: on, frame: 'top', extras: { necklace: pc.id === 'neck-pendant' ? 'pendant' : pc.id === 'pearls' ? 'pearls' : 'chain' } }
+  return null
 }
 
 /** Small original clothing silhouette in the piece's own colour, so the boutique shows clothes, not labels. */
@@ -764,7 +783,7 @@ export function mountUi(
   let boutiqueStyle: Style = 'all'
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Clothes for your character. Tap a piece to try it on; owned pieces swap for free. Prices are in-game dollars.', 'muted'))
+    const wrap = stack(para('Everyday clothes are free. The Runway collection and fine jewellery are premium, paid from your in-game balance. Tap a piece to wear it.', 'muted'))
     { // Live outfit preview: a fresh portrait of your own avatar after every change.
       const shot = hooks.portrait?.() ?? null
       if (shot) {
@@ -812,6 +831,7 @@ export function mountUi(
     // PREMIUM (the Runway collection and jewellery, paid in in-game dollars). Buying wears it; tapping an owned
     // piece wears or removes it.
     const lady = save.body === 'zuri'
+    newShootBatch()
     const mineOf = (pc: Piece) => !pc.for || pc.for === (lady ? 'lady' : 'gent')
     const isOn = (pc: Piece) => pc.slot === 'acc' ? worn().acc.includes(pc.id) : worn()[pc.slot] === pc.id
     const card = (pc: Piece, premium: boolean) => {
@@ -825,6 +845,15 @@ export function mountUi(
       const sw = document.createElement('i'); sw.innerHTML = garment(pc.kind ?? pc.slot, pc.label, `#${pc.hex.toString(16).padStart(6, '0')}`)
       const nm = document.createElement('b'); nm.textContent = pc.label
       const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? (pc.usd ? 'Owned · tap to wear' : 'Free · tap to wear') : money(pc.usd)
+      // Clothes are shown on the real figure that wears them (a studio photograph), not as an icon.
+      const shot = shotFor(pc, lady)
+      if (shot) {
+        node.classList.add('photo')
+        const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'
+        const show = (url: string) => { img.src = url; sw.replaceChildren(img) }
+        const have = lookShot(shot.key, shot.model, shot.look, shot.frame, (url) => { if (node.isConnected) show(url) }, shot.extras)
+        if (have) show(have)
+      }
       node.append(sw, nm, pr)
       if (pc.note) node.title = pc.note
       return node

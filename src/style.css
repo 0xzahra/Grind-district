@@ -2397,3 +2397,14 @@ html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; -webk
 .wardrobe .ward.lux { border-color: rgba(217,178,106,.34) !important; }
 .wardrobe .ward.lux small { color: #e8c27a; opacity: .95; }
 .wardrobe .ward.on small { color: #8fe0b0; opacity: 1; }
+
+/* Boutique photographs: each piece on the figure that wears it. */
+.wardrobe .ward.photo { grid-template-columns: 1fr !important; grid-template-rows: auto auto auto !important; row-gap: 4px; padding: 6px 6px 9px !important; align-items: start; }
+.wardrobe .ward.photo i { grid-row: auto !important; width: 100% !important; height: auto !important; aspect-ratio: 3 / 4; border-radius: 10px !important; overflow: hidden; display: grid; place-items: center; background: linear-gradient(180deg, #f6efe3, #e2d6c1) !important; }
+.wardrobe .ward.photo i img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wardrobe .ward.photo i svg { width: 46%; height: auto; opacity: .55; }
+.wardrobe .ward.photo b { padding: 0 4px; font-size: 13px; }
+.wardrobe .ward.photo small { padding: 0 4px; }
+@media (min-width: 560px) { .wardrobe { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.wardrobe .ward.photo i:not(:has(img)) { background: linear-gradient(100deg, #efe6d6 20%, #f8f2e8 40%, #efe6d6 60%) !important; background-size: 220% 100% !important; animation: gd-sheen 1.3s linear infinite; }
+@keyframes gd-sheen { from { background-position: 120% 0; } to { background-position: -120% 0; } }
