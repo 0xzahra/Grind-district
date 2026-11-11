@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import rewardWallet from './_rewardWallet.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
+import { certVoucher } from './_certMint.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
@@ -78,6 +79,16 @@ export default async function handler(req: Req, res: Res) {
       }
     }
     return res.status(200).json({ ok: true })
+  }
+  if (req.query?.op === 'cert-voucher') {
+    // Certificate NFT voucher (Base or NEAR). Linked wallets come from Privy, never from the client.
+    const linkedEvm = async () => {
+      const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID, secret = process.env.PRIVY_APP_SECRET
+      if (!appId || !secret || userId.startsWith('near:')) return []
+      const u = await new PrivyClient(appId, secret).getUser(userId)
+      return u.linkedAccounts.flatMap((a) => (a.type === 'wallet' && (a as { chainType?: string }).chainType === 'ethereum' ? [(a as { address: string }).address] : []))
+    }
+    return certVoucher(req.body ?? {}, res, db, userId, p.data.username, linkedEvm)
   }
   if (req.query?.op === 'agent-code') {
     // One-time code (30 min) the player's AI agent sends to /api/agent-register to link itself to this profile.

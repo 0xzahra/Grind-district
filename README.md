@@ -10,7 +10,7 @@
 
 - **Shared 3D city.** Walk with other players, chat nearby, see names and ranks.
 - **Career & Lessons.** Career opens on Lessons: 20 courses, each with a status (Passed / Up next / Not started) and Start/Review. Careers lists the lessons for each path. Courses are taught on Campus.
-- **CV, certificates and portfolio.** Each pass is filed to your CV with a certificate. Public profile and share card at `/cv/<username>`.
+- **CV, certificates and portfolio.** Each pass is filed to your CV with a certificate. Public profile and share card at `/cv/<username>`. Each certificate also has a public page at `/cert/<id>`. Minting a soulbound practice certificate as an NFT on Base or NEAR is built, but stays hidden until the contracts are deployed and the `VITE_CERT_NFT_*` env vars are set.
 - **Practice trading.** In-game practice funds only. Not real money, not financial advice.
 - **Boutique, gadgets, houses, gym, cafés, plaza.** In-game currency only.
 - **Sign-in:** Google, X, email, or a NEAR wallet. Guest play is off; progress saves to your account.

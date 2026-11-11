@@ -183,3 +183,36 @@ async function payUsdcInner(usdc: string, to: string, amount: bigint): Promise<{
   const hash = String(await provider.request({ method: 'eth_sendTransaction', params: [{ from, to: usdc, data, chainId: '0x2105' }] })).toLowerCase()
   return { hash, sponsored: false, from }
 }
+
+/**
+ * Send one contract call (no value) from the player's game wallet on Base (8453) or Base Sepolia (84532).
+ * Used by the certificate NFT mint. The player pays their own gas (sponsorship is later). Never sends value.
+ */
+export async function callFromGameWallet(to: string, data: `0x${string}`, chainId = 8453): Promise<{ hash: string; from: string }> {
+  try {
+    const { mod, p } = await walletClient()
+    const user = (await p.user.get()).user as Parameters<typeof mod.getUserEmbeddedEthereumWallet>[0]
+    const wallet = mod.getUserEmbeddedEthereumWallet(user)
+    if (!wallet || !isAddr(wallet.address)) throw new WalletNotSent('No game wallet yet. Sign in with Google, X or email to create it.')
+    const from = wallet.address
+    const rpcUrl = chainId === 84532 ? 'https://sepolia.base.org' : BASE_RPC
+    const call = async <T = string>(method: string, params: unknown[]): Promise<T> => {
+      const r = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })
+      const j = (await r.json()) as { result?: T; error?: { message: string } }
+      if (j.error || j.result === undefined) throw new Error(j.error?.message ?? 'Base RPC error')
+      return j.result
+    }
+    const gas = BigInt(await call('eth_estimateGas', [{ from, to, data }]))
+    const price = BigInt(await call('eth_gasPrice', []))
+    const eth = BigInt(await call('eth_getBalance', [from, 'latest']))
+    if (eth < gas * price * 2n) throw new WalletNeedsFunds(`Your game wallet needs a little ETH on Base for gas (usually under $0.05). Send a small amount of ETH on Base to ${from}, then tap again.`)
+    const hex = '0x' + chainId.toString(16)
+    const provider = await p.embeddedWallet.getEthereumProvider({ wallet, ...mod.getEntropyDetailsFromUser(user) })
+    try { await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] }) } catch { /* already there */ }
+    const hash = String(await provider.request({ method: 'eth_sendTransaction', params: [{ from, to, data, chainId: hex }] })).toLowerCase()
+    return { hash, from }
+  } catch (e) {
+    if (e instanceof WalletNotSent) throw e
+    throw new WalletNotSent(`Game wallet could not send: ${((e as Error).message || 'unknown error').replace(/\.$/, '')}. Nothing was minted.`)
+  }
+}

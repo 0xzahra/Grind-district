@@ -1,7 +1,7 @@
 // Activity log: buffers events locally, flushes to /api/track when VITE_TRACKING=1.
 // No personal data beyond a random visitor id (gd.guestId).
 export type EventName =
-  | 'first_visit' | 'session_start' | 'signup' | 'course_start' | 'course_complete' | 'cert_shared'
+  | 'first_visit' | 'session_start' | 'signup' | 'course_start' | 'course_complete' | 'cert_shared' | 'cert_minted'
   | 'cv_shared' | 'share_click' | 'transfer' | 'topup_attempt'
   // Dated funnel steps (Build App & Earn, 9 Nov): opened page → guest play → account → first lesson.
   | 'opened_page' | 'guest_play' | 'account_created' | 'first_lesson'

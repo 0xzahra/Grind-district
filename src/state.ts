@@ -161,6 +161,7 @@ export async function serverGrant(id: string, amount: number): Promise<boolean> 
 // (the server already accepts { near } on /api/profile). Kept in memory only; it expires server-side.
 let nearProof: unknown = null
 export function holdNearProof(p: unknown): void { nearProof = p }
+export function heldNearProof(): unknown { return nearProof }
 async function serverGrantStatus(id: string, amount: number): Promise<'fresh' | 'paid' | 'error'> {
   try {
     const { accessToken } = await import('./login.ts')

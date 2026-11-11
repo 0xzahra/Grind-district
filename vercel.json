@@ -29,8 +29,20 @@
       "destination": "/api/profile?op=reward-wallet"
     },
     {
+      "source": "/api/cert-voucher",
+      "destination": "/api/profile?op=cert-voucher"
+    },
+    {
       "source": "/cv/:username",
       "destination": "/api/page?kind=cv&username=:username"
+    },
+    {
+      "source": "/cert/:id/image.png",
+      "destination": "/api/page?kind=certpng&id=:id"
+    },
+    {
+      "source": "/cert/:id/meta.json",
+      "destination": "/api/page?kind=certmeta&id=:id"
     },
     {
       "source": "/cert/:id",
@@ -124,5 +136,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/page.ts": {
+      "includeFiles": "{api/_fonts/**,public/brand/lockup.png,public/brand/shrimp.png}"
+    }
+  }
 }

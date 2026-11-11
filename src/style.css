@@ -2358,3 +2358,4 @@ body.online-open .goal-pill { visibility: hidden; }
 #hud-balance-cluster { display: none !important; }
 #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 10px) !important; left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 112px) !important; transform: none !important; }
 #online-card { top: calc(max(14px, env(safe-area-inset-top)) + 48px); left: auto; right: calc(max(12px, env(safe-area-inset-right)) + 64px); transform: none; }
+.cert-dlg a.cert-dl{color:#e9cd8f;text-align:center;font-weight:600;text-decoration:none;padding:8px 0}
