@@ -108,6 +108,9 @@ ok((await call({ kind: 'certpng', id: 'bad' })).code === 404, 'bad id is a 404')
 const { certVoucher } = await import('../api/_certMint.ts')
 const fakeDb = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { save } }) }) }) }) }
 const resOf = () => { const o = { code: 0, body: {} as Record<string, unknown> }; return { o, res: { status: (n: number) => ({ json: (b: unknown) => { o.code = n; o.body = b as Record<string, unknown> } }) } } }
+// Production builds have the Base mint env set too: this assertion is about the unconfigured case, so unset
+// it here (this check runs in its own process; the values are set again just below for the signed cases).
+delete process.env.VITE_CERT_NFT_BASE; delete process.env.CERT_SIGNER_PRIVATE_KEY
 let r = resOf()
 await certVoucher({ chain: 'base', course: 'spot', certId: id, to: '0x000000000000000000000000000000000000000A' }, r.res, fakeDb as never, 'did:privy:x', 'amina', async () => [])
 ok(r.o.code === 503 && r.o.body.live === false, 'no Base signer/contract: 503, not a fake success')
