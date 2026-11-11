@@ -1,8 +1,9 @@
-// Low-poly car kit: eight body types built from a bevelled side profile with real wheel arches.
+// Car kit: eight body types built from a rounded side profile with real wheel arches. Panels are smooth
+// (creased normals: curves shade as curves, real edges stay crisp) under glossy paint and reflective glass.
 // Every type is instanced (body, glass, lamps), all wheels share one instanced mesh, so a full street
 // of mixed traffic stays at a few dozen draw calls on phones. Paint is a per-instance colour.
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export const CAR_KINDS = ['hatchback', 'sedan', 'suv', 'taxi', 'minibus', 'pickup', 'van', 'sports'] as const
 export type CarKind = (typeof CAR_KINDS)[number]
@@ -52,7 +53,7 @@ const clean = (g: THREE.BufferGeometry) => {
 }
 /** Extrude a side profile (x = length, y = height) across the car width and turn it so +z is forward. */
 function extrude(shape: THREE.Shape, width: number, bevel = 0.03): THREE.BufferGeometry {
-  const g = new THREE.ExtrudeGeometry(shape, { depth: width - bevel * 2, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, curveSegments: 7 })
+  const g = new THREE.ExtrudeGeometry(shape, { depth: width - bevel * 2, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10 })
   g.translate(0, 0, -(width - bevel * 2) / 2)
   g.rotateY(-Math.PI / 2)
   return g
@@ -95,7 +96,7 @@ export function carGeometry(kind: CarKind) {
   }
   s.lineTo(rear, clr + 0.18)
   s.closePath()
-  const parts: THREE.BufferGeometry[] = [colour(clean(extrude(s, W, 0.04)), 1)]
+  const parts: THREE.BufferGeometry[] = [colour(clean(extrude(s, W, 0.075)), 1)]
 
   // Greenhouse: glass band, painted roof and pillars.
   const gTop = H - 0.07
@@ -109,7 +110,7 @@ export function carGeometry(kind: CarKind) {
     new THREE.Vector2(cabBack + p.rRake - 0.03, gTop - 0.02), new THREE.Vector2(front - p.bonnet - p.fRake + 0.03, gTop - 0.02),
     new THREE.Vector2(front - p.bonnet - p.fRake - 0.03, H), new THREE.Vector2(cabBack + p.rRake + 0.03, H),
   ])
-  parts.push(colour(clean(extrude(roofShape, W - 0.1, 0.03)), 1))
+  parts.push(colour(clean(extrude(roofShape, W - 0.1, 0.055)), 1))
   const glassLen = front - p.bonnet - p.fRake - (cabBack + p.rRake)
   const n = p.pillars ?? (glassLen > 1.3 ? 1 : 0)
   for (let k = 1; k <= n; k++) {
@@ -140,7 +141,7 @@ export function carGeometry(kind: CarKind) {
     trim(W - 0.2, 0.03, p.boot - 0.12, 0, p.beltR - 0.345, rear + p.boot / 2) // bed liner
     trim(W * 0.5, 0.05, 0.02, 0, p.beltR - 0.12, rear - 0.005) // tailgate handle
   }
-  const body = mergeGeometries(parts)!
+  const body = toCreasedNormals(mergeGeometries(parts)!, 0.7)
 
   // Lamps: warm white heads, red tails (vertex colours, unlit material).
   const lamp: THREE.BufferGeometry[] = []
@@ -155,20 +156,21 @@ export function carGeometry(kind: CarKind) {
 
 /** Shared wheel: tyre + alloy rim + hub, vertex coloured, axle along x. */
 function wheelGeometry(): THREE.BufferGeometry {
-  const tyre = colour(clean(new THREE.CylinderGeometry(1, 1, 0.22, 14).rotateZ(Math.PI / 2)), 0.05)
-  const rim = colour(clean(new THREE.CylinderGeometry(0.62, 0.62, 0.235, 8).rotateZ(Math.PI / 2)), 0.86)
-  const hub = colour(clean(new THREE.CylinderGeometry(0.2, 0.2, 0.25, 6).rotateZ(Math.PI / 2)), 0.25)
-  return mergeGeometries([tyre, rim, hub])!
+  const tyre = colour(clean(new THREE.CylinderGeometry(1, 1, 0.22, 20).rotateZ(Math.PI / 2)), 0.05)
+  const rim = colour(clean(new THREE.CylinderGeometry(0.62, 0.62, 0.235, 14).rotateZ(Math.PI / 2)), 0.86)
+  const hub = colour(clean(new THREE.CylinderGeometry(0.2, 0.2, 0.25, 8).rotateZ(Math.PI / 2)), 0.25)
+  return toCreasedNormals(mergeGeometries([tyre, rim, hub])!, 0.8)
 }
 
 export type Fleet = ReturnType<typeof createFleet>
 
 /** One instanced fleet. `kinds` gives each car's body type (index = car id). */
 export function createFleet(scene: THREE.Scene, kinds: CarKind[], opts: { shadows: boolean; colours?: number[] }) {
-  const paint = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.12, envMapIntensity: 0.7 })
-  const glassMat = new THREE.MeshStandardMaterial({ color: 0x33434e, roughness: 0.05, metalness: 0.55, envMapIntensity: 1.5 })
+  // Car paint: smooth, glossy and a little metallic, so the sky slides over the panels.
+  const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.32, envMapIntensity: 1.05 })
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x1c2830, roughness: 0.04, metalness: 0.85, envMapIntensity: 1.7 })
   const lampMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false })
-  const wheelMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.6, metalness: 0.25 })
+  const wheelMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.3 })
   const shadowTex = (() => {
     const c = document.createElement('canvas'); c.width = c.height = 64
     const g = c.getContext('2d')!
