@@ -23,7 +23,7 @@ import { courseArt } from './courseArt.ts'
 import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
-import { PIECES, owns, own, wear, worn, type Slot } from './wardrobe.ts'
+import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import {
   BODIES,
@@ -158,6 +158,15 @@ function garment(slot: string, label: string, c: string): string {
   const L = label.toLowerCase()
   const svg = (b: string) => `<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">${b}</svg>`
   const st = 'stroke="rgba(0,0,0,.35)" stroke-width="1"'
+  if (slot === 'look') {
+    if (/abaya|thobe|tunic|kurta|gown/.test(L)) return svg(`<path d="M16 3h8l2 6 8 5-3 6-4-2 3 19H10l3-19-4 2-3-6 8-5z" fill="${c}" ${st}/>`)
+    if (/dress|skirt|soir|set/.test(L)) return svg(`<path d="M15 4h10l2 8-3 3 8 21H8l8-21-3-3z" fill="${c}" ${st}/>`)
+    return svg(`<path d="M13 5l7 6 7-6 8 5-3 9-4-2v19H12V17l-4 2-3-9z" fill="${c}" ${st}/><path d="M20 11v25M20 11l-4 10M20 11l4 10" stroke="rgba(0,0,0,.4)" fill="none"/>`)
+  }
+  if (slot === 'earrings') return svg(`<circle cx="13" cy="11" r="2.4" fill="${c}"/><circle cx="27" cy="11" r="2.4" fill="${c}"/><circle cx="13" cy="24" r="6" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="27" cy="24" r="6" fill="none" stroke="${c}" stroke-width="2.4"/>`)
+  if (slot === 'necklace') return svg(`<path d="M8 6c0 16 6 24 12 24s12-8 12-24" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/><path d="M20 28l4 5-4 4-4-4z" fill="${c}" ${st}/>`)
+  if (slot === 'ring') return svg(`<circle cx="20" cy="25" r="9" fill="none" stroke="${c}" stroke-width="3.2"/><path d="M20 6l5 5-5 6-5-6z" fill="${c}" ${st}/>`)
+  if (slot === 'watch') return svg(`<rect x="15" y="3" width="10" height="34" rx="3" fill="rgba(255,255,255,.18)"/><circle cx="20" cy="20" r="9" fill="${c}" ${st}/><path d="M20 15v5l4 2" stroke="rgba(0,0,0,.55)" stroke-width="1.6" fill="none" stroke-linecap="round"/>`)
   if (slot === 'top') {
     if (/dress|gown|kaftan|boubou/.test(L)) return svg(`<path d="M15 4h10l2 8-3 3 8 21H8l8-21-3-3z" fill="${c}" ${st}/>`)
     if (/suit|blazer|jacket|coat/.test(L)) return svg(`<path d="M13 5l7 6 7-6 8 5-3 9-4-2v19H12V17l-4 2-3-9z" fill="${c}" ${st}/><path d="M20 11v25M20 11l-4 10M20 11l4 10" stroke="rgba(0,0,0,.4)" fill="none"/>`)
@@ -799,28 +808,58 @@ export function mountUi(
     }
     tints.classList.add('swatches')
     wrap.append(para('Colour · recolours your top', 'kicker'), tints)
-    // Wardrobe: real pieces with in-game prices. Buying wears it; tapping an owned piece wears / removes it.
+    // Wardrobe. Two clearly separate rails: FREE (the outfits the figures already wear, and the free pieces) and
+    // PREMIUM (the Runway collection and jewellery, paid in in-game dollars). Buying wears it; tapping an owned
+    // piece wears or removes it.
     const lady = save.body === 'zuri'
-    const slotNames: Record<Slot, string> = { top: 'Tops, dresses & suits', bottom: 'Trousers', shoes: 'Shoes', acc: 'Accessories' }
-    for (const slot of ['top', 'bottom', 'shoes', 'acc'] as Slot[]) {
-      const grid = document.createElement('div'); grid.className = 'wardrobe'
-      for (const pc of PIECES.filter((x) => x.slot === slot && (!x.for || x.for === (lady ? 'lady' : 'gent')))) {
-        const on = slot === 'acc' ? worn().acc.includes(pc.id) : worn()[slot] === pc.id
-        const mine = owns(pc.id)
-        const card = button('', `ghost ward${on ? ' on' : ''}`, () => {
-          if (!mine) { const r = buyWant(pc.label, pc.usd); if (!r.ok) { finish(r.message); return } own(pc.id) }
-          wear(pc)
-          hooks.onBody()
-          open('boutique')
-        })
-        const sw = document.createElement('i'); sw.innerHTML = garment(slot, pc.label, `#${pc.hex.toString(16).padStart(6, '0')}`)
-        const nm = document.createElement('b'); nm.textContent = pc.label
-        const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? 'Owned · tap to wear' : pc.usd ? money(pc.usd) : 'Free'
-        card.append(sw, nm, pr)
-        grid.append(card)
-      }
-      wrap.append(para(slotNames[slot], 'kicker'), grid)
+    const mineOf = (pc: Piece) => !pc.for || pc.for === (lady ? 'lady' : 'gent')
+    const isOn = (pc: Piece) => pc.slot === 'acc' ? worn().acc.includes(pc.id) : worn()[pc.slot] === pc.id
+    const card = (pc: Piece, premium: boolean) => {
+      const on = isOn(pc), mine = owns(pc.id)
+      const node = button('', `ghost ward${on ? ' on' : ''}${premium ? ' lux' : ''}`, () => {
+        if (!mine) { const r = buyWant(pc.label, pc.usd); if (!r.ok) { finish(r.message); return } own(pc.id) }
+        wear(pc)
+        hooks.onBody()
+        open('boutique')
+      })
+      const sw = document.createElement('i'); sw.innerHTML = garment(pc.kind ?? pc.slot, pc.label, `#${pc.hex.toString(16).padStart(6, '0')}`)
+      const nm = document.createElement('b'); nm.textContent = pc.label
+      const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? (pc.usd ? 'Owned · tap to wear' : 'Free · tap to wear') : money(pc.usd)
+      node.append(sw, nm, pr)
+      if (pc.note) node.title = pc.note
+      return node
     }
+    const rail = (title: string, list: Piece[], premium: boolean, into: HTMLElement) => {
+      if (!list.length) return
+      const grid = document.createElement('div'); grid.className = 'wardrobe'
+      for (const pc of list) grid.append(card(pc, premium))
+      into.append(para(title, 'kicker'), grid)
+    }
+    const all = PIECES.filter(mineOf)
+    const by = (slot: Slot, paid: boolean) => all.filter((x) => x.slot === slot && !x.kind && (x.usd > 0) === paid)
+    const free = document.createElement('section'); free.className = 'rail-free'
+    const freeHead = document.createElement('div'); freeHead.className = 'rail-head'
+    freeHead.append(Object.assign(document.createElement('b'), { textContent: 'Free wardrobe' }), Object.assign(document.createElement('small'), { textContent: 'Yours from day one. Nothing here costs anything.' }))
+    free.append(freeHead)
+    rail('Everyday looks', by('look', false), false, free)
+    rail('Tops & dresses', by('top', false), false, free)
+    rail('Trousers', by('bottom', false), false, free)
+    rail('Shoes', by('shoes', false), false, free)
+    const lux = document.createElement('section'); lux.className = 'rail-lux'
+    const luxHead = document.createElement('div'); luxHead.className = 'rail-head'
+    luxHead.append(Object.assign(document.createElement('b'), { textContent: 'Premium · Runway collection' }), Object.assign(document.createElement('small'), { textContent: 'Evening wear, tailoring and fine jewellery. Paid with your in-game balance.' }))
+    lux.append(luxHead)
+    rail('Runway looks', by('look', true), true, lux)
+    rail('Tailoring & dresses', by('top', true), true, lux)
+    rail('Trousers', by('bottom', true), true, lux)
+    rail('Shoes', by('shoes', true), true, lux)
+    const jewel = (kind: string) => all.filter((x) => x.kind === kind)
+    rail('Earrings', jewel('earrings'), true, lux)
+    rail('Necklaces', jewel('necklace'), true, lux)
+    rail('Rings', jewel('ring'), true, lux)
+    rail('Watches', jewel('watch'), true, lux)
+    rail('Accessories', all.filter((x) => x.slot === 'acc' && !x.kind), true, lux)
+    wrap.append(free, lux)
     const mo = getMorph()
     const slider = (label: string, key: 'h' | 'b' | 'f', min: number, max: number) => {
       const row = document.createElement('label'); row.className = 'morph-row'

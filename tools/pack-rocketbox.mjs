@@ -32,7 +32,7 @@ const only = args.filter((a, i) => !a.startsWith('--') && i !== dbgAt + 1)
  * The cast. `head`: 'hair' when the hair can be recoloured, 'none' when the head is covered or the hair must
  * keep its own colour (headwear and beards keep their texture). `legs`: trousers ('bottom') or a robe or dress
  * that follows the top colour ('top'). `bare`: zones where skin may show (arm, leg, torso). `sandals`: bare feet show.
- * `boots`: footwear reaches up the calf under a dress.
+ * `boots`: footwear reaches up the calf under a dress. `kneeBoots`: the same, told from a skirt by height.
  */
 const CAST = {
   man1: { src: 'Adults/Male_Adult_08', sex: 'm', head: 'hair', legs: 'bottom', bare: ['arm'] },
@@ -45,6 +45,14 @@ const CAST = {
   woman3: { src: 'Adults/Female_Adult_01', sex: 'f', head: 'hair', legs: 'bottom', bare: ['arm'] },
   woman4: { src: 'Adults/Female_Adult_11', sex: 'f', head: 'hair', legs: 'top', bare: ['leg', 'torso'], boots: true },
   abaya: { src: 'Adults/Female_Adult_10', sex: 'f', head: 'none', legs: 'top', bare: [], sandals: true },
+  // Boutique looks (worn by choice from the premium rail).
+  look_skirtsuit: { src: 'Professions/Business_Female_03', sex: 'f', head: 'hair', legs: 'bottom', bare: ['leg'], sandals: true },
+  look_pencil: { src: 'Adults/Female_Adult_15', sex: 'f', head: 'hair', legs: 'bottom', bare: ['leg'], kneeBoots: true },
+  look_gown: { src: 'Adults/Female_Adult_03', sex: 'f', head: 'hair', legs: 'bottom', bare: ['arm', 'torso'] },
+  look_party: { src: 'Adults/Female_Party_02', sex: 'f', head: 'hair', legs: 'bottom', bare: ['arm', 'leg', 'torso'], sandals: true },
+  look_tux: { src: 'Professions/Business_Male_01', sex: 'm', head: 'hair', legs: 'bottom', bare: [] },
+  look_navy: { src: 'Professions/Business_Male_02', sex: 'm', head: 'hair', legs: 'bottom', bare: [] },
+  look_thobe: { src: 'Adults/Male_Adult_21', sex: 'm', head: 'none', legs: 'top', bare: [] },
 }
 const CLIPS = {
   Idle: ['static', 'idle_neutral_01', { fps: 12, max: 11.6 }],
@@ -230,6 +238,7 @@ async function packPerson(name, cfg) {
   const bare = new Set(cfg.bare ?? [])
   const headTex = cfg.headTex ?? cfg.head
   const region = new Uint8Array(NP), weight = new Uint8Array(NP)
+  let figureTop = 0; for (let i = 1; i < pos.length; i += 3) figureTop = Math.max(figureTop, pos[i])
   const skinW = (k) => { const d = dist(k, skinRef, 0.3); return d < 9 ? 1 : d > 20 ? 0 : 1 - (d - 9) / 11 }
   const near = (k, a, b, margin = 1) => dist(k, a) * margin < dist(k, b)
   const SKIN = (k, floor = 0) => { region[k] = REGION.skin; weight[k] = Math.round(Math.max(floor, skinW(k)) * 255) }
@@ -268,6 +277,7 @@ async function packPerson(name, cfg) {
     else if (z === ZONE.hip) SET(k, cfg.legs === 'top' || upper > lower ? REGION.top : REGION.bottom)
     else if (z === ZONE.leg) {
       if (st[ZONE.foot] > 0.25 * (st[ZONE.leg] + st[ZONE.foot])) SET(k, REGION.shoes) // a boot's shaft
+      else if (cfg.kneeBoots && hgt[k] < 0.29 * figureTop && !(sw > 0.5 && near(k, skinRef, legRef, 1.4))) SET(k, REGION.shoes) // knee boots under a skirt
       else if (bare.has('leg') && sw > 0.5 && near(k, skinRef, cfg.legs === 'top' ? topRef : legRef, 1.4)) SKIN(k, 1)
       else SET(k, cfg.boots && lower > upper ? REGION.shoes : upper > lower || cfg.legs === 'top' ? REGION.top : REGION.bottom)
     } else if (z === ZONE.foot) { if (cfg.sandals && sw > 0.4) SKIN(k, 1); else SET(k, REGION.shoes) }

@@ -7,7 +7,7 @@ import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
-import { MEN, WOMEN, upgradeToHuman, type Extras, type Look } from './humans.ts'
+import { MEN, WOMEN, upgradeToHuman, type Extras, type HumanModel, type Look } from './humans.ts'
 import { worn, piece } from './wardrobe.ts'
 
 export type Avatar = ShrimpAvatar
@@ -189,12 +189,24 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     const ownModel = female ? (topPiece?.model === 'casual' ? 'woman3' : 'woman4') : (topPiece?.model === 'suit' ? 'man4' : 'man1')
     const pick = variant === undefined ? 0 : (variant >> 1) % 4
     const model = own ? ownModel : female ? WOMEN[pick]! : MEN[pick]!
-    const outfit = () => {
+    const outfit = (): Look => {
       const v = worn(), t = piece(v.top), id = String(v.top ?? '')
+      // A complete look from the boutique: its own figure, in its own colours (or the figure's own clothes).
+      const lk = piece(v.look)
+      if (lk?.figure && (!lk.for || lk.for === (female ? 'lady' : 'gent'))) return { figure: lk.figure as HumanModel, top: lk.palette?.top, bottom: lk.palette?.bottom, shoes: lk.palette?.shoes }
       // A suit is one cloth: the trousers match the jacket unless other trousers are worn.
       return { top: t?.hex, bottom: piece(v.bottom)?.hex ?? (!female && t?.model === 'suit' ? t.hex : undefined), shoes: piece(v.shoes)?.hex, sleeves: female && /^abaya/.test(id), robe: female && /^abaya/.test(id), kaftan: !female && /kaftan|agbada/.test(id), gown: female && /ankara/.test(id) }
     }
-    const extras = (lux: boolean): Extras => { const a = worn().acc; return { chain: lux, watch: a.includes('watch-steel'), shades: a.includes('shades'), cap: a.includes('cap'), pearls: a.includes('pearls') } }
+    const extras = (lux: boolean): Extras => {
+      const a = worn().acc, has = (id: string) => a.includes(id)
+      return {
+        shades: has('shades'), cap: has('cap'),
+        watch: has('watch-gold') ? 'gold' : has('watch-rose') ? 'rose' : has('watch-steel') ? 'steel' : undefined,
+        necklace: has('neck-pendant') ? 'pendant' : has('pearls') ? 'pearls' : has('neck-chain') || lux ? 'chain' : undefined,
+        earrings: has('ear-drops') ? 'drops' : has('ear-hoops') ? 'hoops' : has('ear-studs') ? 'studs' : undefined,
+        ring: has('ring-solitaire') ? 'solitaire' : has('ring-signet') ? 'signet' : has('ring-band') ? 'band' : undefined,
+      }
+    }
     if (own) avatar.object.userData.extras = extras(luxury)
     const mo = getMorph()
     const hair = mo.hair ?? (female ? 0x2a1a12 : 0xd9c08a)
@@ -204,7 +216,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       glasses: own && !female,
       makeup: undefined, // no makeup (Zahra: free modest creator, no makeup)
       extras: own ? extras(luxury) : undefined,
-      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().top ?? tint } : crowdLook(variant!),
+      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().figure ? outfit().top : outfit().top ?? tint } : crowdLook(variant!),
       height: female ? 1.68 : 1.78,
       detail: own ? 1 : 0.5,
     })
@@ -220,7 +232,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         avatar.object.userData.face = now.f ?? 1
         ;(avatar.object.userData.setFace as ((f: number) => void) | undefined)?.(now.f ?? 1)
         const o = outfit()
-        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown }
+        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.figure ? o.top : o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown, figure: o.figure }
         avatar.object.userData.extras = extras(lux)
         ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))
         avatar.object.userData.look = look

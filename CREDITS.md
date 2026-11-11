@@ -4,7 +4,7 @@ All assets are free for commercial use. None are paid assets or ripped from game
 
 | Asset | Files | Author | Source | Licence |
 |---|---|---|---|---|
-| Microsoft Rocketbox Avatar Library: 10 rigged adults (Male_Adult_04/08/12/15, Business_Male_05, Female_Adult_01/06/10/11, Business_Female_01) and motion-capture clips (idle, walk, jog, run, talk) | public/models/figures/r1/*.glb, *.mask.png, motion-m.glb, motion-f.glb | Microsoft (original figures by Rocketbox Studios) | https://github.com/microsoft/Microsoft-Rocketbox | MIT (licence text in public/models/figures/r1/LICENSE-Rocketbox.txt) |
+| Microsoft Rocketbox Avatar Library: 17 rigged adults (Male_Adult_04/08/12/15/21, Business_Male_01/02/05, Female_Adult_01/03/06/10/11/15, Female_Party_02, Business_Female_01/03) and motion-capture clips (idle, walk, jog, run, talk) | public/models/figures/r1/*.glb, *.mask.png, motion-m.glb, motion-f.glb | Microsoft (original figures by Rocketbox Studios) | https://github.com/microsoft/Microsoft-Rocketbox | MIT (licence text in public/models/figures/r1/LICENSE-Rocketbox.txt) |
 | RobotExpressive (Unit 4 robot) | public/models/chars/RobotExpressive.glb | Tomás Laulhé (three.js examples) | https://github.com/mrdoob/three.js/tree/dev/examples/models/gltf/RobotExpressive | CC0 1.0 |
 | Surface sets for room floors and walls: wood_floor, marble_01, plastered_wall_04, fabric_pattern_07, rubber_tiles, concrete_pavers (colour, normal and roughness maps, 256 to 512 px WebP) | public/tex/surf/*.webp | Poly Haven (Rob Tuytel, Dimitrios Savva, Rico Cilliers and contributors) | https://polyhaven.com/textures | CC0 1.0 |
 | Foliage and ground detail: leaves from island_tree_02, bark from tree_small_02, asphalt_02, leafy_grass, red_brick_03 | public/tex/nature/*.webp | Poly Haven (Rico Cilliers, Rob Tuytel, Dimitrios Savva and contributors) | https://polyhaven.com | CC0 1.0 |
@@ -39,3 +39,11 @@ The city is moving from faceted low-poly to a realistic look to match the new pe
 with crowns of photographed leaves (src/trees.ts); the ground keeps its painted layout but is made of
 photographed stone slabs, asphalt and grass (src/groundDetail.ts); painted surfaces carry soft weathered
 tone instead of flat facets (src/facets.ts). Textures are packed by tools/pack-nature.mjs.
+
+## Nov 2026 (boutique)
+
+The Boutique has two rails. Free: the outfits the city's figures already wear, exactly as they come, plus the
+free separates. Premium (the Runway collection): complete looks on seven more Rocketbox figures (skirt suit,
+blouse and pencil skirt, evening set, soirée set, tuxedo, tailored suit, thobe), couture colourways of the
+abaya and tunic, and jewellery. Jewellery is built in code and measured to each figure's own ears, neck,
+wrist and finger (src/humans.ts, `measure` and `jewels`), so it follows the body it is worn on.

@@ -13,6 +13,10 @@ export const MEN = ['man1', 'man2', 'man3', 'man4'] as const
 export const WOMEN = ['woman1', 'woman2', 'woman3', 'woman4'] as const
 /** `kurta` (kufi and long shirt) and `abaya` (abaya with the head covered) are worn by choice, not picked at random. */
 export type HumanModel = (typeof MEN)[number] | (typeof WOMEN)[number] | 'kurta' | 'abaya'
+  // Boutique looks: complete outfits worn by choice.
+  | 'look_skirtsuit' | 'look_pencil' | 'look_gown' | 'look_party' | 'look_tux' | 'look_navy' | 'look_thobe'
+/** Figures whose head is covered: no earrings or necklace are drawn over the cloth. */
+const COVERED: ReadonlySet<string> = new Set(['abaya', 'woman2', 'look_thobe'])
 export type Look = {
   skin?: number; hair?: number; top?: number; bottom?: number; shoes?: number
   /** Kept for callers: sleeves are part of each figure's own clothes now. */
@@ -22,8 +26,18 @@ export type Look = {
   /** Kaftan: the long-shirt figure is used, in the top colour. */
   kaftan?: boolean
   gown?: boolean
+  /** A boutique look: wear this figure whatever the body's usual one is. */
+  figure?: HumanModel
 }
-export type Extras = { chain?: boolean; watch?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean }
+export type Metal = 'gold' | 'rose' | 'steel'
+export type Extras = {
+  chain?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean
+  /** `true` is the steel watch (older saves). */
+  watch?: boolean | Metal
+  earrings?: 'hoops' | 'studs' | 'drops'
+  necklace?: 'chain' | 'pearls' | 'pendant'
+  ring?: 'band' | 'solitaire' | 'signet'
+}
 
 type Region = 'skin' | 'hair' | 'top' | 'bottom' | 'shoes'
 const REGIONS: Region[] = ['skin', 'hair', 'top', 'bottom', 'shoes']
@@ -32,6 +46,7 @@ type Template = {
   name: HumanModel; scene: THREE.Group; material: THREE.MeshStandardMaterial; clips: THREE.AnimationClip[]; speed: Record<string, number>
   height: number; regions: Partial<Record<Region, [number, number, number]>>; eye: [number, number, number, number] | null; crown: number
   pixels?: Promise<{ base: ImageData; mask: ImageData } | null>
+  fit?: Fit | null
 }
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
 const cache = new Map<HumanModel, Promise<Template>>()
@@ -41,6 +56,10 @@ const PEARL = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.35 
 const STEEL = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.85, roughness: 0.3 })
 const SHADE = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 })
 const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
+const ROSE = new THREE.MeshStandardMaterial({ color: 0xd9a08a, metalness: 0.9, roughness: 0.28 })
+const GEM = new THREE.MeshStandardMaterial({ color: 0xf4fbff, metalness: 0.15, roughness: 0.04, envMapIntensity: 2.4 })
+const DIAL = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.25, metalness: 0.4 })
+const METAL: Record<Metal, THREE.Material> = { gold: GOLD, rose: ROSE, steel: STEEL }
 const B = { root: 'Bip01', hips: 'Bip01_Pelvis', neck: 'Bip01_Neck', head: 'Bip01_Head' }
 // Everything under /models/ is cached by browsers for a year as immutable (vercel.json), so a file here must
 // NEVER change in place: a phone that has the old bytes keeps them. Change a figure -> bump this folder (r2, r3).
@@ -99,6 +118,7 @@ export function preloadHumans(names: HumanModel[]): void { for (const n of names
 
 /** Which figure wears a look: an abaya or a kaftan has its own figure. */
 function figure(model: HumanModel, look?: Look): HumanModel {
+  if (look?.figure) return look.figure
   const lady = (WOMEN as readonly string[]).includes(model) || model === 'abaya'
   if (look?.robe && lady) return 'abaya'
   if (look?.kaftan && !lady) return 'kurta'
@@ -213,6 +233,153 @@ function paint(mesh: THREE.SkinnedMesh, t: Template, look: Look | undefined, det
   })
 }
 
+// ---- jewellery, fitted to each figure ----
+type Fit = {
+  /** Ear lobes (left, right), the chest and nape points a necklace rests on and the neck's half-width, and the
+   * middle finger of the left hand (centre, direction, thickness). All in the figure's own rest space, metres. */
+  ears: [THREE.Vector3, THREE.Vector3] | null
+  chest: THREE.Vector3 | null; nape: THREE.Vector3 | null; neckHalf: number
+  finger: { at: THREE.Vector3; dir: THREE.Vector3; r: number } | null
+}
+/**
+ * Measure where jewellery sits from the figure's own surface (once per figure): nothing is placed by a fixed
+ * offset, so a necklace lies on this jacket's lapels or that dress's neckline, and a ring is as wide as this
+ * hand's finger. That is what keeps pieces from floating or sinking in on different bodies and outfits.
+ */
+function measure(t: Template): Fit | null {
+  if (t.fit !== undefined) return t.fit
+  t.fit = null
+  const mesh = t.scene.getObjectByName('Person') as THREE.SkinnedMesh | undefined
+  if (!mesh) return null
+  t.scene.updateMatrixWorld(true)
+  const pos = mesh.geometry.getAttribute('position'), si = mesh.geometry.getAttribute('skinIndex'), sw = mesh.geometry.getAttribute('skinWeight')
+  const names = mesh.skeleton.bones.map((b) => b.name)
+  const bone = (n: string) => { const b = t.scene.getObjectByName(n); return b ? b.getWorldPosition(new THREE.Vector3()) : null }
+  const head = bone(B.head), neck = bone(B.neck), hand = bone('Bip01_L_Hand')
+  if (!head || !neck) return null
+  const eyeY = head.y + (t.eye?.[1] ?? 0.095)
+  const v = new THREE.Vector3()
+  const lead = (i: number) => { let best = 0; for (let k = 1; k < 4; k++) if (sw.getComponent(i, k) > sw.getComponent(i, best)) best = k; return [names[si.getComponent(i, best)] ?? '', sw.getComponent(i, best)] as const }
+  let earL: THREE.Vector3 | null = null, earR: THREE.Vector3 | null = null
+  let chest: THREE.Vector3 | null = null, nape: THREE.Vector3 | null = null, neckHalf = 0.055
+  const handVerts: THREE.Vector3[] = []
+  for (let i = 0; i < pos.count; i++) {
+    mesh.getVertexPosition(i, v).applyMatrix4(mesh.matrixWorld)
+    const [name, w] = lead(i)
+    if (name === B.head && w > 0.85 && v.y > eyeY - 0.05 && v.y < eyeY - 0.012 && v.z < head.z + 0.05) {
+      if (!earL || v.x > earL.x) earL = v.clone()
+      if (!earR || v.x < earR.x) earR = v.clone()
+    }
+    if (Math.abs(v.x - neck.x) < 0.03) {
+      if (v.y > neck.y - 0.125 && v.y < neck.y - 0.06 && v.z > neck.z && (!chest || v.z > chest.z)) chest = v.clone()
+      if (v.y > neck.y - 0.02 && v.y < neck.y + 0.035 && v.z < neck.z && (!nape || v.z < nape.z)) nape = v.clone()
+    }
+    if (Math.abs(v.y - (neck.y - 0.005)) < 0.02 && Math.abs(v.z - neck.z) < 0.03 && Math.abs(v.x - neck.x) < 0.1) neckHalf = Math.max(neckHalf, Math.abs(v.x - neck.x))
+    if (hand && name === 'Bip01_L_Hand' && w > 0.6) handVerts.push(v.clone())
+  }
+  let finger: Fit['finger'] = null
+  if (hand && handVerts.length > 8) {
+    // The middle finger is the hand's far end: its tip is the vertex farthest from the wrist.
+    let tip = handVerts[0]!
+    for (const p of handVerts) if (p.distanceToSquared(hand) > tip.distanceToSquared(hand)) tip = p
+    const dir = tip.clone().sub(hand), len = dir.length()
+    dir.normalize()
+    // The ring sits on the first joint (about 62% of the way out): take the finger's own cross-section there.
+    const along = len * 0.62
+    const slab = handVerts.filter((p) => Math.abs(p.clone().sub(hand).dot(dir) - along) < 0.012).map((p) => ({ p, off: p.clone().sub(hand).addScaledVector(dir, -p.clone().sub(hand).dot(dir)) }))
+    const core = slab.filter((q) => q.off.length() < 0.016)
+    const at = hand.clone().addScaledVector(dir, along)
+    let r = 0.0105
+    if (core.length >= 3) {
+      const c = new THREE.Vector3(); for (const q of core) c.add(q.off); c.multiplyScalar(1 / core.length)
+      at.add(c)
+      r = THREE.MathUtils.clamp(Math.max(...core.map((q) => q.off.distanceTo(c))) + 0.0012, 0.0085, 0.0125)
+    }
+    finger = { at, dir, r }
+  }
+  t.fit = { ears: earL && earR && earL.x - earR.x > 0.1 ? [earL, earR] : null, chest, nape, neckHalf, finger }
+  return t.fit
+}
+
+/** Build the jewellery for `e` on a person (rest pose) and hang each piece on the bone that carries it. */
+function jewels(person: THREE.Object3D, t: Template, e: Extras): THREE.Object3D[] {
+  const fit = measure(t)
+  const made: THREE.Object3D[] = []
+  if (!fit) return made
+  // `fit` is in the figure's REST space. Each piece is expressed relative to its bone's rest transform and then
+  // parented to the live bone, so it lands in the same place whatever pose the person is in right now.
+  const local = new THREE.Matrix4()
+  const hang = (bone: string, obj: THREE.Object3D, at: THREE.Vector3) => {
+    const live = person.getObjectByName(bone), rest = t.scene.getObjectByName(bone)
+    if (!live || !rest) return
+    obj.position.copy(at)
+    obj.updateMatrix()
+    local.copy(rest.matrixWorld).invert().multiply(obj.matrix).decompose(obj.position, obj.quaternion, obj.scale)
+    live.add(obj)
+    made.push(obj)
+  }
+  const covered = COVERED.has(t.name)
+  if (e.earrings && fit.ears && !covered) {
+    for (const [i, lobe] of fit.ears.entries()) {
+      const side = i === 0 ? 1 : -1
+      const g = new THREE.Group()
+      if (e.earrings === 'hoops') { const h = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0013, 6, 20), GOLD); h.rotation.y = Math.PI / 2; h.position.y = -0.011; g.add(h) }
+      else if (e.earrings === 'studs') g.add(new THREE.Mesh(new THREE.SphereGeometry(0.0042, 10, 8), PEARL))
+      else { const s = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 6), GOLD); const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.0055, 0), GEM); d.scale.set(0.75, 1.5, 0.75); d.position.y = -0.012; g.add(s, d) }
+      hang(B.head, g, lobe.clone().add(new THREE.Vector3(side * 0.0015, -0.006, 0.002)))
+    }
+  }
+  const necklace = e.necklace ?? (e.pearls ? 'pearls' : e.chain ? 'chain' : undefined)
+  if (necklace && fit.chest && fit.nape && !covered) {
+    // An ellipse through the nape and the chest point, as wide as this neck, resting 3 mm off the surface.
+    const front = fit.chest.clone().add(new THREE.Vector3(0, 0, 0.004)), back = fit.nape.clone().add(new THREE.Vector3(0, 0, -0.003))
+    const mid = front.clone().add(back).multiplyScalar(0.5)
+    const along = front.clone().sub(back), half = along.length() / 2
+    along.normalize()
+    const wide = fit.neckHalf + 0.01
+    const pts: THREE.Vector3[] = []
+    for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2; pts.push(new THREE.Vector3(Math.sin(a) * wide, 0, 0).addScaledVector(along, Math.cos(a) * half)) }
+    const path = new THREE.CatmullRomCurve3(pts, true)
+    const g = new THREE.Group()
+    if (necklace === 'pearls') { for (let i = 0; i < 34; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.0042, 8, 6), PEARL); b.position.copy(path.getPointAt(i / 34)); g.add(b) } }
+    else {
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(path, 56, necklace === 'chain' ? 0.0028 : 0.0012, 5, true), GOLD))
+      if (necklace === 'pendant') { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.008, 0), GEM); d.scale.set(0.8, 1.25, 0.5); d.position.copy(along).multiplyScalar(half).add(new THREE.Vector3(0, -0.01, 0.002)); g.add(d) }
+    }
+    hang('Bip01_Spine2', g, mid)
+  }
+  if (e.ring && fit.finger) {
+    const f = fit.finger
+    const g = new THREE.Group()
+    const band = new THREE.Mesh(new THREE.TorusGeometry(f.r, e.ring === 'signet' ? 0.0022 : 0.0016, 6, 20), GOLD)
+    g.add(band)
+    if (e.ring === 'solitaire') { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.0042, 0), GEM); d.position.y = f.r + 0.0028; g.add(d) }
+    if (e.ring === 'signet') { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.0026, 10), GOLD); p.position.y = f.r + 0.0012; g.add(p) }
+    // The torus lies in its own xy plane: turn its axis (z) along the finger.
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), f.dir)
+    hang('Bip01_L_Hand', g, f.at)
+  }
+  const watch = e.watch === true ? 'steel' : e.watch || undefined
+  if (watch) {
+    const hand = t.scene.getObjectByName('Bip01_L_Hand'), fore = t.scene.getObjectByName('Bip01_L_Forearm')
+    if (hand && fore) {
+      const a = fore.getWorldPosition(new THREE.Vector3()), b = hand.getWorldPosition(new THREE.Vector3())
+      const dir = b.clone().sub(a).normalize()
+      const g = new THREE.Group()
+      // A strap round the wrist and a round case with a dark dial on top of it.
+      const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.0305, 0.0305, 0.02, 16, 1, true), METAL[watch])
+      const face = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.007, 16), METAL[watch])
+      const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.0135, 0.0135, 0.0075, 16), DIAL)
+      face.rotation.x = Math.PI / 2; dial.rotation.x = Math.PI / 2
+      face.position.z = -0.031; dial.position.z = -0.0312
+      g.add(strap, face, dial)
+      g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+      hang('Bip01_L_Forearm', g, b.clone().addScaledVector(dir, -0.028))
+    }
+  }
+  return made
+}
+
 function wireGlasses(ipd: number): THREE.Group {
   const g = new THREE.Group()
   const metal = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.9, roughness: 0.2 })
@@ -297,26 +464,17 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         }
       }
       {
-        // Accessories on the rig's bones (gold chain, pearls, watch, shades, cap): a handful of tiny meshes, one shared material each.
-        const torus = (r: number, w: number, m: THREE.Material) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, w, 6, 24), m); o.rotation.x = Math.PI / 2.75; o.scale.set(1, 1.18, 1); return o }
-        const parts: Record<keyof Extras, THREE.Object3D> = {
-          chain: torus(0.082, 0.006, GOLD), pearls: torus(0.074, 0.008, PEARL),
-          watch: new THREE.Mesh(new THREE.CylinderGeometry(0.031, 0.031, 0.022, 12), STEEL),
-          shades: (() => { const g = new THREE.Group(); for (const x of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.03, 0.006), SHADE); l.position.x = x * eye[3] / 2; g.add(l) } const bar = new THREE.Mesh(new THREE.BoxGeometry(eye[3], 0.005, 0.005), SHADE); bar.position.y = 0.008; g.add(bar); return g })(),
-          cap: (() => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.SphereGeometry(0.108, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), CAP); c.scale.set(0.92, 0.82, 1.12); const v = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.008, 0.075), CAP); v.position.set(0, 0.004, 0.14); g.add(c, v); return g })(),
+        // Shades and a cap ride the head; jewellery is measured to this figure (see `jewels`) and rebuilt whenever
+        // what is worn changes.
+        const shades = (() => { const g = new THREE.Group(); for (const x of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.03, 0.006), SHADE); l.position.x = x * eye[3] / 2; g.add(l) } const bar = new THREE.Mesh(new THREE.BoxGeometry(eye[3], 0.005, 0.005), SHADE); bar.position.y = 0.008; g.add(bar); return g })()
+        const cap = (() => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.SphereGeometry(0.108, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), CAP); c.scale.set(0.92, 0.82, 1.12); const v = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.008, 0.075), CAP); v.position.set(0, 0.004, 0.14); g.add(c, v); return g })()
+        at(B.head, shades, eye[0], eye[1], eye[2] + 0.014); at(B.head, cap, 0, t.crown - 0.062, 0.012)
+        let worn: THREE.Object3D[] = []
+        const setExtras = (e: Extras = {}) => {
+          shades.visible = !!e.shades; cap.visible = !!e.cap
+          for (const o of worn) o.removeFromParent()
+          worn = jewels(person, t, e)
         }
-        at(B.neck, parts.chain, 0, -0.04, 0.035); at(B.neck, parts.pearls, 0, -0.03, 0.03)
-        at(B.head, parts.shades, eye[0], eye[1], eye[2] + 0.014); at(B.head, parts.cap, 0, t.crown - 0.062, 0.012)
-        const hand = person.getObjectByName('Bip01_L_Hand'), fore = person.getObjectByName('Bip01_L_Forearm')
-        if (hand && fore) {
-          // The watch sits just above the wrist, its face along the forearm.
-          const a = fore.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv), b = hand.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv)
-          const dir = b.clone().sub(a).normalize()
-          parts.watch.position.copy(b).addScaledVector(dir, -0.03)
-          parts.watch.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
-          person.add(parts.watch); person.updateMatrixWorld(true); fore.attach(parts.watch)
-        }
-        const setExtras = (e: Extras = {}) => { for (const k of Object.keys(parts) as Array<keyof Extras>) parts[k].visible = !!e[k] }
         setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
         root.userData.setExtras = setExtras
       }
