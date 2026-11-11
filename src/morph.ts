@@ -31,7 +31,10 @@ export const FACE_SHAPES = [
 export const LIPS = [{ label: 'None', hex: null }, { label: 'Nude', hex: 0xb9806e }, { label: 'Rose', hex: 0xc0636e }, { label: 'Berry', hex: 0x8a3248 }, { label: 'Classic red', hex: 0xa8222e }, { label: 'Plum', hex: 0x6a2c42 }] as const
 export const BLUSH = [{ label: 'None', hex: null }, { label: 'Peach', hex: 0xe8a07e }, { label: 'Rose', hex: 0xd98c95 }, { label: 'Bronze', hex: 0xb47a52 }] as const
 export type Style = 'all' | 'office' | 'street' | 'african'
-/** Citizens vary a little so the crowd is not cloned. Deterministic per variant. */
-export const citizenScale = (variant: number) => { const r = ((variant * 2654435761) >>> 0) / 4294967296; return { h: 0.94 + r * 0.12, b: 0.95 + ((r * 7) % 1) * 0.12 } }
+/**
+ * Citizens share one human scale: a few centimetres of height either way (as people do), and the same factor
+ * for build, so nobody is stretched or looks a different size from the person next to them.
+ */
+export const citizenScale = (variant: number) => { const r = ((variant * 2654435761) >>> 0) / 4294967296; const h = 0.975 + r * 0.05; return { h, b: h } }
 /** True once the player has touched the creator on this device. */
 export const hasLocalMorph = (): boolean => { try { return localStorage.getItem(KEY) !== null } catch { return false } }

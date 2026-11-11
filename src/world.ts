@@ -51,7 +51,7 @@ type Door = 'px' | 'nx' | 'pz' | 'nz'
 type Rect = { x: number; z: number; hx: number; hz: number }
 
 const WALK_HALF = 1.1
-const ASPHALT = '#3b3d40'
+const ASPHALT = '#4d4f53' // sun-bleached asphalt: near-black roads made the whole street read as dim
 
 const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) < a.hx + b.hx && Math.abs(a.z - b.z) < a.hz + b.hz
 const legRect = (x1: number, z1: number, x2: number, z2: number, half: number): Rect => ({
@@ -1135,7 +1135,7 @@ export function createWorld(options: {
     // Warmer key with less flat fill: deeper shadows by day, a low orange sun at dusk, cool moonlight at night.
     sun.intensity = (elev >= 0 ? 0.25 + day * 1.5 + dusk * 0.12 : 0.1) * (seasonBear ? 0.88 : 1)
     sun.castShadow = day > 0.2
-    hemi.intensity = 0.08 + day * 1.0 // bright sky fill by day lifts the dark shadow around the player
+    hemi.intensity = 0.17 + day * 0.91 // bright sky fill by day; enough at night that the street never goes black
     hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.5)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
     fill.intensity = 0.02 + day * 0.25
@@ -1145,7 +1145,7 @@ export function createWorld(options: {
     trim.emissiveIntensity = trimPulse
     waterMat.emissiveIntensity = 0.04 + night * 0.07
     groundMat.roughness = 0.97 - night * 0.3
-    groundMat.metalness = 0.02 + night * 0.12
+    groundMat.metalness = 0.02 + night * 0.04
     architecture.setNight(night)
     drinkStand.setNight(night)
     for (const light of glow) light.intensity = Number(light.userData.night) * 1.4 * Math.max(0, night - 0.1) // warm street-light pools

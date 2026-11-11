@@ -2,7 +2,7 @@
 
 | File | Source | Author | Licence |
 |---|---|---|---|
-| people/*.glb, people/*.mask.png, people/motion-*.glb | Microsoft Rocketbox Avatar Library (https://github.com/microsoft/Microsoft-Rocketbox), packed by tools/pack-rocketbox.mjs | Microsoft (figures by Rocketbox Studios) | MIT (people/LICENSE-Rocketbox.txt) |
+| figures/r1/*.glb, *.mask.png, motion-*.glb | Microsoft Rocketbox Avatar Library (https://github.com/microsoft/Microsoft-Rocketbox), packed by tools/pack-rocketbox.mjs | Microsoft (figures by Rocketbox Studios) | MIT (figures/r1/LICENSE-Rocketbox.txt) |
 | chars/RobotExpressive.glb | three.js examples (https://github.com/mrdoob/three.js/tree/dev/examples/models/gltf/RobotExpressive) | Tomás Laulhé (Quaternius), modified by Don McCurdy | CC0 1.0 |
 
 # Textures (public/tex/surf)

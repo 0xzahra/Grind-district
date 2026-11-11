@@ -33,7 +33,7 @@ export function groundDetail(mat: THREE.MeshStandardMaterial, anisotropy: number
         // What the painted map says is here: green is lawn, near-black is asphalt, everything else is paving.
         vec3 base = diffuseColor.rgb;
         float turf = smoothstep(0.012, 0.05, base.g - max(base.r, base.b));
-        float road = (1.0 - smoothstep(0.05, 0.1, dot(base, vec3(0.299, 0.587, 0.114)))) * (1.0 - turf);
+        float road = (1.0 - smoothstep(0.085, 0.15, dot(base, vec3(0.299, 0.587, 0.114)))) * (1.0 - turf);
         vec3 pave = texture2D(tPave, vGroundXZ / 3.2).rgb * ${inv(MEAN.pave)};
         vec3 tar = texture2D(tRoad, vGroundXZ / 5.0).rgb * ${inv(MEAN.road)};
         vec3 grass = texture2D(tTurf, vGroundXZ / 3.6).rgb * ${inv(MEAN.turf)};

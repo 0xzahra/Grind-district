@@ -2260,6 +2260,8 @@ body:has(#menu:not([hidden])) .cam-dock { display: none !important; }
 .goal-pill b { font-size: 14px; line-height: 1.25; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .goal-pill small { font-size: 12px; color: #b8b0a2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 body.mentor-on .goal-pill, body.cc-sheet-on .goal-pill, body.sheet-open .goal-pill, #menu:not([hidden]) ~ .goal-pill { display: none; }
+/* The menu owns the screen while it is open: the Next step pill (and its folded diamond) steps aside. */
+body:not(.rail-shut) .goal-pill { display: none; }
 .mentor { position: fixed; z-index: 7; left: 50%; bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px)); transform: translateX(-50%); width: min(30rem, calc(100% - 20px)); padding: 14px 16px 16px; border-radius: 18px; border: 1px solid rgba(217,178,106,.4); background: rgba(14,16,15,.93); color: #f5f2ea; box-shadow: 0 14px 40px rgba(0,0,0,.5); font-family: -apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .mentor[hidden] { display: none; }
 .mentor-head { display: flex; align-items: center; gap: 10px; }
@@ -2359,3 +2361,27 @@ body.online-open .goal-pill { visibility: hidden; }
 #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 10px) !important; left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 112px) !important; transform: none !important; }
 #online-card { top: calc(max(14px, env(safe-area-inset-top)) + 48px); left: auto; right: calc(max(12px, env(safe-area-inset-right)) + 64px); transform: none; }
 .cert-dlg a.cert-dl{color:#e9cd8f;text-align:center;font-weight:600;text-decoration:none;padding:8px 0}
+
+/* ===== Phones: sharp, smooth, fast (11 Nov) =====
+   A blurred backdrop over a moving 3D view has to be re-blurred on every frame; on phone GPUs that was the
+   single most expensive thing on screen and the reason menus and sheets stuttered. Touch devices get solid,
+   slightly more opaque surfaces instead (crisper text too). The odd-looking :is() only raises specificity so
+   this one rule wins over every earlier blur rule, including the !important ones. */
+@media (pointer: coarse) {
+  html body :is(*, #gd#gd#gd#gd), html body :is(*, #gd#gd#gd#gd)::before, html body :is(*, #gd#gd#gd#gd)::after {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+  html body .sheet-card { background: rgba(13, 14, 16, 0.965) !important; }
+  html body #nav.cc { background: rgba(10, 11, 13, 0.62) !important; }
+  html body.cc-peek #nav.cc { background: transparent !important; }
+  html body .cc-card, html body .cc-slider { background: rgba(34, 35, 39, 0.94) !important; }
+  html body .wallet-dlg { background: rgba(16, 17, 19, 0.98) !important; }
+}
+/* Taps answer at once (no double-tap-zoom wait) and never flash the grey tap highlight. */
+button, a, [role='button'], summary, label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+/* Sheets and the menu move on the compositor only (transform and opacity), so opening one never re-lays-out the HUD. */
+@media (prefers-reduced-motion: no-preference) {
+  #sheet:not([hidden]) .sheet-card, #cc-sheet:not([hidden]) { animation: gd-rise .16s cubic-bezier(.2, .7, .2, 1) backwards; }
+  @keyframes gd-rise { from { opacity: 0; transform: translate3d(0, 14px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+}

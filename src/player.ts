@@ -236,12 +236,14 @@ export function createPlayer(): ShrimpAvatar {
   const shadowContext = shadowCanvas.getContext('2d')
   if (!shadowContext) throw new Error('Could not paint the contact shadow.')
   const gradient = shadowContext.createRadialGradient(64, 64, 10, 64, 64, 64)
-  gradient.addColorStop(0, 'rgba(0,0,0,0.3)')
+  // A faint grounding shade only: on phones (no real shadows) a strong disc read as a dark patch under the player.
+  gradient.addColorStop(0, 'rgba(0,0,0,0.14)')
+  gradient.addColorStop(0.55, 'rgba(0,0,0,0.05)')
   gradient.addColorStop(1, 'rgba(0,0,0,0)')
   shadowContext.fillStyle = gradient
   shadowContext.fillRect(0, 0, 128, 128)
   const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(0.46, 20),
+    new THREE.CircleGeometry(0.4, 20),
     new THREE.MeshBasicMaterial({
       map: new THREE.CanvasTexture(shadowCanvas),
       transparent: true,

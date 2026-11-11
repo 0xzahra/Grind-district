@@ -9,6 +9,19 @@ import { watchUpdates } from './update.ts'
 
 watchUpdates()
 
+// Warm the cache from the title screen: the people of the city (and the clips they move with) are fetched
+// quietly while the player reads the opening card, so nobody is missing when the city opens. Plain fetch
+// hints, no 3D code in this first chunk. The folder name is the one in humans.ts (FIGURES).
+window.setTimeout(() => {
+  if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return
+  for (const f of ['man1', 'man2', 'man3', 'man4', 'woman1', 'woman2', 'woman3', 'woman4', 'abaya', 'motion-m', 'motion-f']) {
+    const link = document.createElement('link')
+    link.rel = 'prefetch'
+    link.href = `/models/figures/r1/${f}.glb`
+    document.head.append(link)
+  }
+}, 1200)
+
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
   if (!node) throw new Error(`Missing ${selector}`)

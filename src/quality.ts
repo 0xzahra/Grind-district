@@ -129,6 +129,9 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let cool = 3
   let w = 1
   let h = 1
+  let sized = false
+  const recall = (g: Graphics) => { try { const v = Number(localStorage.getItem(`gd.res.${g}`)); return v >= 0.6 && v <= 1 ? Math.round(v * 10) / 10 : 1 } catch { return 1 } }
+  const remember = (g: Graphics, v: number) => { try { localStorage.setItem(`gd.res.${g}`, String(v)) } catch { /* private mode */ } }
   const build = () => {
     // MSAA target keeps edges clean through the composer (WebGL2).
     // Phones: plain 8-bit target with no MSAA (HalfFloat+MSAA renders black on some Android GPUs).
@@ -176,8 +179,16 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   }
   return {
     configure(graphics: Graphics, width: number, height: number, ratio: number) {
+      // A tier remembers the sharpness this device held last time, so it does not start too sharp and stutter
+      // down again on every visit (kept beside the settings on this device; not part of the save).
+      if (graphics !== level || !sized) { want = scale = recall(graphics); avg = 1 / 60; cool = 2.5 }
+      sized = true
       level = graphics
       setSurfaceTier(graphics)
+      base = ratio
+      w = width
+      h = height
+      if (scale !== 1) { renderer.setPixelRatio(base * scale); renderer.setSize(w, h, false) }
       if (graphics === 'low') return
       if (!composer || builtFor !== graphics) {
         // Each tier has its own pass list, so changing the setting rebuilds the stack.
@@ -187,9 +198,6 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         broken = false
         checks = 0
       }
-      base = ratio
-      w = width
-      h = height
       composer!.setPixelRatio(ratio * scale)
       composer!.setSize(width, height)
       // Glow at half resolution.
@@ -210,25 +218,27 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         bloom.radius = 0.5 + night * 0.15
       }
     },
-    /** Dynamic resolution: drop 10% when frames run over 20 ms, recover slowly. */
+    /**
+     * Sharp when the device can, smooth always: every tier (Low too) renders at the screen's own density up to
+     * its cap and steps the resolution down while frames run long, back up while they run easily. One step at
+     * a time with a cooldown, because a resize reallocates every render target.
+     */
     frame(dt: number, t: number) {
       if (grade) grade.uniforms.time.value = t % 100
-      if (level === 'low' || !composer) return
-      if (!Number.isFinite(dt) || dt <= 0) return
-      // Smoothed frame time with hysteresis + cooldown: resizing reallocates every render target,
-      // so the old per-few-frames up/down oscillation caused visible hitches on phones.
+      if (!Number.isFinite(dt) || dt <= 0 || dt > 0.5) return
       avg += (dt - avg) * 0.05
       cool -= dt
       if (cool <= 0) {
-        if (avg > 0.022 && want > 0.6) { want = Math.max(0.6, want - 0.1); cool = 1.5 }
-        else if (avg < 0.0145 && want < 1) { want = Math.min(1, want + 0.1); cool = 4 }
+        // Under about 45 fps: step down (two steps when far under). A steady 60: step back up, slowly.
+        if (avg > 0.0225 && want > 0.6) { want = Math.max(0.6, want - (avg > 0.034 ? 0.2 : 0.1)); cool = 1.4 }
+        else if (avg < 0.0172 && want < 1) { want = Math.min(1, want + 0.1); cool = 5 }
       }
       if (want !== scale) {
         scale = want
+        remember(level, scale)
         renderer.setPixelRatio(base * scale)
         renderer.setSize(w, h, false)
-        composer.setPixelRatio(base * scale)
-        composer.setSize(w, h)
+        if (composer && level !== 'low') { composer.setPixelRatio(base * scale); composer.setSize(w, h) }
       }
     },
     render() {

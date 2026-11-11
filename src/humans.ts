@@ -42,11 +42,15 @@ const STEEL = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.85,
 const SHADE = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 })
 const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
 const B = { root: 'Bip01', hips: 'Bip01_Pelvis', neck: 'Bip01_Neck', head: 'Bip01_Head' }
+// Everything under /models/ is cached by browsers for a year as immutable (vercel.json), so a file here must
+// NEVER change in place: a phone that has the old bytes keeps them. Change a figure -> bump this folder (r2, r3).
+// (The first figures reused the old blocky people's file names, and returning phones drew those old files.)
+export const FIGURES = '/models/figures/r1/'
 
 function motion(sex: string): Promise<Motion> {
   let p = motions.get(sex)
   if (!p) {
-    p = loader.loadAsync(`/models/people/motion-${sex}.glb`).then((gltf) => {
+    p = loader.loadAsync(`${FIGURES}motion-${sex}.glb`).then((gltf) => {
       const info = (gltf.scene.userData ?? {}) as Record<string, unknown>
       const speed: Record<string, number> = {}
       for (const c of gltf.animations) speed[c.name] = Number((info[c.name] as { speed?: number } | undefined)?.speed) || 0
@@ -60,11 +64,14 @@ function motion(sex: string): Promise<Motion> {
 function load(name: HumanModel): Promise<Template> {
   let p = cache.get(name)
   if (!p) {
-    p = loader.loadAsync(`/models/people/${name}.glb`).then(async (gltf) => {
+    p = loader.loadAsync(`${FIGURES}${name}.glb`).then(async (gltf) => {
       const scene = gltf.scene
       const info = (scene.userData ?? {}) as { sex?: string; height?: number; hip?: number; regions?: Template['regions']; eye?: Template['eye']; crown?: number }
       let mesh: THREE.SkinnedMesh | null = null
       scene.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh && !mesh) mesh = o as THREE.SkinnedMesh })
+      // Only a figure packed by tools/pack-rocketbox.mjs is accepted: its size and rig are known. Anything else
+      // (a stale or foreign file) is refused rather than drawn at a guessed scale.
+      if (!mesh || !info.height || !scene.getObjectByName(B.root)) throw new Error(`${name}: not a packed figure`)
       const body = mesh! as THREE.SkinnedMesh
       body.name = 'Person'
       const src = body.material as THREE.MeshStandardMaterial
@@ -114,7 +121,7 @@ function pixels(t: Template): Promise<{ base: ImageData; mask: ImageData } | nul
       if (!image) return null
       const w = image.width, h = image.height
       const read = (src: CanvasImageSource) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true })!; g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, w, h); return g.getImageData(0, 0, w, h) }
-      const blob = await (await fetch(`/models/people/${t.name}.mask.png`)).blob()
+      const blob = await (await fetch(`${FIGURES}${t.name}.mask.png`)).blob()
       const mask = await createImageBitmap(blob)
       return { base: read(image), mask: read(mask) }
     } catch { return null }
@@ -240,6 +247,10 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
   for (const c of root.children) { let n = 0; c.traverse(() => { n++ }); if (n > most) { most = n; body = c } }
   if (!body) return
   const bodyRef = body
+  // The old procedural body is never shown for a person: the figure appears when it has loaded (it is preloaded
+  // from the title screen), and only if it cannot load at all does the stand-in come back.
+  root.userData.body = bodyRef
+  bodyRef.visible = false
   const detail = opts.detail ?? 1
   let mounted: HumanModel | null = null
   let pending: HumanModel | null = null
@@ -253,7 +264,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
     pending = name
     void load(name).then((t) => {
       if (pending === name) pending = null
-      if (root.userData.masked) return
+      if (root.userData.masked) { bodyRef.visible = true; return }
       // The outfit may have changed while the figure loaded: wear the latest, or stand down for the right figure.
       const look = (root.userData.look as Look | undefined) ?? first
       if (figure(model, look) !== name) return
@@ -351,7 +362,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         mixer.update(root.userData.acc)
         root.userData.acc = 0
       }
-    }).catch(() => { if (pending === name) pending = null /* keep the procedural body */ })
+    }).catch(() => { if (pending === name) pending = null; if (!root.userData.person) bodyRef.visible = true })
   }
 
   const first = (root.userData.look as Look | undefined) ?? opts.look

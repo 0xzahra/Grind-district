@@ -238,6 +238,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       const person = root.userData.person as THREE.Object3D | undefined
       const procedural = root.userData.body as THREE.Object3D | undefined
       if (person && procedural) { person.visible = mask === 'none'; procedural.visible = mask !== 'none' }
+      else if (procedural && mask !== 'none') procedural.visible = true
     }
   }
   return avatar

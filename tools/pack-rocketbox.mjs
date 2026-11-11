@@ -22,7 +22,7 @@ globalThis.window = globalThis
 const warn = console.warn; console.warn = (...a) => { if (!/FBXLoader|THREE\./.test(String(a[0]))) warn(...a) }
 
 const SRC = (process.env.SRC ?? '').replace(/\/?$/, '/')
-const OUT = process.env.OUT ?? 'public/models/people/'
+const OUT = process.env.OUT ?? 'public/models/figures/r1/' // immutable for a year once deployed: new files go in a new folder
 const args = process.argv.slice(2)
 const dbgAt = args.indexOf('--debug')
 const DEBUG = dbgAt >= 0 ? args[dbgAt + 1] : null

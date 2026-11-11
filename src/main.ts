@@ -349,7 +349,9 @@ const apiAgents = createRemoteAgents(scene)
     // Each tier must look and cost visibly different. Phones: 1x / 1.25x / 1.5x; desktops: 1x / 1.5x / 2x.
     // (Phones on High used to get 1.25x, below Medium's 1.5x, so High looked softer than Medium.)
     // Cap phone DPR harder so mid-range stays ~30+ FPS (High phone was 1.5× — still heavy with post).
-    const ratio = Math.min(dpr, graphics === 'low' ? 1 : graphics === 'medium' ? (coarseDev ? 1.1 : 1.5) : coarseDev ? 1.25 : 2)
+    // Sharpness caps per tier. Phones used to draw the city at 1x on a 3x screen, which is what looked soft;
+    // the post stack's resolution scaler (quality.ts) now steps down from these caps whenever frames run long.
+    const ratio = Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : graphics === 'medium' ? (coarseDev ? 1.75 : 1.5) : 2)
     renderer.setPixelRatio(ratio)
     // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
     // Every point light is paid for in every lit pixel, so this is the biggest lever on mid-range phones.
@@ -1336,7 +1338,9 @@ const apiAgents = createRemoteAgents(scene)
   apiAgents.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
-    if (!calmSky()) dayPhase = (dayPhase + dt / DAY_SECONDS) % 1
+    // The city is mostly in daylight: the clock runs slowly while the sun is up, briskly through dusk and dawn,
+    // and quickly through the night (about 8 minutes of day to 2 of night).
+    if (!calmSky()) { const up = Math.sin((dayPhase - 0.25) * Math.PI * 2); dayPhase = (dayPhase + (dt / DAY_SECONDS) * (up > 0.12 ? 0.55 : up < -0.12 ? 2.6 : 1.3)) % 1 }
     lightAcc += dt
     if (lightAcc > 0.25) {
       lightAcc = 0
