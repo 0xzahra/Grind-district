@@ -10,7 +10,7 @@ import { createArchitecture, type Facade, type Style } from './architecture.ts'
 import { buildShowroom } from './showcase.ts'
 import { createDrinkStand } from './drinkStand.ts'
 import { facetMap, paintFacets } from './facets.ts'
-import { createTrees } from './trees.ts'
+import { createTrees, foliageMaterial } from './trees.ts'
 import { groundDetail } from './groundDetail.ts'
 
 export type Hotspot = {
@@ -138,7 +138,6 @@ export function createWorld(options: {
   Object.assign(trim, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
   for (const m of [stone, stoneDark, trim]) m.needsUpdate = true
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4a38, roughness: 0.82 })
-  const leaf = new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.8, flatShading: true })
   const lampMat = new THREE.MeshStandardMaterial({
     color: 0xf6ecd8,
     emissive: 0xffc27a,
@@ -362,7 +361,7 @@ export function createWorld(options: {
 
   // Buildings come from the architecture kit (architecture.ts): tiled facades, podium shopfronts, parapets with
   // edge lighting and small fascia signs, merged per material across the city. Footprints and doors are unchanged.
-  const architecture = createArchitecture({ anisotropy, stone, stoneDark, leaf, boxUV: boxProjectUV })
+  const architecture = createArchitecture({ anisotropy, stone, stoneDark, leaf: foliageMaterial(), boxUV: boxProjectUV })
   const addBuilding = (spec: {
     x: number
     z: number

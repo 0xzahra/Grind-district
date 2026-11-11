@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { foliageMaterial, shrubGeometry } from './trees.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { blocked, type Obstacle } from './physics.ts'
 
@@ -25,10 +26,10 @@ export function createAmbient(scene: THREE.Scene, obstacles: Obstacle[], lite: b
   ])!
   const benchLegs = mergeGeometries([-0.7, 0.7].map((x) => new THREE.BoxGeometry(0.06, 0.46, 0.4).translate(x, 0.23, 0)))!
   const planterGeo = new THREE.BoxGeometry(0.9, 0.55, 0.9).translate(0, 0.275, 0)
-  const bushGeo = new THREE.IcosahedronGeometry(0.5, 1).translate(0, 0.85, 0)
+  const bushGeo = shrubGeometry(9).scale(0.56, 0.5, 0.56).translate(0, 0.88, 0)
   const binGeo = new THREE.CylinderGeometry(0.22, 0.2, 0.8, 12).translate(0, 0.4, 0)
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0xbdb3a2, roughness: 0.95 })
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x4d7a3a, roughness: 0.85, flatShading: true })
+  const leafMat = foliageMaterial()
   const n = spots.length
   const benches = new THREE.InstancedMesh(benchGeo, wood, n)
   const legs = new THREE.InstancedMesh(benchLegs, iron, n)

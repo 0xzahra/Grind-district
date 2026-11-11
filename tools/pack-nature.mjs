@@ -91,5 +91,15 @@ for (const [src, out, size] of [['asphalt_02_diff_1k.jpg', 'asphalt.webp', 512],
   const n = st.length / 3
   console.log('stone_d.webp   mean', [r / n, g / n, b / n].map((x) => x.toFixed(3)).join(', '))
 }
+// Tone maps: the same photographs with their own average colour divided out (average about 80% white), for
+// materials that already carry a colour of their own (lawns, hedges, kerbs, timber): map x colour keeps the
+// colour and gains the real surface.
+for (const [src, out, size] of [['leafy_grass_diff_1k.jpg', 'grass_t.webp', 512], ['concrete_pavers_diff_1k.jpg', 'pavers_t.webp', 512], ['wood_floor_diff_1k.jpg', 'wood_t.webp', 512]]) {
+  const file = (process.env.TEX ?? SRC).replace(/\/?$/, '/') + src
+  if (!fs.existsSync(file)) { console.log('missing', file); continue }
+  const { channels } = await sharp(file).stats()
+  await sharp(file).resize(size, size, { kernel: 'lanczos3' }).linear(channels.slice(0, 3).map((c) => 204 / c.mean), [0, 0, 0]).webp({ quality: 76, effort: 6 }).toFile(OUT + out)
+  console.log(out.padEnd(14), (fs.statSync(OUT + out).size / 1024).toFixed(0), 'KB')
+}
 for (const f of ['leaves.webp', 'bark.webp']) console.log(f.padEnd(14), (fs.statSync(OUT + f).size / 1024).toFixed(0), 'KB')
 console.log('coverage', ((N / (S * 2 * S)) * 100).toFixed(0) + '%', 'mean', R, G, B)

@@ -2,6 +2,7 @@
 // a members' lounge, a plaza and a classic stone quad for the campus. Generic designs, no real buildings.
 // Geometry is merged per material (about a dozen draw calls); pools and yacht detail only on medium/high.
 import * as THREE from 'three'
+import { foliageMaterial, shrubGeometry } from './trees.ts'
 import { pbrSet } from './pbrTex.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { itemModel } from './showcase.ts'
@@ -51,7 +52,7 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   const box = (m: THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number, ry = 0) => put(m, new THREE.BoxGeometry(w, h, d), x, y + h / 2, z, ry)
   const cyl = (m: THREE.Material, r: number, h: number, x: number, y: number, z: number, seg = 10) => put(m, new THREE.CylinderGeometry(r, r, h, seg), x, y + h / 2, z)
   const block = (x: number, z: number, hx: number, hz: number) => o.obstacles.push({ kind: 'box', x, z, hx, hz })
-  const tree = (x: number, z: number, s = 1) => { cyl(M.timber, 0.12 * s, 1.6 * s, x, 0, z, 5); put(M.leaf, new THREE.IcosahedronGeometry(0.9 * s, 0), x, 2.2 * s, z); o.obstacles.push({ kind: 'circle', x, z, r: 0.35 }) }
+  const tree = (x: number, z: number, s = 1) => { cyl(M.timber, 0.12 * s, 1.6 * s, x, 0, z, 5); put(foliageMaterial(), shrubGeometry(Math.round(x * 7 + z * 3) & 63, 30).scale(1.15 * s, 1.0 * s, 1.15 * s), x, 2.25 * s, z); o.obstacles.push({ kind: 'circle', x, z, r: 0.35 }) }
   const statusSpot = (id: string, unlock: string, x: number, z: number, title: string, open: string) => {
     const u = UNLOCKS.find((k) => k.id === unlock)!
     o.hotspots.push({ id, x, z, r: 2.4, title, body: `${u.where}. Unlocks at ${RANKS[u.rank].label} rank with $${u.cash.toLocaleString()} in-game cash.`, enter: 'Visit', use: () => {

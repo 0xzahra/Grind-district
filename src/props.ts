@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { foliageMaterial, shrubGeometry } from './trees.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
 
@@ -40,11 +41,11 @@ export function createStreetProps(scene: THREE.Scene, opts: { lamps: { x: number
     }
   }
   const stone = new THREE.MeshStandardMaterial({ color: 0xb7b0a3, roughness: 0.85 })
-  const leaf = new THREE.MeshStandardMaterial({ color: 0x44603a, roughness: 0.9, flatShading: true })
+  const leaf = foliageMaterial() // shared with the trees: real leaves, not a faceted blob
   const wood = new THREE.MeshStandardMaterial({ color: 0x6b4a32, roughness: 0.7 })
   const iron = new THREE.MeshStandardMaterial({ color: 0x2a2b2d, roughness: 0.5, metalness: 0.6 })
   const geos: THREE.BufferGeometry[] = []
-  const mats: THREE.Material[] = [stone, leaf, wood, iron]
+  const mats: THREE.Material[] = [stone, wood, iron]
   const inst = (g: THREE.BufferGeometry, m: THREE.Material, n: number, set: (i: number) => void, shadow = true) => {
     geos.push(g)
     const im = new THREE.InstancedMesh(g, m, Math.max(1, n))
@@ -60,7 +61,7 @@ export function createStreetProps(scene: THREE.Scene, opts: { lamps: { x: number
   const at = (x: number, y: number, z: number, ry = 0, s = 1) => m4.compose(v.set(x, y, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry), sc.set(s, s, s))
   const meshes: THREE.InstancedMesh[] = []
   meshes.push(inst(new THREE.BoxGeometry(0.9, 0.5, 0.9).translate(0, 0.25, 0), stone, planters.length, (i) => at(planters[i]!.x, 0, planters[i]!.z)))
-  meshes.push(inst(new THREE.IcosahedronGeometry(0.42, 1).scale(1, 0.75, 1), leaf, planters.length, (i) => at(planters[i]!.x, 0.72, planters[i]!.z, i, 0.9 + (i % 3) * 0.08)))
+  meshes.push(inst(shrubGeometry(5).scale(0.5, 0.42, 0.5), leaf, planters.length, (i) => at(planters[i]!.x, 0.72, planters[i]!.z, i, 0.9 + (i % 3) * 0.08)))
   if (benches.length) {
     meshes.push(inst(new THREE.BoxGeometry(1.4, 0.08, 0.46).translate(0, 0.46, 0), wood, benches.length, (i) => at(benches[i]!.x, 0, benches[i]!.z, benches[i]!.ry)))
     meshes.push(inst(new THREE.BoxGeometry(1.4, 0.36, 0.06).translate(0, 0.74, -0.21), wood, benches.length, (i) => at(benches[i]!.x, 0, benches[i]!.z, benches[i]!.ry)))

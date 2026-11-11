@@ -1,18 +1,45 @@
-import type * as THREE from 'three'
-import { facetMap, plankMap, slabMap } from './facets.ts'
+import * as THREE from 'three'
+import { facetMap } from './facets.ts'
 
-// Surface finishes by name. These used to be photo-scanned PBR sets; the art direction is flat, faceted
-// low-poly, so each name now maps to a clean painted finish (facets, boards or slabs) multiplied by the
-// material colour. No normal or roughness maps: surfaces stay matte and planar.
-const FINISH: Record<string, (repeat: number, anisotropy: number) => THREE.Texture> = {
-  wood_floor: (r, a) => plankMap(5, 6, r, a),
-  brown_planks_03: (r, a) => plankMap(9, 5, r, a),
-  wood_table_001: (r, a) => plankMap(13, 4, r, a),
-  concrete_pavers: (r, a) => slabMap(3, 3, r, a),
-  leafy_grass: (r, a) => facetMap(21, 5, 0.2, r, a),
+// Surface finishes by name. Lawns and hedges, kerb pavers and timber use real photographs (Poly Haven, CC0)
+// with their own average colour divided out by tools/pack-nature.mjs, so each material keeps the colour it
+// was given and gains the real surface. Cloth and metal keep a soft painted tone.
+const PHOTO: Record<string, string> = {
+  leafy_grass: 'grass_t.webp',
+  concrete_pavers: 'pavers_t.webp',
+  wood_floor: 'wood_t.webp',
+  brown_planks_03: 'wood_t.webp',
+  wood_table_001: 'wood_t.webp',
+}
+const PAINTED: Record<string, (repeat: number, anisotropy: number) => THREE.Texture> = {
   fabric_pattern_07: (r, a) => facetMap(17, 4, 0.07, r, a),
   metal_plate: (r, a) => facetMap(29, 3, 0.1, r, a),
 }
+const loader = new THREE.TextureLoader()
+const photos = new Map<string, { base: THREE.Texture; copies: THREE.Texture[] }>()
+
+function photo(file: string, repeat: number, anisotropy: number): THREE.Texture {
+  let entry = photos.get(file)
+  if (!entry) {
+    const e = { base: null as unknown as THREE.Texture, copies: [] as THREE.Texture[] }
+    // Copies share the one upload; each is told when the picture arrives.
+    e.base = loader.load(`/tex/nature/${file}`, () => { for (const c of e.copies) c.needsUpdate = true })
+    e.base.colorSpace = THREE.SRGBColorSpace
+    photos.set(file, e)
+    entry = e
+  }
+  const t = entry.base.clone()
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(repeat, repeat)
+  t.anisotropy = anisotropy
+  entry.copies.push(t)
+  if (entry.base.image) t.needsUpdate = true
+  return t
+}
+
 export function pbrSet(name: string, repeat = 2, anisotropy = 8): { map: THREE.Texture } {
-  return { map: (FINISH[name] ?? ((r, a) => facetMap(7, 3, 0.1, r, a)))(repeat, anisotropy) }
+  const file = PHOTO[name]
+  // No images outside a browser (the Node look check): the painted fallback keeps materials valid there.
+  if (file && typeof document !== 'undefined') return { map: photo(file, repeat, anisotropy) }
+  return { map: (PAINTED[name] ?? ((r, a) => facetMap(7, 3, 0.1, r, a)))(repeat, anisotropy) }
 }

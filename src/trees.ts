@@ -36,11 +36,14 @@ function trunkGeometry(): THREE.BufferGeometry {
   return g
 }
 
-/** A crown of `cards` leaf-spray cards on an ellipsoid shell, shaded as one soft rounded mass. */
-function crownGeometry(cards: number, seed: number): THREE.BufferGeometry {
+/**
+ * A mass of `cards` leaf-spray cards on an ellipsoid shell about `centreY`, shaded as one soft rounded form.
+ * `inner` is how far in the innermost cards sit (0..1 of the radius), `leaf` the smallest card half-size.
+ */
+function crownGeometry(cards: number, seed: number, centreY = 1.82, inner = 0.42, leaf = 0.5): THREE.BufferGeometry {
   const r = rng(seed)
   const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [], idx: number[] = []
-  const centre = new THREE.Vector3(0, 1.82, 0)
+  const centre = new THREE.Vector3(0, centreY, 0)
   const c = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3(), n = new THREE.Vector3(), out = new THREE.Vector3(), v = new THREE.Vector3()
   for (let i = 0; i < cards; i++) {
     // Even directions (golden spiral) with jitter, most of them on the outer shell.
@@ -49,7 +52,7 @@ function crownGeometry(cards: number, seed: number): THREE.BufferGeometry {
     const ang = i * 2.399963 + r() * 0.5
     const rad = Math.sqrt(Math.max(0, 1 - yy * yy))
     out.set(Math.cos(ang) * rad, yy, Math.sin(ang) * rad)
-    const shell = 0.42 + 0.5 * Math.sqrt(r())
+    const shell = inner + (0.92 - inner) * Math.sqrt(r())
     c.set(out.x * shell * 0.98, out.y * shell * 0.74, out.z * shell * 0.98).add(centre)
     // Each card faces roughly outward, then tips and spins so the crown is full from every side.
     n.copy(out).add(v.set(r() - 0.5, r() - 0.5, r() - 0.5).multiplyScalar(1.1)).normalize()
@@ -57,7 +60,7 @@ function crownGeometry(cards: number, seed: number): THREE.BufferGeometry {
     up.crossVectors(right, n).normalize()
     const spin = r() * Math.PI * 2, cs = Math.cos(spin), sn = Math.sin(spin)
     const rx = right.clone().multiplyScalar(cs).addScaledVector(up, sn), ux = up.clone().multiplyScalar(cs).addScaledVector(right, -sn)
-    const size = 0.5 + r() * 0.26
+    const size = leaf + r() * 0.26
     // Shading normal: outward from the crown's centre, lifted a little, so the mass lights like one rounded form.
     const sn3 = c.clone().sub(centre).normalize().lerp(v.set(0, 1, 0), 0.28).normalize()
     // Baked shade: darker inside and underneath, brightest on the sunlit top.
@@ -79,6 +82,26 @@ function crownGeometry(cards: number, seed: number): THREE.BufferGeometry {
   return g
 }
 
+let shared: THREE.MeshLambertMaterial | null = null
+/**
+ * The one leaf material every tree, shrub and planter shares. Plain diffuse (Lambert): no sheen, so a card
+ * seen edge-on never mirrors the sky as a grey leaf, and it is the cheapest lit material for overlapping cards.
+ */
+export function foliageMaterial(): THREE.MeshLambertMaterial {
+  if (shared) return shared
+  // Plain green until the photograph arrives, never white.
+  const m = new THREE.MeshLambertMaterial({ color: 0x4f8a3e, vertexColors: true, alphaTest: 0.42, side: THREE.DoubleSide })
+  // No mipmaps on the leaves: averaged alpha turns a card seen edge-on into a flat grey-green patch.
+  new THREE.TextureLoader().load('/tex/nature/leaves.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; m.map = t; m.color.setHex(0xffffff); m.needsUpdate = true })
+  shared = m
+  return m
+}
+
+/** A shrub about one unit in radius, centred on the origin: scale and place it (planters, hedges, garden trees). */
+export function shrubGeometry(seed = 1, cards = 16): THREE.BufferGeometry {
+  return crownGeometry(cards, seed, 0, 0.22, 0.46)
+}
+
 /**
  * Plant the city's trees. `spots` are [x, z, size]. Returns `sway(time)` for the wind. `light` uses half the
  * leaf cards (Low graphics): the fill-rate of overlapping leaves is the cost on phones, not the triangles.
@@ -86,15 +109,8 @@ function crownGeometry(cards: number, seed: number): THREE.BufferGeometry {
 export function createTrees(scene: THREE.Scene, spots: Array<[number, number, number]>, o: { light?: boolean; anisotropy?: number } = {}): { sway: (time: number) => void } {
   const loader = new THREE.TextureLoader()
   const bark = new THREE.MeshStandardMaterial({ color: 0x8a7a6a, roughness: 0.95 })
-  // Leaves are plain diffuse (Lambert): no sheen, so a card seen edge-on never mirrors the sky as a grey leaf,
-  // and it is the cheapest lit material for the many overlapping cards.
-  const leaves = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true, alphaTest: 0.42, side: THREE.DoubleSide })
+  const leaves = foliageMaterial()
   loader.load('/tex/nature/bark.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = o.anisotropy ?? 4; bark.map = t; bark.color.setHex(0xffffff); bark.needsUpdate = true })
-  // No mipmaps on the leaves: averaged alpha turns a card seen edge-on into a flat grey-green patch.
-  loader.load('/tex/nature/leaves.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; leaves.map = t; leaves.needsUpdate = true })
-  // Until the photographs arrive the crown is plain green, never white.
-  leaves.color.setHex(0x4f8a3e)
-  const settle = () => { if (leaves.map) leaves.color.setHex(0xffffff) }
   const n = spots.length
   const trunks = new THREE.InstancedMesh(trunkGeometry(), bark, n)
   const crowns = new THREE.InstancedMesh(crownGeometry(o.light ? 38 : 70, 11), leaves, n)
@@ -134,11 +150,9 @@ export function createTrees(scene: THREE.Scene, spots: Array<[number, number, nu
   for (const m of [trunks, crowns, hearts]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere() }
   if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true
   scene.add(trunks, hearts, crowns)
-  let settled = false
   return {
     /** A light wind: each crown rocks a degree or two about its foot, out of step with its neighbours. */
     sway(time: number) {
-      if (!settled && leaves.map) { settle(); settled = true }
       for (let i = 0; i < n; i++) place(i, Math.sin(time * 1.1 + i * 0.7) * 0.014, Math.cos(time * 0.9 + i * 1.1) * 0.012)
       crowns.instanceMatrix.needsUpdate = true
     },

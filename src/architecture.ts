@@ -2,6 +2,7 @@
 // per material across the whole city (about a dozen draw calls in total, whatever the building count).
 // Facades tile in metres (one window bay per texture cell), so windows never stretch or blur with size.
 import * as THREE from 'three'
+import { shrubGeometry } from './trees.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { paintFacets } from './facets.ts'
 
@@ -360,7 +361,7 @@ export function createArchitecture(o: {
       push(lawn, new THREE.BoxGeometry(w - 1.4, 0.3, d - 1.4).translate(cx, y + 0.27, cz))
       for (let i = 0; i < 4; i++) {
         const bx = cx + (r() - 0.5) * (w - 3), bz = cz + (r() - 0.5) * (d - 3)
-        push(o.leaf, new THREE.IcosahedronGeometry(0.45 + r() * 0.35, 1).scale(1, 0.8, 1).translate(bx, y + 0.8, bz))
+        { const rr = (0.45 + r() * 0.35) * 1.15; push(o.leaf, shrubGeometry(Math.floor(r() * 90) + 3).scale(rr, rr * 0.8, rr).translate(bx, y + 0.8, bz)) }
       }
       push(bronze, new THREE.BoxGeometry(w - 1.0, 0.05, 0.05).translate(cx, y + 1.25, cz + d / 2 - 0.5))
     } else {
