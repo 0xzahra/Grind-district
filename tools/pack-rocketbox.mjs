@@ -215,6 +215,9 @@ async function packPerson(name, cfg) {
   // The face window, from the texels the facial bones move: brow line, chin line and where the ears sit.
   let browY = -1e9, chinY = 1e9, zSum = 0, zN = 0, mainHead = -1
   { const per = new Map(); for (let k = 0; k < NP; k++) if (zone[k] === ZONE.face && isHead(k)) per.set(island[k], (per.get(island[k]) ?? 0) + 1); let best = 0; for (const [id, n] of per) if (n > best) { best = n; mainHead = id } }
+  // On the head itself the eyelid and eyebrow bones move skin like any other part of the face; only the lash
+  // cards and the eyeballs (their own islands) are left alone.
+  for (let k = 0; k < NP; k++) if (island[k] === mainHead && zone[k] === ZONE.lash) zone[k] = ZONE.face
   for (let k = 0; k < NP; k++) if (island[k] === mainHead) { if (zone[k] === ZONE.face) { browY = Math.max(browY, hgt[k]); chinY = Math.min(chinY, hgt[k]) } zSum += pz3[k]; zN++ }
   const earZ = zSum / Math.max(1, zN)
   const skinRef = ref((k) => zone[k] === ZONE.face && island[k] === mainHead && hgt[k] > chinY + (browY - chinY) * 0.5 && hgt[k] < browY - (browY - chinY) * 0.12)
@@ -246,31 +249,34 @@ async function packPerson(name, cfg) {
     const st = stats[island[k]].z
     if (isHead(k)) {
       if (island[k] !== mainHead) { if (headTex === 'hair' && loose[island[k]] && hairRef && near(k, hairRef, skinRef, 1)) SET(k, REGION.hair); continue }
-      if (z === ZONE.face) { if (sw > 0) SKIN(k); continue }
+      // The whole face moves together when the skin tone changes: lids, lips, brows and stubble keep their own
+      // relative tone (a pale ring round the eyes or a light beard on dark skin reads as a mask otherwise).
+      const inFace = z === ZONE.face || (hgt[k] < browY + 0.012 && hgt[k] > chinY - 0.035 && pz3[k] > earZ + 0.012)
+      if (inFace) { SKIN(k, 1); continue }
       const hairy = hgt[k] > browY - 0.012 || pz3[k] < earZ
-      if (headTex === 'hair') { if (hairy && hairRef && near(k, hairRef, skinRef, 1.15)) SET(k, REGION.hair); else SKIN(k, hairy ? 0.35 : 0.85) }
-      else if (sw > 0.25) SKIN(k)
+      if (headTex === 'hair') { if (hairy && hairRef && near(k, hairRef, skinRef, 1.15)) SET(k, REGION.hair); else SKIN(k, 1) }
+      else if (sw > 0.25) SKIN(k, 1)
       else SET(k, headTex === 'top' ? REGION.top : 0)
       continue
     }
     const upper = st[ZONE.torso] + st[ZONE.arm] + st[ZONE.neck] + st[ZONE.scalp], lower = st[ZONE.leg]
     if (z === ZONE.foot && st[ZONE.foot] <= 0.25 * (st[ZONE.leg] + st[ZONE.foot])) z = ZONE.leg // trouser cuff
     if (z === ZONE.hand && upper > st[ZONE.hand] * 3 && sw < 0.5) z = ZONE.arm // sleeve cuff
-    if (z === ZONE.scalp || z === ZONE.neck) { if (cfg.head !== 'top' && sw > 0.5 && near(k, skinRef, topRef, 1.5)) SKIN(k, 0.8); else SET(k, REGION.top) }
-    else if (z === ZONE.hand) SKIN(k, 0.7)
-    else if (z === ZONE.torso || z === ZONE.arm) { if (bare.has(z === ZONE.arm ? 'arm' : 'torso') && sw > 0.5 && near(k, skinRef, topRef, 1.6)) SKIN(k, 0.8); else SET(k, REGION.top) }
+    if (z === ZONE.scalp || z === ZONE.neck) { if (cfg.head !== 'top' && sw > 0.5 && near(k, skinRef, topRef, 1.5)) SKIN(k, 1); else SET(k, REGION.top) }
+    else if (z === ZONE.hand) SKIN(k, 1)
+    else if (z === ZONE.torso || z === ZONE.arm) { if (bare.has(z === ZONE.arm ? 'arm' : 'torso') && sw > 0.5 && near(k, skinRef, topRef, 1.6)) SKIN(k, 1); else SET(k, REGION.top) }
     else if (z === ZONE.hip) SET(k, cfg.legs === 'top' || upper > lower ? REGION.top : REGION.bottom)
     else if (z === ZONE.leg) {
       if (st[ZONE.foot] > 0.25 * (st[ZONE.leg] + st[ZONE.foot])) SET(k, REGION.shoes) // a boot's shaft
-      else if (bare.has('leg') && sw > 0.5 && near(k, skinRef, cfg.legs === 'top' ? topRef : legRef, 1.4)) SKIN(k, 0.8)
+      else if (bare.has('leg') && sw > 0.5 && near(k, skinRef, cfg.legs === 'top' ? topRef : legRef, 1.4)) SKIN(k, 1)
       else SET(k, cfg.boots && lower > upper ? REGION.shoes : upper > lower || cfg.legs === 'top' ? REGION.top : REGION.bottom)
-    } else if (z === ZONE.foot) { if (cfg.sandals && sw > 0.4) SKIN(k, 0.7); else SET(k, REGION.shoes) }
+    } else if (z === ZONE.foot) { if (cfg.sandals && sw > 0.4) SKIN(k, 1); else SET(k, REGION.shoes) }
   }
   // Region means (linear RGB, weighted) so the game can shift each region to a target colour.
   const means = {}
   for (const [key, id] of Object.entries(REGION)) {
     let r = 0, g = 0, b = 0, n = 0
-    for (let k = 0; k < NP; k++) if (region[k] === id) { const w = weight[k] / 255; r += toLin[atlas[k * 4]] * w; g += toLin[atlas[k * 4 + 1]] * w; b += toLin[atlas[k * 4 + 2]] * w; n += w }
+    for (let k = 0; k < NP; k++) if (region[k] === id) { const w = id === REGION.skin ? (skinW(k) > 0.6 ? 1 : 0) : weight[k] / 255; r += toLin[atlas[k * 4]] * w; g += toLin[atlas[k * 4 + 1]] * w; b += toLin[atlas[k * 4 + 2]] * w; n += w }
     if (n > 200) means[key] = [r / n, g / n, b / n].map((x) => +x.toFixed(4))
   }
   // Spread region ids a few texels past the islands so filtering at the seams picks the right region.

@@ -6,7 +6,7 @@ import * as THREE from 'three'
 export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' }
 export type SeatSpot = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; use: () => void }
 
-type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hands: THREE.Object3D[]; hipDrop: number }
+type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; feet: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hands: THREE.Object3D[]; hipDrop: number }
 
 const axis = new THREE.Vector3()
 const qParent = new THREE.Quaternion()
@@ -29,17 +29,6 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3, t
   bone.updateMatrixWorld(true)
 }
 
-/** Turn a bone about the sitter's own left-right axis by `angle`, whatever the bone's local frame is. */
-function bend(bone: THREE.Object3D, angle: number) {
-  if (!bone.parent) return
-  bone.parent.getWorldQuaternion(qParent)
-  qDelta.setFromAxisAngle(axis, angle)
-  // local delta = parent^-1 * worldDelta * parent
-  const inv = qParent.clone().invert()
-  bone.quaternion.premultiply(inv.multiply(qDelta).multiply(qParent))
-  bone.updateMatrixWorld(true)
-}
-
 function findBones(root: THREE.Object3D): Bones | null {
   const person = root.userData.person as THREE.Object3D | undefined
   if (!person) return null
@@ -48,16 +37,17 @@ function findBones(root: THREE.Object3D): Bones | null {
   const hips = by(/^Bip01_Pelvis$/)
   const legL = by(/^Bip01_L_Thigh$/), legR = by(/^Bip01_R_Thigh$/)
   const kneeL = by(/^Bip01_L_Calf$/), kneeR = by(/^Bip01_R_Calf$/)
+  const footL = by(/^Bip01_L_Foot$/), footR = by(/^Bip01_R_Foot$/)
   const armL = by(/^Bip01_L_UpperArm$/), armR = by(/^Bip01_R_UpperArm$/)
   const foreL = by(/^Bip01_L_Forearm$/), foreR = by(/^Bip01_R_Forearm$/)
   const handL = by(/^Bip01_L_Hand$/), handR = by(/^Bip01_R_Hand$/)
-  if (!hips || !legL || !legR || !kneeL || !kneeR) return null
+  if (!hips || !legL || !legR || !kneeL || !kneeR || !footL || !footR) return null
   person.updateMatrixWorld(true)
   // Standing hip height above the feet, and thigh length: sitting drops the hips by about one thigh.
   const hipY = legL.getWorldPosition(v).y
   const kneeY = kneeL.getWorldPosition(new THREE.Vector3()).y
   const rootY = root.getWorldPosition(new THREE.Vector3()).y
-  const bones: Bones = { person, hips, legs: [legL, legR], knees: [kneeL, kneeR], arms: [armL, armR].filter(Boolean) as THREE.Object3D[], fores: [foreL, foreR].filter(Boolean) as THREE.Object3D[], hands: [handL, handR].filter(Boolean) as THREE.Object3D[], hipDrop: hipY - rootY }
+  const bones: Bones = { person, hips, legs: [legL, legR], knees: [kneeL, kneeR], feet: [footL, footR], arms: [armL, armR].filter(Boolean) as THREE.Object3D[], fores: [foreL, foreR].filter(Boolean) as THREE.Object3D[], hands: [handL, handR].filter(Boolean) as THREE.Object3D[], hipDrop: hipY - rootY }
   void kneeY
   person.userData.sitBones = bones
   return bones
@@ -69,8 +59,6 @@ export function createSeating() {
   let rootYaw0 = 0
   let lastRoot: THREE.Object3D | null = null
   let lastPose: Seat['pose'] = 'sit'
-  // Rest pose captured once when seated: each frame starts from it, so bends never pile up and the walk/idle clip can't swing the limbs.
-  const base = new Map<THREE.Object3D, THREE.Quaternion>()
   return {
     get sitting() { return seat },
     sit(next: Seat, root: THREE.Object3D) {
@@ -82,7 +70,6 @@ export function createSeating() {
     stand() {
       if (!seat) return
       seat = null
-      base.clear()
       if (lastRoot) lastRoot.rotation.y = rootYaw0
     },
     /** Call after avatar.step() each frame. Cheap: a handful of quaternion multiplies while seated, nothing otherwise. */
@@ -95,53 +82,61 @@ export function createSeating() {
         if (lastRoot !== root) { lastRoot = root; rootYaw0 = root.rotation.y }
         root.rotation.y = seat.yaw - b.person.rotation.y
       }
-      for (const bone of [b.hips, ...b.legs, ...b.knees, ...b.arms, ...b.fores]) {
-        const q0 = base.get(bone)
-        if (seat && !q0 && blend > 0.95) base.set(bone, bone.quaternion.clone())
-        else if (q0) bone.quaternion.copy(q0)
-      }
       root.updateMatrixWorld(true)
       b.person.getWorldQuaternion(qPerson)
       axis.set(1, 0, 0).applyQuaternion(qPerson).normalize()
       const t = blend
       const pose = seat?.pose ?? lastPose
       if (seat) lastPose = seat.pose ?? 'sit'
+      // Every limb is AIMED at a direction in the sitter's own frame (never bent by an amount), so the pose is
+      // the same whatever clip is playing and cannot pile up on frames where a far figure's animation is skipped.
+      vFwd.set(0, 0, 1).applyQuaternion(qPerson).normalize()
+      const want = (r: number, u: number, f: number) => vWant.set(0, u, 0).addScaledVector(axis, r).addScaledVector(vFwd, f).normalize()
+      const sideOf = (bone: THREE.Object3D) => Math.sign(bone.getWorldPosition(vFrom).sub(b.hips.getWorldPosition(vTo)).dot(axis)) || 1
       if (pose === 'lie') {
-        // Lie back on the bed: tip the whole person onto its back at mattress height, arms relaxed.
+        // Lie back on the bed: tip the whole person onto its back at mattress height.
         b.person.rotation.x = -Math.PI / 2 * t
         b.person.position.y = ((seat?.y ?? 0.5) + 0.12) * t / (root.scale.y || 1)
-        for (const a of b.arms) bend(a, -0.15 * t)
         return
       }
       if (b.person.rotation.x !== 0) b.person.rotation.x = 0
       if (pose === 'workout') {
-        // Squat loop with arms forward: a simple procedural workout on top of the idle clip.
+        // Squat loop with the arms held forward.
         const k = (Math.sin(performance.now() / 1000 * 3.2) + 1) / 2 * t
-        for (const l of b.legs) bend(l, -1.0 * k)
-        for (const kn of b.knees) bend(kn, 1.7 * k)
-        for (const a of b.arms) bend(a, -1.45 * t)
+        for (let i = 0; i < 2; i++) {
+          const side = sideOf(b.legs[i]!)
+          aim(b.legs[i]!, b.knees[i]!, want(side * 0.08, -Math.cos(1.0 * k), Math.sin(1.0 * k)), 1)
+          aim(b.knees[i]!, b.feet[i]!, want(side * 0.02, -Math.cos(0.7 * k), -Math.sin(0.7 * k)), 1)
+        }
+        for (let i = 0; i < b.arms.length; i++) {
+          const fore = b.fores[i], hand = b.hands[i]
+          if (!fore || !hand) continue
+          const side = sideOf(b.arms[i]!)
+          aim(b.arms[i]!, fore, want(side * 0.12, -Math.cos(1.45 * t), Math.sin(1.45 * t)), 1)
+          aim(fore, hand, want(side * 0.04, -Math.cos(1.5 * t), Math.sin(1.5 * t)), 1)
+        }
         b.person.position.y = -0.32 * k / (root.scale.y || 1)
         return
       }
-      // Thighs level and forward, shins straight down: hips on the seat, knees bent at a right angle.
-      for (const l of b.legs) bend(l, -1.52 * t)
-      for (const k of b.knees) bend(k, 1.52 * t)
-      // Arms: elbows stay by the sides and the forearms come forward and a little inward, so each hand rests
-      // on its own thigh (mid-thigh, or nearer the knee on the other variant). Aimed, so any standing clip works.
+      // Sit: thighs level along the seat, shins straight down from its front edge, feet flat.
+      for (let i = 0; i < 2; i++) {
+        const side = sideOf(b.legs[i]!)
+        aim(b.legs[i]!, b.knees[i]!, want(side * 0.07, -0.05, 1), t)
+        aim(b.knees[i]!, b.feet[i]!, want(side * 0.02, -1, 0.04), t)
+      }
+      // Arms: elbows by the sides, forearms forward and a little inward, so each hand lies on its own thigh
+      // (mid-thigh, or nearer the knee on the other variant).
       const variant = Math.abs(Math.round((seat?.x ?? 0) * 3) + Math.round((seat?.z ?? 0) * 5) + Math.round((seat?.yaw ?? 0) * 7)) % 2
-      vFwd.set(0, 0, 1).applyQuaternion(qPerson).normalize()
-      const want = (r: number, u: number, f: number) => vWant.set(0, u, 0).addScaledVector(axis, r).addScaledVector(vFwd, f).normalize()
       for (let i = 0; i < b.arms.length; i++) {
         const arm = b.arms[i]!, fore = b.fores[i], hand = b.hands[i]
         if (!fore || !hand) continue
-        // Which side this arm is on, from where it actually is.
-        const side = Math.sign(arm.getWorldPosition(vFrom).sub(b.hips.getWorldPosition(vTo)).dot(axis)) || 1
-        aim(arm, fore, variant === 0 ? want(side * 0.1, -0.95, 0.26) : want(side * 0.08, -0.9, 0.4), t)
-        aim(fore, hand, variant === 0 ? want(-side * 0.33, -0.5, 0.8) : want(-side * 0.3, -0.36, 0.88), t)
+        const side = sideOf(arm)
+        aim(arm, fore, variant === 0 ? want(side * 0.1, -0.97, 0.16) : want(side * 0.08, -0.93, 0.3), t)
+        aim(fore, hand, variant === 0 ? want(-side * 0.3, -0.62, 0.72) : want(-side * 0.26, -0.5, 0.82), t)
       }
-      // Rest the hips on the seat top (scaled person: work in world units then convert).
+      // Rest the hips on the seat top: the thigh's own thickness keeps it above the boards.
       const seatY = seat?.y ?? 0.46
-      const drop = Math.max(0, b.hipDrop - (seatY + 0.06))
+      const drop = Math.max(0, b.hipDrop - (seatY + 0.09))
       b.person.position.y = -drop * t / (root.scale.y || 1)
     },
   }
