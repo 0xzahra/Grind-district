@@ -2,7 +2,7 @@
 
 **Build skills. Create proof.** A free browser life-simulation game: explore a shared 3D city, choose a career, learn skills through short lessons and challenges, and build a CV and portfolio from what you complete.
 
-- **Play:** https://grinddistrict.vercel.app
+- **Play:** https://www.grinddistrict.app
 - **Public demo post:** https://x.com/0xarewah/status/2119301193100837169
 - Made by [Zahra](https://0xzahra.github.io).
 
@@ -13,7 +13,7 @@
 - **CV, certificates and portfolio.** Each pass is filed to your CV with a certificate. Public profile and share card at `/cv/<username>`.
 - **Practice trading.** In-game practice funds only. Not real money, not financial advice.
 - **Boutique, gadgets, houses, gym, cafés, plaza.** In-game currency only.
-- **Sign-in:** email code through Privy. Guests can play and keep progress on their device.
+- **Sign-in:** Google, X, email, or a NEAR wallet. Guest play is off; progress saves to your account.
 - **Optional NEAR testnet Skill Passport** (below).
 
 ## NEAR Skill Passport (testnet, optional)
@@ -44,7 +44,6 @@ Disclosure: Grind District existed before the NEAR hackathon. Only the Skill Pas
   - Read-only testnet check: `node near/skill-passport/check-testnet.mjs`.
 - **Game UI:** on desktop, Career → Spot course has been checked in a browser.
 - **Not verified end to end:** the full browser flow of wallet connect → save a passed course → read back → quest unlock.
-- **Known issues:** movement, camera and textures still need work. A separate camera patch (77919fa) is not applied in this repository.
 
 ## Run from source
 
@@ -55,7 +54,7 @@ npm run build      # tsc + logic/lanes/look checks + vite build
 node tests/career-lessons.check.mjs
 ```
 
-Sign-in, cloud save and APIs need the project's Privy/Supabase environment, which is not included. Without it the game runs as a guest.
+Sign-in, cloud save and APIs need the project's Privy/Supabase environment, which is not included. Without it, a local build can still open the city for development.
 
 ## How to play
 
