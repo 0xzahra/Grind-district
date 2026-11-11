@@ -120,6 +120,7 @@ r = resOf()
 await certVoucher({ chain: 'base', course: 'risk', certId: encodeCertId({ ...d, c: 'risk', t: 'Risk sizing' }), to: '0x000000000000000000000000000000000000000A' }, r.res, fakeDb as never, 'did:privy:x', 'amina', async () => ['0x000000000000000000000000000000000000000A'])
 ok(r.o.code === 403 && /not passed/.test(String(r.o.body.error)), 'refuses a course not passed')
 delete process.env.VITE_CERT_NFT_BASE; delete process.env.CERT_SIGNER_PRIVATE_KEY
+delete process.env.VITE_CERT_NFT_NEAR; delete process.env.CERT_NEAR_SIGNER_KEY
 r = resOf()
 await certVoucher({ chain: 'near', course: 'spot', certId: id, receiver: 'amina.testnet' }, r.res, fakeDb as never, 'near:amina.testnet', 'amina', async () => [])
 ok(r.o.code === 503, 'no NEAR signer/contract: 503')
