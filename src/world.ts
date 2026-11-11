@@ -10,6 +10,8 @@ import { createArchitecture, type Facade, type Style } from './architecture.ts'
 import { buildShowroom } from './showcase.ts'
 import { createDrinkStand } from './drinkStand.ts'
 import { facetMap, paintFacets } from './facets.ts'
+import { createTrees } from './trees.ts'
+import { groundDetail } from './groundDetail.ts'
 
 export type Hotspot = {
   id: string
@@ -136,7 +138,6 @@ export function createWorld(options: {
   Object.assign(trim, { color: new THREE.Color(0xd9b26a), metalness: 0.9, roughness: 0.55 })
   for (const m of [stone, stoneDark, trim]) m.needsUpdate = true
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4a38, roughness: 0.82 })
-  const bark = new THREE.MeshStandardMaterial({ color: 0x4a3428, roughness: 0.9 })
   const leaf = new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.8, flatShading: true })
   const lampMat = new THREE.MeshStandardMaterial({
     color: 0xf6ecd8,
@@ -235,6 +236,7 @@ export function createWorld(options: {
   })
 
   const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, metalness: 0, color: 0xf2ebe0 })
+  groundDetail(groundMat, anisotropy)
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, SPAN), groundMat)
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
@@ -923,53 +925,9 @@ export function createWorld(options: {
     if (clearOf(x, z)) treeSpots.push([x, z, 0.85 + (i % 3) * 0.1])
   }
 
-  const dummy = new THREE.Object3D()
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.17, 1.05, 8), bark, treeSpots.length)
-  // Organic crowns: subdivided, noise-displaced clumps with baked vertex shade (darker underside = cheap AO).
-  const crownGeo = (r: number, seed: number) => {
-    const g = new THREE.IcosahedronGeometry(r, 2)
-    const p = g.getAttribute('position') as THREE.BufferAttribute
-    const col = new Float32Array(p.count * 3)
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), y = p.getY(i), z = p.getZ(i)
-      const n = 1 + 0.18 * Math.sin(x * 7.1 + seed) * Math.cos(z * 6.3 + seed) + 0.1 * Math.sin(y * 9.7 + seed * 2)
-      p.setXYZ(i, x * n, y * n, z * n)
-      const sh = 0.55 + 0.45 * THREE.MathUtils.clamp((y / r + 1) / 2, 0, 1)
-      col.set([sh * (0.9 + 0.1 * Math.sin(x * 13)), sh, sh * 0.92], i * 3)
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    g.computeVertexNormals()
-    return g
-  }
-  Object.assign(leaf, { flatShading: false, vertexColors: true, color: new THREE.Color(0x4f8a3e), roughness: 0.85 })
-  leaf.needsUpdate = true
-  const crowns = new THREE.InstancedMesh(crownGeo(0.72, 1), leaf, treeSpots.length)
-  trunks.castShadow = true
-  trunks.receiveShadow = true
-  crowns.castShadow = true
-  const crowns2 = new THREE.InstancedMesh(crownGeo(0.55, 4), leaf, treeSpots.length)
-  crowns2.castShadow = true
-  treeSpots.forEach(([x, z, base], index) => {
-    // Full-size street and park trees (~4 m), visible at every quality level.
-    const scale = base * 1.9
-    dummy.position.set(x, 0.52 * scale, z)
-    dummy.scale.setScalar(scale)
-    dummy.rotation.set(0, 0, 0)
-    dummy.updateMatrix()
-    trunks.setMatrixAt(index, dummy.matrix)
-    dummy.position.set(x, 1.45 * scale, z)
-    dummy.scale.set(scale, scale * 0.82, scale)
-    dummy.updateMatrix()
-    crowns.setMatrixAt(index, dummy.matrix)
-    dummy.position.set(x + 0.15 * scale, 1.95 * scale, z - 0.1 * scale)
-    dummy.rotation.set(0, index, 0)
-    dummy.scale.setScalar(scale * 0.8)
-    dummy.updateMatrix()
-    crowns2.setMatrixAt(index, dummy.matrix)
-    obstacles.push({ kind: 'circle', x, z, r: 0.2 * scale })
-  })
-  for (const m of [trunks, crowns, crowns2]) m.computeBoundingSphere()
-  scene.add(trunks, crowns, crowns2)
+  // Real trees (trees.ts): bark trunks with boughs and crowns of photographed leaves, two instanced meshes.
+  const trees = createTrees(scene, treeSpots, { light: window.matchMedia('(pointer: coarse)').matches, anisotropy })
+  for (const [x, z, base] of treeSpots) obstacles.push({ kind: 'circle', x, z, r: 0.2 * base * 1.9 })
 
   // Baked contact shading: a soft dark halo on the ground round every building and under every tree. Phones
   // run without shadow maps, so this is what seats the city on its ground there; with real shadows it reads
@@ -1254,24 +1212,8 @@ export function createWorld(options: {
           const material = ripple.mesh.material as THREE.MeshBasicMaterial
           material.opacity = (1 - t) * 0.45
         }
-        // Soft wind sway on tree crowns (leaves).
-        treeSpots.forEach(([x, z, base], index) => {
-          const scale = base * 1.9
-          const sway = Math.sin(time * 1.1 + index * 0.7) * 0.045
-          const sway2 = Math.cos(time * 0.9 + index * 1.1) * 0.03
-          dummy.position.set(x, 1.45 * scale, z)
-          dummy.rotation.set(sway * 0.4, 0, sway)
-          dummy.scale.set(scale * (1 + sway2 * 0.15), scale * 0.82, scale * (1 - sway2 * 0.1))
-          dummy.updateMatrix()
-          crowns.setMatrixAt(index, dummy.matrix)
-          dummy.position.set(x + 0.15 * scale, 1.95 * scale, z - 0.1 * scale)
-          dummy.rotation.set(sway * 0.5, index + time * 0.05, sway2)
-          dummy.scale.setScalar(scale * 0.8 * (1 + sway * 0.08))
-          dummy.updateMatrix()
-          crowns2.setMatrixAt(index, dummy.matrix)
-        })
-        crowns.instanceMatrix.needsUpdate = true
-        crowns2.instanceMatrix.needsUpdate = true
+        // A light wind in the tree crowns.
+        trees.sway(time)
       }
       if (time < nextScreen) return
       nextScreen = time + 0.5

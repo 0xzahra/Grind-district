@@ -1,5 +1,5 @@
-// Flat, faceted surface finishes (the art reference: big planar facets, matte colour, no photo textures).
-// Each helper paints a small tileable canvas once; materials multiply it with a flat colour.
+// Painted surface finishes: weathered tone, slabs and boards. Each helper paints a small tileable canvas once;
+// materials multiply it with a flat colour. (Photographed detail lives in surfaces.ts and groundDetail.ts.)
 import * as THREE from 'three'
 
 function rng(seed: number): () => number {
@@ -7,29 +7,51 @@ function rng(seed: number): () => number {
   return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0) / 4294967296
 }
 
-/** Paint a tileable field of large triangles in slightly different tones onto `g` (w x h px). */
+/**
+ * Paint a tileable, weathered tone onto `g` (w x h px): broad soft clouds of lighter and darker colour with a
+ * fine grain over them, the way plaster, stone and concrete really vary. (It used to paint big flat triangles,
+ * the old faceted low-poly look; the name and arguments are kept for its many callers.) `cells` sets how broad
+ * the clouds are, `contrast` how strong.
+ */
 export function paintFacets(g: CanvasRenderingContext2D, w: number, h: number, seed: number, cells: number, contrast: number, base: [number, number, number] = [255, 255, 255]): void {
+  g.fillStyle = `rgb(${base[0]},${base[1]},${base[2]})`
+  g.fillRect(0, 0, w, h)
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return
   const r = rng(seed)
-  const jx: number[] = [], jy: number[] = [], tone: number[] = [], flip: boolean[] = []
-  for (let i = 0; i < cells * cells; i++) { jx.push((r() - 0.5) * 0.7); jy.push((r() - 0.5) * 0.7); tone.push(r(), r()); flip.push(r() > 0.5) }
-  const cw = w / cells, ch = h / cells
-  const at = (i: number, j: number): [number, number] => {
-    const k = ((j % cells) + cells) % cells * cells + ((i % cells) + cells) % cells
-    return [(i + jx[k]!) * cw, (j + jy[k]!) * ch]
+  /** A small grid of greys scaled up smoothly; its border wraps, so the result tiles. */
+  const cloud = (n: number, amount: number) => {
+    const c = document.createElement('canvas')
+    c.width = c.height = n + 2
+    const cg = c.getContext('2d')
+    if (!cg) return
+    const tone: number[] = []
+    for (let i = 0; i < n * n; i++) tone.push(r())
+    const im = cg.createImageData(n + 2, n + 2)
+    for (let y = 0; y < n + 2; y++) for (let x = 0; x < n + 2; x++) {
+      const v = Math.round(128 + (tone[((y + n - 1) % n) * n + ((x + n - 1) % n)]! - 0.5) * 255 * amount)
+      im.data.set([v, v, v, 255], (y * (n + 2) + x) * 4)
+    }
+    cg.putImageData(im, 0, 0)
+    g.save()
+    g.globalCompositeOperation = 'soft-light'
+    g.imageSmoothingEnabled = true
+    g.imageSmoothingQuality = 'high'
+    g.drawImage(c, -w / n, -h / n, (w * (n + 2)) / n, (h * (n + 2)) / n)
+    g.restore()
   }
-  const tri = (a: [number, number], b: [number, number], c: [number, number], t: number) => {
-    const k = 1 - contrast * t
-    const col = `rgb(${Math.round(base[0] * k)},${Math.round(base[1] * k)},${Math.round(base[2] * k)})`
-    g.fillStyle = col
-    g.strokeStyle = col
-    g.lineWidth = 1.5
-    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.closePath(); g.fill(); g.stroke()
-  }
-  for (let j = -1; j <= cells; j++) for (let i = -1; i <= cells; i++) {
-    const k = ((j % cells) + cells) % cells * cells + ((i % cells) + cells) % cells
-    const p00 = at(i, j), p10 = at(i + 1, j), p01 = at(i, j + 1), p11 = at(i + 1, j + 1)
-    if (flip[k]) { tri(p00, p10, p11, tone[k * 2]!); tri(p00, p11, p01, tone[k * 2 + 1]!) }
-    else { tri(p00, p10, p01, tone[k * 2]!); tri(p10, p11, p01, tone[k * 2 + 1]!) }
+  const k = Math.min(1, contrast * 5.5)
+  cloud(Math.max(3, Math.round(cells * 0.45)), k)
+  cloud(Math.max(6, cells * 2), k * 0.6)
+  // Fine grain.
+  const grain = document.createElement('canvas')
+  grain.width = grain.height = 128
+  const gg = grain.getContext('2d')
+  if (gg) {
+    const im = gg.createImageData(128, 128)
+    for (let i = 0; i < 128 * 128; i++) { const v = Math.round(128 + (r() - 0.5) * 90); im.data.set([v, v, v, 255], i * 4) }
+    gg.putImageData(im, 0, 0)
+    const pattern = g.createPattern(grain, 'repeat')
+    if (pattern) { g.save(); g.globalCompositeOperation = 'soft-light'; g.globalAlpha = 0.5; g.fillStyle = pattern; g.fillRect(0, 0, w, h); g.restore() }
   }
 }
 
