@@ -29,7 +29,8 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   }
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); canvas.style.opacity = '0' })
   canvas.addEventListener('webglcontextrestored', () => { canvas.style.opacity = '' })
-  renderer.setPixelRatio(coarse ? Math.min(0.8, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
+  // Phones drew the title preview at 0.8x, which looked soft next to the crisp title card.
+  renderer.setPixelRatio(coarse ? Math.min(1.15, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.78
   renderer.outputColorSpace = THREE.SRGBColorSpace
