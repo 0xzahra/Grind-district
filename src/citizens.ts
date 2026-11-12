@@ -81,6 +81,8 @@ export const CITIZENS: CitizenSpec[] = [
   })
 }
 
+for (const c of CITIZENS) for (const pt of c.points) { const r = Math.hypot(pt.x, pt.z); if (r < 3.2 && r > 1e-3) { pt.x *= 3.2 / r; pt.z *= 3.2 / r } }
+
 export function bootCitizens(): CitizenSim[] {
   return CITIZENS.map((spec) => {
     const start = spec.points[0] ?? { x: 0, z: 0 }
@@ -126,5 +128,10 @@ export function stepCitizens(people: CitizenSim[], dt: number): void {
     const step = Math.min(dist, person.spec.speed * dt)
     person.x += (dx / dist) * step
     person.z += (dz / dist) * step
+    // Nobody walks through the Grind Ring stand at the centre of the plaza: slide round its deck instead.
+    const r = Math.hypot(person.x, person.z)
+    if (r < STAND_R && r > 1e-3) { person.x *= STAND_R / r; person.z *= STAND_R / r }
   }
 }
+/** Radius kept clear around the plaza drinks stand (its deck is 2.7 m across the middle). */
+const STAND_R = 3.1

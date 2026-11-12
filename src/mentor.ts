@@ -169,7 +169,7 @@ export function createMentorCard(hooks: MentorHooks) {
       }
       const nav = h('div', 'mentor-nav')
       nav.append(btn('Read the full lesson', 'ghost', () => { close(); hooks.fullLesson(id) }), btn('What next?', 'primary', () => { close(); hooks.next() }))
-      root.replaceChildren(head, h('p', 'mentor-say', 'Nice. That\u2019s on your CV with a certificate. Finish World 1\u2019s missions and its boss to earn the Netizen badge.'), nav)
+      root.replaceChildren(head, h('p', 'mentor-say', 'Nice. That\u2019s on your CV with a certificate. Finish World 1\u2019s three missions to complete it.'), nav)
     }
     const lvl = getLevel()
     if (lvl === 'homie') homie()

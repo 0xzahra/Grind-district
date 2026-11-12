@@ -226,10 +226,13 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
       'How is the grind?',
     ]
     greetToast(tips[Math.floor(Date.now() / 8000) % tips.length]!)
+    greetShown = 0; greetCool = 20; greetBtn.hidden = true
   })
   let greetToast: (m: string) => void = () => {}
   let greetShown = 0
   let greetAway = 99
+  let greetCool = 0
+  let npcCard: HTMLElement | null = null
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
   const physSky = createPhysicalSky(scene)
@@ -277,7 +280,7 @@ const apiAgents = createRemoteAgents(scene)
     firstMarker.add(gem, halo); firstMarker.position.set(0, 4.2, -40.4)
   }
   // Zahra, the Campus mentor, stands beside the marker: walking up to her starts the first lesson in the street.
-  const ada = posedHuman('woman4', { pose: 'stand', height: 1.68, look: { top: 0x2f4a44, robe: true, sleeves: true, shoes: 0x1a1c1f } })
+  const ada = posedHuman('woman2', { pose: 'stand', height: 1.68 })
   ada.position.set(1.9, 0, -40.9)
   ada.rotation.y = -0.35
   {
@@ -287,6 +290,12 @@ const apiAgents = createRemoteAgents(scene)
   }
   ada.userData.ghost = true
   scene.add(ada)
+  {
+    const server = posedHuman('man1', { pose: 'stand', height: 1.76, look: { top: 0x1f5a4c, bottom: 0x23262a, shoes: 0x16181b } })
+    server.position.set(0.35, 0.2, 0.32)
+    server.userData.ghost = true
+    scene.add(server)
+  }
   resumeMusicOnFirstTap()
   ensureAmbientOnGesture()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
@@ -999,15 +1008,15 @@ const apiAgents = createRemoteAgents(scene)
   setPresence({ find: (u) => net.findPeer(u) })
   // Tapped city resident: a small card (name, persona, what they are doing). Auto-hides; never blocks play.
   const showNpcCard = (n: { name: string; trait: string; routine: string; doing: string }) => {
-    document.getElementById('npc-card')?.remove()
+    npcCard?.remove()
     const c = document.createElement('div'); c.id = 'npc-card'; c.setAttribute('role', 'status')
-    c.style.cssText = 'position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;max-width:300px;padding:10px 14px;border-radius:14px;background:#141a17e8;color:#efe9dc;font:14px Outfit,system-ui,sans-serif;box-shadow:0 6px 18px #0007;pointer-events:auto'
     const h = document.createElement('strong'); h.textContent = `${n.name} · ${n.trait}`
-    const d = document.createElement('div'); d.textContent = n.doing; d.style.cssText = 'color:#d9b26a;margin-top:2px'
-    const r = document.createElement('div'); r.textContent = n.routine; r.style.cssText = 'opacity:.75;font-size:12px;margin-top:2px'
-    c.append(h, d, r); c.onclick = () => c.remove()
+    const d = document.createElement('div'); d.className = 'npc-doing'; d.textContent = n.doing
+    const r = document.createElement('div'); r.className = 'npc-routine'; r.textContent = n.routine
+    c.append(h, d, r); c.onclick = () => { c.remove(); if (npcCard === c) npcCard = null }
     document.body.append(c)
-    window.setTimeout(() => c.remove(), 6000)
+    npcCard = c
+    window.setTimeout(() => { c.remove(); if (npcCard === c) npcCard = null }, 3500)
   }
   // Guests: after the first reward or purchase, offer to save progress to an account (once per session);
   // on leaving with progress, the browser asks to confirm. Signed-in players sync their save every minute.
@@ -1393,9 +1402,12 @@ const apiAgents = createRemoteAgents(scene)
     {
       // Greet: appears beside a resident, leaves 1.5 s after you walk off, and steps aside after 6 s even if
       // you linger in a crowd (comes back the next time you walk up to someone).
-      const near = !ui.isOpen() && !interiors.inside && crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.4)
-      if (near) { greetAway = 0; greetShown += dt } else { greetAway += dt; if (greetAway > 1.5) greetShown = 0 }
-      greetBtn.hidden = !(near || (greetAway < 1.5 && greetShown > 0)) || greetShown > 6 || ui.isOpen()
+      const near = !ui.isOpen() && !interiors.inside && crowd.nearest(avatar.object.position.x, avatar.object.position.z, 2.2)
+      greetCool = Math.max(0, greetCool - dt)
+      if (near && greetCool === 0) { greetAway = 0; greetShown += dt; if (greetShown > 4) { greetShown = 0; greetCool = 20 } }
+      else if (!near) { greetAway += dt; if (greetAway > 0.4) greetShown = 0 }
+      greetBtn.hidden = !(greetShown > 0 && greetCool === 0) || ui.isOpen()
+
     }
     agentBot.tick(dt, avatar.object.position)
   apiAgents.tick(dt)
@@ -1481,6 +1493,8 @@ const apiAgents = createRemoteAgents(scene)
     const rightX = Math.cos(camYaw)
     const rightZ = -Math.sin(camYaw)
     const directed = !paused && Math.hypot(frame.x, frame.y) > 0.06
+    // A person's card goes as soon as you walk on.
+    if (npcCard && directed) { npcCard.remove(); npcCard = null }
     let wishX = 0
     let wishZ = 0
     if (paused) {
@@ -1754,6 +1768,13 @@ const apiAgents = createRemoteAgents(scene)
       if (holdRedraw <= 0) return
       holdRedraw -= 1
       try { post.render() } catch { /* keep the last frame */ }
+      return
+    }
+    // A panel (Trade, Boutique, Profile...) covers most of the screen: the city keeps its last frame and the
+    // phone's whole budget goes to the panel, so taps and scrolling answer at once. Prices keep moving.
+    if (revealed && document.body.classList.contains('sheet-open')) {
+      tickMarket(dt, Date.now())
+      if (holdRedraw > 0) { holdRedraw -= 1; try { post.render() } catch { /* keep the last frame */ } }
       return
     }
     elapsed += dt

@@ -38,7 +38,9 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
   const s = getSave()
   const root = h('div', 'lx')
   const passed = (id: SkillId) => Boolean(s.skills[id]?.passed)
-  const done = COURSES.filter((c) => passed(c.id)).length
+  // Count what is on the path: the old World 1 sorting check is off it, so it is not counted.
+  const onPath = COURSES.filter((c) => c.id !== 'w1Boss')
+  const done = onPath.filter((c) => passed(c.id)).length
   const rankI = RANKS.reduce((a, r, i) => (s.xp >= r.xp ? i : a), 0)
   const next = RANKS[rankI + 1]
   const cur = RANKS[rankI]
@@ -63,7 +65,7 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
     root.append(card)
   }
   const earned = badges()
-  root.append(h('p', 'lx-sub', `Your worlds · ${done}/${COURSES.length} missions · ${earned.length ? `Badges: ${earned.join(', ')}` : 'no badges yet'}`))
+  root.append(h('p', 'lx-sub', `Your worlds · ${done}/${onPath.length} missions · ${earned.length ? `Badges: ${earned.join(', ')}` : 'no badges yet'}`))
   for (const w of WORLDS) {
     const ids = [...w.missions, ...(w.boss ? [w.boss] : [])]
     const got = ids.filter(passed).length
@@ -80,7 +82,7 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
       card.type = 'button'
       const body = h('div', 'lx-card-b')
       const pb = h('div', 'lx-bar'); const pf = h('i'); pf.style.width = `${ok ? 100 : isNext ? 8 : 0}%`; pb.append(pf)
-      body.append(h('small', 'lx-level', boss ? `Boss${ok ? ' · ✓ Beaten' : ''}` : ok ? '✓ Done' : lock ? '🔒 Locked' : isNext ? 'Up next' : 'Mission'), h('b', '', SKILL_META[id].title), h('span', 'lx-count', lock || `${c.questions.length} checks · ${c.minutes}`), pb)
+      body.append(h('small', 'lx-level', boss ? `Final check${ok ? ' · ✓ Passed' : ''}` : ok ? '✓ Done' : lock ? '🔒 Locked' : isNext ? 'Up next' : 'Mission'), h('b', '', SKILL_META[id].title), h('span', 'lx-count', lock || `${c.questions.length} checks · ${c.minutes}`), pb)
       card.append(courseArt(id), body)
       card.onclick = () => { if (!lock) onCourse(id) }
       target.append(card)

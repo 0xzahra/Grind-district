@@ -1,4 +1,4 @@
-// Campus as six gamified Worlds (Zahra's outline). Each World has missions, a boss and a reward.
+// Campus as six gamified Worlds (Zahra's outline). Each World has missions, a final check and a reward.
 // Old course ids are reused as missions, so saves that passed them stay valid; new missions were appended
 // to SKILL_ORDER. Rewards and unlocks are derived from passed courses (nothing new is stored in the save).
 // Everyone starts at World 1: the Homie/Normie placement is only a label now.
@@ -8,7 +8,7 @@ import type { SkillId } from './logic.ts'
 export type World = { n: number; title: string; badge: string; reward: string; unlocks: string; missions: SkillId[]; boss?: SkillId; extra?: { title: string; missions: SkillId[]; needsShield?: boolean } }
 
 export const WORLDS: World[] = [
-  { n: 1, title: 'The Internet', badge: '', reward: '+$50 in-game balance', unlocks: 'Opens World 2', missions: ['internet', 'money', 'webEras'], boss: 'w1Boss' },
+  { n: 1, title: 'The Internet', badge: '', reward: '+$50 in-game balance', unlocks: 'Opens World 2', missions: ['internet', 'money', 'webEras'] },
   { n: 2, title: 'The Scam That Taught Me', badge: 'Scam Shield', reward: 'Scam Shield badge', unlocks: 'Unlocks Wallet missions', missions: ['redFlags', 'p2pSharks', 'scams'], boss: 'w2Boss', extra: { title: 'Wallet missions', missions: ['wallets', 'custody', 'explorer', 'records'], needsShield: true } },
   { n: 3, title: 'Blockchain Basics', badge: 'Chain Builder', reward: 'Chain Builder badge', unlocks: 'Opens World 4', missions: ['chainBlocks', 'chainTraits', 'chainTypes', 'chainHistory'], boss: 'trilemma' },
   { n: 4, title: 'Layers and Uses', badge: "Builder's Eye", reward: "Builder's Eye badge", unlocks: 'Opens World 5', missions: ['layers', 'apps', 'useCases'], boss: 'w4Boss', extra: { title: 'Deep dives', missions: ['defi', 'liquidity', 'stables', 'nfts', 'daos', 'carbon'] } },
@@ -18,7 +18,7 @@ export const WORLDS: World[] = [
 
 const passed = (id: SkillId) => Boolean(getSave().skills[id]?.passed)
 
-/** A World is done when its boss is beaten. */
+/** A World is done when its final check is passed (World 1: when its three missions are passed). */
 export function worldDone(n: number): boolean {
   const w = WORLDS[n - 1]
   if (!w) return false
@@ -47,7 +47,7 @@ export function lockReason(id: SkillId): string {
   if (w.boss === id && !w.missions.every(passed)) return 'Finish this World\'s missions first'
   return ''
 }
-/** Play order: every World's missions, then its boss, then its extra missions. */
+/** Play order: every World's missions, then its final check, then its extra missions. */
 export const WORLD_ORDER: SkillId[] = WORLDS.flatMap((w) => [...w.missions, ...(w.boss ? [w.boss] : []), ...(w.extra?.missions ?? [])])
 /** Next mission on the main path (extras are optional and never block the next World). */
 export function nextMission(): SkillId | undefined {

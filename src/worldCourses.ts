@@ -37,7 +37,7 @@ export const WORLD_COURSES: Course[] = [
     q('The price of owning your assets in Web 3 is:', ['Nothing at all', 'You must protect your own keys', 'You must pay a platform monthly', 'You can no longer read pages'], 1, 'Ownership comes with key responsibility.'),
   ] },
   { id: 'w1Boss', minutes: '2 min', paragraphs: [
-    'Boss: Web eras. Sort real examples into Web 1, Web 2 or Web 3.',
+    'Sorting practice. Sort real examples into Web 1, Web 2 or Web 3.',
     'Web 1 reads. Web 2 reads and writes on someone else\'s platform. Web 3 reads, writes and lets you own.',
     'Get them right and you earn the Netizen badge, which opens World 2.',
     'Sources: the read / read-write / read-write-own framing from Mission 1.3.',
@@ -73,7 +73,7 @@ export const WORLD_COURSES: Course[] = [
     q('Payment arrives from a name that is not your trade partner\'s. Safest move:', ['Accept it, money is money', 'Do not release; raise it with the platform', 'Split the difference'], 1, 'Third-party payments are a common fraud pattern.'),
   ] },
   { id: 'w2Boss', minutes: '2 min', paragraphs: [
-    'Boss: the inbox. Six messages arrive. Flag the scams and keep the safe ones.',
+    'The scam inbox. Six messages arrive. Flag the scams and keep the safe ones.',
     'Look for urgency, guaranteed returns, "send first to receive more" and any request for your seed phrase or a signature you do not understand.',
     'Pass and you earn the Scam Shield badge, which unlocks the Wallet missions.',
     'Sources: the red flags from Missions 2.1 to 2.3.',
@@ -128,7 +128,7 @@ export const WORLD_COURSES: Course[] = [
     q('Third-generation chains focus on:', ['Scalability, usability and interoperability', 'Printing more coins', 'Removing all fees forever'], 0, 'Making chains faster, easier and connected.'),
   ] },
   { id: 'trilemma', minutes: '2 min', paragraphs: [
-    'Boss: the trilemma tightrope. A blockchain wants three things: security, scalability (lots of cheap, fast transactions) and decentralisation.',
+    'The trilemma tightrope. A blockchain wants three things: security, scalability (lots of cheap, fast transactions) and decentralisation.',
     'Designs tend to trade one of these off against the other two. Push hard on one and you usually give something up elsewhere.',
     'Layer 2 networks and new designs try to ease the trade-off, but no chain gets all three for free. Pass to earn the Chain Builder badge.',
     'Sources: the blockchain trilemma as described by Vitalik Buterin and ethereum.org, "Scaling".',
@@ -170,7 +170,7 @@ export const WORLD_COURSES: Course[] = [
     q('Match it: a small shop keeping its own private stock list', ['Needs a blockchain', 'Not a blockchain problem'], 1, 'One trusted owner does not need a shared ledger.', 'match'),
   ] },
   { id: 'w4Boss', minutes: '2 min', paragraphs: [
-    'Boss: pick the right tool. Five real problems, five Web3 tools.',
+    'Pick the right tool. Five real problems, five Web3 tools.',
     'Smart contracts run rules. Stablecoins hold a steady price. DEXs swap tokens. DAOs let a group vote. NFTs prove ownership of one unique item.',
     'Pass and you earn the Builder\'s Eye badge, which opens World 5.',
     'Sources: Missions 4.1 to 4.3 and the DeFi, stablecoin, NFT and DAO lessons.',
@@ -233,7 +233,7 @@ export const WORLD_COURSES: Course[] = [
     q('Hackathons give you…', ['Deadlines, judges and prizes', 'Guaranteed funding', 'A free audit'], 0, 'Structure and a shot at prizes.'),
   ] },
   { id: 'w5Boss', minutes: '2 min', paragraphs: [
-    'Boss: build your own path. Answer a short quiz and pick the safest first step for each player.',
+    'Build your own path. Answer a short quiz and pick the safest first step for each player.',
     'Start with what you have. No money? Use skills and time. Some savings? Learn first, start with spot, and size small.',
     'Pass and you earn the Pathfinder badge, which unlocks Careers in the city.',
     'Sources: Missions 5.1 to 5.5 and the Earning Map.',

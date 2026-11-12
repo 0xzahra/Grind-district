@@ -33,7 +33,7 @@ export const SKILL_ORDER = [
   'defi',
   'nfts',
   'daos',
-  // Six-world Campus (worlds.ts): new missions and bosses. Appended so old saves keep their ids.
+  // Six-world Campus (worlds.ts): new missions and final checks. Appended so old saves keep their ids.
   'internet', 'money', 'webEras', 'w1Boss', 'redFlags', 'p2pSharks', 'w2Boss', 'chainBlocks', 'chainTraits', 'chainTypes', 'chainHistory', 'trilemma', 'layers', 'useCases', 'w4Boss', 'earnWays', 'w5Boss', 'apps', 'web2Skill', 'timePaths', 'moneyPaths', 'builderPaths',
 ] as const
 
@@ -63,25 +63,25 @@ export const SKILL_META: Record<SkillId, { title: string; cv: string }> = {
   internet: { title: 'What the internet is', cv: 'Internet basics — servers, packets and shared protocols' },
   money: { title: 'What money is', cv: 'Money basics — medium of exchange, unit of account, store of value' },
   webEras: { title: 'Web 1, Web 2, Web 3', cv: 'Web eras — read, read-write, read-write-own' },
-  w1Boss: { title: 'Boss: Web eras', cv: 'Netizen badge — sorts real examples into the right Web era' },
+  w1Boss: { title: 'Web eras: sorting practice', cv: 'Netizen badge — sorts real examples into the right Web era' },
   redFlags: { title: 'Red flags everywhere', cv: 'Red flags — urgency, guaranteed returns, seed-phrase requests' },
   p2pSharks: { title: 'P2P and OTC sharks', cv: 'P2P safety — stays in escrow, checks the bank, refuses third-party payments' },
-  w2Boss: { title: 'Boss: the scam inbox', cv: 'Scam Shield badge — flags scams in a live inbox' },
+  w2Boss: { title: 'The scam inbox', cv: 'Scam Shield badge — flags scams in a live inbox' },
   chainBlocks: { title: 'What a blockchain is', cv: 'Blockchain basics — blocks linked by hashes, many copies' },
   chainTraits: { title: 'Decentralised, secure, transparent', cv: 'Key traits — decentralisation, security, transparency' },
   chainTypes: { title: 'Types of blockchain', cv: 'Chain types — public, private, consortium, hybrid' },
   chainHistory: { title: 'Bitcoin to today', cv: 'Evolution — Bitcoin, Ethereum and smart contracts, today' },
-  trilemma: { title: 'Boss: the trilemma tightrope', cv: 'Chain Builder badge — explains the security, scalability, decentralisation trade-off' },
+  trilemma: { title: 'The trilemma tightrope', cv: 'Chain Builder badge — explains the security, scalability, decentralisation trade-off' },
   layers: { title: 'Layers 0, 1, 2 and 3', cv: 'Layers — interoperability, base chains, rollups, app chains' },
   useCases: { title: 'Real-world use cases', cv: 'Use cases — matches problems to blockchain fits and misfits' },
-  w4Boss: { title: 'Boss: the right tool', cv: "Builder's Eye badge — picks the right Web3 tool for real problems" },
+  w4Boss: { title: 'The right tool', cv: "Builder's Eye badge — picks the right Web3 tool for real problems" },
   earnWays: { title: 'Three ways in: Money, Skills, Time', cv: 'Earning Map — money, skills, time and builder paths' },
   apps: { title: 'Run a tiny town: Web3 apps', cv: 'Applications — DeFi, DEXs, stablecoins, NFTs, DAOs, dApps, decentralised identity' },
   web2Skill: { title: 'Your Web2 skill, your Web3 job', cv: 'Career mapping — turns a Web2 skill into a Web3 role' },
   timePaths: { title: 'Time paths', cv: 'Time paths — airdrops, testnets, bounties, ambassadors with realistic expectations' },
   moneyPaths: { title: 'Money paths and risk sizing', cv: 'Money paths — spot first, sizes every position' },
   builderPaths: { title: 'Builder paths', cv: 'Builder paths — dApps, bots, AI tools, grants and hackathons' },
-  w5Boss: { title: 'Boss: draw your path', cv: 'Pathfinder badge — picks a safe first earning path' },
+  w5Boss: { title: 'Draw your path', cv: 'Pathfinder badge — picks a safe first earning path' },
 }
 
 export type MapSize = 'compact' | 'large'

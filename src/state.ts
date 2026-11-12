@@ -238,7 +238,7 @@ export function bonusXp(n: number, label: string, detail: string): void {
   emit(up)
 }
 /** Small in-game cash rewards (never real money). Credits the in-game balance and logs it in history; XP stays internal for rank. */
-/** In-game balance for beating the World 1 boss (not a deposit, not withdrawable as a payment). */
+/** In-game balance for finishing World 1 (not a deposit, not withdrawable as a payment). */
 export const WORLD1_REWARD = 50
 export function earnCash(usd: number, label: string, detail: string, xp = 0): void {
   const amt = cents(Math.max(0, usd))
@@ -561,8 +561,9 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
       log('money', label, `${money(COURSE_CASH)} in-game for passing the course.`)
     }
   }
-  // World 1 reward (Zahra's six worlds): in-game balance once, when the World 1 boss is beaten.
-  if (id === 'w1Boss' && !save.activities.some((item) => item.label === 'World 1 reward')) {
+  // World 1 reward (Zahra's six worlds): in-game balance once, when World 1's three missions are passed.
+  const world1 = ['internet', 'money', 'webEras'] as const
+  if ((id === 'w1Boss' || (world1 as readonly string[]).includes(id)) && world1.every((k) => save.skills[k]?.passed) && !save.activities.some((item) => item.label === 'World 1 reward')) {
     save.ledger = cents(save.ledger + WORLD1_REWARD)
     log('money', 'World 1 reward', `${money(WORLD1_REWARD)} in-game for finishing World 1: The Internet.`)
   }

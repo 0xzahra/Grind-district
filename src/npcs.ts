@@ -95,15 +95,26 @@ const LOOKS: Array<[number, number]> = [
   [0x6f4329, 0x16100d], [0xa8714b, 0x4a2c1a], [0x55321f, 0x0e0a08], [0xe0b08e, 0x7a3420], [0xbf8a62, 0x15110e],
 ]
 /** Personalities: a trait, a daily routine and a few short lines in their own voice. */
-const PERSONAS = [
+type Persona = { name: string; trait: string; routine: string; lines: string[] }
+const WOMEN_PERSONAS: Persona[] = [
   { name: 'Amara', trait: 'Builder', routine: 'Codes at the café, gym at dusk', lines: ['Shipped a fix before breakfast.', 'Ideas are cheap. Commits are not.', 'Gym, then the hackathon board.'] },
-  { name: 'Leo', trait: 'Careful trader', routine: 'Trading floor mornings, library afternoons', lines: ['Size first, story second.', 'I journal every trade.', 'Stop-loss is self-respect.'] },
   { name: 'Mei', trait: 'Researcher', routine: 'Library hall all day', lines: ['Read the docs, not the hype.', 'Footnotes win arguments.', 'Heading to the library hall.'] },
-  { name: 'Tunde', trait: 'Community lead', routine: 'Plaza meetups, podium talks', lines: ['Who is speaking at the podium?', 'Bring a friend to the meetup.', 'Good communities compound.'] },
   { name: 'Sofia', trait: 'Designer', routine: 'Fashion house studio, waterfront walks', lines: ['Taste is a skill. Practise it.', 'Less, but better.', 'The promenade light is perfect now.'] },
-  { name: 'Kenji', trait: 'Security nerd', routine: 'Showroom, then the lounge', lines: ['Never sharing a seed. Ever.', 'Hardware wallet, always.', 'Check the address twice.'] },
   { name: 'Zainab', trait: 'Founder', routine: 'Pitch practice, investor coffees', lines: ['Demo day is in two weeks.', 'Customers first, token later.', 'Penthouse view keeps me hungry.'] },
+  { name: 'Aisha', trait: 'Analyst', routine: 'Trading floor charts, evening tea at the plaza', lines: ['Charts first, opinions later.', 'I keep a trade journal.', 'Tea, then the closing bell.'] },
+  { name: 'Ngozi', trait: 'Community manager', routine: 'Conference hall events, plaza meetups', lines: ['Who is new here today?', 'Event at six, bring a friend.', 'Kindness scales.'] },
+  { name: 'Hana', trait: 'Product designer', routine: 'Studio sketches, gallery walks', lines: ['Fewer buttons, clearer words.', 'I test with my mum first.', 'Sketching the new wallet flow.'] },
+  { name: 'Lola', trait: 'Content creator', routine: 'Filming at the waterfront, editing at the café', lines: ['New thread going up tonight.', 'Sources in the replies.', 'Disclose every holding.'] },
+]
+const MEN_PERSONAS: Persona[] = [
+  { name: 'Leo', trait: 'Careful trader', routine: 'Trading floor mornings, library afternoons', lines: ['Size first, story second.', 'I journal every trade.', 'Stop-loss is self-respect.'] },
+  { name: 'Tunde', trait: 'Community lead', routine: 'Plaza meetups, podium talks', lines: ['Who is speaking at the podium?', 'Bring a friend to the meetup.', 'Good communities compound.'] },
+  { name: 'Kenji', trait: 'Security nerd', routine: 'Showroom, then the lounge', lines: ['Never sharing a seed. Ever.', 'Hardware wallet, always.', 'Check the address twice.'] },
   { name: 'Noah', trait: 'Calm saver', routine: 'Morning run, budget review', lines: ['Testnet points are a score, not a promise.', 'Slow money is still money.', 'Same time at the gym tomorrow?'] },
+  { name: 'Chidi', trait: 'Smart-contract dev', routine: 'Audits at the library, gym at dusk', lines: ['Read the contract, not the tweet.', 'Tests before deploys.', 'Revoke old approvals.'] },
+  { name: 'Omar', trait: 'Market maker', routine: 'Trading floor all morning', lines: ['Spreads tell the story.', 'Liquidity is a promise.', 'Never trade tired.'] },
+  { name: 'Diego', trait: 'Game designer', routine: 'Arcade testing, campus talks', lines: ['Fun first, tokens later.', 'Playtesting the new level.', 'Guilds need good tools.'] },
+  { name: 'Femi', trait: 'Student', routine: 'Campus lectures, library evenings', lines: ['World 3 is hard but good.', 'Passed my wallet course!', 'Group study at seven.'] },
 ]
 
 const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Campus.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
@@ -140,6 +151,10 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
 
 export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
+  // Each resident gets a name that fits the figure: women's names on women, men's names on men.
+  const personas = new Map<Person, Persona>()
+  let womenNamed = 0, menNamed = 0
+  const persona = (p: Person): Persona => personas.get(p) ?? MEN_PERSONAS[0]!
   for (const spec of CITIZENS) {
     const avatar = createAvatar(spec.body, spec.tint, spec.luxury, people.length)
     // Street citizens show natural faces (licensed NFT faces only ever go on players who own them).
@@ -152,7 +167,8 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       if (m.name === 'hair') m.color.setHex(look[1])
     })
     avatar.object.userData.look = { skin: look[0], hair: look[1], top: spec.tint }
-    avatar.object.userData.persona = PERSONAS[people.length % PERSONAS.length]
+    const named = spec.body === 'zuri' ? WOMEN_PERSONAS[womenNamed++ % WOMEN_PERSONAS.length]! : MEN_PERSONAS[menNamed++ % MEN_PERSONAS.length]!
+    avatar.object.userData.persona = named
     const start = spec.points[0]
     if (!start) continue
     avatar.object.position.set(start.x, 0, start.z)
@@ -169,6 +185,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       drone,
       radius: spec.points.length > 1 ? 0.42 : 0.38,
     })
+    personas.set(people[people.length - 1]!, named)
   }
 
   // A few residents sit on the plaza benches or work out in the park; they rotate every ~40 s.
@@ -218,7 +235,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
   const moodOf = (i: number) => MOODS[(i * 7 + Math.floor(Date.now() / 864e5)) % MOODS.length]!
   const routineNow = (i: number) => {
     const h = new Date().getHours()
-    const per = PERSONAS[i % PERSONAS.length]!
+    const per = persona(people[i]!)
     if (h < 6) return 'Should be asleep, honestly'
     if (h < 12) return `Work time: ${per.routine.split(',')[0]!.toLowerCase()}`
     if (h < 14) return 'Lunch break at the Campus café'
@@ -231,7 +248,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     const tgt = p.sim.spec.points[p.sim.index]
     if (!still.has(i) && tgt) return `Heading to ${placeName(tgt.x, tgt.z)}`
     const partner = people.find((o, j) => j !== i && still.has(j) && Math.hypot(o.sim.x - p.sim.x, o.sim.z - p.sim.z) < 2.6)
-    if (partner) return `Chatting with ${PERSONAS[people.indexOf(partner) % PERSONAS.length]!.name}`
+    if (partner) return `Chatting with ${persona(partner).name}`
     return `Hanging out at ${placeName(p.sim.x, p.sim.z)}`
   }
   return {
@@ -243,7 +260,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         if (!p.avatar.object.visible) continue
         const along = bodyHit(ray.ray, p.sim.x, p.sim.z)
         if (along !== null && along < bestD) {
-          const per = PERSONAS[i % PERSONAS.length]!
+          const per = persona(people[i]!)
           bestD = along; best = { name: per.name, trait: per.trait, routine: per.routine, doing: doing(p, i) }
         }
       }
@@ -261,7 +278,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         chatClock = 5 + (chatLine % 3)
         const near = people.filter((p, i) => still.has(i) && Math.hypot(p.sim.x - player.x, p.sim.z - player.z) < 22)
         const a = near[chatLine % Math.max(1, near.length)]
-        if (a && live.length < 0) { const per = PERSONAS[people.indexOf(a) % PERSONAS.length]!; const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
+        if (a && live.length < 0) { const per = persona(a); const sp = bubble(chatLine % 3 === 2 ? CHAT[chatLine % CHAT.length]! : `${per.name}: ${per.lines[chatLine % per.lines.length]}`); a.avatar.object.add(sp); live.push({ sp, host: a.avatar.object, ttl: 3.6 }) }
         chatLine += 1
       }
       if (freeWill && player && live.length < 1) {
@@ -270,7 +287,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const i = people.findIndex((p, k) => Math.hypot(p.sim.x - player.x, p.sim.z - player.z) < 2.6 && (talked[k] ?? -99) < now - 20)
         if (i >= 0) {
           talked[i] = now
-          const per = PERSONAS[i % PERSONAS.length]!
+          const per = persona(people[i]!)
           const turn = Math.floor(now) % 3
           const text = turn === 0 ? `${per.name}: Feeling ${moodOf(i)} today.` : turn === 1 ? `${per.name}: ${routineNow(i)}.` : `${per.name}: ${per.lines[Math.floor(now) % per.lines.length]}`
           const sp = bubble(text); people[i]!.avatar.object.add(sp); live.push({ sp, host: people[i]!.avatar.object, ttl: 3.6 })
