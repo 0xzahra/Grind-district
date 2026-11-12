@@ -1,6 +1,6 @@
 # Grind District
 
-**Build skills. Create proof.** A free browser life-simulation game: explore a shared 3D city, choose a career, learn skills through short lessons and challenges, and build a CV and portfolio from what you complete.
+**Interact, build skills and create proof.** A free browser life-simulation game: explore a shared 3D city, choose a career, learn skills through short lessons and challenges, and build a CV and portfolio from what you complete.
 
 - **Play:** https://www.grinddistrict.app
 - **Public demo post:** https://x.com/0xarewah/status/2119301193100837169
@@ -8,15 +8,12 @@
 
 ## What's in the game
 
-- **Shared 3D city.** Walk with other players, chat nearby, see names and ranks.
+- **Shared 3D city.** Walk with other players, chat nearby and visit places.
 - **Career & Lessons.** Career opens on Lessons: 20 courses, each with a status (Passed / Up next / Not started) and Start/Review. Careers lists the lessons for each path. Courses are taught on Campus.
-- **CV, certificates and portfolio.** Each pass is filed to your CV with a certificate. Public profile and share card at `/cv/<username>`. Each certificate also has a public page at `/cert/<id>`. Players can mint a soulbound practice certificate as an NFT on NEAR testnet (`grinddistrict-cert.testnet`). The Base mint button stays hidden until a Base contract is deployed.
+- **CV, certificates and portfolio.** Each pass is filed to your CV with a certificate. Public profile and share card at `/cv/<username>`. Each certificate also has a public page at `/cert/<id>`. Players can mint a soulbound certificate after upon course completion anytime as an NFT on NEAR testnet (`grinddistrict-cert.testnet`).
 - **Practice trading.** In-game practice funds only. Not real money, not financial advice.
 - **Boutique, gadgets, houses, gym, cafés, plaza.** In-game currency only.
-- **Sign-in:** Google, X, email, or a NEAR wallet. Guest play is off; progress saves to your account.
-- **Optional NEAR testnet Skill Passport** (below).
-
-## NEAR Skill Passport (testnet, optional)
+- **Sign-in:** Google, 𝕏, email, agent prompt or a NEAR wallet. Progress saves to your account automatically.
 
 Disclosure: Grind District existed before the NEAR hackathon. Only the Skill Passport integration is new work for the hackathon. It was added in commit [`5e12fab`](https://github.com/0xzahra/Grind-district/commit/5e12fabc3af425962b7b0321a42ca86832bda345), with a follow-up UI fix in [`21b5187`](https://github.com/0xzahra/Grind-district/commit/21b51874754917e51d9b9d12b69935cdda5da6e9).
 
