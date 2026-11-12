@@ -12,6 +12,7 @@ import { buildHomeFurniture } from './homeFurniture.ts'
 import { buildHomeLife } from './homeLife.ts'
 import { MEN, posedHuman } from './humans.ts'
 import { paintSchedule } from './events.ts'
+import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers, paintTicker } from './tradingFloor.ts'
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
 export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
@@ -263,13 +264,6 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       }
       inst(new THREE.BoxGeometry(0.05, dh - 0.05, 0.05), frame, legs)
       inst(new THREE.BoxGeometry(dw - 0.2, dh * 0.42, 0.025), top, panels)
-    }
-    const officeChairs = (spots: Spot[], pad: THREE.Material, frame: THREE.Material) => {
-      const backs: Array<[number, number, number, number?]> = spots.map(([x, z, ry = 0]) => { const [ox, oz] = turn(0, 0.22, ry); return [x + ox, 0.74, z + oz, ry] })
-      inst(new THREE.BoxGeometry(0.48, 0.07, 0.46), pad, spots.map(([x, z, ry = 0]) => [x, 0.45, z, ry]))
-      inst(new THREE.BoxGeometry(0.46, 0.48, 0.05), pad, backs)
-      inst(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8), frame, spots.map(([x, z]) => [x, 0.22, z]))
-      inst(new THREE.CylinderGeometry(0.27, 0.27, 0.035, 10), frame, spots.map(([x, z]) => [x, 0.03, z]))
     }
 
     if (id === 'house') {
@@ -533,56 +527,62 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
 
     if (id === 'trading') {
-      // Trading floor: six desks with twin screens, a ticker wall, a glass corner office.
-      const chart = canvasTex(256, 160, (g) => {
-        g.fillStyle = '#0f1216'; g.fillRect(0, 0, 256, 160)
-        g.strokeStyle = 'rgba(255,255,255,0.06)'; for (let y = 20; y < 160; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke() }
-        let p = 90
-        for (let i = 0; i < 22; i++) {
-          const n = p + Math.sin(i * 1.7) * 14 + Math.cos(i * 0.6) * 9
-          g.fillStyle = n < p ? '#7fae8e' : '#c4776c'
-          g.fillRect(10 + i * 11, Math.min(p, n), 7, Math.max(2, Math.abs(n - p)))
-          g.fillRect(13 + i * 11, Math.min(p, n) - 5, 1, Math.abs(n - p) + 10)
-          p = n
-        }
-      })
-      const screenMat = new THREE.MeshBasicMaterial({ map: chart })
-      const deskMat = std(0x6b4e37, 0.45)
+      // Trading floor: a video wall of exchange charts across the north wall, boards on the side walls, fourteen
+      // desks with triple monitors and ergonomic chairs, and a glass corner office (tradingFloor.ts).
+      const screenOf = (wpx: number, hpx: number, draw: (g: CanvasRenderingContext2D) => void) => { const t = canvasTex(wpx, hpx, draw); t.anisotropy = 4; return new THREE.MeshBasicMaterial({ map: t }) }
       const blackMat = std(0x15171a, 0.4, 0.4)
-      const desks: Array<[number, number, number, number?]> = []
-      for (const x of [-3.5, 0.5, 4.5]) for (const z of [-2.4, 2.0]) desks.push([x, 0.75 / 2, z])
-      // Desk top on four legs with a modesty panel; same footprint and collider as the old solid block.
-      deskKit(desks.map(([x, , z]) => [x, z] as Spot), 2.6, 1.0, 0.75, deskMat, blackMat, [1.35, 0.55])
-      const screens: Array<[number, number, number, number?]> = []
-      const chairs: Spot[] = []
-      for (const [x, , z] of desks) { screens.push([x - 0.5, 1.12, z - 0.3], [x + 0.5, 1.12, z - 0.3]); chairs.push([x, z + 0.85]) }
-      inst(new THREE.BoxGeometry(0.85, 0.5, 0.04), blackMat, screens)
-      inst(new THREE.PlaneGeometry(0.8, 0.45), screenMat, screens.map(([x, y, z]) => [x, y, z + 0.025]))
-      // Monitor necks and feet so the screens stand on the desk instead of floating.
-      inst(new THREE.BoxGeometry(0.05, 0.14, 0.04), blackMat, screens.map(([x, , z]) => [x, 0.82, z - 0.02]))
-      inst(new THREE.BoxGeometry(0.26, 0.02, 0.18), blackMat, screens.map(([x, , z]) => [x, 0.76, z]))
-      officeChairs(chairs, std(0x22262b, 0.6), blackMat)
-      const keys: Array<[number, number, number, number?]> = desks.map(([x, , z]) => [x, 0.765, z + 0.12])
-      inst(new THREE.BoxGeometry(0.45, 0.02, 0.15), std(0x2a2d31, 0.5), keys)
-      chairs.forEach(([x, z], i) => seat(`desk${i}`, 'Desk chair', x, z, Math.PI, 0.5))
-      // Ticker wall on the north wall.
-      const tickerTex = canvasTex(1024, 128, (g) => {
-        g.fillStyle = '#121418'; g.fillRect(0, 0, 1024, 128)
-        g.font = '600 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; let x = 20
-        for (const [t, v, up] of [['BTC', '+0.3%', 1], ['ETH', '+0.6%', 1], ['SOL', '+1.8%', 1], ['MEME', '-4.2%', 0], ['USDC', '0.0%', 1]] as const) {
-          g.fillStyle = '#efe9dc'; g.fillText(t, x, 78); x += g.measureText(t).width + 12
-          g.fillStyle = up ? '#8fbf9f' : '#d08a7f'; g.fillText(String(v), x, 78); x += g.measureText(String(v)).width + 44
+      const deskMat = std(0x2c3037, 0.42, 0.15)
+      const steelMat = std(0x9aa1a9, 0.3, 0.8)
+      // --- North wall: BTC chart, market map, ETH chart, under a moving ticker tape. ---
+      const NZ = -d / 2 + 0.05
+      box(15.0, 2.62, 0.05, blackMat, 0.1, -d / 2 + 0.03, 0.5, false)
+      add(new THREE.PlaneGeometry(6.0, 2.0), screenOf(1536, 512, (g) => paintCandles(g, 1536, 512, { pair: 'BTC/USDT', price: 64281.5, seed: 11, frame: '15m', bars: 110 })), -4.1, 1.62, NZ + 0.02)
+      add(new THREE.PlaneGeometry(3.5, 2.0), screenOf(896, 512, (g) => paintHeatmap(g, 896, 512, 5)), 0.8, 1.62, NZ + 0.02)
+      add(new THREE.PlaneGeometry(4.5, 2.0), screenOf(1152, 512, (g) => paintCandles(g, 1152, 512, { pair: 'ETH/USDT', price: 3214.6, seed: 29, frame: '1h', bars: 84, trend: -0.03 })), 5.0, 1.62, NZ + 0.02)
+      const tape = canvasTex(2048, 64, (g) => paintTicker(g, 2048, 64, 3))
+      tape.wrapS = THREE.RepeatWrapping; tape.repeat.x = 1.4; tape.anisotropy = 4
+      const band = add(new THREE.PlaneGeometry(14.6, 0.3), new THREE.MeshBasicMaterial({ map: tape }), 0.1, 2.87, NZ + 0.02)
+      band.onBeforeRender = () => { tape.offset.x = (performance.now() / 1000 * 0.012) % 1 }
+      // --- Side walls: SOL chart and movers (west, either side of the door), depth and District Coin (east). ---
+      add(new THREE.PlaneGeometry(4.2, 1.87), screenOf(1152, 512, (g) => paintCandles(g, 1152, 512, { pair: 'SOL/USDT', price: 151.4, seed: 47, frame: '4h', bars: 84, trend: 0.07 })), -w / 2 + 0.03, 1.62, -3.7, false, Math.PI / 2)
+      add(new THREE.PlaneGeometry(3.4, 1.7), screenOf(768, 384, (g) => paintMovers(g, 768, 384, 17)), -w / 2 + 0.03, 1.62, 3.7, false, Math.PI / 2)
+      add(new THREE.PlaneGeometry(3.6, 1.8), screenOf(768, 384, (g) => paintDepth(g, 768, 384, 23)), w / 2 - 0.03, 1.62, -4.1, false, -Math.PI / 2)
+      add(new THREE.PlaneGeometry(3.6, 1.8), screenOf(1024, 512, (g) => paintCandles(g, 1024, 512, { pair: 'COIN/USDT', price: 0.842, seed: 61, frame: '1D', bars: 72, trend: 0.05 })), w / 2 - 0.03, 1.62, 0.0, false, -Math.PI / 2)
+      // --- Desks: four rows facing the wall. ---
+      const desks: Spot[] = []
+      for (const [z, cols] of [[-3.4, [-5.6, -2.2, 1.2, 4.6]], [-0.9, [-5.6, -2.2, 1.2, 4.6]], [1.9, [-5.6, -2.2, 1.2]], [4.4, [-5.6, -2.2, 1.2]]] as const) for (const x of cols) desks.push([x, z])
+      deskKit(desks, 2.0, 0.9, 0.75, deskMat, blackMat, [1.05, 0.5])
+      const bezels: Array<[number, number, number, number?]> = []
+      const faces: Array<Array<[number, number, number, number?]>> = [[], [], []]
+      const stands: Array<[number, number, number, number?]> = []
+      for (const [x, z] of desks) {
+        for (const [k, dx, dz, ry] of [[0, -0.6, -0.14, 0.34], [1, 0, -0.24, 0], [2, 0.6, -0.14, -0.34]] as const) {
+          bezels.push([x + dx, 1.1, z + dz, ry])
+          faces[k]!.push([x + dx + Math.sin(ry) * 0.017, 1.1, z + dz + Math.cos(ry) * 0.017, ry])
+          stands.push([x + dx, 0.85, z + dz - 0.02, ry])
         }
-      })
-      add(new THREE.PlaneGeometry(9, 1.1), new THREE.MeshBasicMaterial({ map: tickerTex }), 0.5, 2.5, -d / 2 + 0.02)
-      add(new THREE.PlaneGeometry(4.2, 1.6), screenMat, 0.5, 1.3, -d / 2 + 0.02)
+      }
+      inst(new THREE.BoxGeometry(0.58, 0.36, 0.03), blackMat, bezels)
+      inst(new THREE.BoxGeometry(0.04, 0.2, 0.03), blackMat, stands)
+      inst(new THREE.BoxGeometry(0.22, 0.015, 0.16), blackMat, stands.map(([x, , z, ry]) => [x, 0.758, z + 0.02, ry]))
+      const mini = [['BTC/USDT', 64281.5, 71], ['ETH/USDT', 3214.6, 83], ['SOL/USDT', 151.4, 97]] as const
+      faces.forEach((list, k) => inst(new THREE.PlaneGeometry(0.54, 0.32), screenOf(432, 256, (g) => paintCandles(g, 432, 256, { pair: mini[k]![0], price: mini[k]![1], seed: mini[k]![2], bars: 48 })), list))
+      inst(new THREE.BoxGeometry(0.42, 0.02, 0.14), std(0x2a2d31, 0.5), desks.map(([x, z]) => [x, 0.762, z + 0.18]))
+      inst(new THREE.BoxGeometry(0.06, 0.025, 0.1), std(0x2a2d31, 0.5), desks.map(([x, z]) => [x + 0.34, 0.764, z + 0.2]))
+      // Ergonomic chairs: mesh back with lumbar pad and headrest, arms, gas lift, five-star base.
+      const chairSpots: Array<[number, number, number, number?]> = desks.map(([x, z]) => [x, 0, z + 0.82])
+      chairSpots.push([w / 2 - 1.6, 0, d / 2 - 0.72])
+      const chair = ergoChairGeometry()
+      inst(chair.frame, steelMat, chairSpots)
+      inst(chair.pad, std(0x1d2126, 0.85), chairSpots)
+      desks.forEach(([x, z], i) => seat(`desk${i}`, 'Desk chair', x, z + 0.82, Math.PI, 0.5))
       // Glass corner office.
       const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xdfe8ec, roughness: 0.05, transmission: 0, transparent: true, opacity: 0.22 })
       box(0.05, 2.6, 4.0, glassMat, w / 2 - 3.5, d / 2 - 2.0, 0, true)
       box(3.4, 2.6, 0.05, glassMat, w / 2 - 1.7, d / 2 - 4.0, 0, false)
       box(1.6, 0.75, 0.8, deskMat, w / 2 - 1.6, d / 2 - 1.4)
-      use({ id: 'desk', x: 0.5, z: 3.2, r: 1.4, title: 'Trading desk', body: 'A practice book for coins and tokens. A sized plan can count even when the close is red.', enter: 'Trade', run: () => hooks.openPanel('trade') })
-      use({ id: 'ticker', x: 0.5, z: -d / 2 + 1.4, r: 1.6, title: 'Market wall', body: 'Live practice prices. Open the trading screen: Spot, Perps, Convert.', enter: 'Trade', run: () => hooks.openPanel('trade') })
+      use({ id: 'desk', x: -0.5, z: 0.75, r: 1.5, title: 'Trading desk', body: 'Spot, Perps, Convert and P2P on practice prices. A sized plan can count even when the close is red.', enter: 'Trade', run: () => hooks.openPanel('trade') })
+      use({ id: 'ticker', x: 0.5, z: -d / 2 + 1.3, r: 1.8, title: 'Market wall', body: 'BTC, ETH, the market map and the tape. Open the trading screen from here.', enter: 'Trade', run: () => hooks.openPanel('trade') })
     }
 
     if (id === 'campus') {
@@ -844,7 +844,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     for (let i = 0; i < 3; i += 1) {
       const x = (i - 1) * s.w * 0.25
       // Art on the back wall; skip campus (chalkboard already owns that wall).
-      if (id !== 'campus') {
+      if (id !== 'campus' && id !== 'trading') { // the trading floor's back wall is its video wall
         at(new THREE.Mesh(propGeo.frame, propMat.frame), x, 1.9, -s.d / 2 + 0.08)
         at(new THREE.Mesh(propGeo.canvas, art[(i + Math.round(s.w)) % art.length]!), x, 1.9, -s.d / 2 + 0.115)
       }
