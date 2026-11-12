@@ -2779,3 +2779,15 @@ html body #cc-sheet-body .wal-key:disabled { filter: saturate(0.35) brightness(0
 /* Greet: a small raised key, never in the way. */
 html body .greet-fab { min-height: 40px; height: 40px; padding: 0 16px !important; border-radius: 999px !important; border: 1px solid rgba(0, 0, 0, 0.7) !important; background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important; color: #f0d59a !important; font-size: 14px !important; font-weight: 600 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html body .greet-fab:active { translate: 0 2px; box-shadow: var(--key-down) !important; }
+
+/* ===== Direct messages: search results with actions, photo and voice tools, attachments in the thread ===== */
+#cc-sheet-body .dm-search input { width: 100%; min-height: 46px; padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(0, 0, 0, 0.6); background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45); color: #f5f2ea; font-size: 15px; }
+#cc-sheet-body .dm-hit { display: grid; gap: 6px; padding-bottom: 8px; }
+#cc-sheet-body .dm-hit-acts { display: flex; gap: 8px; padding: 0 4px; }
+html body #cc-sheet-body .dm-act, html body #cc-sheet-body .dm-tool { min-height: 38px; padding: 7px 14px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.7); background: var(--key-dark); box-shadow: var(--key-dark-sh); color: #f6f1e6; font-size: 14px; font-weight: 600; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55); transition: translate 70ms ease-out, box-shadow 70ms ease-out; }
+html body #cc-sheet-body .dm-act.primary { border-color: #8a6a2c; background: var(--key-gold); box-shadow: var(--key-gold-sh); color: #1c1508; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); }
+html body #cc-sheet-body .dm-act:active, html body #cc-sheet-body .dm-tool:active { translate: 0 2px; box-shadow: var(--key-down); }
+html body #cc-sheet-body .dm-tool.live { border-color: #7d1f29; background: var(--key-red); box-shadow: var(--key-red-sh); color: #1f0508; text-shadow: none; }
+#cc-sheet-body .dm-tools { display: flex; gap: 8px; margin-top: 8px; }
+#cc-sheet-body .dm-photo { display: block; max-width: min(240px, 100%); max-height: 300px; border-radius: 12px; margin: 2px 0 4px; object-fit: cover; cursor: zoom-in; }
+#cc-sheet-body .dm-voice { display: block; width: min(240px, 100%); height: 36px; margin: 2px 0 4px; }

@@ -1,11 +1,13 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
+import { previewBody, signLines, storeMedia } from './_dmMedia.js'
 
 // Direct messages. Identity = Privy token -> players.username. Service role only (RLS on, no anon policies).
 // GET  ?op=inbox             threads (last line, unread count) + blocked list
 // GET  ?op=thread&with=u     last 100 lines with u (marks them read)
-// POST ?op=send   {to,text}  rate limited: 8/min, 200/day; 1-500 chars; refused if either side blocked
+// POST ?op=send   {to,text,media?}  rate limited: 8/min, 200/day; up to 500 chars; media = {type, data(base64)}
+//                  for one photo or voice note (private bucket, signed links on read); refused if either side blocked
 // POST ?op=block  {u, on}    block / unblock
 // POST ?op=report {u, id?, reason?}
 type Req = { method?: string; headers: Record<string, string | undefined>; query?: Record<string, string | string[] | undefined>; body?: Record<string, unknown> }
@@ -48,7 +50,7 @@ export default async function handler(req: Req, res: Res) {
       const other = m.sender === user ? m.recipient : m.sender
       if (blocked.has(other)) continue
       let t = threads.get(other)
-      if (!t) { t = { with: other, last: m.body, at: m.created_at, mine: m.sender === user, unread: 0, lastId: m.id }; threads.set(other, t) }
+      if (!t) { t = { with: other, last: previewBody(m.body), at: m.created_at, mine: m.sender === user, unread: 0, lastId: m.id }; threads.set(other, t) }
       if (m.recipient === user && !m.read_at) t.unread++
     }
     return res.status(200).json({ me: user, threads: [...threads.values()], blocked: [...blocked] })
@@ -61,15 +63,19 @@ export default async function handler(req: Req, res: Res) {
       .or(`and(sender.eq.${user},recipient.eq.${o}),and(sender.eq.${o},recipient.eq.${user})`).order('created_at', { ascending: false }).limit(100)
     await db.from('messages').update({ read_at: new Date().toISOString() }).eq('sender', o).eq('recipient', user).is('read_at', null)
     const bl = await db.from('message_blocks').select('blocked').eq('blocker', user).eq('blocked', o).maybeSingle()
-    return res.status(200).json({ me: user, with: o, blocked: !!bl.data, lines: (r.data ?? []).reverse() })
+    return res.status(200).json({ me: user, with: o, blocked: !!bl.data, lines: await signLines(db, (r.data ?? []).reverse()) })
   }
   if (op === 'search') {
     // Username/name prefix search over public profiles (players who have not shared a card still match by username).
-    const q = String(req.query?.q ?? '').toLowerCase().replace(/[^a-z0-9_]/g, '').trim().slice(0, 16)
-    if (q.length < 2) return res.status(200).json({ results: [] })
+    const raw = String(req.query?.q ?? '').toLowerCase().replace(/^@/, '')
+    const q = raw.replace(/[^a-z0-9_]/g, '').slice(0, 16)
+    // Names may have spaces ("zahra usman"): letters, digits and single spaces only, so the filter stays safe.
+    const nm = raw.replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24)
+    if (q.length < 2 && nm.length < 2) return res.status(200).json({ results: [] })
+    const nameLike = nm.replace(/ /g, '%')
     const [pp, pl] = await Promise.all([
-      db.from('public_profiles').select('username,name,rank,updated_at').or(`username.ilike.${q}%,name.ilike.%${q}%`).order('updated_at', { ascending: false }).limit(20),
-      db.from('players').select('username').ilike('username', `${q}%`).limit(20),
+      db.from('public_profiles').select('username,name,rank,updated_at').or(`${q.length >= 2 ? `username.ilike.${q}%,` : ''}name.ilike.%${nameLike}%`).order('updated_at', { ascending: false }).limit(20),
+      q.length >= 2 ? db.from('players').select('username').ilike('username', `${q}%`).limit(20) : Promise.resolve({ data: [] as Array<{ username: string }> }),
     ])
     const out = new Map<string, { username: string; name: string; rank: string; seen: string | null }>()
     for (const r of pp.data ?? []) out.set(r.username, { username: r.username, name: r.name, rank: r.rank, seen: r.updated_at })
@@ -147,7 +153,7 @@ export default async function handler(req: Req, res: Res) {
 
   if (op === 'send') {
     const text = cleanText(b.text)
-    if (!text) return res.status(400).json({ error: 'Empty message' })
+    if (!text && !b.media) return res.status(400).json({ error: 'Empty message' })
     if (text.length > MAX) return res.status(400).json({ error: `Max ${MAX} characters` })
     const exists = await db.from('players').select('username').eq('username', other).maybeSingle()
     if (!exists.data) return res.status(404).json({ error: `@${other} has not signed in yet, so they have no Messages tab` })
@@ -160,9 +166,16 @@ export default async function handler(req: Req, res: Res) {
     ])
     if ((min.count ?? 0) >= 8) return res.status(429).json({ error: 'Slow down: 8 messages a minute' })
     if ((day.count ?? 0) >= 200) return res.status(429).json({ error: 'Daily limit reached (200)' })
-    const ins = await db.from('messages').insert({ sender: user, recipient: other, body: text }).select('id,sender,recipient,body,created_at,read_at').single()
+    let body = text
+    if (b.media) {
+      const stored = await storeMedia(db, user, b.media)
+      if ('error' in stored) return res.status(400).json({ error: stored.error })
+      body = text ? `${text}\n${stored.mark}` : stored.mark
+    }
+    const ins = await db.from('messages').insert({ sender: user, recipient: other, body }).select('id,sender,recipient,body,created_at,read_at').single()
     if (ins.error) return res.status(500).json({ error: 'Could not send' })
-    return res.status(200).json({ line: ins.data })
+    const [line] = await signLines(db, [ins.data])
+    return res.status(200).json({ line })
   }
   if (op === 'friend') {
     const [a, bb] = user < other ? [user, other] : [other, user]

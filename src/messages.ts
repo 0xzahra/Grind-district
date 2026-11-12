@@ -6,7 +6,23 @@ const openLogin = () => void import('./login.ts').then((m) => m.openLogin())
 import { notify } from './notify.ts'
 import './messages.css'
 
-type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null }
+type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null; media?: { kind: 'image' | 'voice'; url: string } }
+type Attachment = { type: string; data: string }
+
+const toBase64 = (blob: Blob) => new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(blob) })
+/** A photo, resized on the phone so it sends fast (long side 1280 px, then 960 px if still large). */
+async function photoAttachment(file: File): Promise<Attachment> {
+  const bmp = await createImageBitmap(file)
+  for (const [side, q] of [[1280, 0.8], [960, 0.7], [720, 0.62]] as const) {
+    const k = Math.min(1, side / Math.max(bmp.width, bmp.height))
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
+    c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
+    const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/jpeg', q))
+    if (blob && blob.size < 430_000) return { type: 'image/jpeg', data: await toBase64(blob) }
+  }
+  throw new Error('Photo too large')
+}
+const VOICE_TYPE = typeof MediaRecorder === 'undefined' ? '' : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find((t) => MediaRecorder.isTypeSupported(t)) ?? ''
 type Thread = { with: string; last: string; at: string; mine: boolean; unread: number; lastId: number }
 type Ctx = { openSheet: (title: string, fill: () => void) => void; body: () => HTMLElement; openNearby: () => void; isOpen: (title: string) => boolean }
 
@@ -108,7 +124,16 @@ export async function openThread(withUser: string): Promise<void> {
   const log = el('ol', '', 'dm-log')
   const add = (l: Line) => {
     const li = el('li', '', l.sender === r.data.me ? 'mine' : 'theirs')
-    li.append(el('p', l.body), el('time', when(l.created_at)))
+    if (l.media?.kind === 'image') {
+      const img = el('img', '', 'dm-photo'); img.src = l.media.url; img.alt = 'Photo'; img.loading = 'lazy'
+      img.onclick = () => window.open(l.media!.url, '_blank', 'noopener')
+      li.append(img)
+    } else if (l.media?.kind === 'voice') {
+      const au = el('audio', '', 'dm-voice'); au.controls = true; au.preload = 'none'; au.src = l.media.url
+      li.append(au)
+    }
+    if (l.body) li.append(el('p', l.body))
+    li.append(el('time', when(l.created_at)))
     if (l.sender !== r.data.me) {
       const rep = el('button', 'Report', 'dm-report'); rep.type = 'button'
       rep.onclick = async () => { if (!confirm(`Report this message from @${u}?`)) return; const x = await api('report', { post: { u, id: l.id, reason: 'message' } }); rep.textContent = x.ok ? 'Reported' : 'Failed'; rep.disabled = true }
@@ -125,19 +150,57 @@ export async function openThread(withUser: string): Promise<void> {
   const status = el('p', '', 'cc-muted')
   ta.oninput = () => { count.textContent = `${ta.value.length}/${MAX}` }
   ta.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit() } }
-  form.onsubmit = async (e) => {
-    e.preventDefault()
+  const deliver = async (media?: Attachment) => {
     const text = ta.value.trim()
-    if (!text) return
-    send.disabled = true; status.textContent = ''
-    const s = await api<{ line: Line }>('send', { post: { to: u, text } })
+    if (!text && !media) return
+    send.disabled = true; status.textContent = media ? (media.type.startsWith('image') ? 'Sending photo…' : 'Sending voice note…') : ''
+    const s = await api<{ line: Line }>('send', { post: { to: u, text, ...(media ? { media } : {}) } })
     send.disabled = false
     if (!s.ok) { status.textContent = s.data.error ?? 'Could not send'; return }
+    status.textContent = ''
     log.querySelector('.dm-empty')?.remove()
     add(s.data.line); ta.value = ''; count.textContent = `0/${MAX}`
     log.scrollTop = log.scrollHeight
   }
-  form.append(ta, count, send)
+  form.onsubmit = (e) => { e.preventDefault(); void deliver() }
+  // Photo: pick or take one; it is resized here before it is sent.
+  const tools = el('div', '', 'dm-tools')
+  const pick = el('input'); pick.type = 'file'; pick.accept = 'image/*'; pick.hidden = true
+  const photo = el('button', '📷 Photo', 'dm-tool'); photo.type = 'button'
+  photo.onclick = () => pick.click()
+  pick.onchange = async () => {
+    const f = pick.files?.[0]; pick.value = ''
+    if (!f) return
+    try { await deliver(await photoAttachment(f)) } catch { status.textContent = 'That photo could not be sent. Try a smaller one.' }
+  }
+  tools.append(photo, pick)
+  // Voice note: tap to record (up to a minute), tap again to send.
+  if (VOICE_TYPE && navigator.mediaDevices?.getUserMedia) {
+    const mic = el('button', '🎤 Voice', 'dm-tool'); mic.type = 'button'
+    let rec: MediaRecorder | null = null, started = 0, tick = 0, stop = 0
+    mic.onclick = async () => {
+      if (rec) { rec.stop(); return }
+      let stream: MediaStream
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }) } catch { status.textContent = 'Microphone permission was not given.'; return }
+      const chunks: Blob[] = []
+      rec = new MediaRecorder(stream, { mimeType: VOICE_TYPE, audioBitsPerSecond: 32000 })
+      rec.ondataavailable = (ev) => { if (ev.data.size) chunks.push(ev.data) }
+      rec.onstop = async () => {
+        window.clearInterval(tick); window.clearTimeout(stop)
+        stream.getTracks().forEach((t) => t.stop())
+        const secs = (performance.now() - started) / 1000
+        rec = null; mic.textContent = '🎤 Voice'; mic.classList.remove('live')
+        if (secs < 0.7) return
+        try { await deliver({ type: (chunks[0]?.type || VOICE_TYPE).split(';')[0]!, data: await toBase64(new Blob(chunks, { type: chunks[0]?.type || VOICE_TYPE })) }) } catch { status.textContent = 'Could not send the voice note.' }
+      }
+      started = performance.now(); rec.start(); mic.classList.add('live')
+      const show = () => { const t = Math.floor((performance.now() - started) / 1000); mic.textContent = `■ Send 0:${String(t).padStart(2, '0')}` }
+      show(); tick = window.setInterval(show, 500)
+      stop = window.setTimeout(() => rec?.stop(), 60_000)
+    }
+    tools.append(mic)
+  }
+  form.append(ta, count, send, tools)
   window.setTimeout(() => ta.focus({ preventScroll: true }), 60)
   const safety = el('div', '', 'dm-safety')
   const block = el('button', r.data.blocked ? 'Unblock' : 'Block', 'cc-link'); block.type = 'button'
@@ -251,7 +314,7 @@ type Profile = { username: string; name: string; rank: string; reputation: numbe
 
 function searchBox(): HTMLElement {
   const wrap = el('div', '', 'dm-search')
-  const inp = el('input'); inp.type = 'search'; inp.placeholder = 'Search players by username'; inp.maxLength = 20; inp.setAttribute('aria-label', 'Search players')
+  const inp = el('input'); inp.type = 'search'; inp.placeholder = 'Search by username or name'; inp.maxLength = 20; inp.setAttribute('aria-label', 'Search players')
   const out = el('ol', '', 'cc-list dm-results')
   let t = 0, seq = 0
   inp.onkeydown = (e) => e.stopPropagation()
@@ -265,11 +328,16 @@ function searchBox(): HTMLElement {
       if (my !== seq) return
       if (!r.ok) { out.replaceChildren(el('li', r.data.error ?? 'Search failed', 'empty')); return }
       out.replaceChildren(...r.data.results.map((p) => {
-        const li = el('li'); const b = el('button', '', 'cc-row'); b.type = 'button'
+        const li = el('li', '', 'dm-hit'); const b = el('button', '', 'cc-row'); b.type = 'button'
         const on = presence?.find(p.username)
         b.append(el('strong', `@${p.username}${on ? ' · online' : ''}`), el('p', [p.name, p.rank].filter(Boolean).join(' · ') || 'Player'))
         b.onclick = () => void openProfile(p.username)
-        li.append(b); return li
+        // Two clear actions on every result: start the chat, or look at the profile first.
+        const acts = el('div', '', 'dm-hit-acts')
+        const msg = el('button', 'Message', 'dm-act primary'); msg.type = 'button'; msg.onclick = () => void openThread(p.username)
+        const prof = el('button', 'Profile', 'dm-act'); prof.type = 'button'; prof.onclick = () => void openProfile(p.username)
+        acts.append(msg, prof)
+        li.append(b, acts); return li
       }))
       if (!r.data.results.length) out.append(el('li', 'No players found.', 'empty'))
     }, 280)
