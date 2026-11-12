@@ -429,7 +429,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
       context.strokeRect(top.x, top.y, block.w * scale, block.d * scale)
       if (block.w * scale > 28) {
         context.fillStyle = colors.label
-        context.font = `600 ${Math.max(11, Math.min(18, block.w * scale * 0.18))}px Outfit, sans-serif`
+        context.font = `600 ${Math.max(11, Math.min(18, block.w * scale * 0.18))}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
         context.textAlign = 'center'
         context.textBaseline = 'middle'
         context.fillText(block.label, top.x + (block.w * scale) / 2, top.y + (block.d * scale) / 2)

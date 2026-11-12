@@ -182,7 +182,7 @@ function plaque(text: string): THREE.Mesh {
   if (g) {
     g.fillStyle = '#1b1814'; g.fillRect(0, 0, 512, 128)
     g.strokeStyle = '#b8955a'; g.lineWidth = 4; g.strokeRect(6, 6, 500, 116)
-    g.fillStyle = '#f3e3c3'; g.font = '600 52px Outfit, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    g.fillStyle = '#f3e3c3'; g.font = '600 52px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
     g.fillText(text, 256, 68)
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace

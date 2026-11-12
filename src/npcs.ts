@@ -27,14 +27,14 @@ export function label(primary: string, secondary = ''): THREE.Sprite {
   context.textBaseline = 'middle'
   if (secondary) {
     context.fillStyle = '#e9fff4'
-    context.font = '700 28px Outfit, sans-serif'
+    context.font = '700 28px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     context.fillText(primary, 128, 36)
     context.fillStyle = '#d9b26a'
-    context.font = '600 20px Outfit, sans-serif'
+    context.font = '600 20px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     context.fillText(secondary, 128, 64)
   } else {
     context.fillStyle = '#f2ece0'
-    context.font = '700 28px Outfit, sans-serif'
+    context.font = '700 28px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     context.fillText(primary, 128, 48)
   }
   const texture = new THREE.CanvasTexture(canvas)

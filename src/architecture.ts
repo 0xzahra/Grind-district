@@ -220,7 +220,7 @@ function paintPodium(seed: number) {
 function signCanvas(title: string): { c: HTMLCanvasElement; aspect: number } {
   const label = title.toUpperCase()
   const probe = document.createElement('canvas').getContext('2d')
-  const font = '600 64px Outfit, "Archivo Black", sans-serif'
+  const font = '600 64px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
   let tw = label.length * 40
   if (probe) { probe.font = font; tw = probe.measureText(label).width + label.length * 6 }
   const W = Math.min(2048, Math.max(256, Math.ceil(tw + 120)))

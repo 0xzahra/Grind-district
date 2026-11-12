@@ -30,25 +30,25 @@ function paint(tv: Tv) {
   g.fillStyle = bg; g.fillRect(0, 0, W, H)
   // Header.
   g.fillStyle = '#c9a25e'; g.fillRect(24, 26, 4, 22)
-  g.fillStyle = '#efe9dc'; g.font = '600 20px Inter, -apple-system, sans-serif'; g.textBaseline = 'middle'
+  g.fillStyle = '#efe9dc'; g.font = '600 20px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textBaseline = 'middle'
   g.fillText('GRIND DISTRICT', 38, 37)
-  g.fillStyle = '#8d877c'; g.font = '500 16px Inter, -apple-system, sans-serif'
+  g.fillStyle = '#8d877c'; g.font = '500 16px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
   const clock = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   g.textAlign = 'right'; g.fillText(clock, W - 24, 37); g.textAlign = 'left'
   const slide = Math.floor(tv.t / 7 + tv.channel) % 2
   if (slide === 0) {
     // City stats.
-    g.fillStyle = '#8d877c'; g.font = '500 15px Inter, sans-serif'; g.fillText('YOUR CITY FILE', 24, 82)
+    g.fillStyle = '#8d877c'; g.font = '500 15px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('YOUR CITY FILE', 24, 82)
     const rows: Array<[string, string]> = [['Rank', rankFor(s.xp).label], ['XP', String(s.xp ?? 0)], ['Courses passed', String(passedCount())]]
     rows.forEach(([k, val], i) => {
       const y = 118 + i * 38
-      g.fillStyle = '#b9b2a5'; g.font = '400 19px Inter, sans-serif'; g.fillText(k, 24, y)
-      g.fillStyle = '#efe9dc'; g.font = '600 21px Inter, sans-serif'; g.textAlign = 'right'; g.fillText(val, W - 24, y); g.textAlign = 'left'
+      g.fillStyle = '#b9b2a5'; g.font = '400 19px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText(k, 24, y)
+      g.fillStyle = '#efe9dc'; g.font = '600 21px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'right'; g.fillText(val, W - 24, y); g.textAlign = 'left'
       g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(24, y + 18, W - 48, 1)
     })
   } else {
     // A calm market line, drawn as it ticks.
-    g.fillStyle = '#8d877c'; g.font = '500 15px Inter, sans-serif'; g.fillText('UNIT · PRACTICE MARKET', 24, 82)
+    g.fillStyle = '#8d877c'; g.font = '500 15px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('UNIT · PRACTICE MARKET', 24, 82)
     g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 1
     for (let y = 110; y <= 220; y += 36) { g.beginPath(); g.moveTo(24, y); g.lineTo(W - 24, y); g.stroke() }
     g.beginPath(); g.lineWidth = 2.5; g.strokeStyle = '#c9a25e'
@@ -63,9 +63,9 @@ function paint(tv: Tv) {
   // News ticker.
   g.fillStyle = '#1d2025'; g.fillRect(0, H - 44, W, 44)
   g.fillStyle = '#c9a25e'; g.fillRect(0, H - 44, 70, 44)
-  g.fillStyle = '#14110e'; g.font = '700 14px Inter, sans-serif'; g.fillText('NEWS', 14, H - 22)
+  g.fillStyle = '#14110e'; g.font = '700 14px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('NEWS', 14, H - 22)
   g.save(); g.beginPath(); g.rect(70, H - 44, W - 70, 44); g.clip()
-  g.fillStyle = '#d9d3c6'; g.font = '500 17px Inter, sans-serif'
+  g.fillStyle = '#d9d3c6'; g.font = '500 17px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
   const line = NEWS.join('     ·     ')
   const lw = g.measureText(line).width + 60
   const off = (tv.t * 55) % lw

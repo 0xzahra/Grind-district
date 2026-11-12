@@ -178,8 +178,8 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
 
   // Don't block city boot on display fonts — system stack already paints HUD; optional faces hydrate later.
   void Promise.all([
-    document.fonts.load('72px "Archivo Black"').catch(() => undefined),
-    document.fonts.load('32px Outfit').catch(() => undefined),
+    document.fonts.load('800 48px "Inter Variable"').catch(() => undefined),
+    document.fonts.load('600 32px "Inter Variable"').catch(() => undefined),
   ])
 
   { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,20}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
@@ -509,7 +509,7 @@ const apiAgents = createRemoteAgents(scene)
     const g = out.getContext('2d')!
     g.drawImage(canvas, 0, 0)
     const s = Math.max(1, out.width / 1200)
-    g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, Inter, sans-serif`
+    g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
     const label = 'GRIND DISTRICT', w = g.measureText(label).width
     g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
     g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)

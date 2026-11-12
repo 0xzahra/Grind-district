@@ -61,8 +61,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   const paintCv = (g: CanvasRenderingContext2D) => {
     const s = getSave()
     g.fillStyle = '#f5f2ea'; g.fillRect(0, 0, 512, 320)
-    g.fillStyle = '#14110e'; g.font = '700 40px -apple-system, Inter, sans-serif'; g.fillText(`${s.name || 'Your'} · CV`, 28, 64)
-    g.font = '500 26px -apple-system, Inter, sans-serif'; g.fillStyle = '#5b5348'
+    g.fillStyle = '#14110e'; g.font = '700 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText(`${s.name || 'Your'} · CV`, 28, 64)
+    g.font = '500 26px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillStyle = '#5b5348'
     g.fillText(`@${s.username || 'guest'} · ${rankFor(s.xp).label}`, 28, 110)
     g.fillText(`Courses passed: ${passedCount()}`, 28, 160)
     g.fillText(passedCount() >= 3 ? 'CV page unlocked' : `CV page unlocks at 3`, 28, 200)
@@ -225,7 +225,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       ...[-1, 1].map((s) => box(0.1, 2.42, 0.1, doorMat, -w / 2 + 0.05, DZ + s * 0.85, 0, false)), // jambs
     ]
     const exitSign = add(new THREE.PlaneGeometry(0.9, 0.3), new THREE.MeshBasicMaterial({ map: canvasTex(256, 86, (g) => {
-      g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 86); g.fillStyle = '#f2ece0'; g.font = '700 44px Inter, sans-serif'; g.textAlign = 'center'; g.fillText(id === 'house' ? 'EXIT' : 'STREET', 128, 60)
+      g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 86); g.fillStyle = '#f2ece0'; g.font = '700 44px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'center'; g.fillText(id === 'house' ? 'EXIT' : 'STREET', 128, 60)
     }) }), -w / 2 + 0.06, Math.min(2.6, H - 0.2), DZ)
     exitSign.rotation.y = Math.PI / 2
     // The door, its handle, lintel and sign belong to the wall: when the cut-away hides the wall they go with it.
@@ -568,7 +568,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Ticker wall on the north wall.
       const tickerTex = canvasTex(1024, 128, (g) => {
         g.fillStyle = '#121418'; g.fillRect(0, 0, 1024, 128)
-        g.font = '600 40px Inter, sans-serif'; let x = 20
+        g.font = '600 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; let x = 20
         for (const [t, v, up] of [['UNIT', '+1.8%', 1], ['MEME', '-4.2%', 0], ['ETH', '+0.6%', 1], ['BTC', '+0.3%', 1], ['USDC', '0.0%', 1]] as const) {
           g.fillStyle = '#efe9dc'; g.fillText(t, x, 78); x += g.measureText(t).width + 12
           g.fillStyle = up ? '#8fbf9f' : '#d08a7f'; g.fillText(String(v), x, 78); x += g.measureText(String(v)).width + 44

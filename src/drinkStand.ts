@@ -37,16 +37,16 @@ export function createDrinkStand(scene: THREE.Scene, anisotropy: number): { setN
     g.fillStyle = '#1b1814'; g.fillRect(0, 0, 1024, 192)
     g.strokeStyle = '#b8955a'; g.lineWidth = 6; g.strokeRect(10, 10, 1004, 172)
     g.fillStyle = '#f3e3c3'; g.textAlign = 'center'; g.textBaseline = 'middle'
-    g.font = '600 92px Outfit, "Archivo Black", sans-serif'
+    g.font = '600 92px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     const ctx = g as CanvasRenderingContext2D & { letterSpacing?: string }; ctx.letterSpacing = '10px'
     g.fillText('GRIND RING', 512, 82)
-    ctx.letterSpacing = '6px'; g.font = '500 40px Outfit, sans-serif'; g.fillStyle = '#c9b48a'
+    ctx.letterSpacing = '6px'; g.font = '500 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillStyle = '#c9b48a'
     g.fillText('COFFEE · JUICE · TEA', 512, 150)
   })
   const menuTex = canvasTex(256, 320, (g) => {
     g.fillStyle = '#20251f'; g.fillRect(0, 0, 256, 320)
     g.strokeStyle = '#b8955a'; g.lineWidth = 6; g.strokeRect(6, 6, 244, 308)
-    g.fillStyle = '#f2ece0'; g.font = '600 30px Outfit, sans-serif'; g.textAlign = 'left'
+    g.fillStyle = '#f2ece0'; g.font = '600 30px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'left'
     const rows = [['Flat white', '2'], ['Cold brew', '3'], ['Mint tea', '2'], ['Zobo', '2'], ['Orange', '3']]
     rows.forEach(([n, p], i) => { g.fillText(n!, 22, 62 + i * 52); g.textAlign = 'right'; g.fillText(p!, 234, 62 + i * 52); g.textAlign = 'left' })
   })

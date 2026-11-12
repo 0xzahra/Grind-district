@@ -2495,3 +2495,137 @@ html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; -webk
   .sheet-card .xch-close:hover { background: rgba(255, 255, 255, 0.07) !important; }
 }
 .sheet-card .xch p { hyphens: manual !important; }
+
+/* ===== Premium pass: iPhone-style type and tactile, raised buttons =====
+   Type: the system face on Apple devices (San Francisco); Inter, the open face drawn to the same model, on
+   everything else (bundled in boot.ts). The logo is artwork and is not touched.
+   Buttons: a lit top edge, a shaded lower edge, a solid lip underneath and a soft cast shadow; pressing one
+   pushes it down onto its lip. Shadows and gradients only (no blur), so phones stay fast. */
+:root {
+  --sys: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter Variable', 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --key-dark: linear-gradient(180deg, #474a50 0%, #2c2e32 46%, #1b1c1f 100%);
+  --key-dark-sh: inset 0 1px 0 rgba(255, 255, 255, 0.26), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 2px 0 #08090a, 0 7px 16px rgba(0, 0, 0, 0.42);
+  --key-gold: linear-gradient(180deg, #f9e6b3 0%, #e5c078 46%, #c29546 100%);
+  --key-gold-sh: inset 0 1px 0 rgba(255, 255, 255, 0.72), inset 0 -2px 0 rgba(122, 86, 22, 0.5), 0 2px 0 #77591f, 0 8px 18px rgba(0, 0, 0, 0.4);
+  --key-green: linear-gradient(180deg, #6fe6ba 0%, #2fc48d 48%, #1c9a6b 100%);
+  --key-green-sh: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(8, 82, 54, 0.5), 0 2px 0 #0f6144, 0 8px 18px rgba(0, 0, 0, 0.4);
+  --key-red: linear-gradient(180deg, #ff9aa2 0%, #f0616d 48%, #cb3f4c 100%);
+  --key-red-sh: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(110, 18, 28, 0.5), 0 2px 0 #7d1f29, 0 8px 18px rgba(0, 0, 0, 0.4);
+  --key-ivory: linear-gradient(180deg, #ffffff 0%, #f1ede3 55%, #dcd6c8 100%);
+  --key-down: inset 0 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 transparent, 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+html body { letter-spacing: -0.011em; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+/* Titles the way the iPhone sets them: bold, close-set, sentence case. */
+html body #sheet .sheet-card .sheet-head h2, html body #cc-sheet > header h2, html body #menu h2:not(.sr-only) { font-size: 20px !important; font-weight: 700 !important; letter-spacing: -0.022em !important; text-transform: none !important; color: #fff; }
+html body .sheet-card h3:not(.xch-group) { font-weight: 650; letter-spacing: -0.015em; }
+html body #menu .title-headline { font-size: 17px !important; line-height: 1.25 !important; font-weight: 700 !important; letter-spacing: -0.022em !important; }
+html body #menu .title-desc { font-weight: 600 !important; letter-spacing: 0.16em !important; }
+
+/* --- raised keys --- */
+html body #menu .glass-btn, html body #menu .menu-actions button, html body #menu #signup-back, html body #menu #menu-back, html body #menu form button,
+html body .login-dlg .glass-btn,
+html body #sheet .sheet-card button.ghost:not(.topup *), html body #sheet .sheet-card button.primary:not(.topup *), html body #sheet .sheet-card .sheet-head button,
+html body #cc-sheet .cc-back, html body .mentor .mentor-btn, html body #act,
+html body .sheet-card .xch-go, html body .sheet-card .xch-close, html body .sheet-card .xch-chip, html body .sheet-card .xch-swap {
+  position: relative;
+  border-radius: 14px !important;
+  border: 1px solid rgba(0, 0, 0, 0.7) !important;
+  background: var(--key-dark) !important;
+  box-shadow: var(--key-dark-sh) !important;
+  color: #f6f1e6 !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 120ms ease !important;
+  transform: translateY(0);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+/* gold: the main action of a screen */
+html body #menu .glass-btn.primary, html body #menu .menu-actions button.primary, html body #menu form button.primary, html body #menu #play,
+html body .login-dlg .glass-btn.primary,
+html body #sheet .sheet-card button.primary:not(.topup *), html body .mentor .mentor-btn:not(.ghost), html body #act,
+html body .sheet-card .xch-go.convert {
+  border-color: #8a6a2c !important;
+  background: var(--key-gold) !important;
+  box-shadow: var(--key-gold-sh) !important;
+  color: #1c1508 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  font-weight: 700 !important;
+}
+html body .sheet-card .xch-go.buy, html body .sheet-card .xch-go.long { border-color: #0f6144 !important; background: var(--key-green) !important; box-shadow: var(--key-green-sh) !important; color: #04160e !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); font-weight: 700 !important; }
+html body .sheet-card .xch-go.sell, html body .sheet-card .xch-go.short { border-color: #7d1f29 !important; background: var(--key-red) !important; box-shadow: var(--key-red-sh) !important; color: #1f0508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3); font-weight: 700 !important; }
+/* pressed: down onto the lip */
+html body #menu .glass-btn:active, html body #menu .menu-actions button:active, html body #menu form button:active, html body #menu #signup-back:active, html body #menu #menu-back:active,
+html body .login-dlg .glass-btn:active,
+html body #sheet .sheet-card button.ghost:not(.topup *):active, html body #sheet .sheet-card button.primary:not(.topup *):active, html body #sheet .sheet-card .sheet-head button:active,
+html body #cc-sheet .cc-back:active, html body .mentor .mentor-btn:active, html body #act:active,
+html body .sheet-card .xch-go:active, html body .sheet-card .xch-close:active, html body .sheet-card .xch-chip:active, html body .sheet-card .xch-swap:active {
+  transform: translateY(2px) !important;
+  box-shadow: var(--key-down) !important;
+  filter: brightness(0.96);
+}
+html body button:disabled { filter: saturate(0.5) brightness(0.8); }
+html body #sheet .sheet-card button.ghost:not(.topup *):hover, html body #sheet .sheet-card button.ghost:not(.topup *):focus-visible { background: var(--key-dark) !important; filter: brightness(1.12); padding-left: 14px !important; }
+html body #sheet .sheet-card button.ghost[aria-pressed='true']:not(.topup *) { background: var(--key-gold) !important; border-color: #8a6a2c !important; box-shadow: var(--key-gold-sh) !important; color: #1c1508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); }
+html body .sheet-card .xch-chip { border-radius: 999px !important; font-weight: 600 !important; }
+html body .sheet-card .xch-chip[aria-pressed='true'] { background: var(--key-gold) !important; border-color: #8a6a2c !important; box-shadow: var(--key-gold-sh) !important; color: #1c1508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); }
+html body .sheet-card .xch-swap { border-radius: 50% !important; color: #f0d59a !important; }
+html body #sheet .sheet-card .sheet-head button { border-radius: 999px !important; padding: 8px 16px !important; }
+html body #act { border-radius: 999px !important; min-height: 50px; padding: 0 26px !important; font-size: 16px; }
+html body #menu .glass-btn, html body #menu .menu-actions button { height: 46px !important; min-height: 46px !important; font-size: 15px !important; }
+/* segmented controls: a sunken track with a raised thumb */
+html body .sheet-card .xch-seg { background: rgba(0, 0, 0, 0.34); border-color: rgba(0, 0, 0, 0.6); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.07); }
+html body .sheet-card .xch-seg button { border-radius: 10px !important; }
+html body .sheet-card .xch-seg button[aria-selected='true'] { background: var(--key-ivory) !important; color: #14110c !important; box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0, 0, 0, 0.16), 0 1px 0 rgba(0, 0, 0, 0.6), 0 4px 9px rgba(0, 0, 0, 0.4) !important; }
+html body .sheet-card .xch-seg.side button[aria-selected='true']:first-child { background: var(--key-green) !important; color: #04160e !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(8, 82, 54, 0.5), 0 1px 0 #0f6144, 0 4px 9px rgba(0, 0, 0, 0.4) !important; }
+html body .sheet-card .xch-seg.side button[aria-selected='true']:last-child { background: var(--key-red) !important; color: #1f0508 !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(110, 18, 28, 0.5), 0 1px 0 #7d1f29, 0 4px 9px rgba(0, 0, 0, 0.4) !important; }
+html body .sheet-card .xch-seg.amt button[aria-selected='true'] { background: var(--key-gold) !important; color: #1c1508 !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 0 rgba(122, 86, 22, 0.45), 0 1px 0 #77591f, 0 4px 9px rgba(0, 0, 0, 0.4) !important; }
+/* round HUD buttons: domed, with a lit rim */
+html body #rail-toggle, html body #shot, html body #cam-toggle, html body #cam-tools .cam-btn, html body #msg-btn, html body .cc-btn, html body .cc-item .cc-circle, html body #menu-profile {
+  background: radial-gradient(120% 120% at 32% 22%, #5a5d63 0%, #2b2d31 52%, #131416 100%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.75) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 3px rgba(0, 0, 0, 0.45), 0 2px 0 #08090a, 0 6px 14px rgba(0, 0, 0, 0.45) !important;
+  color: #f6f1e6 !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out !important;
+}
+html body #rail-toggle:active, html body #shot:active, html body #cam-toggle:active, html body #cam-tools .cam-btn:active, html body #msg-btn:active, html body .cc-btn:active, html body .cc-item:active .cc-circle, html body #menu-profile:active { transform: translateY(2px); box-shadow: var(--key-down) !important; }
+html body .cc-item .cc-circle.cc-accent, html body .cc-circle.cc-accent { background: radial-gradient(120% 120% at 32% 22%, #fbecc0 0%, #dcb467 52%, #a9802f 100%) !important; border-color: #8a6a2c !important; color: #1c1508 !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 3px rgba(122, 86, 22, 0.5), 0 2px 0 #77591f, 0 6px 14px rgba(0, 0, 0, 0.4) !important; }
+/* the joystick: a sunken well and a domed brass nub */
+html body #stick { background: radial-gradient(circle at 50% 42%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.28) 62%, rgba(255, 255, 255, 0.06) 100%) !important; box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.12), 0 0 0 1px rgba(217, 178, 106, 0.45); }
+html body #stick #nub { background: radial-gradient(circle at 34% 28%, #fdf0c8 0%, #e2bd72 45%, #a57c2f 100%) !important; box-shadow: inset 0 -3px 5px rgba(90, 62, 12, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 0 rgba(60, 44, 14, 0.6), 0 9px 16px rgba(0, 0, 0, 0.45) !important; border: 1px solid #8a6a2c !important; }
+/* Title card and account buttons (styled by id earlier in this file, so matched by id here). */
+html body #menu .menu-actions { gap: 11px !important; max-width: 210px !important; }
+html body #menu #menu-create, html body #menu #menu-signin, html body #menu #menu-agents, html body #menu #play, html body #menu #account-existing, html body #menu #account-new, html body #menu #account-back {
+  width: 100% !important; height: 46px !important; min-height: 46px !important; padding: 0 16px !important;
+  border-radius: 14px !important; border: 1px solid rgba(0, 0, 0, 0.7) !important;
+  background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important;
+  color: #f6f1e6 !important; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+  font-size: 15px !important; font-weight: 600 !important; letter-spacing: -0.01em !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out !important; transform: translateY(0);
+}
+html body #menu #menu-create, html body #menu #play, html body #menu #account-existing {
+  border-color: #8a6a2c !important; background: var(--key-gold) !important; box-shadow: var(--key-gold-sh) !important;
+  color: #1c1508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); font-weight: 700 !important;
+}
+html body #menu #menu-create:active, html body #menu #menu-signin:active, html body #menu #menu-agents:active, html body #menu #play:active, html body #menu #account-existing:active, html body #menu #account-new:active, html body #menu #account-back:active { transform: translateY(2px) !important; box-shadow: var(--key-down) !important; filter: brightness(0.96); }
+/* Menu tiles that carry a label inside: a rounded key, not a dome. */
+html body #nav.cc .cc-quad .cc-btn { width: 100% !important; min-width: 68px; border-radius: 16px !important; padding: 9px 8px 8px !important; background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important; }
+/* Sentences are never broken with hyphens in panels. */
+html body .sheet-card p, html body #cc-sheet-body p, html body .sheet-card li { hyphens: manual !important; -webkit-hyphens: manual !important; }
+html body #menu #menu-create.primary, html body #menu #play.primary, html body #menu #account-existing.primary {
+  border: 1px solid #8a6a2c !important; background: var(--key-gold) !important; box-shadow: var(--key-gold-sh) !important;
+  color: #1c1508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); font-weight: 700 !important; outline-offset: 4px;
+}
+html body #menu #menu-create.primary:active, html body #menu #play.primary:active, html body #menu #account-existing.primary:active { transform: translateY(2px) !important; box-shadow: var(--key-down) !important; }
+/* Career and course buttons: the same keys. */
+html body .cr-btn, html body .cr-chip {
+  border: 1px solid rgba(0, 0, 0, 0.7) !important; background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important;
+  color: #f6f1e6 !important; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55); font-weight: 600 !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out !important; transform: translateY(0);
+}
+html body .cr-btn.primary, html body .cr-chip.on, html body .cr-chip[aria-pressed='true'] { border-color: #8a6a2c !important; background: var(--key-gold) !important; box-shadow: var(--key-gold-sh) !important; color: #1c1508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); font-weight: 700 !important; }
+html body .cr-btn:active, html body .cr-chip:active { transform: translateY(2px) !important; box-shadow: var(--key-down) !important; }
+html body .cr-btn:disabled { background: linear-gradient(180deg, #3a3c40, #2a2b2e) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important; color: rgba(246, 241, 230, 0.6) !important; }

@@ -107,12 +107,12 @@ export function drawMinimap(
   ctx.fill()
   }
   ctx.fillStyle = '#9dccb6'
-  ctx.font = `600 ${Math.max(9, Math.round(width / 12))}px Outfit, sans-serif`
+  ctx.font = `600 ${Math.max(9, Math.round(width / 12))}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   // Named markers: home, boutique, gym.
   const marks: Array<[number, number, string, string]> = [[36, 32, 'H', '#e8c98f'], [22, -22, 'B', '#f2ece0'], [-22, -22, 'G', '#f2ece0'], [24, 27, '✝', '#f2ece0'], [-24, 27, 'M', '#f2ece0']]
-  ctx.font = `700 ${Math.max(9, Math.round(width / 14))}px -apple-system, Inter, sans-serif`
+  ctx.font = `700 ${Math.max(9, Math.round(width / 14))}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
   for (const [ex, ez, el] of ESTATE_PINS) marks.push([ex, ez, el, '#e8c98f'])
   for (const [mx, mz, letter, col] of marks) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)'

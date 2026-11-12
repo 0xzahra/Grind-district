@@ -186,7 +186,7 @@ export function createWorld(options: {
       g.textAlign = 'center'
       g.textBaseline = 'middle'
       g.fillStyle = '#d9c6a2'
-      g.font = '36px Outfit, sans-serif'
+      g.font = '36px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
       g.fillText('THE LADDER', 256, 78)
       const ranks = ['WHALE', 'SHARK', 'DOLPHIN', 'FISH', 'CRAB', 'SHRIMP']
       const you = current.toUpperCase()
@@ -196,10 +196,10 @@ export function createWorld(options: {
           g.fillStyle = '#c9a25e'
           g.fillRect(48, y - 42, 416, 84)
           g.fillStyle = '#062117'
-          g.font = '52px "Archivo Black", sans-serif'
+          g.font = '800 52px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
         } else {
           g.fillStyle = '#a89c88'
-          g.font = '42px "Archivo Black", sans-serif'
+          g.font = '800 42px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
         }
         g.fillText(rank, 256, y)
       })
@@ -579,7 +579,7 @@ export function createWorld(options: {
       const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.4), new THREE.MeshStandardMaterial({ map: paint(256, 80, (g) => {
         g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 80)
         g.strokeStyle = '#c9a25e'; g.lineWidth = 4; g.strokeRect(4, 4, 248, 72)
-        g.fillStyle = '#f2ece0'; g.font = '600 38px Outfit, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+        g.fillStyle = '#f2ece0'; g.font = '600 38px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
         g.fillText('YOUR HOUSE', 128, 42)
       }), roughness: 0.6 }))
       plate.position.set(door.x - 1.4, 2.2, door.z + 1.6)
@@ -811,7 +811,7 @@ export function createWorld(options: {
   signPost.position.set(1.8, 1.2, -8.6)
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.42), new THREE.MeshStandardMaterial({ map: paint(256, 80, (c) => {
     c.fillStyle = '#14110e'; c.fillRect(0, 0, 256, 80); c.strokeStyle = '#c9a25e'; c.lineWidth = 4; c.strokeRect(4, 4, 248, 72)
-    c.fillStyle = '#f2ece0'; c.font = '600 40px Outfit, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('MASJID', 128, 42)
+    c.fillStyle = '#f2ece0'; c.font = '600 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('MASJID', 128, 42)
   }), roughness: 0.6 }))
   plate.position.set(1.8, 2.2, -8.62)
   plate.rotation.y = Math.PI
@@ -1049,7 +1049,7 @@ export function createWorld(options: {
     g.fillStyle = '#0c1411'
     g.fillRect(0, 0, 256, 128)
     g.fillStyle = '#7fae8e'
-    g.font = '600 18px Outfit, sans-serif'
+    g.font = '600 18px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     g.fillText(screen.key === 'unit' ? 'UNIT' : 'MEME', 12, 22)
     if (values.length < 2) {
       screen.texture.needsUpdate = true

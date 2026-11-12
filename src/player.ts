@@ -52,10 +52,10 @@ export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void
   context.clearRect(0, 0, canvas.width, canvas.height)
   const label = name.toUpperCase()
   let size = 64
-  context.font = `700 ${size}px "Archivo Black", sans-serif`
+  context.font = `800 ${size}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
   while (size > 28 && context.measureText(label).width > 560) {
     size -= 4
-    context.font = `700 ${size}px "Archivo Black", sans-serif`
+    context.font = `800 ${size}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
   }
   context.textAlign = 'center'
   context.textBaseline = 'middle'
@@ -67,7 +67,7 @@ export function tagPlayer(root: THREE.Object3D, name: string, handle = ''): void
   context.fillStyle = '#f7f9fc'
   context.fillText(label, 320, top + (handle ? 48 : 44))
   if (handle) {
-    context.font = '600 30px Outfit, sans-serif'
+    context.font = '600 30px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     context.fillText(`@${handle}`, 320, top + 108)
   }
   const texture = new THREE.CanvasTexture(canvas)

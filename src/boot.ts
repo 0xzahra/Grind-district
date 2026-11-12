@@ -2,6 +2,9 @@
 // chunk (`main.ts`) loads only after Sign in / Continue → Enter.
 import './style.css'
 import './glass.css'
+// The game's typeface: the system face on Apple devices (San Francisco), and Inter, the open typeface drawn to
+// the same model, everywhere else. Bundled, so Android and Windows see the same clean letters.
+import '@fontsource-variable/inter/index.css'
 import { mountMenu } from './menu.ts'
 import { loadSave } from './state.ts'
 import { startTracking } from './track.ts'
@@ -117,8 +120,13 @@ async function begin() {
   }
 }
 
+// Signs in the 3D city are drawn with the typeface: have it ready (briefly) before the preview paints them.
+const typeface = Promise.race([
+  Promise.all(['500', '600', '800'].map((w) => document.fonts.load(`${w} 24px "Inter Variable"`))).catch(() => undefined),
+  new Promise((done) => window.setTimeout(done, 1500)),
+])
 const bootTitlePreview = () => {
-  void import('./preview.ts').then((m) => {
+  void Promise.all([import('./preview.ts'), typeface]).then(([m]) => {
     const c = document.querySelector<HTMLCanvasElement>('#menu-preview')
     if (!c || opening) return
     try { stopPreview() } catch { /* first run */ }

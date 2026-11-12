@@ -85,7 +85,7 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     if (!free(p.x, p.z, 0.2)) return
     const c = document.createElement('canvas'); c.width = 256; c.height = 64
     const g = c.getContext('2d')!; g.fillStyle = '#1f4d3a'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#e8e8e0'; g.lineWidth = 4; g.strokeRect(4, 4, 248, 56)
-    g.fillStyle = '#f2f2ea'; g.font = '600 34px Outfit, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(names[i]!, 128, 34)
+    g.fillStyle = '#f2f2ea'; g.font = '600 34px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(names[i]!, 128, 34)
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.6, 6).translate(0, 1.3, 0), paint)
     const plate = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.02), [paint, paint, paint, paint, new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 }), new THREE.MeshStandardMaterial({ map: t, roughness: 0.6 })])

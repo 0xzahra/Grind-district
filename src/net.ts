@@ -53,7 +53,7 @@ function bubble(text: string): THREE.Sprite {
   const g = canvas.getContext('2d')
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, depthTest: false }))
   if (!g) return sprite
-  g.font = '500 30px Outfit, sans-serif'
+  g.font = '500 30px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
   const words = text.split(/\s+/)
   const rows: string[] = []
   let row = ''

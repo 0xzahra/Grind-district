@@ -34,14 +34,14 @@ export function schedule(now = new Date(), days = 5): Array<GameEvent & { day: D
 export function paintSchedule(g: CanvasRenderingContext2D, w: number, h: number, now = new Date()): void {
   g.fillStyle = '#1b1f24'; g.fillRect(0, 0, w, h)
   g.fillStyle = '#c9a25e'; g.fillRect(40, 92, w - 80, 3)
-  g.fillStyle = '#f2ece0'; g.font = '600 46px -apple-system, Inter, sans-serif'; g.fillText('Upcoming Web3 events', 40, 70)
-  g.font = '400 22px -apple-system, Inter, sans-serif'; g.fillStyle = '#a99f8f'
+  g.fillStyle = '#f2ece0'; g.font = '600 46px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('Upcoming Web3 events', 40, 70)
+  g.font = '400 22px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillStyle = '#a99f8f'
   g.textAlign = 'right'; g.fillText('Conference centre · Campus', w - 40, 70); g.textAlign = 'left'
   schedule(now, 5).slice(0, 5).forEach((e, i) => {
     const y = 150 + i * 70
-    g.fillStyle = e.open ? '#c9a25e' : '#a99f8f'; g.font = '600 22px -apple-system, Inter, sans-serif'
+    g.fillStyle = e.open ? '#c9a25e' : '#a99f8f'; g.font = '600 22px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     g.fillText(`${e.label}  ·  ${e.kind.toUpperCase()}${e.open ? '  ·  DOORS OPEN' : ''}`, 40, y)
-    g.fillStyle = '#f2ece0'; g.font = '400 28px -apple-system, Inter, sans-serif'
+    g.fillStyle = '#f2ece0'; g.font = '400 28px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
     g.fillText(e.title.length > 52 ? `${e.title.slice(0, 51)}…` : e.title, 40, y + 34)
   })
 }
