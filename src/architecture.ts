@@ -37,13 +37,34 @@ function rng(seed: number): () => number {
   return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0) / 4294967296
 }
 
-function canvas(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+/** A canvas of w x h units painted at `k` pixels per unit (2 = twice as sharp, same drawing code). */
+function canvas(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, k = 1): HTMLCanvasElement {
   const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
+  c.width = w * k
+  c.height = h * k
   const g = c.getContext('2d')
-  if (g) draw(g)
+  if (g) { g.scale(k, k); draw(g) }
   return c
+}
+
+// Photographs (Poly Haven, CC0) that give the painted walls a real surface: brick for the brick fronts, cut
+// limestone for the civic and arched ones. They arrive after the first paint; the facades are painted again.
+type Photos = { brick?: HTMLImageElement; stone?: HTMLImageElement }
+/** Lay a photograph over the whole canvas as `across` seamless tiles. `mode` multiplies it into the paint or replaces it. */
+function layPhoto(g: CanvasRenderingContext2D, img: HTMLImageElement, across: number, mode: GlobalCompositeOperation = 'source-over', alpha = 1): void {
+  const size = g.canvas.width / across
+  const tile = document.createElement('canvas')
+  tile.width = tile.height = Math.round(size)
+  tile.getContext('2d')!.drawImage(img, 0, 0, tile.width, tile.height)
+  const pattern = g.createPattern(tile, 'repeat')
+  if (!pattern) return
+  g.save()
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  g.globalCompositeOperation = mode
+  g.globalAlpha = alpha
+  g.fillStyle = pattern
+  g.fillRect(0, 0, g.canvas.width, g.canvas.height)
+  g.restore()
 }
 
 const WALL: Record<Facade, string> = {
@@ -51,7 +72,7 @@ const WALL: Record<Facade, string> = {
 }
 
 /** One facade texture set (albedo, lit windows, roughness): TILE x TILE window bays, each CELL px square. */
-function paintFacade(kind: Facade, seed: number) {
+function paintFacade(kind: Facade, seed: number, k = 1, photos: Photos = {}) {
   const S = CELL * TILE
   const r = rng(seed)
   const lit: boolean[] = []
@@ -77,7 +98,13 @@ function paintFacade(kind: Facade, seed: number) {
   const albedo = canvas(S, S, (g) => {
     g.fillStyle = WALL[kind]
     g.fillRect(0, 0, S, S)
-    if (kind === 'brick' || kind === 'charcoal') {
+    if ((kind === 'brick' || kind === 'charcoal') && photos.brick) {
+      // Real brickwork, eight photographs across the four bays (about 100 mm courses). Charcoal brick is the
+      // same wall under a dark wash, so its mortar lines still show.
+      layPhoto(g, photos.brick, 8)
+      g.fillStyle = kind === 'brick' ? 'rgba(150,84,62,0.16)' : 'rgba(40,38,37,0.76)'
+      g.fillRect(0, 0, S, S)
+    } else if (kind === 'brick' || kind === 'charcoal') {
       // Running-bond brick: 10 px courses, per-brick tone, recessed mortar.
       const base = kind === 'brick' ? [143, 79, 60] : [58, 56, 54]
       for (let y = 0; y < S; y += 10) for (let x = -((y / 10) % 2) * 12; x < S; x += 24) {
@@ -89,6 +116,8 @@ function paintFacade(kind: Facade, seed: number) {
       // Flat wall in big soft facets (about 1.5 m): planar and matte, like the rest of the city.
       const c = parseInt(WALL[kind].slice(1), 16)
       paintFacets(g, S, S, seed, 5, 0.075, [(c >> 16) & 255, (c >> 8) & 255, c & 255])
+      // Cut limestone on the civic and arched fronts: the photograph's joints and pitting, in the wall's colour.
+      if (photos.stone && (kind === 'stone' || kind === 'arch')) { layPhoto(g, photos.stone, 8, 'multiply'); g.fillStyle = 'rgba(255,250,240,0.30)'; g.fillRect(0, 0, S, S) }
     }
     for (let cy = 0; cy < TILE; cy++) for (let cx = 0; cx < TILE; cx++) {
       const o = cellRect(cx, cy)
@@ -147,7 +176,7 @@ function paintFacade(kind: Facade, seed: number) {
         for (let y = o.y + 4; y < o.y + o.h; y += 6) { g.fillRect(o.x - 18, y, 14, 1); g.fillRect(o.x + o.w + 4, y, 14, 1) }
       }
     }
-  })
+  }, k)
   const glow = canvas(S, S, (g) => {
     g.fillStyle = '#000'
     g.fillRect(0, 0, S, S)
@@ -162,11 +191,11 @@ function paintFacade(kind: Facade, seed: number) {
       if (kind === 'arch') { archPath(g, o.x, o.y, o.w, o.h); g.fill() } else g.fillRect(o.x, o.y + o.h * blind[k]!, o.w, o.h * (1 - blind[k]!))
     }
   })
-  // Roughness (green channel): matte wall, smooth glazing so the sky env map reads as reflection.
+  // Roughness (green) and metalness (blue): a matte wall, and smooth, mirror-like glazing that reflects the sky.
   const rough = canvas(S, S, (g) => {
-    g.fillStyle = kind === 'glass' ? 'rgb(0,90,0)' : 'rgb(0,236,0)'
+    g.fillStyle = kind === 'glass' ? 'rgb(0,90,70)' : 'rgb(0,236,4)'
     g.fillRect(0, 0, S, S)
-    g.fillStyle = 'rgb(0,40,0)'
+    g.fillStyle = 'rgb(0,26,170)'
     for (let cy = 0; cy < TILE; cy++) for (let cx = 0; cx < TILE; cx++) {
       const o = cellRect(cx, cy)
       if (kind === 'arch') { archPath(g, o.x, o.y, o.w, o.h); g.fill() } else g.fillRect(o.x, o.y, o.w, o.h)
@@ -214,7 +243,13 @@ function paintPodium(seed: number) {
     g.fillStyle = '#000'
     g.fillRect(gx + gw / 2 - 2, gy, 4, gh)
   })
-  return { albedo, glow }
+  // Roughness (green) and metalness (blue): stone piers, and shop glass that mirrors the street.
+  const pbr = canvas(W, H, (g) => {
+    g.fillStyle = 'rgb(0,200,4)'; g.fillRect(0, 0, W, H)
+    g.fillStyle = 'rgb(0,90,30)'; g.fillRect(0, H - 34, W, 34) // polished granite plinth
+    g.fillStyle = 'rgb(0,22,150)'; g.fillRect(24, 120, W - 48, H - 34 - 120)
+  })
+  return { albedo, glow, pbr }
 }
 
 function signCanvas(title: string): { c: HTMLCanvasElement; aspect: number } {
@@ -258,21 +293,39 @@ export function createArchitecture(o: {
     return t
   }
   const nightMats: Array<{ m: THREE.MeshStandardMaterial; day: number; night: number }> = []
+  // Twice the pixels per window bay wherever the device has the memory for it (not on small phones).
+  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+  const sharp = !coarse || ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4) >= 4 ? 2 : 1
+  const photos: Photos = {}
+  const repaint: Array<() => void> = []
   const facadeMat = (kind: Facade, seed: number) => {
-    const p = paintFacade(kind, seed)
+    const p = paintFacade(kind, seed, sharp)
+    const pbr = tex(p.rough, false)
     const m = new THREE.MeshStandardMaterial({
       map: tex(p.albedo, true), emissiveMap: tex(p.glow, true), emissive: 0xffffff, emissiveIntensity: 0,
-      roughnessMap: tex(p.rough, false), roughness: 1, metalness: kind === 'glass' ? 0.35 : 0.02, envMapIntensity: kind === 'glass' ? 1.0 : 0.6,
+      roughnessMap: pbr, roughness: 1, metalnessMap: pbr, metalness: 1, envMapIntensity: kind === 'glass' ? 1.15 : 0.9,
     })
     nightMats.push({ m, day: 0, night: 0.95 })
+    if (kind !== 'glass' && kind !== 'render') repaint.push(() => {
+      // Same seed, so the windows land exactly where the lit-window and roughness maps have them.
+      const next = paintFacade(kind, seed, sharp, photos).albedo
+      const g = p.albedo.getContext('2d')!
+      g.setTransform(1, 0, 0, 1, 0, 0)
+      g.drawImage(next, 0, 0)
+      m.map!.needsUpdate = true
+    })
     return m
   }
+  const loadPhoto = (key: keyof Photos, url: string) => { const img = new Image(); img.decoding = 'async'; img.onload = () => { photos[key] = img; for (const f of repaint) f() }; img.src = url }
+  loadPhoto('brick', '/tex/nature/brick.webp')
+  loadPhoto('stone', '/tex/surf/stone_d.webp')
   const F: Record<Facade, THREE.MeshStandardMaterial> = {
     stone: facadeMat('stone', 11), brick: facadeMat('brick', 23), glass: facadeMat('glass', 5),
     render: facadeMat('render', 31), arch: facadeMat('arch', 19), charcoal: facadeMat('charcoal', 53),
   }
   const pod = paintPodium(7)
-  const podium = new THREE.MeshStandardMaterial({ map: tex(pod.albedo, true), emissiveMap: tex(pod.glow, true), emissive: 0xffffff, emissiveIntensity: 0.12, roughness: 0.55, metalness: 0.1 })
+  const podPbr = tex(pod.pbr, false)
+  const podium = new THREE.MeshStandardMaterial({ map: tex(pod.albedo, true), emissiveMap: tex(pod.glow, true), emissive: 0xffffff, emissiveIntensity: 0.12, roughnessMap: podPbr, roughness: 1, metalnessMap: podPbr, metalness: 1, envMapIntensity: 1.0 })
   nightMats.push({ m: podium, day: 0.1, night: 1.05 })
   const bronze = new THREE.MeshStandardMaterial({ color: 0x3b342d, roughness: 0.42, metalness: 0.75 })
   const roof = new THREE.MeshStandardMaterial({ color: 0x5d5a55, roughness: 0.96 })
