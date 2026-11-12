@@ -47,3 +47,18 @@ free separates. Premium (the Runway collection): complete looks on seven more Ro
 blouse and pencil skirt, evening set, soirée set, tuxedo, tailored suit, thobe), couture colourways of the
 abaya and tunic, and jewellery. Jewellery is built in code and measured to each figure's own ears, neck,
 wrist and finger (src/humans.ts, `measure` and `jewels`), so it follows the body it is worn on.
+
+## Nov 2026 (home, trading, type, buildings)
+
+Home life (src/homeLife.ts): gas cooker, fridge with food, utensils, doors, bathroom, laundry, planter garden
+and pool lounger are built in code from shared materials; no new model files.
+
+Trading (src/exchange.ts, src/perps.ts): Spot, Perps and Convert on one card. Practice prices only. Practice
+perpetuals keep their open positions in a device-side list next to the save; the save format is unchanged.
+
+Type: Apple devices use their system face. Everywhere else the game uses Inter (Rasmus Andersson and
+contributors, SIL Open Font License 1.1), bundled through the `@fontsource-variable/inter` package. The logo
+is artwork and the certificate keeps its own lettering.
+
+Buildings: brick and limestone facades reuse the photographs already listed above (red_brick_03 and the stone
+surface set, Poly Haven, CC0), laid into the painted facades by src/architecture.ts.
