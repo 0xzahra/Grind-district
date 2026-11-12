@@ -222,7 +222,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     if (h < 6) return 'Should be asleep, honestly'
     if (h < 12) return `Work time: ${per.routine.split(',')[0]!.toLowerCase()}`
     if (h < 14) return 'Lunch break at the Campus café'
-    if (h < 16) return 'Off to the prayer space, then back to work'
+    if (h < 16) return 'Off to the masjid, then back to work'
     if (h < 19) return `After work: ${(per.routine.split(',')[1] ?? ' a walk by the water').trim().toLowerCase()}`
     return 'Heading home for the night'
   }

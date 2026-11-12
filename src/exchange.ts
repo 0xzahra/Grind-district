@@ -1,15 +1,19 @@
 // The trading screen: Spot, Perps and Convert on one clean card. One asset in focus at a time with a big price,
 // a simple line chart and a single order ticket; the market list sits underneath. Practice prices only.
-import { COINS, COIN_CATEGORIES, RANKS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId } from './logic.ts'
+import { COINS, COIN_CATEGORIES, RANKS, TOKEN_IDS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId } from './logic.ts'
 import { convertCoin, getSave, trade, tradeCoin } from './state.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
 const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', link: '#3d6fe6', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', wif: '#b98a5e', bonk: '#f5a623' }
+// The game has Coins and Tokens, nothing else. A coin is the money of its own chain (BTC, ETH, SOL, and the
+// city's own District Coin); a token is issued on top of one (LINK, the Meme Token and the other meme tokens).
+const listed = COINS.map((c): Asset => ({ id: c.id, sym: c.label.split(' · ')[0]!, name: c.label.split(' · ')[1] ?? c.label, tint: TINT[c.id] ?? '#9aa3ad', group: TOKEN_IDS.has(c.id) ? 'Tokens' : 'Coins', minRank: c.minRank }))
 const ASSETS: Asset[] = [
-  { id: 'unit', sym: 'UNIT', name: 'District coin', tint: '#d9b26a', group: 'District', minRank: 'shrimp', desk: 'unit' },
-  { id: 'meme', sym: 'MEME', name: 'Trenches coin', tint: '#8fd0a6', group: 'District', minRank: 'shrimp', desk: 'meme' },
-  ...COINS.map((c): Asset => ({ id: c.id, sym: c.label.split(' · ')[0]!, name: c.label.split(' · ')[1] ?? c.label, tint: TINT[c.id] ?? '#9aa3ad', group: COIN_CATEGORIES.find((k) => k.id === c.cat)!.label, minRank: c.minRank })),
+  { id: 'unit', sym: 'COIN', name: 'District Coin', tint: '#d9b26a', group: 'Coins', minRank: 'shrimp', desk: 'unit' },
+  ...listed.filter((a) => a.group === 'Coins'),
+  { id: 'meme', sym: 'MEME', name: 'Meme Token', tint: '#8fd0a6', group: 'Tokens', minRank: 'shrimp', desk: 'meme' },
+  ...listed.filter((a) => a.group === 'Tokens'),
 ]
 const CASH: Asset = { id: 'usd', sym: 'USD', name: 'Cash', tint: '#5fae7d', group: '', minRank: 'shrimp' }
 const asset = (id: string): Asset => (id === 'usd' ? CASH : ASSETS.find((a) => a.id === id) ?? ASSETS[0]!)
@@ -191,8 +195,8 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         }
       })
       pane.append(tiles, ticket, result)
-      if (a.desk) pane.append(note(a.desk === 'unit' ? `${seasonLabel(seasonAt())} season. A plan logged on the sell can count when the close is red.` : `${seasonLabel(seasonAt())} season. MEME is attention. Size small. Rank will not follow a crash.`))
-      else if (a.group === 'Big caps') pane.append(note('Big caps reward patience: each buy adds reputation.'))
+      if (a.desk) pane.append(note(a.desk === 'unit' ? `${seasonLabel(seasonAt())} season. A plan logged on the sell can count when the close is red.` : `${seasonLabel(seasonAt())} season. A meme token is attention. Size small. Rank will not follow a crash.`))
+      else if (COINS.find((c) => c.id === a.id)?.cat === 'big') pane.append(note('Big caps reward patience: each buy adds reputation.'))
     }
     // Markets: every listed asset with its price, recent change and what you hold.
     const list = h('div', 'xch-list')

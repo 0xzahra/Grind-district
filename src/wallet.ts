@@ -82,8 +82,8 @@ export function openWallet(): void {
     const h = sv.coins[c.id]
     if (h && h.qty > 0) rows.push([c.label.split(' · ')[0], c.label.split(' · ')[1] ?? '', h.qty, h.qty * (sv.coinPrices[c.id] ?? c.base)])
   }
-  if (sv.unit.qty > 0) rows.push(['UNIT', 'City index', sv.unit.qty, sv.unit.qty * sv.unitPrice])
-  if (sv.meme.qty > 0) rows.push(['MEME', 'Trench token', sv.meme.qty, sv.meme.qty * sv.memePrice])
+  if (sv.unit.qty > 0) rows.push(['District Coin', 'City coin', sv.unit.qty, sv.unit.qty * sv.unitPrice])
+  if (sv.meme.qty > 0) rows.push(['Meme Token', 'Trenches', sv.meme.qty, sv.meme.qty * sv.memePrice])
   const practice = rows.reduce((a, r) => a + r[3], 0)
   const usd = (n: number) => money(n)
   const hero = el('div', '', 'wx-hero')

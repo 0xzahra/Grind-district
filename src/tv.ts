@@ -11,7 +11,7 @@ const NEWS = [
   'Campus adds a liquidity module · four exercises, one source line',
   'Plaza benches restored · sit a while, the city keeps moving',
   'Trading floor reminder · size the position before the entry',
-  'Studio row · bounties pay in practice UNIT',
+  'Studio row · bounties pay in in-game cash',
   'Gym streaks count once a day · four stations, one set',
   'Not your keys, not your coins',
 ]
@@ -48,7 +48,7 @@ function paint(tv: Tv) {
     })
   } else {
     // A calm market line, drawn as it ticks.
-    g.fillStyle = '#8d877c'; g.font = '500 15px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('UNIT · PRACTICE MARKET', 24, 82)
+    g.fillStyle = '#8d877c'; g.font = '500 15px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('DISTRICT COIN · PRACTICE MARKET', 24, 82)
     g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 1
     for (let y = 110; y <= 220; y += 36) { g.beginPath(); g.moveTo(24, y); g.lineTo(W - 24, y); g.stroke() }
     g.beginPath(); g.lineWidth = 2.5; g.strokeStyle = '#c9a25e'

@@ -95,6 +95,9 @@ export function createSeating() {
       const sideOf = (bone: THREE.Object3D) => Math.sign(bone.getWorldPosition(vFrom).sub(b.hips.getWorldPosition(vTo)).dot(axis)) || 1
       if (pose === 'lie') {
         // Lie back on the bed: tip the whole person onto its back at mattress height.
+        // Turn first, then tip (YXZ): whatever way the figure was turned inside its root, it ends flat on its
+        // back, face up, with its head the way the seat faces. (Tip-then-turn rolled it face down or sideways.)
+        b.person.rotation.order = 'YXZ'
         b.person.rotation.x = -Math.PI / 2 * t
         b.person.position.y = ((seat?.y ?? 0.5) + 0.12) * t / (root.scale.y || 1)
         return

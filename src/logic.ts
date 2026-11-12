@@ -921,8 +921,8 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
       : ['- Nothing yet.']),
     '',
     'Holdings',
-    holdingLine('UNIT', save.unit, save.unitPrice),
-    holdingLine('MEME', save.meme, save.memePrice),
+    holdingLine('District Coin', save.unit, save.unitPrice),
+    holdingLine('Meme Token', save.meme, save.memePrice),
     '',
     'In-game profile. Not financial advice.',
   ].join('\n')
@@ -953,8 +953,8 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
     `${save.name} (@${save.username}) — portfolio`,
     'Holdings and performance (in-game practice values).',
     '',
-    holdingLine('UNIT', save.unit, save.unitPrice),
-    holdingLine('MEME', save.meme, save.memePrice),
+    holdingLine('District Coin', save.unit, save.unitPrice),
+    holdingLine('Meme Token', save.meme, save.memePrice),
     ...coinLines,
     ...(coinLines.length || save.unit.qty > 0 || save.meme.qty > 0 ? [] : ['- No open positions yet.']),
     '',
@@ -1066,7 +1066,8 @@ export function publicDoc(text: string): string {
 
 export type BookRow = { section: 'Assets' | 'Liabilities' | 'Coins' | 'Tokens' | 'Stocks'; label: string; value: string }
 /** Coins run on their own chain; tokens are issued on another chain (or are this city's practice tokens). */
-const TOKEN_IDS = new Set(['link', 'wif', 'bonk'])
+/** Listed assets that are tokens (issued on another chain); the rest are coins of their own chain. */
+export const TOKEN_IDS = new Set(['link', 'wif', 'bonk'])
 
 /** Books: assets, liabilities (luxury rewards with upkeep), investments (coins, new coins, stocks).
  *  isPublic hides family requests and spending wants. */
@@ -1096,8 +1097,8 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
     const value = h.qty * price
     return { section, label, value: `${formatQty(h.qty)} @ ${money(h.avg)} · worth ${money(value)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }
   }
-  const coins: BookRow[] = []
-  const tokens: BookRow[] = [pos('Tokens', 'UNIT · district token', save.unit, save.unitPrice), pos('Tokens', 'MEME · new token', save.meme, save.memePrice)]
+  const coins: BookRow[] = [pos('Coins', 'District Coin', save.unit, save.unitPrice)]
+  const tokens: BookRow[] = [pos('Tokens', 'Meme Token', save.meme, save.memePrice)]
   for (const coin of COINS) {
     const h = save.coins?.[coin.id]
     if (h && h.qty > 0) {

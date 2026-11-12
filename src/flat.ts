@@ -81,7 +81,7 @@ function citySpots(): Spot[] {
     { id: 'conference', ...conference, r: 2.3, title: 'Conference centre', body: 'Web3 events: AMAs, talks, demo days. Join for in-game cash.', action: 'conference', enter: 'Go inside' },
     { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'Grab a coffee and read today\'s market headlines.', action: 'cafe', enter: 'Read the room' },
     { id: 'booths', x: 0, z: -35.2, r: 2.2, title: 'Campus booths', body: 'Project stands. Browse what teams are building.' },
-    { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'Buy and sell UNIT with in-game cash and practise sizing your trades.', action: 'trade', enter: 'Open the book' },
+    { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'Buy and sell coins and tokens with in-game cash and practise sizing your trades.', action: 'trade', enter: 'Open the book' },
     { id: 'bounty', ...row, r: 2.6, title: 'Influencer row', body: 'Post a bounty to earn in-game cash and add it to your portfolio.', action: 'bounty', enter: 'Post a bounty' },
     { id: 'trench', ...trench, r: 2.6, title: 'Mempool', body: 'Trade the volatile MEME coin. Big swings, high risk.', action: 'trench', enter: 'Open the meme book' },
     { id: 'boutique', ...shop, r: 2.4, title: 'Boutique', body: 'Clothing store. Change your character, outfit and mask.', action: 'boutique', enter: 'Try a body' },
@@ -202,6 +202,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
   const on = (sel: string, fn: () => void) => document.querySelector(sel)?.addEventListener('click', fn)
   on('#nav-profile', () => ui.open('profile'))
   on('#nav-boutique', () => ui.open('boutique'))
+  on('#nav-trade', () => ui.open('trade'))
   on('#nav-city', () => ui.open('city'))
   on('#nav-settings', () => ui.open('settings'))
   // Career sheet (same control-centre sheet as the 3D path).

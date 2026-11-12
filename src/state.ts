@@ -591,7 +591,7 @@ export function trade(symbol: 'unit' | 'meme', side: 'buy' | 'sell', fraction: n
   save.ledger = result.ledger
   if (symbol === 'unit') save.unit = result.holding
   else save.meme = result.holding
-  const name = symbol === 'unit' ? 'UNIT' : 'MEME'
+  const name = symbol === 'unit' ? 'District Coin' : 'Meme Token'
   if (side === 'buy') {
     log('trade', `Bought ${name}`, `Spent ${money(result.cash)} practice at ${money(price)}.`)
     persist()
@@ -659,7 +659,7 @@ export function sitPrayer(): { message: string; rankedUp?: RankId; already: bool
   const bonus = markDaily(save, today(), 'prayer')
   save.focus = true
   const rankedUp = bonus > 0 ? gainXp(bonus) : undefined
-  log('social', 'Sat in the prayer space', 'No one asked what you believe. Next course counts a quarter more.')
+  log('social', 'Sat in the masjid', 'No one asked what you believe. Next course counts a quarter more.')
   persist()
   emit(rankedUp)
   return { already: false, rankedUp, message: 'Focus is on. The next course you pass counts a quarter more.' }

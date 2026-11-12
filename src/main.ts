@@ -296,6 +296,8 @@ const apiAgents = createRemoteAgents(scene)
     window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Zahra at Campus', 'Follow the gold marker north of the plaza. Zahra gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
+  // Settings: GN night, Dusk and GM day hold the sky where the player put it; Auto lets the day run.
+  const clockHeld = () => { try { return localStorage.getItem('gd.clock') === 'hold' } catch { return false } }
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
   if (NFT_COLLECTIONS_ENABLED) void loadSkinPermissions().then(() => { if (getSave().mask !== 'none') avatar.setMask(getSave().mask) })
@@ -451,6 +453,7 @@ const apiAgents = createRemoteAgents(scene)
 
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
   must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
+  document.getElementById('nav-trade')?.addEventListener('click', () => ui.open('trade'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   // Click-to-travel: tap a spot on the map and arrive outside the nearest door.
@@ -868,7 +871,17 @@ const apiAgents = createRemoteAgents(scene)
     msgBtn.classList.remove('unread')
     msgBtn.setAttribute('aria-expanded', String(!chat.hidden))
     if (!chat.hidden) chatInput.focus()
+    chatIdle()
   })
+  // The nearby box never lingers: left alone (not focused, nothing typed) it closes itself.
+  let chatTimer = 0
+  const chatIdle = () => {
+    window.clearTimeout(chatTimer)
+    if (chat.hidden) return
+    chatTimer = window.setTimeout(() => { if (!chat.hidden && document.activeElement !== chatInput && !chatInput.value.trim()) msgBtn.click(); else chatIdle() }, 9000)
+  }
+  chatInput.addEventListener('input', chatIdle)
+  chatInput.addEventListener('blur', chatIdle)
   const identity = () => {
     const save = getSave()
     return { name: save.name, username: save.username, body: save.body, tint: save.tint }
@@ -1246,6 +1259,7 @@ const apiAgents = createRemoteAgents(scene)
 
   // Place caption: shows briefly on entering an area, then hides itself (the Enter button stays while in range).
   let captionTimer = 0
+  let pillSpot: string | null = null, pillX = 0, pillZ = 0, pillAge = 0
   const showSpot = (next: Hotspot | null) => {
     // While seated: always offer Stand (never leave a gold Sit button up).
     if (seating.sitting) {
@@ -1344,7 +1358,7 @@ const apiAgents = createRemoteAgents(scene)
     // Reduced motion holds the sky still at the chosen GN time.
     // The city is mostly in daylight: the clock runs slowly while the sun is up, briskly through dusk and dawn,
     // and quickly through the night (about 8 minutes of day to 2 of night).
-    if (!calmSky()) { const up = Math.sin((dayPhase - 0.25) * Math.PI * 2); dayPhase = (dayPhase + (dt / DAY_SECONDS) * (up > 0.12 ? 0.55 : up < -0.12 ? 2.6 : 1.3)) % 1 }
+    if (!calmSky() && !clockHeld()) { const up = Math.sin((dayPhase - 0.25) * Math.PI * 2); dayPhase = (dayPhase + (dt / DAY_SECONDS) * (up > 0.12 ? 0.55 : up < -0.12 ? 2.6 : 1.3)) % 1 }
     lightAcc += dt
     if (lightAcc > 0.25) {
       lightAcc = 0
@@ -1542,6 +1556,12 @@ const apiAgents = createRemoteAgents(scene)
       }
     }
     showSpot(best)
+    // An action button nobody used fades after a few seconds of standing still; it is back the moment the
+    // player moves or reaches something else.
+    if (activeSpot) {
+      if (activeSpot !== pillSpot || Math.hypot(pos.x - pillX, pos.z - pillZ) > 0.3) { pillSpot = activeSpot; pillX = pos.x; pillZ = pos.z; pillAge = 0; act.classList.remove('faded') }
+      else if ((pillAge += dt) > 7) act.classList.add('faded')
+    } else if (pillSpot) { pillSpot = null; act.classList.remove('faded') }
 
     if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true

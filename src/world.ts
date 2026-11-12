@@ -406,7 +406,7 @@ export function createWorld(options: {
   spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Project stands. Browse what teams are building.')
 
   const floor = addBuilding({ x: -48, z: 0, w: 12, d: 16, h: 6, door: 'px', title: 'Trade', subtitle: 'spot book', seed: 11, style: 'glass', mint: true, floors: 3 })
-  spot('trade', floor.x, floor.z, 2.6, 'Trading floor', 'Buy and sell UNIT with in-game cash and practise sizing your trades.', 'trade', 'Open the book')
+  spot('trade', floor.x, floor.z, 2.6, 'Trading floor', 'Buy and sell coins and tokens with in-game cash and practise sizing your trades.', 'trade', 'Open the book')
   const row = addBuilding({ x: 48, z: 0, w: 12, d: 16, h: 6, door: 'nx', title: 'Bounty', subtitle: 'post', seed: 13, style: 'civic', mint: true, floors: 3 })
   spot('bounty', row.x, row.z, 2.6, 'Influencer row', 'Post a bounty to earn in-game cash and add it to your portfolio.', 'bounty', 'Post a bounty')
   const trench = addBuilding({ x: 0, z: 48, w: 16, d: 11, h: 4.8, door: 'nz', title: 'Mempool', subtitle: 'meme desk', seed: 18, style: 'brick', mint: true, floors: 2 })
@@ -1050,7 +1050,7 @@ export function createWorld(options: {
     g.fillRect(0, 0, 256, 128)
     g.fillStyle = '#7fae8e'
     g.font = '600 18px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
-    g.fillText(screen.key === 'unit' ? 'UNIT' : 'MEME', 12, 22)
+    g.fillText(screen.key === 'unit' ? 'DISTRICT COIN' : 'MEME TOKEN', 12, 22)
     if (values.length < 2) {
       screen.texture.needsUpdate = true
       return

@@ -2645,3 +2645,45 @@ html body #menu .menu-actions { max-width: 230px !important; }
 html body #menu .menu-actions { margin-top: 16px !important; gap: 9px !important; max-width: 176px !important; }
 html body #menu #menu-create.primary, html body #menu #menu-create { height: 42px !important; min-height: 42px !important; border-radius: 13px !important; font-size: 15px !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 -2px 0 rgba(0, 96, 44, 0.45), 0 2px 0 #03733a, 0 7px 16px rgba(0, 0, 0, 0.4), 0 0 16px rgba(6, 238, 116, 0.24) !important; }
 html body #menu #menu-signin, html body #menu #menu-agents, html body #menu #play, html body #menu #account-existing, html body #menu #account-new, html body #menu #account-back { height: 36px !important; min-height: 36px !important; border-radius: 11px !important; font-size: 13px !important; padding: 0 12px !important; }
+/* Title card: a raised slab (lit top edge, shaded foot, a lip and a cast shadow) with narrower keys. */
+html body #menu #menu-panel {
+  background: linear-gradient(180deg, rgba(62, 64, 70, 0.9) 0%, rgba(32, 33, 37, 0.92) 36%, rgba(15, 16, 18, 0.95) 100%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.8) !important; border-radius: 22px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -3px 0 rgba(0, 0, 0, 0.45), 0 4px 0 #050506, 0 24px 46px rgba(0, 0, 0, 0.52) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html body #menu .menu-actions { max-width: 156px !important; }
+html body #menu .title-headline { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
+/* Menu tiles: the label stays inside its key. */
+html body #nav.cc .cc-quad .cc-btn { min-width: 0 !important; padding: 9px 4px 8px !important; overflow: hidden; }
+html body #nav.cc .cc-quad .cc-btn .cc-btn-label { display: block; max-width: 100%; font-size: 10px !important; font-weight: 600; letter-spacing: -0.03em !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Panel actions are keys, not bars: as wide as their label needs, never the full width of the sheet. */
+html body #sheet .sheet-card button.primary:not(.topup *):not(.xch *):not(.ward *) { width: auto !important; min-width: 148px; max-width: 100%; justify-self: start; padding: 12px 26px !important; text-align: center !important; }
+
+/* ===== HUD, 12 Nov: the right-hand cluster is a 2 x 2 block of domed keys with the Online pill beside it =====
+   [ online ] [ screenshot ] [ menu ]
+              [ next step  ] [ camera ]
+   The next-step diamond lives under the screenshot key (it used to sit under the logo). */
+html body .goal-pill, html body .goal-pill.folded { left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 52px) !important; top: calc(max(14px, env(safe-area-inset-top)) + 52px) !important; }
+html body .goal-pill.folded { width: 42px !important; height: 42px !important; min-height: 42px !important; max-width: 42px !important;
+  background: radial-gradient(120% 120% at 32% 22%, #5a5d63 0%, #2b2d31 52%, #131416 100%) !important; border: 1px solid rgba(0, 0, 0, 0.75) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 3px rgba(0, 0, 0, 0.45), 0 2px 0 #08090a, 0 6px 14px rgba(0, 0, 0, 0.45) !important; }
+html body .goal-pill.folded::before { left: 15px; top: 15px; width: 11px; height: 11px; background: linear-gradient(135deg, #fbecc0, #d9b26a 55%, #a9802f); box-shadow: 0 0 0 3px rgba(232, 194, 122, 0.2), 0 1px 2px rgba(0, 0, 0, 0.6); }
+html body .goal-pill.folded:active { translate: 0 2px; box-shadow: var(--key-down) !important; }
+html body #online-chip { top: max(14px, env(safe-area-inset-top)) !important; left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 104px) !important; transform: none !important;
+  height: 42px; min-width: 54px; padding: 0 14px 0 12px !important; gap: 7px !important; justify-content: center; border-radius: 999px !important;
+  font-size: 15px !important; font-weight: 700 !important; color: #f6f1e6 !important; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+  background: linear-gradient(180deg, #474a50 0%, #2c2e32 46%, #1b1c1f 100%) !important; border: 1px solid rgba(0, 0, 0, 0.75) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 2px 0 #08090a, 0 6px 14px rgba(0, 0, 0, 0.45) !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html body #online-chip::before { width: 10px; height: 10px; background: radial-gradient(circle at 35% 30%, #a8ffcf, #2fd67d 55%, #128a4a); box-shadow: 0 0 0 2px rgba(52, 210, 122, 0.22), 0 0 8px #34d27a; }
+html body #online-chip:active { translate: 0 2px; box-shadow: var(--key-down) !important; }
+/* The nearby box opens under the logo, clear of the control keys, so its close button is always reachable. */
+html body #chat { left: max(12px, env(safe-area-inset-left)) !important; right: auto !important; top: calc(max(14px, env(safe-area-inset-top)) + 52px) !important; bottom: auto !important; max-width: min(300px, calc(100vw - 124px)); }
+/* An unused action button fades out (main.ts) rather than sitting on screen. */
+html body #act { transition: opacity 0.3s ease, transform 70ms ease-out, box-shadow 70ms ease-out !important; }
+html body #act.faded { opacity: 0; pointer-events: none; }
+/* Title card: a larger logo and a balanced, quieter line under it. */
+html body #menu #menu-panel .panel-logo { height: 62px !important; width: auto !important; max-width: none !important; margin: 2px auto 0 !important; }
+html body #menu .title-headline { font-size: 15.5px !important; line-height: 1.3 !important; font-weight: 650 !important; letter-spacing: -0.018em !important; margin: 10px auto 0 !important; max-width: 206px; text-wrap: balance; color: #fbf8f1 !important; }
+html body #menu .title-desc { font-size: 9px !important; font-weight: 600 !important; letter-spacing: 0.22em !important; margin-top: 8px !important; color: rgba(240, 235, 227, 0.6) !important; }

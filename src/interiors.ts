@@ -225,7 +225,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       ...[-1, 1].map((s) => box(0.1, 2.42, 0.1, doorMat, -w / 2 + 0.05, DZ + s * 0.85, 0, false)), // jambs
     ]
     const exitSign = add(new THREE.PlaneGeometry(0.9, 0.3), new THREE.MeshBasicMaterial({ map: canvasTex(256, 86, (g) => {
-      g.fillStyle = '#14110e'; g.fillRect(0, 0, 256, 86); g.fillStyle = '#f2ece0'; g.font = '700 44px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'center'; g.fillText(id === 'house' ? 'EXIT' : 'STREET', 128, 60)
+      g.fillStyle = '#0d5a34'; g.fillRect(0, 0, 256, 86); g.strokeStyle = '#eafff2'; g.lineWidth = 4; g.strokeRect(5, 5, 246, 76); g.fillStyle = '#f4fff8'; g.font = '700 44px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.textAlign = 'center'; g.fillText('EXIT', 128, 59)
     }) }), -w / 2 + 0.06, Math.min(2.6, H - 0.2), DZ)
     exitSign.rotation.y = Math.PI / 2
     // The door, its handle, lintel and sign belong to the wall: when the cut-away hides the wall they go with it.
@@ -344,7 +344,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Sleep ON the bed: feet at the foot of the mattress, head on the pillow by the headboard (south wall).
       // A lying figure's head points the way the seat faces.
       use({ id: 'bed', x: 1.0, z: 4.9, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep', run: () => {
-        hooks.sit({ x: ORIGIN.house.x + 1.0, z: ORIGIN.house.z + 5.45, yaw: 0, y: 0.62, pose: 'lie' })
+        hooks.sit({ x: ORIGIN.house.x + 1.0, z: ORIGIN.house.z + 5.45, yaw: Math.PI, y: 0.62, pose: 'lie' })
         // Soft dim on this screen only, then wake to daylight. Other players just see you lying down.
         const dim = document.createElement('div')
         dim.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;transition:opacity 1.2s;pointer-events:none;z-index:40'
@@ -569,7 +569,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const tickerTex = canvasTex(1024, 128, (g) => {
         g.fillStyle = '#121418'; g.fillRect(0, 0, 1024, 128)
         g.font = '600 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; let x = 20
-        for (const [t, v, up] of [['UNIT', '+1.8%', 1], ['MEME', '-4.2%', 0], ['ETH', '+0.6%', 1], ['BTC', '+0.3%', 1], ['USDC', '0.0%', 1]] as const) {
+        for (const [t, v, up] of [['BTC', '+0.3%', 1], ['ETH', '+0.6%', 1], ['SOL', '+1.8%', 1], ['MEME', '-4.2%', 0], ['USDC', '0.0%', 1]] as const) {
           g.fillStyle = '#efe9dc'; g.fillText(t, x, 78); x += g.measureText(t).width + 12
           g.fillStyle = up ? '#8fbf9f' : '#d08a7f'; g.fillText(String(v), x, 78); x += g.measureText(String(v)).width + 44
         }
@@ -581,8 +581,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       box(0.05, 2.6, 4.0, glassMat, w / 2 - 3.5, d / 2 - 2.0, 0, true)
       box(3.4, 2.6, 0.05, glassMat, w / 2 - 1.7, d / 2 - 4.0, 0, false)
       box(1.6, 0.75, 0.8, deskMat, w / 2 - 1.6, d / 2 - 1.4)
-      use({ id: 'desk', x: 0.5, z: 3.2, r: 1.4, title: 'Trading desk', body: 'A practice book in UNIT. A sized plan can count even when the close is red.', enter: 'Open the book', run: () => hooks.openPanel('trade') })
-      use({ id: 'ticker', x: 0.5, z: -d / 2 + 1.4, r: 1.6, title: 'Ticker wall', body: 'Prices move. Size moves your result.', enter: 'Read', run: () => hooks.toast('The wall is a mood, not a plan. Size first.') })
+      use({ id: 'desk', x: 0.5, z: 3.2, r: 1.4, title: 'Trading desk', body: 'A practice book for coins and tokens. A sized plan can count even when the close is red.', enter: 'Trade', run: () => hooks.openPanel('trade') })
+      use({ id: 'ticker', x: 0.5, z: -d / 2 + 1.4, r: 1.6, title: 'Market wall', body: 'Live practice prices. Open the trading screen: Spot, Perps, Convert.', enter: 'Trade', run: () => hooks.openPanel('trade') })
     }
 
     if (id === 'campus') {

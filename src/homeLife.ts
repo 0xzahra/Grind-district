@@ -256,7 +256,7 @@ export function buildHomeLife(c: HomeCtx): void {
     solid(M.tile, new THREE.PlaneGeometry(x1 - x0 - 0.06, z1 - z0 - 0.06).rotateX(-Math.PI / 2), (x0 + x1) / 2 + 0.03, 0.05, (z0 + z1) / 2 - 0.03).castShadow = false
     doorway(x0, 0.82, 'z', 1.14, x0 + 0.1, 1.33, 0.12, M.white) // opens inward, against the south wall
     // Vanity basin under a mirror on the north wall; tiling to shoulder height.
-    const VX = 8.05, VZ = z0 + 0.25
+    const VX = 7.95, VZ = z0 + 0.25
     solid(M.oak, new THREE.BoxGeometry(0.8, 0.78, 0.46), VX, 0.39, VZ)
     block(VX, VZ, 0.42, 0.26)
     box(M.white, 0.84, 0.05, 0.5, VX, 0.78, VZ)
@@ -277,9 +277,11 @@ export function buildHomeLife(c: HomeCtx): void {
     // Walk-in shower in the north-east corner: tray, a frosted screen, a rain head and a mixer.
     const SX = x1 - 0.5, SZ = z0 + 0.52
     box(M.white, 0.92, 0.04, 0.92, SX, 0.05, SZ)
-    const screen = solid(M.frost, new THREE.BoxGeometry(0.02, 1.95, 0.92), SX - 0.46, 1.05, SZ)
+    // The glass screen stands between the shower and the toilet; the shower is open to the room on its west
+    // side, so nobody is ever boxed in between the tray and the toilet.
+    const screen = solid(M.frost, new THREE.BoxGeometry(0.92, 1.95, 0.02), SX, 1.05, SZ + 0.46)
     screen.castShadow = false
-    block(SX - 0.46, SZ, 0.05, 0.46)
+    block(SX, SZ + 0.46, 0.46, 0.04)
     on(c.walls.east, () => {
       box(M.tile, 0.02, 1.5, z1 - z0 - 0.12, x1 - 0.1, 0.05, (z0 + z1) / 2 - 0.03) // stands proud of the brick skirting
       rod(M.chrome, 0.012, 0.42, x1 - 0.21, 2.05, SZ, 'x')
@@ -379,7 +381,7 @@ export function buildHomeLife(c: HomeCtx): void {
     box(M.cushion, 1.84, 0.08, 0.56, PX, 0.3, PZ)
     box(M.towel, 0.4, 0.07, 0.44, PX - 0.68, 0.38, PZ)
     c.use({ id: 'lounger', x: PX, z: PZ - 0.75, r: 0.8, title: 'Pool lounger', body: 'Put your feet up by the water.', enter: 'Lie down and rest', run: () => {
-      c.sit({ x: c.ox + PX + 0.85, z: c.oz + PZ, yaw: -Math.PI / 2, y: 0.38, pose: 'lie' }) // head to the west end
+      c.sit({ x: c.ox + PX + 0.85, z: c.oz + PZ, yaw: Math.PI / 2, y: 0.38, pose: 'lie' }) // head to the west end
       c.toast('Feet up by the pool. Rested.')
     } })
   }

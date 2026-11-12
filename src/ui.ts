@@ -921,14 +921,19 @@ export function mountUi(
     userLabel.append(para('Username', 'kicker'), handle)
     const times = document.createElement('div')
     times.className = 'tabs'
+    // GN night, Dusk and GM day stay where you put them. Auto lets the day run through all three.
+    const held = (() => { try { return localStorage.getItem('gd.clock') === 'hold' } catch { return false } })()
+    const clock = (mode: 'hold' | 'auto') => { try { localStorage.setItem('gd.clock', mode) } catch { /* private mode */ } }
     for (const time of ['night', 'dusk', 'day'] as const) {
-      const label = time === 'night' ? 'GN night' : time === 'dusk' ? 'Dusk' : 'Day'
-      times.append(button(label, save.timeOfDay === time ? 'primary' : 'ghost', () => {
+      const label = time === 'night' ? 'GN night' : time === 'dusk' ? 'Dusk' : 'GM day'
+      times.append(button(label, held && save.timeOfDay === time ? 'primary' : 'ghost', () => {
+        clock('hold')
         setTime(time)
         hooks.onLook()
         open('settings')
       }))
     }
+    times.append(button('Auto', held ? 'ghost' : 'primary', () => { clock('auto'); hooks.onLook(); open('settings') }))
     const graphics = document.createElement('div')
     graphics.className = 'tabs'
     for (const level of ['low', 'medium', 'high'] as const) {
@@ -1190,7 +1195,7 @@ export function mountUi(
           }),
         ])
       case 'prayer':
-        return renderSimple('Prayer space', [
+        return renderSimple('Masjid', [
           para('A bench, stones, and no questions about what you believe.'),
           para('Sitting puts focus on the next course you pass.'),
           button('Sit', 'primary', () => {

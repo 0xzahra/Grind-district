@@ -18,7 +18,7 @@ const FIRST_CARDS: Partial<Record<SkillId, string[]>> = {
   ],
   spot: [
     "Hi, I'm Zahra. Everyone in this city starts at zero. Let's do your first lesson right here. It takes a minute.",
-    'A spot trade buys the real thing, right now. Buy UNIT on the spot desk and you hold UNIT.',
+    'A spot trade buys the real thing, right now. Buy a coin on the spot desk and you hold that coin.',
     'Buyers bid. Sellers ask. The gap between the best bid and the best ask is the spread.',
     'Crossing the spread costs you before any fee. A wide spread usually means few people are trading.',
     'Two quick questions and this lesson goes on your CV.',
