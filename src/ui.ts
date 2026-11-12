@@ -997,14 +997,15 @@ export function mountUi(
     const soundRow = document.createElement('div')
     soundRow.className = 'tabs'
     const slider = (value: number, label: string, set: (v: number) => void) => { const r = document.createElement('input'); r.type = 'range'; r.min = '0'; r.max = '100'; r.value = String(value); r.setAttribute('aria-label', label); r.oninput = () => set(Number(r.value)); return r }
-    void import('./music.ts').then((m) => import('./ambient-audio.ts').then((a) => {
+    void import('./music.ts').then((m) => import('./ambient-audio.ts').then((a) => import('./speech.ts').then((v) => {
       soundRow.append(
+        button(v.voicesOn() ? 'Voices on' : 'Voices off', v.voicesOn() ? 'primary' : 'ghost', () => { v.setVoices(!v.voicesOn()); if (v.voicesOn()) v.speak('Voices are on.', { gender: 'f', seed: 3 }); open('settings') }),
         button(m.musicOn() ? 'Music on' : 'Music off', m.musicOn() ? 'primary' : 'ghost', () => { void m.setMusic(!m.musicOn()).then((ok) => { if (!ok) toast('This browser blocked the music. Tap again.'); open('settings') }) }),
         slider(m.musicVolume(), 'Music volume', m.setMusicVolume),
         button(a.ambientState().wanted ? 'City sound on' : 'City sound off', a.ambientState().wanted ? 'primary' : 'ghost', () => { void a.setAmbientEnabled(!a.ambientState().wanted).then(() => open('settings')) }),
         slider(a.ambientState().volume, 'City sound volume', a.setAmbientVolume),
       )
-    }))
+    })))
     const signedIn = !!(localStorage.getItem('gd.privy.userId') || localStorage.getItem('gd.privy.username') || localStorage.getItem('gd.near.account'))
     const accountRow = document.createElement('div')
     accountRow.className = 'tabs'
@@ -1074,7 +1075,7 @@ export function mountUi(
       comfort,
       para('Sound', 'kicker'),
       soundRow,
-      para('Music and city sound stay silent until you turn them on here.', 'muted'),
+      para('Music starts with your first tap and city sound plays in the streets. Turn either off here.', 'muted'),
       para('WASD or arrows walk. Shift runs. Drag looks. Scroll zooms. E enters. Esc closes this.', 'muted'),
       para('Notifications', 'kicker'),
       notifyRow,

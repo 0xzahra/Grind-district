@@ -5,6 +5,7 @@ import { openFriends } from './messages.ts'
 import * as THREE from 'three'
 import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
+import { speak } from './speech.ts'
 import { setAmbientPlace, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer, posedHuman } from './humans.ts'
@@ -228,13 +229,17 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
       'Morning.',
       'How is the grind?',
     ]
-    greetToast(tips[Math.floor(Date.now() / 8000) % tips.length]!)
+    const line = tips[Math.floor(Date.now() / 8000) % tips.length]!
+    greetToast(line)
+    speak(line, { gender: getSave().body === 'zuri' ? 'f' : 'm', seed: 1 })
     greetShown = 0; greetCool = 20; greetBtn.hidden = true
   })
   let greetToast: (m: string) => void = () => {}
   let greetShown = 0
   let greetAway = 99
   let greetCool = 0
+  let serverSpoke = -99
+  const SERVER_LINES = ['Welcome to Grind Ring. Coffee, juice or tea?', 'Morning! The mint tea is fresh.', 'Good to see you. What can I get you?', 'Cold brew is on special today.']
   let npcCard: HTMLElement | null = null
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
@@ -1413,6 +1418,10 @@ const apiAgents = createRemoteAgents(scene)
 
     }
     agentBot.tick(dt, avatar.object.position)
+    if (!interiors.inside && !ui.isOpen()) {
+      const d = Math.hypot(avatar.object.position.x - 0.35, avatar.object.position.z - 0.32)
+      if (d < 3.8 && elapsed - serverSpoke > 60) { serverSpoke = elapsed; speak(SERVER_LINES[Math.floor(elapsed) % SERVER_LINES.length]!, { gender: 'm', seed: 7 }) }
+    }
   apiAgents.tick(dt)
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.

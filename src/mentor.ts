@@ -1,6 +1,7 @@
 // Zahra, the Campus mentor: the first lesson happens in the street, not in a quiz app.
 // A few short cards (one or two sentences each), then two quick questions, then the pass files to the CV
 // through the same submitCourse() as the Campus panel, so save, certificate and CV data are unchanged.
+import { speak, stopSpeaking } from './speech.ts'
 import { COURSES, type Course } from './courses.ts'
 import { getSave, submitCourse, slotKey, type CourseResult } from './state.ts'
 import { SKILL_META, type SkillId } from './logic.ts'
@@ -79,6 +80,13 @@ export function createMentorCard(hooks: MentorHooks) {
   root.setAttribute('aria-label', 'Zahra, Campus mentor')
   document.body.append(root)
   let open = false
+  // Zahra's voice: each new line on her card is spoken (a woman's voice; Settings > Voices turns it off).
+  let said = ''
+  new MutationObserver(() => {
+    const line = root.hidden ? '' : root.querySelector('.mentor-say')?.textContent?.trim() ?? ''
+    if (!line) { if (root.hidden && said) { said = ''; stopSpeaking() } return }
+    if (line !== said) { said = line; speak(line, { gender: 'f', seed: 3 }) }
+  }).observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden'] })
 
   const close = () => { open = false; root.hidden = true; root.replaceChildren(); document.body.classList.remove('mentor-on') }
   const shell = (step: string, total: number, at: number) => {

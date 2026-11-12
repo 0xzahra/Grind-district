@@ -9,8 +9,11 @@ import { mountMenu } from './menu.ts'
 import { loadSave } from './state.ts'
 import { startTracking } from './track.ts'
 import { watchUpdates } from './update.ts'
+import { resumeMusicOnFirstTap } from './music.ts'
 
 watchUpdates()
+// The theme starts with the first tap on the title screen and carries on into the city.
+resumeMusicOnFirstTap()
 
 // Warm the cache from the title screen: the people of the city (and the clips they move with) are fetched
 // quietly while the player reads the opening card, so nobody is missing when the city opens. Plain fetch

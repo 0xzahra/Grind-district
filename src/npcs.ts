@@ -1,3 +1,4 @@
+import { speak } from './speech.ts'
 import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -291,6 +292,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
           const turn = Math.floor(now) % 3
           const text = turn === 0 ? `${per.name}: Feeling ${moodOf(i)} today.` : turn === 1 ? `${per.name}: ${routineNow(i)}.` : `${per.name}: ${per.lines[Math.floor(now) % per.lines.length]}`
           const sp = bubble(text); people[i]!.avatar.object.add(sp); live.push({ sp, host: people[i]!.avatar.object, ttl: 3.6 })
+          speak(text.replace(/^[^:]{1,20}:\s*/, ''), { gender: people[i]!.sim.spec.body === 'zuri' ? 'f' : 'm', seed: i })
           gaze[i] = { t: 0, cool: 0 } // turn to face you while talking
         }
       }

@@ -46,7 +46,7 @@ function masterLevel(): number {
   if (!active || !wanted) return 0
   // Keep overall bed quiet/pleasant; plaza proximity only boosts outdoors a little.
   const place = indoors ? 1 : 0.75 + 0.25 * plazaNear
-  return (volume / 100) * 0.22 * place
+  return (volume / 100) * 0.95 * place
 }
 
 function ramp(g: GainNode | null, value: number, seconds = 0.75): void {
@@ -162,9 +162,9 @@ function playHorn(ctx: AudioContext, dest: AudioNode): void {
   const t0 = ctx.currentTime + 0.02
   const g = ctx.createGain()
   g.gain.setValueAtTime(0.0001, t0)
-  g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.05)
+  g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.05)
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42)
-  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400
   const base = 260 + Math.random() * 40
   for (const mul of [1, 1.25]) {
     const o = ctx.createOscillator()
@@ -181,21 +181,21 @@ function playHorn(ctx: AudioContext, dest: AudioNode): void {
 function playFootstep(ctx: AudioContext, dest: AudioNode, indoor: boolean): void {
   const t0 = ctx.currentTime
   const g = ctx.createGain()
-  const peak = indoor ? 0.055 : 0.04
+  const peak = indoor ? 0.3 : 0.24
   g.gain.setValueAtTime(0.0001, t0)
   g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012)
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + (indoor ? 0.14 : 0.11))
   const o = ctx.createOscillator()
   o.type = 'sine'
-  o.frequency.setValueAtTime(indoor ? 95 : 130, t0)
-  o.frequency.exponentialRampToValueAtTime(indoor ? 55 : 70, t0 + 0.1)
+  o.frequency.setValueAtTime(indoor ? 190 : 240, t0)
+  o.frequency.exponentialRampToValueAtTime(indoor ? 110 : 140, t0 + 0.1)
   const noise = ctx.createBufferSource()
   noise.buffer = noiseBuffer(ctx, 0.08, 'white')
   const bp = ctx.createBiquadFilter()
   bp.type = 'bandpass'
   bp.frequency.value = indoor ? 900 : 1400
   bp.Q.value = 1.2
-  const ng = ctx.createGain(); ng.gain.value = indoor ? 0.35 : 0.25
+  const ng = ctx.createGain(); ng.gain.value = indoor ? 0.9 : 0.8
   o.connect(g)
   noise.connect(bp); bp.connect(ng); ng.connect(g)
   g.connect(dest)
@@ -208,7 +208,7 @@ function playClink(ctx: AudioContext, dest: AudioNode): void {
   const t0 = ctx.currentTime
   const g = ctx.createGain()
   g.gain.setValueAtTime(0.0001, t0)
-  g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.008)
+  g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.008)
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35)
   const f0 = 1800 + Math.random() * 1400
   for (const [mul, amp] of [[1, 0.7], [2.01, 0.35], [3.1, 0.18]] as const) {
@@ -231,12 +231,12 @@ function playPassBy(ctx: AudioContext, dest: AudioNode): void {
   src.buffer = noiseBuffer(ctx, 0.6, 'pink')
   src.loop = true
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4
-  bp.frequency.setValueAtTime(180, t0)
-  bp.frequency.exponentialRampToValueAtTime(520, t0 + dur * 0.45)
-  bp.frequency.exponentialRampToValueAtTime(160, t0 + dur)
+  bp.frequency.setValueAtTime(380, t0)
+  bp.frequency.exponentialRampToValueAtTime(1150, t0 + dur * 0.45)
+  bp.frequency.exponentialRampToValueAtTime(320, t0 + dur)
   const g = ctx.createGain()
   g.gain.setValueAtTime(0.0001, t0)
-  g.gain.exponentialRampToValueAtTime(0.07, t0 + dur * 0.35)
+  g.gain.exponentialRampToValueAtTime(0.5, t0 + dur * 0.35)
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
   const pan = ctx.createStereoPanner?.() ?? null
   if (pan) {
@@ -263,7 +263,7 @@ function playWhisper(ctx: AudioContext, dest: AudioNode): void {
   bp.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.35), t0 + dur)
   const g = ctx.createGain()
   g.gain.setValueAtTime(0.0001, t0)
-  g.gain.exponentialRampToValueAtTime(0.028, t0 + 0.06)
+  g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.06)
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
   src.connect(bp); bp.connect(g); g.connect(dest)
   src.start(t0); src.stop(t0 + dur + 0.02)
@@ -330,7 +330,9 @@ function scheduleEvents(ctx: AudioContext): void {
 
 function buildGraph(ctx: AudioContext): void {
   master = ctx.createGain(); master.gain.value = 0.0001
-  master.connect(ctx.destination)
+  const limiter = ctx.createDynamicsCompressor()
+  limiter.threshold.value = -10; limiter.knee.value = 8; limiter.ratio.value = 6; limiter.attack.value = 0.004; limiter.release.value = 0.25
+  master.connect(limiter); limiter.connect(ctx.destination)
 
   outBus = ctx.createGain(); outBus.gain.value = 0.0001
   inBus = ctx.createGain(); inBus.gain.value = 0.0001
@@ -351,27 +353,32 @@ function buildGraph(ctx: AudioContext): void {
 
   // Soft wind — very low brown, lowpass so it is breeze not hiss
   {
-    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 180; f.Q.value = 0.4
-    const g = ctx.createGain(); g.gain.value = 0.55
-    loopNoise(ctx, 'brown', 3.2, g, f)
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 650; f.Q.value = 0.45
+    const g = ctx.createGain(); g.gain.value = 0.9
+    // Gusts: the level breathes slowly.
+    const gust = ctx.createOscillator(); const gg = ctx.createGain()
+    gust.frequency.value = 0.09; gg.gain.value = 0.35
+    gust.connect(gg); gg.connect(g.gain); gust.start()
+    loopNoise(ctx, 'pink', 3.2, g, f)
     g.connect(windG)
   }
 
   // Distant traffic bed — rumble only
   {
-    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 110; f.Q.value = 0.5
-    const g = ctx.createGain(); g.gain.value = 0.7
+    // A city hum: tyre roar and engines a block away, sitting in the range a phone speaker plays.
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 0.6
+    const g = ctx.createGain(); g.gain.value = 1.1
     const lfo = ctx.createOscillator(); const lg = ctx.createGain()
-    lfo.frequency.value = 0.07; lg.gain.value = 18
+    lfo.frequency.value = 0.07; lg.gain.value = 120
     lfo.connect(lg); lg.connect(f.frequency); lfo.start()
-    loopNoise(ctx, 'brown', 4, g, f)
+    loopNoise(ctx, 'pink', 4, g, f)
     g.connect(trafficG)
   }
 
   // Quiet indoor room tone — very soft mid-low pink
   {
-    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 320; f.Q.value = 0.5
-    const g = ctx.createGain(); g.gain.value = 0.35
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 480; f.Q.value = 0.5
+    const g = ctx.createGain(); g.gain.value = 0.55
     loopNoise(ctx, 'pink', 2.8, g, f)
     g.connect(roomG)
   }
