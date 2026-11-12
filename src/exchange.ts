@@ -1,6 +1,7 @@
 // The trading screen: Spot, Perps and Convert on one clean card. One asset in focus at a time with a big price,
 // a simple line chart and a single order ticket; the market list sits underneath. Practice prices only.
-import { COINS, COIN_CATEGORIES, RANKS, TOKEN_IDS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId } from './logic.ts'
+import { COINS, COIN_CATEGORIES, RANKS, SKILL_META, TOKEN_IDS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId, type SkillId } from './logic.ts'
+import { lockReason } from './worlds.ts'
 import { convertCoin, getSave, trade, tradeCoin } from './state.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
 
@@ -14,6 +15,19 @@ const ASSETS: Asset[] = [
   ...listed.filter((a) => a.group === 'Coins'),
   { id: 'meme', sym: 'MEME', name: 'Meme Token', tint: '#8fd0a6', group: 'Tokens', minRank: 'shrimp', desk: 'meme' },
   ...listed.filter((a) => a.group === 'Tokens'),
+]
+type Offer = { name: string; trades: number; rate: number; spread: number; pay: string; verified?: boolean; trap?: 'third' | 'offsite' | 'fake' }
+// Sellers you can buy from, and buyers you can sell to. The sharks quote a price that is too good.
+const BUY_OFFERS: Offer[] = [
+  { name: 'AdaTrades', trades: 2140, rate: 99.2, spread: 0, pay: 'Bank transfer', verified: true },
+  { name: 'KanoDesk', trades: 870, rate: 98.1, spread: 0, pay: 'Bank transfer', verified: true },
+  { name: 'QuickFlip99', trades: 14, rate: 71, spread: -0.03, pay: 'Bank transfer', trap: 'third' },
+  { name: 'CheapCoinz', trades: 6, rate: 60, spread: -0.05, pay: 'WhatsApp deal', trap: 'offsite' },
+]
+const SELL_OFFERS: Offer[] = [
+  { name: 'LagosOTC', trades: 3120, rate: 99.5, spread: 0, pay: 'Bank transfer', verified: true },
+  { name: 'ZeeMerchant', trades: 640, rate: 97.8, spread: 0, pay: 'Bank transfer', verified: true },
+  { name: 'FastPay_01', trades: 9, rate: 66, spread: 0.04, pay: 'Bank transfer', trap: 'fake' },
 ]
 const CASH: Asset = { id: 'usd', sym: 'USD', name: 'Cash', tint: '#5fae7d', group: '', minRank: 'shrimp' }
 const asset = (id: string): Asset => (id === 'usd' ? CASH : ASSETS.find((a) => a.id === id) ?? ASSETS[0]!)
@@ -78,12 +92,13 @@ const icon = (a: Asset): HTMLElement => { const n = h('span', 'xch-ico', a.id ==
 export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message: string, rankedUp?: RankId) => void }): { el: HTMLElement; paint: () => void } {
   startTape()
   const root = h('div', 'xch')
-  let tab: 'spot' | 'perps' | 'convert' = 'spot'
+  let tab: 'spot' | 'perps' | 'convert' | 'p2p' = 'spot'
   let live: Array<() => void> = []
   // What each tab has selected; kept while the screen is open so switching tabs loses nothing.
   let spotId: string = desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
   let perpId = 'btc', perpSide: 'long' | 'short' = 'long', perpLev = 5, perpFrac = 0.25
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
+  let p2pSide: 'buy' | 'sell' = 'buy', p2pCoin = 'btc', p2pFrac = 0.25, p2pOrder: { offer: Offer; stage: 'open' | 'bank' | 'releasing' } | null = null
   const paintNow = () => { for (const f of live) f() }
 
   const segmented = (labels: string[], active: number, pick: (i: number) => void, cls = '') => {
@@ -136,6 +151,21 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   }
   const cta = (cls: string) => { const b = h('button', `xch-go ${cls}`); b.type = 'button'; return b }
   const note = (text: string) => h('p', 'xch-note', text)
+  /** The courses behind a tab: each opens on Campus and keeps its usual lock. */
+  const courses = (ids: SkillId[]) => {
+    const box = h('div', 'xch-learn')
+    box.append(h('h3', 'xch-group', 'Learn this desk'))
+    for (const id of ids) {
+      const passed = !!getSave().skills[id]?.passed, lock = passed ? '' : lockReason(id)
+      const b = h('button', 'xch-course'), names = h('div', 'xch-names')
+      b.type = 'button'
+      names.append(h('b', '', SKILL_META[id].title), h('small', '', passed ? 'Passed · on your CV' : lock || 'Course · tap to start'))
+      b.append(h('span', `xch-badge${passed ? ' ok' : lock ? ' lock' : ''}`, passed ? '✓' : lock ? '🔒' : '›'), names)
+      b.onclick = () => { if (!lock) window.dispatchEvent(new CustomEvent('gd:course', { detail: id })) }
+      box.append(b)
+    }
+    return box
+  }
   const result = h('p', 'xch-result')
   result.setAttribute('role', 'status')
   const done = (r: { ok: boolean; message: string; rankedUp?: RankId }, rebuild = false) => {
@@ -219,7 +249,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       })
       list.append(item)
     }
-    pane.append(list)
+    pane.append(list, courses(['spot', 'risk', 'memes']))
     return pane
   }
 
@@ -285,7 +315,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         r.mark.textContent = coinPrice(markPrice(p.coin))
       }
     })
-    pane.append(book, note('Practice perpetuals. Margin comes from earned in-game cash only, never from a top-up. A position is liquidated when its loss reaches its margin. Open positions are kept on this device.'))
+    pane.append(book, note('Practice perpetuals. Margin comes from earned in-game cash only, never from a top-up. A position is liquidated when its loss reaches its margin. Open positions are kept on this device.'), courses(['risk', 'moneyPaths']))
     return pane
   }
 
@@ -328,13 +358,95 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       go.textContent = `Convert ${from.sym} to ${to.sym}`
       go.disabled = value < 1
     })
-    pane.append(ticket, result, note('Converting swaps one asset straight into another at the current practice prices.'))
+    pane.append(ticket, result, note('Converting (a swap) changes one asset straight into another at the current practice prices.'), courses(['stables', 'liquidity', 'defi']))
+    return pane
+  }
+
+  // ------------------------------- P2P -------------------------------
+  // Practice peer-to-peer: pick a merchant, the coin sits in escrow, money moves bank to bank, escrow releases.
+  // Two of the merchants are sharks. Walk into one and the order is cancelled with the lesson; nothing is taken.
+  const p2pPane = () => {
+    const a = asset(p2pCoin), sym = a.sym, buying = p2pSide === 'buy'
+    const pane = h('div', 'xch-pane')
+    const amount = () => { const s = getSave(), hd = holdingOf(a), p = priceOf(a); const cash = buying ? cents(s.ledger * p2pFrac) : cents(hd.qty * p2pFrac * p); return { cash, qty: p > 0 ? cash / p : 0, ok: buying ? cash >= 1 : hd.qty > 0 } }
+    if (!p2pOrder) {
+      pane.append(
+        segmented(['Buy', 'Sell'], buying ? 0 : 1, (i) => { p2pSide = i ? 'sell' : 'buy'; result.textContent = ''; show() }, 'side'),
+        chips(ASSETS.filter((x) => ['btc', 'eth', 'sol'].includes(x.id)), p2pCoin, (x) => { p2pCoin = x.id; show() }),
+        row(buying ? 'Amount of your cash' : `Amount of your ${sym}`, segmented(['25%', '50%', 'Max'], [0.25, 0.5, 1].indexOf(p2pFrac), (i) => { p2pFrac = [0.25, 0.5, 1][i]!; paintNow() }, 'amt')),
+      )
+      const sum = h('p', 'xch-note')
+      live.push(() => { const m = amount(); sum.textContent = buying ? `You pay ${money(m.cash)} by bank transfer and receive about ${formatQty(m.qty)} ${sym}.` : m.ok ? `You sell about ${formatQty(m.qty)} ${sym} and receive ${money(m.cash)} in your bank.` : `You hold no ${sym} to sell yet.` })
+      const list = h('div', 'xch-list')
+      list.append(h('h3', 'xch-group', buying ? `Merchants selling ${sym}` : `Merchants buying ${sym}`))
+      for (const o of buying ? BUY_OFFERS : SELL_OFFERS) {
+        const item = h('button', 'xch-item xch-offer'), names = h('div', 'xch-names'), nums = h('div', 'xch-nums'), price = h('b')
+        item.type = 'button'
+        names.append(h('b', '', `${o.name}${o.verified ? ' ✓' : ''}`), h('small', '', `${o.trades.toLocaleString('en-US')} trades · ${o.rate}% completed`))
+        nums.append(price, h('small', '', o.pay))
+        const ico = h('span', 'xch-ico', o.name[0]); ico.style.setProperty('--tint', o.verified ? '#2f7d5b' : '#6b6f78')
+        item.append(ico, names, nums)
+        live.push(() => { price.textContent = coinPrice(priceOf(a) * (1 + o.spread)) })
+        item.onclick = () => { if (!amount().ok) { result.textContent = buying ? 'You need at least $1 of in-game cash.' : `You hold no ${sym} to sell.`; result.dataset.ok = 'false'; return } p2pOrder = { offer: o, stage: 'open' }; result.textContent = ''; show() }
+        list.append(item)
+      }
+      pane.append(sum, list, result, note('Practice P2P. A real platform holds the coin in escrow until both sides confirm; stay inside it. Verified merchants trade at the book price.'), courses(['p2pSharks', 'redFlags', 'scams']))
+      return pane
+    }
+    // ---- an open order ----
+    const order = p2pOrder, o = order.offer, m = amount()
+    const end = (ok: boolean, message: string) => { p2pOrder = null; result.textContent = message; result.dataset.ok = String(ok); hooks.finish(message); show() }
+    const complete = () => { const r = tradeCoin(a.id, p2pSide, p2pFrac); end(r.ok, r.ok ? `P2P order complete with ${o.name}. ${r.message}` : r.message) }
+    const scam = (lesson: string) => end(false, `That was a scam. ${lesson} Practice mode: the order was cancelled and nothing was taken.`)
+    const safe = (lesson: string) => end(true, `Good call. ${lesson} Order cancelled, nothing lost.`)
+    const head = h('div', 'xch-pos'), top = h('div', 'xch-pos-top'), names = h('div', 'xch-names')
+    names.append(h('b', '', `${buying ? 'Buy' : 'Sell'} ${sym} · ${o.name}${o.verified ? ' ✓' : ''}`), h('small', '', `${o.trades.toLocaleString('en-US')} trades · ${o.rate}% completed`))
+    top.append(icon(a), names)
+    const pv = preview(buying ? ['You pay', 'You receive', 'Payment'] : ['You sell', 'You receive', 'Payment'])
+    pv.values[0]!.textContent = buying ? money(m.cash) : `${formatQty(m.qty)} ${sym}`
+    pv.values[1]!.textContent = buying ? `≈ ${formatQty(m.qty)} ${sym}` : money(m.cash)
+    pv.values[2]!.textContent = 'Bank transfer'
+    const steps = h('ol', 'xch-steps')
+    const at = order.stage === 'open' ? 1 : order.stage === 'bank' ? 2 : 2
+    const labels = buying
+      ? [`${o.name}'s ${sym} is locked in escrow`, 'You pay the seller by bank transfer', 'The seller confirms and escrow releases to you']
+      : [`Your ${sym} is locked in escrow`, 'The buyer pays your bank account', 'You check your bank, then release']
+    labels.forEach((t, i) => { const li = h('li', i < at ? 'done' : i === at ? 'now' : '', t); steps.append(li) })
+    const say = h('p', 'xch-chat')
+    const actions = h('div', 'xch-actions')
+    const key = (label: string, cls: string, run: () => void) => { const b = h('button', cls, label); b.type = 'button'; b.onclick = run; actions.append(b); return b }
+    if (order.stage === 'releasing') {
+      say.textContent = `${o.name}: Payment received. Releasing now.`
+      window.setTimeout(() => { if (tab === 'p2p' && p2pOrder === order) complete() }, 1300)
+    } else if (buying && !o.trap) {
+      say.textContent = `${o.name}: Hello. Pay to the account shown, in your own name, then tap "I have paid". I release as soon as it lands.`
+      key('I have paid', 'xch-go buy', () => { order.stage = 'releasing'; show() })
+      key('Cancel order', 'xch-close', () => end(true, 'Order cancelled. The coin went back to the seller from escrow.'))
+    } else if (buying && o.trap === 'third') {
+      say.textContent = `${o.name}: Pay into my cousin's account, the name is different. Don't worry, do it fast.`
+      key("Pay the cousin's account", 'xch-close', () => scam('The account name did not match the seller: a third-party account can be a stolen one, and your transfer can be frozen or traced to you.'))
+      key('Cancel and report', 'xch-close', () => safe('Only pay an account in the seller\'s own verified name.'))
+    } else if (buying) {
+      say.textContent = `${o.name}: Escrow is slow. Message me on WhatsApp and send the money there, I'll send the coin after.`
+      key('Take it off the platform', 'xch-close', () => scam('Off the platform there is no escrow, no dispute and no record: you pay and the coin never comes.'))
+      key('Stay in escrow: cancel', 'xch-close', () => safe('A price far below the book and a push to leave the platform are both red flags.'))
+    } else if (order.stage === 'bank') {
+      say.textContent = o.trap ? 'Your bank: no new transfer has arrived.' : `Your bank: +${money(m.cash)} received from ${o.name}.`
+      if (o.trap) key('Cancel and report', 'xch-close', () => safe('A screenshot is not money. Release only when your own bank shows the payment.'))
+      else key(`Release ${sym}`, 'xch-go sell', () => complete())
+    } else {
+      say.textContent = o.trap ? `${o.name}: I've paid! See the screenshot. Release now, I'm in a hurry.` : `${o.name}: Paid from my own account, same name as here. Please check your bank.`
+      key('Check my bank', 'xch-go convert', () => { order.stage = 'bank'; show() })
+      key(`Release ${sym} now`, 'xch-close', () => (o.trap ? scam('Fake payment screenshots are the most common P2P trick: nothing had arrived in your bank.') : complete()))
+    }
+    head.append(top, pv.box, steps, say, actions)
+    pane.append(head, result)
     return pane
   }
 
   const body = h('div', 'xch-body')
-  const show = () => { live = []; body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : convertPane()); paintNow() }
-  root.append(segmented(['Spot', 'Perps', 'Convert'], 0, (i) => { tab = (['spot', 'perps', 'convert'] as const)[i]!; result.textContent = ''; show() }, 'tabs'), body)
+  const show = () => { live = []; body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : p2pPane()); paintNow() }
+  root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
   show()
   // The chart measures its box: draw again once the card is in the page.
   requestAnimationFrame(paintNow)
