@@ -22,6 +22,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   let renderer: THREE.WebGLRenderer
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse, powerPreference: coarse ? 'low-power' : 'high-performance' })
+    renderer.debug.checkShaderErrors = import.meta.env.DEV // no compile stalls on the title screen
   } catch {
     canvas.hidden = true
     document.getElementById('menu')?.classList.add('menu-fallback')

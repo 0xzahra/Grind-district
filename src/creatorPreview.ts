@@ -127,6 +127,7 @@ export function mountCreatorPreview(host: HTMLElement, getBody: () => BodyId): C
 
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' })
+    renderer.debug.checkShaderErrors = import.meta.env.DEV
     renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1))
     renderer.setSize(280, 360, false)
     renderer.outputColorSpace = THREE.SRGBColorSpace

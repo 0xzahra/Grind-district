@@ -128,6 +128,9 @@ function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
   for (const attributes of tries) {
     try {
       const renderer = new THREE.WebGLRenderer({ canvas, ...attributes })
+      // Shader error checks make the browser finish every shader compile on the spot (seconds on a phone at
+      // start-up). They only matter while developing, so the live game skips them.
+      renderer.debug.checkShaderErrors = import.meta.env.DEV
       const gl = renderer.getContext() as WebGLRenderingContext | null
       if (!gl || gl.isContextLost?.()) { renderer.dispose(); continue }
       if (location.search.includes('stats')) (window as unknown as { __gdInfo: unknown }).__gdInfo = renderer.info

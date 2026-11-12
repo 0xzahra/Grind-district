@@ -14,7 +14,10 @@ function toast(): void {
   document.body.append(b)
 }
 const entry = () => document.querySelector<HTMLScriptElement>('script[type=module][src*="/assets/"]')?.getAttribute('src') ?? ''
+let watching = false
 export function watchUpdates(): void {
+  if (watching) return // boot and the city both call this; one watcher is enough
+  watching = true
   window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); toast() })
   const mine = entry()
   if (!mine) return
