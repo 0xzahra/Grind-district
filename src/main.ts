@@ -1,5 +1,5 @@
 import { nextMission } from './worlds.ts'
-import { RANKS } from './logic.ts'
+import { COINS, RANKS, RANK_START } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
@@ -43,7 +43,7 @@ import { applyPrefs } from './prefs.ts'
 import { createCrowd, label as nameLabel } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket } from './state.ts'
+import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket, spendInGame, bonusXp } from './state.ts'
 import { mountUi } from './ui.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
@@ -699,22 +699,23 @@ const apiAgents = createRemoteAgents(scene)
     const split = el('p', '', 'cc-split')
     const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toFixed(2)}`)); split.append(c) } }
     paintSplit()
-    head.append(big, split, ...gameWalletChip())
-    sheetBody.replaceChildren(head, el('p', 'In-game virtual balance. Top up with ETH or USDC on Base below.', 'cc-muted'))
+    head.append(el('small', 'Total balance · in-game', 'wal-kick'), big, split, ...gameWalletChip())
+    sheetBody.replaceChildren(head)
     const tick = window.setInterval(() => {
       if (ccSheet.hidden || sheetTitle.textContent !== 'Balance' || !big.isConnected) { clearInterval(tick); return }
       const v = `$${getSave().ledger.toFixed(2)}`
-      if (big.textContent !== v) { big.textContent = v; paintSplit(); paintSpend() }
+      if (big.textContent !== v) { big.textContent = v; paintSplit(); paintSpend(); paintAssets() }
     }, 1000)
     const topBtn = el('button', 'Top up', 'topup-go')
     topBtn.type = 'button'
-    const credited = () => { paintStatus(); big.textContent = `$${getSave().ledger.toFixed(2)}`; paintSplit(); paintSpend(); spend.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+    const credited = () => { paintStatus(); big.textContent = `$${getSave().ledger.toFixed(2)}`; paintSplit(); paintSpend(); paintAssets(); spend.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
     // 'Spend it': after a deposit (or any time there is cash), shortcuts to the premium things in the city.
     const spend = el('div', '', 'cc-spend')
     const go = (fn: () => void) => () => { closeSheet(); setCC(false); fn() }
     const paintSpend = () => {
       const b = balanceSplit()
       spend.replaceChildren()
+      paintRanks(b)
       if (b.total < 1) return
       spend.append(el('h3', b.toppedUp > 0 ? 'Spend it' : 'Things to buy'))
       const items: Array<[string, string, () => void]> = [
@@ -738,8 +739,52 @@ const apiAgents = createRemoteAgents(scene)
       })
     }
     const topSlot = el('div')
-    paintSpend()
-    sheetBody.append(topBtn, topSlot, spend, el('h3', 'In-game activity'))
+    const usd = (n: number, dp = 2) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
+    // Ranks: every rank comes with its level balance. The next one can be bought with in-game balance once
+    // more than $5 has been topped up; ranks are still earned free by learning.
+    const paintRanks = (b: ReturnType<typeof balanceSplit>) => {
+      const idx = RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id)
+      const ladder = el('div', '', 'wal-ranks')
+      ladder.append(el('h3', 'Ranks'))
+      RANKS.forEach((r, i) => {
+        const row = el('div', '', 'wal-row' + (i === idx ? ' now' : ''))
+        const nm = el('div', '', 'wal-names'); nm.append(el('b', r.label), el('small', 'Level balance ' + usd(RANK_START[r.id], 0)))
+        row.append(el('span', String(i + 1), 'wal-ico'), nm)
+        if (i < idx) row.append(el('span', 'Reached', 'wal-tag'))
+        else if (i === idx) row.append(el('span', 'Your rank', 'wal-tag on'))
+        else if (i === idx + 1) {
+          const price = RANK_START[r.id]
+          const buy = el('button', 'Buy · ' + usd(price, 0), 'wal-key gold'); buy.type = 'button'
+          buy.disabled = b.toppedUp <= 5 || b.total < price
+          buy.onclick = () => {
+            const paid = spendInGame(price, 'Bought ' + r.label + ' rank', 'Rank purchase with in-game balance.')
+            if (!paid.ok) { ui.toast(paid.message); return }
+            bonusXp(Math.max(1, r.xp - getSave().xp), 'Reached ' + r.label, 'Rank bought with in-game balance.')
+            credited()
+          }
+          row.append(buy)
+        } else row.append(el('span', 'Later', 'wal-tag'))
+        ladder.append(row)
+      })
+      if (idx < RANKS.length - 1) ladder.append(el('p', b.toppedUp > 5 ? 'Buying the next rank is paid from your in-game balance and credits the level step of that rank.' : 'Top up more than $5 to unlock rank purchases. Ranks are also earned free by learning.', 'cc-muted'))
+      spend.append(ladder)
+    }
+    // Everything held, valued at practice prices.
+    const assets = el('div', '', 'wal-assets')
+    const paintAssets = () => {
+      const s = getSave(), b = balanceSplit()
+      const rows: Array<[string, string, string, number]> = [['$', 'Cash', 'Earned ' + usd(b.earned) + ' · topped up ' + usd(b.toppedUp), b.total]]
+      const hold = (sym: string, name: string, qty: number, price: number) => { if (qty > 0) rows.push([sym[0]!, name, qty.toLocaleString('en-US', { maximumFractionDigits: 6 }) + ' ' + sym, qty * price]) }
+      hold('COIN', 'District Coin', s.unit.qty, s.unitPrice); hold('MEME', 'Meme Token', s.meme.qty, s.memePrice)
+      for (const c of COINS) { const h = s.coins[c.id]; if (h && h.qty > 0) hold(c.label.split(' · ')[0]!, c.label.split(' · ')[1] ?? c.label, h.qty, s.coinPrices[c.id] ?? c.base) }
+      assets.replaceChildren(el('h3', 'Your assets'))
+      for (const [ini, name, sub, val] of rows) { const row = el('div', '', 'wal-row'); const nm = el('div', '', 'wal-names'); nm.append(el('b', name), el('small', sub)); row.append(el('span', ini, 'wal-ico'), nm, el('b', usd(val), 'wal-val')); assets.append(row) }
+    }
+    paintSpend(); paintAssets()
+    const acts = el('div', '', 'wal-actions')
+    const tradeBtn = el('button', 'Trade', 'wal-key'); tradeBtn.type = 'button'; tradeBtn.onclick = go(() => ui.open('trade'))
+    acts.append(topBtn, tradeBtn)
+    sheetBody.append(acts, topSlot, assets, spend, el('h3', 'In-game activity'))
     const list = el('ol', '', 'cc-list')
     const moves = save.activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
     for (const a of moves) { const li = el('li'); li.append(el('strong', a.label), el('time', when(a.at)), el('p', a.detail)); list.append(li) }
