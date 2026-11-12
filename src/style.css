@@ -2687,3 +2687,40 @@ html body #act.faded { opacity: 0; pointer-events: none; }
 html body #menu #menu-panel .panel-logo { height: 62px !important; width: auto !important; max-width: none !important; margin: 2px auto 0 !important; }
 html body #menu .title-headline { font-size: 15.5px !important; line-height: 1.3 !important; font-weight: 650 !important; letter-spacing: -0.018em !important; margin: 10px auto 0 !important; max-width: 206px; text-wrap: balance; color: #fbf8f1 !important; }
 html body #menu .title-desc { font-size: 9px !important; font-weight: 600 !important; letter-spacing: 0.22em !important; margin-top: 8px !important; color: rgba(240, 235, 227, 0.6) !important; }
+
+/* ===== 12 Nov, second pass ===== */
+/* Title card: the line under the logo is quieter than the logo: lighter, smaller, never overlapping it. */
+html body #menu #menu-panel .panel-logo { display: block !important; flex: none !important; object-fit: contain !important; height: 62px !important; width: auto !important; margin: 2px auto 0 !important; }
+html body #menu .title-headline { font-size: 13px !important; line-height: 1.38 !important; font-weight: 500 !important; letter-spacing: -0.006em !important; margin: 12px auto 0 !important; max-width: 196px; color: rgba(245, 240, 230, 0.86) !important; text-shadow: none; }
+/* Menu open: the screen belongs to the menu. The screenshot, menu and camera keys, the Online pill and the
+   next-step key step aside; a tap outside the menu closes it. The round shortcuts sit beside the four tiles
+   and the balance card runs under both. */
+html body:not(.rail-shut) #shot, html body:not(.rail-shut) #rail-toggle, html body:not(.rail-shut) #cam-dock, html body:not(.rail-shut) #online-chip, html body:not(.rail-shut) .goal-pill { display: none !important; }
+html body #nav.cc .cc-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 12px 6px !important; width: min(372px, 100%) !important; }
+html body #nav.cc .cc-quad { grid-column: 1 / span 3 !important; grid-row: 1 / span 2 !important; order: 0; }
+html body #nav.cc .cc-item { order: 1; min-width: 0; align-self: center; gap: 5px; }
+html body #nav.cc .cc-wide { grid-column: 1 / -1 !important; order: 2; }
+html body #nav.cc .cc-item .cc-circle { width: 46px !important; height: 46px !important; }
+html body #nav.cc .cc-item .cc-circle svg { width: 21px; height: 21px; }
+html body #nav.cc .cc-item .cc-label { font-size: 10.5px !important; font-weight: 600; letter-spacing: -0.02em !important; white-space: nowrap; }
+/* Profile: certificates listed with the CV; share actions are two labelled keys. */
+.cert-list { display: grid; gap: 8px; margin: 4px 0 6px; }
+html body #sheet .sheet-card .cert-list button.ghost { width: 100% !important; text-align: left !important; }
+html body #sheet .sheet-card .share-strip { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; }
+html body #sheet .sheet-card .share-strip button { width: auto !important; min-width: 0 !important; padding: 10px 16px !important; font-size: 14px !important; }
+/* The CV: a clean professional page. */
+.cv-paper { padding: 26px 24px 18px !important; border-radius: 6px !important; border-top: 5px solid #1f3a5f; }
+.cv-paper .cv-name { font-size: 25px !important; font-weight: 700 !important; letter-spacing: -0.02em !important; color: #0e1726 !important; line-height: 1.1 !important; }
+.cv-paper .cv-role { margin: 7px 0 4px !important; font-size: 10.5px !important; font-weight: 700 !important; letter-spacing: 0.14em !important; text-transform: uppercase; color: #1f3a5f !important; }
+.cv-paper .cv-contact { font-size: 11px !important; color: #5a6270 !important; letter-spacing: 0 !important; }
+.cv-paper .cv-head { border-bottom: 1px solid #d5dae2 !important; padding-bottom: 12px !important; margin-bottom: 4px !important; }
+.cv-paper .cv-sec { margin-top: 14px !important; }
+.cv-paper .cv-h { font-size: 10.5px !important; font-weight: 700 !important; letter-spacing: 0.16em !important; color: #1f3a5f !important; border-bottom: 1px solid #e3e7ee; padding-bottom: 5px !important; margin-bottom: 8px !important; }
+.cv-paper .cv-p { font-size: 12.5px !important; line-height: 1.55 !important; color: #283040 !important; hyphens: manual !important; }
+.cv-paper .cv-item strong { font-size: 13px !important; font-weight: 650 !important; color: #0e1726 !important; }
+.cv-paper .cv-when { font-size: 11px !important; color: #5a6270 !important; font-weight: 500; }
+.cv-paper em { font-style: normal !important; font-size: 11.5px !important; color: #5a6270 !important; }
+.cv-paper li { font-size: 12px !important; line-height: 1.5; color: #283040 !important; }
+.cv-paper .cv-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+.cv-paper .cv-chip { padding: 3px 8px; border: 1px solid #cfd6e0; border-radius: 4px; font-size: 11px; line-height: 1.3; color: #1d2636; background: #f5f7fa; }
+.cv-paper .cv-foot { border-top: 1px solid #e3e7ee !important; color: #7a8290 !important; line-height: 1.45; }

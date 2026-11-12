@@ -12,7 +12,7 @@ import { equippedFrame } from './career.ts'
 // Signed-in players: the look saves to the account through the existing profile upsert (debounced).
 let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
-import { shareLink, shareOrCopy, profileLink, shareToX, publishProfile } from './share.ts'
+import { shareLink, profileLink, shareToX, publishProfile } from './share.ts'
 import { bookRows, publicDoc, type BookRow } from './logic.ts'
 import { renderExchange } from './exchange.ts'
 import { watchPerps } from './perps.ts'
@@ -347,9 +347,12 @@ export function mountUi(
     const glass = document.createElement('section')
     glass.className = 'glass'
     const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
+    const certIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
     glass.append(
       renderLuxury(),
-      head('CV'), (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper)), button('Share CV link', 'ghost', () => void shareCv())); wrap.append(paper, bar); return wrap })(), document.createElement('hr'),
+      head('CV'), (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length >= 3) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (certIds.length < 3) wrap.append(para(`Pass ${3 - certIds.length} more course${certIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted')); return wrap })(),
+      // Certificates sit with the CV they belong to.
+      head('Certificates'), (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) list.append(button(SKILL_META[id].title, 'ghost', () => void openCertificate(id))); if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })(), document.createElement('hr'),
       head('Books'), renderBooks(),
     )
     const share = document.createElement('section')
@@ -359,10 +362,10 @@ export function mountUi(
     const joined = para('', 'muted')
     share.append(
       head('Invite and share'),
+      // Two actions only: post to X, or copy the one invite link.
       strip(
-      button('𝕏', 'ghost', () => shareToX(save.username, rankFor(getSave().xp).label)),
-      button('🔗', 'ghost', () => void publishProfile().then(() => shareOrCopy(`${save.name} · Grind District`, link('profile'), 'profile').then((r) => { status.textContent = r === 'copied' ? 'Link copied.' : r === 'shared' ? 'Shared.' : 'Could not share.' }))),
-      button('✉︎', 'ghost', () => void copyText(link('invite')).then(() => { status.textContent = 'Invite link copied.' })),
+      button('Share on 𝕏', 'ghost', () => shareToX(save.username, rankFor(getSave().xp).label)),
+      button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
       ),
       status, joined,
     )
@@ -409,18 +412,6 @@ export function mountUi(
       wrap.append(q)
     }
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
-    wrap.append(button('Copy share link', 'ghost', () => {
-      void publishProfile(); void copyText(profileLink(getSave().username))
-    }))
-    wrap.append(button('Courses', 'ghost', () => open('learn')))
-    const passedIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
-    if (passedIds.length) {
-      wrap.append(para('Certificates', 'kicker'))
-      for (const id of passedIds) wrap.append(button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)))
-    }
-    wrap.append(passedIds.length >= 3
-      ? button('Share my CV page', 'primary', () => void shareCv())
-      : para(`Pass ${3 - passedIds.length} more course${passedIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted'))
     return wrap
   }
 
@@ -1357,12 +1348,17 @@ export function mountUi(
         return renderSettings()
       case 'about':
         return renderSimple('About', [
-          para('Grind District is a life sim inside Web3. One shared city. You start as a shrimp with a zero balance and grind through learning, reps, and practice trades toward whale.'),
-          para('This build is the city: districts, a man and a woman you can wear, the shrimp mascot, drones, collection masks, the learning hall, and a profile that writes a CV, resume, and portfolio from what you do. You pick the name and the username.'),
-          para('The ledger is practice. There is no deployed token and the city never asks for a seed phrase. Nothing here is financial advice. This city does not run on Solana.'),
-          para('A file in the repository ends in .sol. That extension is Solidity, an EVM record. It is not a Solana program, it is not deployed, and this city does not send transactions.'),
-          para('The masks use the collection names. The shapes are original to this city. Messaging and proximity voice are later. The ladder does not wait on them.'),
-          para('Bull and bear seasons change the city’s mood and the practice books. The game still works when the marks fall.'),
+          para('Grind District is a Web3 life sim: one shared city where you learn crypto safely, practise with in-game money, and build a CV you can share.'),
+          para('Learn', 'kicker'),
+          para('Zahra meets you at Campus and places you as a Normie or a Homie. Six worlds take you from what the internet is, through scams and wallet safety, blockchain basics, layers and real uses, to the earning map and your career. Every course you pass is filed to your CV with a certificate, and certificates can be minted on Base or NEAR.'),
+          para('Practise', 'kicker'),
+          para('The trading screen has Spot, Perps and Convert for the District Coin, the major coins and tokens. Prices are simulated and no real order is ever placed. Take a job in Careers, do its task each day, and rise from Curious to Mentor.'),
+          para('Live', 'kicker'),
+          para('Claim your home and use it: cook, shower, do the laundry, tend the garden, work at the desk, sleep. Dress at the Boutique, train at the gym, sit in the masjid or the church, read at the café, hear a talk at the conference centre, and meet other players. Search any player by username in Messages, add friends, party up, or talk to people standing near you.'),
+          para('Money', 'kicker'),
+          para('Everything in the city is priced in in-game dollars. You earn them by learning, working and checking in each day, and you can add to them with a top-up in USDC or ETH on Base. Your balance always shows how much was earned and how much was topped up.'),
+          para('The city never asks for a seed phrase. Nothing here is financial, legal or investment advice. The city does not run on Solana.', 'muted'),
+          para('Made by Zahra. grinddistrict.app', 'muted'),
         ])
       case 'tax':
         return renderSimple('Family request', [
