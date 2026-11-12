@@ -2408,3 +2408,90 @@ html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; -webk
 @media (min-width: 560px) { .wardrobe { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .wardrobe .ward.photo i:not(:has(img)) { background: linear-gradient(100deg, #efe6d6 20%, #f8f2e8 40%, #efe6d6 60%) !important; background-size: 220% 100% !important; animation: gd-sheen 1.3s linear infinite; }
 @keyframes gd-sheen { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+/* ===== Trading card (exchange.ts): Spot, Perps, Convert. Clean, flat, big numbers; no blur, so it is cheap on phones. ===== */
+.sheet-card .xch { --up: #2fc48d; --down: #f0616d; --line: rgba(255, 255, 255, 0.09); --panel: rgba(255, 255, 255, 0.045); display: grid; gap: 14px; font-variant-numeric: tabular-nums; }
+.sheet-card .xch-body, .sheet-card .xch-pane { display: grid; gap: 14px; min-width: 0; }
+.sheet-card .xch button { font-family: inherit; text-align: center !important; font-weight: 500 !important; letter-spacing: 0; transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
+.sheet-card .xch button:active { transform: scale(0.985); }
+.sheet-card .xch [data-dir='up'] { color: var(--up); }
+.sheet-card .xch [data-dir='down'] { color: var(--down); }
+/* Segmented controls */
+.sheet-card .xch-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); }
+.sheet-card .xch-seg button { width: 100%; min-height: 40px; padding: 8px 6px !important; border: 0 !important; border-radius: 10px !important; background: transparent !important; color: var(--dim); font-size: 14px; }
+.sheet-card .xch-seg button[aria-selected='true'] { background: #f5f2ea !important; color: #14110c; font-weight: 600 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.sheet-card .xch-seg.tabs button { min-height: 44px; font-size: 15px; }
+.sheet-card .xch-seg.side button[aria-selected='true']:first-child { background: var(--up) !important; color: #05140d; }
+.sheet-card .xch-seg.side button[aria-selected='true']:last-child { background: var(--down) !important; color: #1b0508; }
+.sheet-card .xch-seg.amt { min-width: 0; padding: 3px; border-radius: 12px; }
+.sheet-card .xch-seg.amt button { min-height: 36px; font-size: 13px; }
+.sheet-card .xch-seg.amt button[aria-selected='true'] { background: rgba(217, 178, 106, 0.18) !important; color: #f0d59a; box-shadow: inset 0 0 0 1px rgba(217, 178, 106, 0.55); }
+/* Asset chips */
+.sheet-card .xch-chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px; scrollbar-width: none; scroll-snap-type: x proximity; max-width: none; }
+.sheet-card .xch-chips::-webkit-scrollbar { display: none; }
+.sheet-card .xch-chip { flex: none; display: inline-flex; align-items: center; gap: 7px; width: auto; min-height: 40px; padding: 5px 13px 5px 6px !important; border-radius: 999px !important; border: 1px solid var(--line) !important; background: var(--panel) !important; color: var(--ink); font-size: 13px; scroll-snap-align: start; }
+.sheet-card .xch-chip[aria-pressed='true'] { border-color: rgba(217, 178, 106, 0.75) !important; background: rgba(217, 178, 106, 0.14) !important; color: #f6e2b4; }
+.sheet-card .xch-chip.locked { opacity: 0.45; }
+.sheet-card .xch-ico { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--tint, #888); color: #fff; font-size: 13px; font-weight: 700; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+/* Quote and chart */
+.sheet-card .xch-quote { display: grid; gap: 2px; }
+.sheet-card .xch-qhead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.sheet-card .xch-qhead .xch-ico { width: 36px; height: 36px; font-size: 16px; }
+.sheet-card .xch-names { display: grid; min-width: 0; text-align: left; line-height: 1.2; }
+.sheet-card .xch-names b { font-weight: 600; font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-card .xch-names small { font-size: 12px; color: var(--dim); }
+.sheet-card .xch-price { font-size: clamp(30px, 9.5vw, 40px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: #fff; }
+.sheet-card .xch-chg { font-size: 14px; font-weight: 500; }
+.sheet-card .xch-chart { display: block; width: 100%; height: 132px; margin-top: 8px; }
+/* Balance tiles */
+.sheet-card .xch-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sheet-card .xch-tile { display: grid; gap: 2px; padding: 10px 11px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
+.sheet-card .xch-tile span, .sheet-card .xch-label { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }
+.sheet-card .xch-tile b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-card .xch-tile small { font-size: 11px; color: var(--dim); min-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Order ticket */
+.sheet-card .xch-ticket { display: grid; gap: 12px; padding: 14px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
+.sheet-card .xch-row { display: grid; gap: 6px; min-width: 0; }
+.sheet-card .xch-preview { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; margin: 0; padding: 2px 2px 0; font-size: 14px; }
+.sheet-card .xch-preview dt { color: var(--dim); }
+.sheet-card .xch-preview dd { margin: 0; text-align: right; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.sheet-card .xch-check { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: var(--dim); line-height: 1.35; }
+.sheet-card .xch-check input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: #d9b26a; }
+.sheet-card .xch-go { width: 100% !important; min-height: 52px; padding: 12px 16px !important; border: 0 !important; border-radius: 14px !important; font-size: 16px; font-weight: 600 !important; color: #05140d; background: var(--up) !important; }
+.sheet-card .xch-go.sell, .sheet-card .xch-go.short { background: var(--down) !important; color: #1b0508; }
+.sheet-card .xch-go.convert { background: linear-gradient(180deg, #e6c684, #cfa655) !important; color: #1a140c; }
+.sheet-card .xch-go:disabled { opacity: 0.4; }
+.sheet-card .xch-result { margin: 0; font-size: 13px; line-height: 1.4; color: var(--up); }
+.sheet-card .xch-result[data-ok='false'] { color: #f3a1a8; }
+.sheet-card .xch-result:empty { display: none; }
+.sheet-card .xch-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+/* Market list */
+.sheet-card .xch-list, .sheet-card .xch-book { display: grid; gap: 2px; min-width: 0; }
+.sheet-card .xch-group { margin: 12px 0 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #d9b26a; }
+.sheet-card .xch-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100% !important; min-height: 58px; padding: 9px 10px !important; border: 0 !important; border-radius: 14px !important; background: transparent !important; color: var(--ink); }
+.sheet-card .xch-item[aria-current='true'] { background: var(--panel) !important; box-shadow: inset 0 0 0 1px var(--line); }
+.sheet-card .xch-item .xch-ico { width: 36px; height: 36px; font-size: 15px; }
+.sheet-card .xch-nums { display: grid; text-align: right; line-height: 1.25; }
+.sheet-card .xch-nums b { font-size: 15px; font-weight: 600; }
+.sheet-card .xch-nums small { font-size: 12px; color: var(--dim); }
+/* Perp positions */
+.sheet-card .xch-pos { display: grid; gap: 10px; padding: 14px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); margin-top: 6px; }
+.sheet-card .xch-pos-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.sheet-card .xch-pnl { font-size: 15px; font-weight: 600; text-align: right; }
+.sheet-card .xch-tag { justify-self: start; padding: 1px 8px; border-radius: 999px; font-size: 11px !important; font-weight: 600; }
+.sheet-card .xch-tag.long { background: rgba(47, 196, 141, 0.16); color: var(--up) !important; }
+.sheet-card .xch-tag.short { background: rgba(240, 97, 109, 0.16); color: var(--down) !important; }
+.sheet-card .xch-close { width: 100% !important; min-height: 44px; border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; background: transparent !important; color: var(--ink); font-size: 14px; }
+/* Convert */
+.sheet-card .xch-box { display: grid; gap: 6px; padding: 12px; border-radius: 14px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--line); min-width: 0; }
+.sheet-card .xch-pick { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sheet-card .xch-pick select { flex: 1; min-width: 0; min-height: 40px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--ink); font: inherit; font-size: 15px; }
+.sheet-card .xch-amount { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.sheet-card .xch-box small { font-size: 12px; color: var(--dim); }
+.sheet-card .xch-swap { justify-self: center; width: 40px !important; height: 40px; min-height: 0; margin: -8px 0; padding: 0 !important; border-radius: 50% !important; border: 1px solid rgba(217, 178, 106, 0.6) !important; background: #17150f !important; color: #e6c684; font-size: 18px; line-height: 1; z-index: 1; }
+@media (hover: hover) {
+  .sheet-card .xch-item:hover { background: var(--panel) !important; }
+  .sheet-card .xch-chip:hover { border-color: rgba(255, 255, 255, 0.28) !important; }
+  .sheet-card .xch-close:hover { background: rgba(255, 255, 255, 0.07) !important; }
+}
+.sheet-card .xch p { hyphens: manual !important; }

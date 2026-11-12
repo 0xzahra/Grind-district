@@ -199,6 +199,34 @@ export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): {
   return { ok: true, message: `${side === 'buy' ? 'Bought' : 'Sold'} ${sym} · ${money(result.cash)}${pnl != null ? ` · P&L ${pnl >= 0 ? '+' : ''}${money(pnl)}` : ''}.${extra}` }
 }
 
+/**
+ * Convert one asset straight into another at practice prices. `from` and `to` are coin ids or 'usd' (cash).
+ * Coin to coin moves no cash: the value sold becomes the cost of what is bought. Sizes are the spot book's
+ * (25%, 50%, all) and the same rounding applies.
+ */
+export function convertCoin(from: string, to: string, fraction: number): { ok: boolean; message: string } {
+  if (from === to) return { ok: false, message: 'Pick two different assets.' }
+  if (from === 'usd') return tradeCoin(to, 'buy', fraction)
+  if (to === 'usd') return tradeCoin(from, 'sell', fraction)
+  const a = COINS.find((c) => c.id === from)
+  const b = COINS.find((c) => c.id === to)
+  if (!a || !b) return { ok: false, message: 'Not listed.' }
+  const rankIdx = RANKS.findIndex((r) => r.id === rankFor(save.xp).id)
+  if (RANKS.findIndex((r) => r.id === b.minRank) > rankIdx) return { ok: false, message: `Opens at ${RANKS.find((r) => r.id === b.minRank)!.label}.` }
+  const sold = sellHolding(0, save.coins[from] ?? { qty: 0, avg: 0 }, save.coinPrices[from] ?? a.base, fraction)
+  if (!sold.ok) return { ok: false, message: sold.error === 'No position to sell.' ? `You hold no ${a.label.split(' ')[0]} to convert.` : sold.error }
+  const bought = buyHolding(sold.ledger, save.coins[to] ?? { qty: 0, avg: 0 }, save.coinPrices[to] ?? b.base, 1)
+  if (!bought.ok) return { ok: false, message: bought.error.replace('in the practice ledger ', '') }
+  save.coins[from] = sold.holding
+  save.coins[to] = bought.holding
+  if (bought.ledger > 0) save.ledger = cents(save.ledger + bought.ledger) // rounding dust, normally nothing
+  const [symA, symB] = [a.label.split(' ')[0], b.label.split(' ')[0]]
+  log('trade', `Converted ${symA} to ${symB}`, `${money(sold.cash)} in-game.`)
+  persist()
+  emit()
+  return { ok: true, message: `Converted ${money(sold.cash)} of ${symA} to ${symB}.` }
+}
+
 type ActivityHook = (kind: Activity['kind'], label: string, detail: string) => void
 const activityHooks = new Set<ActivityHook>()
 export function onActivity(fn: ActivityHook): void { activityHooks.add(fn) }
