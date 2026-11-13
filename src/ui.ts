@@ -1013,6 +1013,7 @@ export function mountUi(
     void import('./music.ts').then((m) => import('./ambient-audio.ts').then((a) => import('./speech.ts').then((v) => {
       soundRow.append(
         button(v.voicesOn() ? 'Voices on' : 'Voices off', v.voicesOn() ? 'primary' : 'ghost', () => { v.setVoices(!v.voicesOn()); if (v.voicesOn()) v.speak('Voices are on.', { gender: 'f', seed: 3 }); open('settings') }),
+        button('Tour with Zahra', 'ghost', () => { close(); window.dispatchEvent(new Event('gd:tour')) }),
         button(m.musicOn() ? 'Music on' : 'Music off', m.musicOn() ? 'primary' : 'ghost', () => { void m.setMusic(!m.musicOn()).then((ok) => { if (!ok) toast('This browser blocked the music. Tap again.'); open('settings') }) }),
         slider(m.musicVolume(), 'Music volume', m.setMusicVolume),
         button(a.ambientState().wanted ? 'City sound on' : 'City sound off', a.ambientState().wanted ? 'primary' : 'ghost', () => { void a.setAmbientEnabled(!a.ambientState().wanted).then(() => open('settings')) }),

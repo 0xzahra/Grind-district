@@ -71,7 +71,26 @@ export type MentorHooks = {
   onRank: () => void
   fullLesson: (id: SkillId) => void
   next: () => void
+  /** Walk the player to Campus (the tour's last step). */
+  toCampus?: () => void
 }
+
+// Zahra's welcome tour: Web3 in two lines, then how to play. Spoken in her voice (speech.ts) as each card shows;
+// the joystick and menu glow when she talks about them. Shown once on this device (Settings > Tour with Zahra
+// replays it). Skippable at every step.
+const TOUR_KEY = 'gd.tour.v1'
+export const tourSeen = (): boolean => { try { return localStorage.getItem(TOUR_KEY) === '1' } catch { return true } }
+const TOUR: Array<{ say: string; spot?: string }> = [
+  { say: 'Welcome to Grind District! I\u2019m Zahra. Give me one minute and I\u2019ll show you around.' },
+  { say: 'Web3 is the internet where you can own things yourself: money, art, even your certificates. Here you learn it by living it, with practice money only.' },
+  { say: 'Move with the joystick at the bottom left, or W A S D on a computer. Drag the screen to look around.', spot: '#stick' },
+  { say: 'Everything lives in the menu: your profile and CV, Trade, Career, the Boutique, the map and Messages.', spot: '#rail-toggle' },
+  { say: 'At Campus, short courses teach you Web3. Every course you pass goes on your CV with a certificate, and you can mint it as an NFT on NEAR.' },
+  { say: 'Take a job in Career and do its task once a day to earn in-game money. Spend it on clothes, a car or a bigger home.' },
+  { say: 'Practise Spot, Perps, Convert and P2P on the trading floor. Prices move like the real market, but it is practice money.' },
+  { say: 'One rule above all: never share your seed phrase. Not with me, not with anyone.' },
+  { say: 'That\u2019s the tour. Come and find me at Campus, north of the plaza, and I\u2019ll place you as a Normie or a Homie.' },
+]
 
 export function createMentorCard(hooks: MentorHooks) {
   const root = h('div', 'mentor')
@@ -91,7 +110,7 @@ export function createMentorCard(hooks: MentorHooks) {
   const close = () => { open = false; root.hidden = true; root.replaceChildren(); document.body.classList.remove('mentor-on') }
   const shell = (step: string, total: number, at: number) => {
     const head = h('div', 'mentor-head')
-    const face = h('span', 'mentor-face', 'A')
+    const face = h('span', 'mentor-face', 'Z')
     const who = h('div', 'mentor-who'); who.append(h('b', '', 'Zahra'), h('small', '', step))
     const x = h('button', 'mentor-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.onclick = close
     head.append(face, who, x)
@@ -184,5 +203,33 @@ export function createMentorCard(hooks: MentorHooks) {
     else if (lvl === 'normie') showCard(0)
     else intro()
   }
-  return { start, close, isOpen: () => open }
+  const tour = () => {
+    if (open) return
+    open = true
+    hooks.face?.()
+    root.hidden = false
+    document.body.classList.add('mentor-on')
+    try { localStorage.setItem(TOUR_KEY, '1') } catch { /* private mode */ }
+    let lit: Element | null = null
+    const light = (sel?: string) => { lit?.classList.remove('tour-spot'); lit = sel ? document.querySelector(sel) : null; lit?.classList.add('tour-spot') }
+    const end = (_done: boolean) => { light(); root.classList.remove('tour-up'); close() }
+    const show = (i: number) => {
+      const step = TOUR[i]!
+      const [head, dots] = shell(`Welcome tour \u00b7 ${i + 1} of ${TOUR.length}`, TOUR.length, i)
+      head.querySelector('.mentor-x')?.addEventListener('click', () => end(false))
+      light(step.spot)
+      root.classList.toggle('tour-up', step.spot === '#stick') // keep the joystick she points at in view
+      const nav = h('div', 'mentor-nav')
+      const last = i === TOUR.length - 1
+      if (last) nav.append(btn('Explore first', 'ghost', () => end(true)), btn('Take me to Campus', 'primary', () => { end(true); hooks.toCampus?.() }))
+      else {
+        nav.append(i ? btn('Back', 'ghost', () => show(i - 1)) : btn('Skip tour', 'ghost', () => end(false)))
+        nav.append(btn('Next', 'primary', () => show(i + 1)))
+      }
+      root.replaceChildren(head, dots, h('p', 'mentor-say', step.say), nav)
+      ;(nav.lastElementChild as HTMLButtonElement | null)?.focus({ preventScroll: true })
+    }
+    show(0)
+  }
+  return { start, tour, close, isOpen: () => open }
 }

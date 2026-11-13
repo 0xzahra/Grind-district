@@ -9,7 +9,7 @@ import { speak } from './speech.ts'
 import { setAmbientPlace, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer, posedHuman } from './humans.ts'
-import { createMentorCard } from './mentor.ts'
+import { createMentorCard, tourSeen } from './mentor.ts'
 import { nextStep } from './objective.ts'
 import { FREE_WILL_PRICE, buyFreeWill, ownsFreeWill, settleAway, markSeen } from './freeWill.ts'
 import { createAvatar, type Avatar } from './avatars.ts'
@@ -458,7 +458,19 @@ const apiAgents = createRemoteAgents(scene)
     next: () => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'jobs' })),
     // Camera sits on the far side of the player from Zahra, so she and the Campus door are in frame.
     face: () => { camYaw = Math.atan2(pos.x - ada.position.x, pos.z - ada.position.z) },
+    toCampus: () => travelHook('Campus', false),
   })
+  // Zahra's welcome tour: once per device, after the first-run intro card closes; Settings can replay it.
+  const startTour = (force = false) => {
+    if ((!force && tourSeen()) || mentor.isOpen()) return
+    let waited = 0
+    const tryNow = () => {
+      if (ui.isOpen() || document.body.classList.contains('sheet-open') || document.getElementById('login-dlg')) { if ((waited += 1) < 180) window.setTimeout(tryNow, 1000); return }
+      mentor.tour()
+    }
+    tryNow()
+  }
+  window.addEventListener('gd:tour', () => startTour(true))
   function hooksTeleport(x: number, z: number) {
       pos.x = x
       pos.z = z
@@ -1810,6 +1822,7 @@ const apiAgents = createRemoteAgents(scene)
         } else if (!getSave().seenIntro && !localStorage.getItem('gd.introSeen') && !localStorage.getItem('gd.privy.username')) {
           ui.open('intro')
         }
+        if (!tourSeen() && !new URLSearchParams(location.search).has('debugmap')) window.setTimeout(() => startTour(), 2500)
       }
     } catch (error) {
       console.error('[grind] Render loop error.', error)
