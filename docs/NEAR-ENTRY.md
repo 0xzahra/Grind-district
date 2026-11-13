@@ -25,7 +25,7 @@ Baseline: commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39
 | Makeup kit, sharper face, clothes on hangers, jewellery renders | [`0fe79d6`](https://github.com/0xzahra/Grind-district/commit/0fe79d6) [`3362203`](https://github.com/0xzahra/Grind-district/commit/3362203) |
 | Hospital, casino front (gambling vs trading), shops on your street | [`9a6d43d`](https://github.com/0xzahra/Grind-district/commit/9a6d43d) |
 
-Not part of the NEAR entry: the Base top-up (built before 1 Nov, Solidity in `contracts/` with an internal review in `contracts/AUDIT.md`) and the Stockholders' Club ([`BASE-STOCKS.md`](BASE-STOCKS.md)), a Base feature for a separate competition.
+Not part of the NEAR entry: the Base top-up (built before 1 Nov, Solidity in `contracts/` with an internal review in `contracts/AUDIT.md`) and the Stockholders' Club ([`BASE-STOCKS.md`](BASE-STOCKS.md)), a Base feature.
 
 ## Certificate NFTs
 

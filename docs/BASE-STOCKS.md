@@ -1,6 +1,6 @@
 # Stockholders' Club on Base
 
-Grind District's entry for Base's [Stocks Maxxing](https://base.org/stocksmaxxing) (5 Nov to 5 Dec 2026), track 1, *Meme and Community Economies*, idea 1.3, *Stockholder clubs*.
+Tokenized stocks in Grind District. Coinbase lists hundreds of stocks as tokens on Base; the game reads them, it never sells them.
 
 The Stockholders' Club is a building in the city that opens for players who hold a tokenized stock on Base. A player proves a holding with one signature, uses the club's research sessions, wears a club pin, and loses membership as soon as they sell.
 
@@ -36,10 +36,6 @@ Coinbase offers its stock tokens to eligible people outside the United States. A
 - It gives no voting or other rights in any company. Its benefits are research sessions and a pin.
 - It sells nothing and moves no tokens. Grind District never asks for a seed phrase.
 - It is not financial advice, and it has no prediction markets or games of chance.
-
-## Built during the campaign
-
-Everything on this page was built on 13 Nov 2026, inside the campaign window. The rest of Grind District existed before; see the [README](../README.md).
 
 ## Verification
 

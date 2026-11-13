@@ -36,9 +36,36 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **A life in the city:** a home to cook, sleep and shower in, needs that fall while you play, shops, a hospital, jobs and a season with a Grind Pass. Reputation is the only score.
 - **Practice trading:** Spot, Perps, Convert and P2P on simulated prices, with scam scenarios. Practice money only.
 - **Social:** players and residents in one city, nearby chat, messages, and AI agents as labelled citizens.
+- **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
 
-More screenshots and the full design are in the [GDD](docs/GDD.md).
+## Screenshots
+
+| Campus | Zahra's tour | CV |
+| --- | --- | --- |
+| ![Campus: worlds, missions and progress](docs/screenshots/campus.jpg) | ![Zahra's welcome tour](docs/screenshots/zahra-tour.jpg) | ![A professional CV built from what the player completed](docs/screenshots/cv.jpg) |
+
+| Trade | Trading floor | Wallet |
+| --- | --- | --- |
+| ![Spot, Perps, Convert and P2P on practice prices](docs/screenshots/trade.jpg) | ![The trading floor: crypto chart wall and desks](docs/screenshots/trading-floor.jpg) | ![Wallet: balance, actions, assets, NFTs and watchlist](docs/screenshots/wallet.jpg) |
+
+| Needs and mood | Grind Pass | Rank road |
+| --- | --- | --- |
+| ![Energy, hunger, hygiene and social](docs/screenshots/needs.jpg) | ![Grind Pass: free and premium tracks](docs/screenshots/grind-pass.jpg) | ![Ranks as medallions from shrimp to whale](docs/screenshots/ranks.jpg) |
+
+| Home | Plaza | Your street |
+| --- | --- | --- |
+| ![A home you live in: gas cooker, fridge, utensils](docs/screenshots/home.jpg) | ![The Grind Ring stand with its server](docs/screenshots/plaza.jpg) | ![Corner store and pharmacy by your home](docs/screenshots/street.jpg) |
+
+| Boutique | Clothes on the rails | Fine jewellery |
+| --- | --- | --- |
+| ![Boutique: free clothes and the runway collection](docs/screenshots/boutique.jpg) | ![Garments on wooden hangers](docs/screenshots/boutique-racks.jpg) | ![Studio renders of necklaces and rings](docs/screenshots/jewellery.jpg) |
+
+| Makeup kit | Zahra at Campus | The casino front |
+| --- | --- | --- |
+| ![Lipstick, blush, eyeshadow and liner](docs/screenshots/makeup.jpg) | ![Zahra at the Campus steps](docs/screenshots/zahra-campus.jpg) | ![Closed for good: gambling vs trading](docs/screenshots/casino.jpg) |
+
+The full design is in the [GDD](docs/GDD.md).
 
 ## Run from source
 
@@ -59,4 +86,4 @@ Sign-in, cloud save and Messages need Privy and Supabase keys, which are not in 
 
 No starter template was used. Libraries: [three](https://threejs.org), [near-sdk](https://crates.io/crates/near-sdk) (Rust), [@hot-labs/near-connect](https://www.npmjs.com/package/@hot-labs/near-connect), [Privy](https://www.npmjs.com/package/@privy-io/js-sdk-core), [Supabase](https://www.npmjs.com/package/@supabase/supabase-js), [viem](https://viem.sh) and [ox](https://oxlib.sh), [@vercel/og](https://www.npmjs.com/package/@vercel/og), [@napi-rs/canvas](https://www.npmjs.com/package/@napi-rs/canvas), [web-push](https://www.npmjs.com/package/web-push), [nodemailer](https://www.npmjs.com/package/nodemailer), [qrcode-generator](https://www.npmjs.com/package/qrcode-generator), [Fontsource](https://fontsource.org), [glTF Transform](https://gltf-transform.dev), [meshoptimizer](https://github.com/zeux/meshoptimizer), [sharp](https://sharp.pixelplumbing.com), [Vite](https://vite.dev) and [TypeScript](https://www.typescriptlang.org). Third-party art is listed in [`CREDITS.md`](CREDITS.md).
 
-Licence: see [`LICENSE`](LICENSE). The NEAR contracts are MIT.
+Licence: [MIT](LICENSE) for all code, including the NEAR contracts. Third-party art keeps its own licences; the name, logo, music and voices are not covered.
