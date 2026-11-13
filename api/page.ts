@@ -87,6 +87,7 @@ export default async function handler(req: Req, res: Res) {
   if (kind === 'cv') body = `<img src="/brand/lockup.png" alt="Grind District" width="120"><h1>${esc(heading)}</h1><p>${esc(sub || desc)}</p>`
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="article"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
 <meta property="og:image" content="${esc(image)}"><meta property="og:image:width" content="${imgW}"><meta property="og:image:height" content="${imgH}"><meta property="og:url" content="${esc(pageUrl)}">

@@ -1,0 +1,13 @@
+{
+  "name": "Grind District",
+  "short_name": "Grind District",
+  "description": "A free 3D city where you learn Web3 by living it.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050807",
+  "theme_color": "#050807",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
