@@ -30,6 +30,7 @@ import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import { languagePicker } from './i18n.ts'
+import { renderCalendar } from './calendar.ts'
 import { speak, stopSpeaking } from './speech.ts'
 import {
   BODIES,
@@ -362,6 +363,7 @@ export function mountUi(
       head('CV'), (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length >= 3) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (certIds.length < 3) wrap.append(para(`Pass ${3 - certIds.length} more course${certIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted')); return wrap })(),
       // Certificates sit with the CV they belong to.
       head('Certificates'), (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })(), document.createElement('hr'),
+      head('Birthday and calendar'), renderCalendar(),
       head('Books'), renderBooks(),
     )
     // Certificates minted on NEAR are read back from the chain and marked Verified (CV, list, nameplate).

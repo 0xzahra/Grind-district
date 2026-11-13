@@ -2907,3 +2907,26 @@ html body .lx-voice { align-self: flex-start; margin: 2px 0 6px; padding: 7px 14
 html body .lang-pick { width: max-content; align-self: flex-start; }
 /* Mixed text in Arabic mode: each line takes the direction of its own words (English lesson text stays left to right). */
 html[data-lang='ar'] :is(#sheet .sheet-card, #nav.cc .cc-sheet, .mentor, #menu-panel, .login-dlg, .toast) :is(p, li, span, strong, small, em, h1, h2, h3, h4, label, button, a, div) { unicode-bidi: plaintext; text-align: start; }
+
+/* Birthday, zodiac and holidays (Profile > Birthday and calendar). */
+html body .cal-card { display: grid; gap: 10px; }
+html body .cal-card .cal-label { margin: 2px 0 0; font-weight: 650; }
+html body .cal-bday { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+html body .cal-bday select { min-height: 40px; padding: 6px 10px; border-radius: 12px; background: #11171a; color: #f2efe7; border: 1px solid rgba(255, 255, 255, 0.16); font: inherit; }
+html[data-ui='light'] body .cal-bday select { background: #fff; color: #1d1b17; border-color: rgba(40, 32, 20, 0.22); }
+html body .cal-count { margin: 0; color: #f2c14e; font-weight: 650; }
+html body .cal-zodiac { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; background: rgba(201, 162, 94, 0.08); border: 1px solid rgba(201, 162, 94, 0.3); }
+html body .cal-zodiac .cal-sym { font-size: 34px; line-height: 1; }
+html body .cal-zodiac strong { display: block; font-size: 16px; }
+html body .cal-zodiac small { display: block; opacity: 0.8; }
+html body .cal-zodiac .cal-read { margin: 6px 0 2px; }
+html body .cal-fun { opacity: 0.6; font-size: 12px; }
+html body .cal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+html body .cal-list li { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
+html[data-ui='light'] body .cal-list li { background: rgba(40, 32, 20, 0.05); }
+html body .cal-list time { font-size: 13px; opacity: 0.75; }
+/* Confetti for birthdays and holidays. */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 80; overflow: hidden; }
+.confetti i { position: absolute; top: -24px; width: 9px; height: 14px; border-radius: 2px; opacity: 0.95; animation: confetti-fall linear forwards; }
+.confetti i.emoji { width: auto; height: auto; font-size: 26px; font-style: normal; background: none; }
+@keyframes confetti-fall { 0% { transform: translate3d(0, 0, 0) rotate(0) } 100% { transform: translate3d(var(--x), 110vh, 0) rotate(var(--r)); opacity: 0.85 } }

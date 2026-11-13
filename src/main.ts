@@ -1828,6 +1828,8 @@ const apiAgents = createRemoteAgents(scene)
           ui.open('intro')
         }
         if (!tourSeen() && !new URLSearchParams(location.search).has('debugmap')) window.setTimeout(() => startTour(), 2500)
+        // Birthday and holiday greetings (each once a day), after the city has settled.
+        window.setTimeout(() => void Promise.all([import('./calendar.ts'), import('./notify.ts')]).then(([c, n]) => c.celebrateToday((m) => ui.toast(m), (title, body, key) => n.notify(title, body, key))), tourSeen() ? 5000 : 60000)
       }
     } catch (error) {
       console.error('[grind] Render loop error.', error)
