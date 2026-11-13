@@ -12,7 +12,7 @@
 4. **It does something.** The game calls `cert_for(username, course)` on the contract and, for every token it finds, marks that course *Verified on NEAR* on your CV and profile and opens the members-only **Holders' room** in the Members' lounge.
 5. **Anyone can check it.** The certificate's public page reads the chain too: [this certificate](https://www.grinddistrict.app/cert/eyJ2IjoyLCJuIjoiMHh6YXJhIiwidSI6InphcmEiLCJyIjoiQ3JhYiIsImMiOiJpbnRlcm5ldCIsInQiOiJXaGF0IHRoZSBpbnRlcm5ldCBpcyIsImQiOiIyMDI2LTExLTEwIiwiYXQiOjE3OTQzMzc0MjE1NDJ9) shows *Minted on NEAR · [Token #1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1)*.
 
-Proof it has run: tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1) and [#2](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/2) were minted from the game on 11 Nov 2026; the Holders' room and the verified marks read them back (screenshots below).
+Proof it has run: tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1) and [#2](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/2) were minted on 11 Nov 2026; the Holders' room and the verified marks read them back (screenshots below).
 
 **Play now (phone or desktop, no install):** https://www.grinddistrict.app · [Public demo post](https://x.com/0xarewah/status/2119301193100837169) · Made by [Zahra](https://0xzahra.github.io)
 
