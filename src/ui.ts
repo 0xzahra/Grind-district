@@ -26,6 +26,7 @@ import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
+import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
@@ -772,6 +773,47 @@ export function mountUi(
     const luxHead = document.createElement('div'); luxHead.className = 'rail-head'
     luxHead.append(Object.assign(document.createElement('b'), { textContent: 'Premium · Runway collection' }), Object.assign(document.createElement('small'), { textContent: 'Evening wear, tailoring and fine jewellery. Paid with your in-game balance.' }))
     lux.append(luxHead)
+    // Featured today: two bundles (a runway look and a piece of jewellery) at 20% off, until midnight.
+    const deals = featured(lady)
+    if (deals.length) {
+      const box = document.createElement('div'); box.className = 'feat'
+      const fh = document.createElement('div'); fh.className = 'feat-head'
+      fh.append(Object.assign(document.createElement('b'), { textContent: 'Featured today' }), Object.assign(document.createElement('small'), { textContent: `${Math.round(BUNDLE_OFF * 100)}% off as a bundle · ${endsIn()}` }))
+      box.append(fh)
+      for (const b of deals) {
+        const row = document.createElement('div'); row.className = 'feat-card'
+        const ph = document.createElement('i'); ph.className = 'feat-photo'
+        const shot = shotFor(b.look, lady)
+        if (shot) {
+          const img = document.createElement('img'); img.alt = ''; img.decoding = 'async'
+          const show = (url: string) => { img.src = url; ph.replaceChildren(img) }
+          const have = lookShot(shot.key, shot.model, shot.look, shot.frame, (url) => { if (row.isConnected) show(url) }, shot.extras)
+          if (have) show(have)
+        }
+        const info = document.createElement('div'); info.className = 'feat-info'
+        const k = document.createElement('small'); k.textContent = b.title
+        const t = document.createElement('strong'); t.textContent = b.look.label
+        const j = document.createElement('span'); j.textContent = `+ ${b.jewel.label}`
+        const pr = document.createElement('p'); pr.className = 'feat-price'
+        const was = document.createElement('s'); was.textContent = money(b.full)
+        const now = document.createElement('b'); now.textContent = money(b.price)
+        pr.append(was, now)
+        const buy = button(`Buy the bundle`, 'primary', () => {
+          const r = buyWant(`${b.title}: ${b.look.label} + ${b.jewel.label}`, b.price)
+          if (!r.ok) { finish(r.message); return }
+          own(b.look.id); own(b.jewel.id)
+          if (!isOn(b.look)) wear(b.look)
+          if (!isOn(b.jewel)) wear(b.jewel)
+          hooks.onBody()
+          finish(`${b.look.label} and ${b.jewel.label} are yours. You saved ${money(b.full - b.price)}.`)
+          open('boutique')
+        })
+        info.append(k, t, j, pr, buy)
+        row.append(ph, info)
+        box.append(row)
+      }
+      lux.append(box)
+    }
     rail('Grind Pass exclusives', passPieces, true, lux)
     rail('Runway looks', by('look', true), true, lux)
     rail('Tailoring & dresses', by('top', true), true, lux)
