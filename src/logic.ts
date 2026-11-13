@@ -1080,9 +1080,9 @@ export const TOKEN_IDS = new Set(['link', 'wif', 'bonk'])
 export function bookRows(save: Save, isPublic = false): BookRow[] {
   const rows: BookRow[] = []
   const passed = Object.values(save.skills).some((skill) => skill?.passed)
-  if (save.ledger > 0) rows.push({ section: 'Assets', label: 'Grind cash (in-game)', value: money(save.ledger) })
+  // Public books carry no amounts: a player's money stays private.
+  if (save.ledger > 0 && !isPublic) rows.push({ section: 'Assets', label: 'Grind cash (in-game)', value: money(save.ledger) })
   if (passed) rows.push({ section: 'Assets', label: 'Campus pass', value: 'Held' })
-  if (save.earnings > 0) rows.push({ section: 'Assets', label: 'Lifetime earnings', value: money(save.earnings) })
   if (!rows.length) rows.push({ section: 'Assets', label: 'Nothing held yet', value: 'Earn from courses and jobs' })
   // Liabilities: luxury rewards cost upkeep and lose value the moment you own them.
   const lux: BookRow[] = []
@@ -1099,6 +1099,7 @@ export function bookRows(save: Save, isPublic = false): BookRow[] {
   rows.push(...(lux.length ? lux : [{ section: 'Liabilities' as const, label: 'No cars, jets, drones or houses yet', value: 'None' }]))
   const pos = (section: 'Coins' | 'Tokens', label: string, h: Holding, price: number): BookRow => {
     if (h.qty <= 0) return { section, label, value: 'None held' }
+    if (isPublic) return { section, label, value: 'Held' }
     const pnl = (price - h.avg) * h.qty
     const value = h.qty * price
     return { section, label, value: `${formatQty(h.qty)} @ ${money(h.avg)} · worth ${money(value)} · ${pnl >= 0 ? '+' : ''}${money(pnl)}` }

@@ -13,7 +13,7 @@ import { equippedFrame } from './career.ts'
 let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
 import { shareLink, profileLink, shareToX, publishProfile } from './share.ts'
-import { bookRows, publicDoc, type BookRow } from './logic.ts'
+import { publicDoc, type BookRow } from './logic.ts'
 import { renderExchange } from './exchange.ts'
 import { watchPerps } from './perps.ts'
 import { track } from './track.ts'
@@ -27,6 +27,7 @@ import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
+import { renderLedger } from './ledger.ts'
 import { PLACES, placeNodes, casinoNodes } from './places.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
@@ -75,7 +76,6 @@ import {
   dismissIntro,
   finishGym,
   getSave,
-  balanceSplit,
   hearTalk,
   joinEvent,
   noteTalk,
@@ -484,10 +484,8 @@ export function mountUi(
 
   const renderBooks = (): HTMLElement => {
     const save = getSave()
-    const wrap = stack(para('Assets earn. Liabilities (cars, jets, houses, chains) cost upkeep. Investments are split into coins, tokens and stocks. In-game values only.', 'muted'))
-    wrap.append(renderBookRows(bookRows(save)))
-    const split = balanceSplit()
-    wrap.append(para(`Balance history: $${split.total.toFixed(2)} spendable · $${split.earned.toFixed(2)} earned · $${split.toppedUp.toFixed(2)} topped up. Earned is spent first.`, 'muted'))
+    // A ledger: balance sheet, holdings, things owned, and a dated journal (ledger.ts). In-game values only.
+    const wrap = stack(renderLedger())
     if (save.luxury) wrap.append(button('Resell the chain', 'ghost', () => {
       const result = sellChain()
       hooks.onStyle()
