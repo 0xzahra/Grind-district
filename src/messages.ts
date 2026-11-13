@@ -2,7 +2,25 @@
 // notifications merged into the Control Centre inbox. Server: /api/messages (Privy-verified, service role only).
 const CLAIMED_KEY = 'gd.privy.username'
 const accessToken = async () => (await import('./login.ts')).accessToken()
-const openLogin = () => void import('./login.ts').then((m) => m.openLogin())
+const openLogin = (notice = '') => void import('./login.ts').then((m) => m.openLogin(notice))
+// NEAR sign-ins have no Privy session: Messages swaps one signed login message for its own 30-day token
+// (api/messages.ts op=near-session), kept per NEAR account. It never signs anyone into a different account.
+const DM_NEAR = 'gd.dm.near.v1'
+const NEAR_RECIPIENT = 'grinddistrict.vercel.app'
+const userId = () => { try { return localStorage.getItem('gd.privy.userId') ?? '' } catch { return '' } }
+async function nearSession(proof: unknown): Promise<string | null> {
+  const r = await fetch('/api/messages?op=near-session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ near: proof }) }).catch(() => null)
+  const j = (await r?.json().catch(() => ({})) ?? {}) as { token?: string; exp?: number; error?: string }
+  if (!r?.ok || !j.token || !j.exp) throw new Error(j.error ?? 'Could not open Messages')
+  try { localStorage.setItem(DM_NEAR, JSON.stringify({ uid: userId(), token: j.token, exp: j.exp })) } catch { /* session only */ }
+  return j.token
+}
+async function nearToken(): Promise<string | null> {
+  try { const s = JSON.parse(localStorage.getItem(DM_NEAR) ?? 'null') as { uid?: string; token?: string; exp?: number } | null; if (s?.token && s.uid === userId() && (s.exp ?? 0) > Date.now() + 60_000) return s.token } catch { /* */ }
+  // Just signed in with NEAR on this page: that signed message (valid ten minutes) is enough, no second prompt.
+  const proof = (await import('./state.ts')).heldNearProof()
+  return proof ? nearSession(proof).catch(() => null) : null
+}
 import { notify } from './notify.ts'
 import './messages.css'
 
@@ -40,7 +58,7 @@ async function api<T>(op: string, opts: { q?: string; post?: Record<string, unkn
   // Any Privy trace (claimed username, user id, or an SDK session key) means try for a token: a session restored
   // from Google/email on this device may not have the username cached yet.
   const known = localStorage.getItem(CLAIMED_KEY) || localStorage.getItem('gd.privy.userId') || Object.keys(localStorage).some((k) => k.startsWith('privy:'))
-  const token = known ? await accessToken() : null
+  const token = userId().startsWith('near:') ? await nearToken() : known ? await accessToken() : null
   if (!token) return { ok: false, status: 401, data: { error: 'Sign in to use messages', noToken: true } as unknown as T & { error?: string } }
   const r = await fetch(`/api/messages?op=${op}${opts.q ?? ''}`, {
     method: opts.post ? 'POST' : 'GET',
@@ -55,6 +73,23 @@ async function api<T>(op: string, opts: { q?: string; post?: Record<string, unkn
 export const dmUnread = () => unread
 
 function signedOut(body: HTMLElement, hasSession = false) {
+  // Already playing under a username: never offer a generic sign-in here. Picking a different Google / X / email
+  // account in it loads that account's own progress, which looked like the game switching players.
+  const uid = userId(), handle = (() => { try { return localStorage.getItem(CLAIMED_KEY) ?? '' } catch { return '' } })()
+  if (uid.startsWith('near:') && handle) {
+    const acct = uid.slice(5)
+    const status = el('p', '', 'cc-muted'); status.setAttribute('role', 'status')
+    const go = el('button', 'Confirm with NEAR wallet', 'dm-primary'); go.type = 'button'
+    go.onclick = () => void confirmNear(acct, go, status)
+    body.replaceChildren(el('p', `You are playing as @${handle} with the NEAR account ${acct}. Confirm with that wallet once to open Messages on this device. It is a signed message only: no fee, nothing goes on-chain.`, 'cc-muted'), go, status, nearbyRow())
+    return
+  }
+  if (handle && !hasSession) {
+    const again = el('button', `Sign in as @${handle}`, 'dm-primary'); again.type = 'button'
+    again.onclick = () => openLogin(`Use the Google, X or email account that owns @${handle}. Another account opens its own progress.`)
+    body.replaceChildren(el('p', `You are playing as @${handle}, but this device's sign-in has expired. Sign in again with the same Google, X or email account you used for @${handle}; a different account would open that account's own progress instead.`, 'cc-muted'), again, nearbyRow())
+    return
+  }
   // hasSession: a valid Privy token exists but no username is linked to it yet, so the fix is claiming one, not signing in.
   body.replaceChildren(
     el('p', hasSession
@@ -63,6 +98,31 @@ function signedOut(body: HTMLElement, hasSession = false) {
   )
   const sign = el('button', hasSession ? 'Claim username' : 'Sign in', 'dm-primary'); sign.type = 'button'; sign.onclick = () => openLogin()
   body.append(sign, nearbyRow())
+}
+
+async function confirmNear(acct: string, btn: HTMLButtonElement, status: HTMLElement): Promise<void> {
+  btn.disabled = true
+  status.textContent = 'Opening your NEAR wallet…'
+  try {
+    const { NearConnector } = await import('@hot-labs/near-connect')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = new NearConnector({ network: 'testnet', features: { signMessage: true } }) as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w: any = (await c.wallet().catch(() => null)) ?? (await c.connect())
+    const nonce = crypto.getRandomValues(new Uint8Array(32))
+    const nonceB64 = btoa(String.fromCharCode(...Array.from(nonce)))
+    const message = `Grind District login\n${Date.now()}\n${nonceB64}`
+    const signed = await w.signMessage({ message, recipient: NEAR_RECIPIENT, nonce }) as { accountId?: string; publicKey: string; signature: string }
+    const accountId = (signed.accountId || (await w.getAccounts())[0]?.accountId || '').toLowerCase()
+    if (accountId !== acct) throw new Error(`That wallet is ${accountId || 'another account'}. Pick ${acct}, the account you play with.`)
+    status.textContent = 'Opening Messages…'
+    await nearSession({ accountId, publicKey: signed.publicKey, signature: signed.signature, message, recipient: NEAR_RECIPIENT, nonce: nonceB64 })
+    void openInbox()
+  } catch (e) {
+    btn.disabled = false
+    const m = (e as Error).message || 'Could not confirm'
+    status.textContent = /cancel|denied|closed|reject/i.test(m) ? 'Cancelled. Nothing changed.' : m
+  }
 }
 
 function nearbyRow() {

@@ -2,8 +2,12 @@ import { PrivyClient } from '@privy-io/server-auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 import { previewBody, signLines, storeMedia } from './_dmMedia.js'
+import { createHmac, timingSafeEqual } from 'crypto'
+import { verifyNearLogin, nearUserId, type NearProof } from './_nearAuth.js'
 
-// Direct messages. Identity = Privy token -> players.username. Service role only (RLS on, no anon policies).
+// Direct messages. Identity = Privy token -> players.username, or for NEAR sign-ins a Messages session token
+// (op=near-session swaps a fresh NEP-413 signed login for a 30-day token bound to near:<account>).
+// Service role only (RLS on, no anon policies).
 // GET  ?op=inbox             threads (last line, unread count) + blocked list
 // GET  ?op=thread&with=u     last 100 lines with u (marks them read)
 // POST ?op=send   {to,text,media?}  rate limited: 8/min, 200/day; up to 500 chars; media = {type, data(base64)}
@@ -16,10 +20,34 @@ type Res = { status(n: number): { json(b: unknown): void }; setHeader(k: string,
 const MAX = 500
 export const cleanText = (t: unknown) => String(t ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 
+// NEAR players have no Privy session. After one signed login message they get a Messages token:
+// gdn1.<base64url {u: near:<account>, exp}>.<HMAC-SHA256>. The key is DM_SESSION_SECRET, or derived from the
+// service role key so it never leaves the server. Only Messages accepts it.
+const SESSION_DAYS = 30
+const sessionKey = () => createHmac('sha256', process.env.DM_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '').update('grind-district dm session v1').digest()
+const b64u = (b: Buffer) => b.toString('base64url')
+function issueSession(userId: string): { token: string; exp: number } {
+  const exp = Date.now() + SESSION_DAYS * 86_400_000
+  const body = b64u(Buffer.from(JSON.stringify({ u: userId, exp })))
+  return { token: `gdn1.${body}.${b64u(createHmac('sha256', sessionKey()).update(body).digest())}`, exp }
+}
+function readSession(token: string): string | null {
+  const [v, body, mac] = token.split('.')
+  if (v !== 'gdn1' || !body || !mac) return null
+  const want = createHmac('sha256', sessionKey()).update(body).digest(), got = Buffer.from(mac, 'base64url')
+  if (got.length !== want.length || !timingSafeEqual(got, want)) return null
+  try {
+    const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { u?: string; exp?: number }
+    return typeof p.u === 'string' && p.u.startsWith('near:') && typeof p.exp === 'number' && p.exp > Date.now() ? p.u : null
+  } catch { return null }
+}
+const usernameOf = async (db: SupabaseClient, userId: string) => ((await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()).data?.username as string | undefined) ?? null
+
 async function me(req: Req, db: SupabaseClient): Promise<string | null> {
   const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
   const secret = process.env.PRIVY_APP_SECRET
   const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '')
+  if (token.startsWith('gdn1.')) { const u = readSession(token); return u ? usernameOf(db, u) : null }
   if (!appId || !secret || !token) return null
   try {
     const { userId } = await new PrivyClient(appId, secret).verifyAuthToken(token)
@@ -34,6 +62,16 @@ export default async function handler(req: Req, res: Res) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return res.status(503).json({ error: 'not configured' })
   const db = createClient(url, key, { auth: { persistSession: false } })
+  if (req.method === 'POST' && String(req.query?.op ?? '') === 'near-session') {
+    const proof = (req.body ?? {}).near as NearProof | undefined
+    if (!proof || typeof proof !== 'object') return res.status(400).json({ error: 'missing NEAR proof' })
+    const v = verifyNearLogin(proof)
+    if (!v.ok) return res.status(401).json({ error: v.error })
+    const userId = nearUserId(v.accountId)
+    const username = await usernameOf(db, userId)
+    if (!username) return res.status(404).json({ error: 'No username is linked to this NEAR account yet' })
+    return res.status(200).json({ ...issueSession(userId), username, account: v.accountId })
+  }
   const user = await me(req, db)
   if (!user) return res.status(401).json({ error: 'Sign in to use messages' })
   const op = String(req.query?.op ?? '')
