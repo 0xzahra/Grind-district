@@ -42,10 +42,10 @@ export default async function handler(req: Req, res: Res) {
   const kind = req.query.kind === 'cert' ? 'cert' : 'cv'
   const origin = ORIGIN
   let title = 'Grind District'
-  let desc = 'A shared 3D city. No tribe, no continent, just come and grind.'
+  let desc = 'Live a Web3 life. Build proof that travels with you. City · Career · Skills · CV.'
   let heading = title
   let sub = ''
-  let image = `${origin}/og-image.png`
+  let image = `${origin}/og-image-v2.png`
   let imgW = 1200, imgH = 630
   let body = ''
   if (kind === 'cert') {
