@@ -112,6 +112,10 @@ This is a different contract from the Skill Passport. It mints a soulbound (non-
 - **What holding one does:** the game calls `cert_for(username, course)` (read-only) for each passed course. Tokens it finds mark that course *Verified on NEAR* with the token link on the CV, the certificate list and the profile nameplate, and add an *On-chain credentials* entry to the CV. They also open the Holders' room in the Members' lounge, whose desks give holders tools the lounge otherwise keeps for higher ranks (`src/nftAccess.ts`).
 - **Flag (public, build time):** `VITE_CERT_NFT_NEAR=grinddistrict-cert.testnet`. Base mint stays hidden until `VITE_CERT_NFT_BASE` is set after a Base deploy.
 
+## Game design document
+
+The full GDD (how to play, world, economy, NFTs, roadmap, whitepaper summary and a draft tokenomics) is in [`docs/GDD.md`](docs/GDD.md).
+
 ## Run from source
 
 ```bash
