@@ -71,6 +71,9 @@ watchUpdates()
 // range the walk/run clips can match without feet sliding (walk clip up to ~3.0 m/s, run clip up to ~7.3 m/s).
 const WALK = 3.0
 const RUN = 7.2
+// Tap the ground and you walk there: a brisk walking pace that keeps the walk animation (its clips are
+// about 1.0 to 1.2 m/s and stay a walk up to about 1.75 m/s). The joystick and keys still jog and run.
+const TAP_WALK = 1.65
 
 let snapNext = false
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
@@ -1464,7 +1467,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1631,9 +1634,11 @@ const apiAgents = createRemoteAgents(scene)
     const mag = Math.min(1, wishLen)
     const dirX = wishLen > 0.001 ? wishX / wishLen : 0
     const dirZ = wishLen > 0.001 ? wishZ / wishLen : 0
-    const running = frame.run || frame.stick > 0.88
+    // Walking to a tapped spot is always a walk; only the joystick and keys run.
+    const tapWalk = !directed && target !== null
+    const running = !tapWalk && (frame.run || frame.stick > 0.88)
     sprinting = running && mag > 0.2
-    const speed = (running ? RUN : WALK) * mag
+    const speed = tapWalk ? TAP_WALK * mag : (running ? RUN : WALK) * mag
     // Accelerate briskly, brake harder, and settle to an exact stop so the body never drifts.
     const rate = 1 - Math.exp(-(speed > 0.01 ? 10 : 16) * dt)
     vel.x += (dirX * speed - vel.x) * rate
