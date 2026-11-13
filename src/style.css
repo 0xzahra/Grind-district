@@ -2898,7 +2898,9 @@ html body .mentor.speaking .mentor-face .mentor-wave { display: block; position:
 html body .lang-pick { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 12px; border-radius: 999px; background: var(--key-dark); box-shadow: var(--key-dark-sh); border: 1px solid rgba(0, 0, 0, 0.7); color: #f6f1e6; font-size: 14px; font-weight: 600; cursor: pointer; }
 html body .lang-pick select { appearance: none; -webkit-appearance: none; background: transparent; border: 0; color: inherit; font: inherit; padding: 2px 18px 2px 0; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 6px top 55%, right 1px top 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 html body .lang-pick select option { color: #111; }
-html body .lang-pick.lang-title { display: flex; width: max-content; margin: 0 auto 10px; font-size: 13px; padding: 5px 12px; }
+html body .lang-pick.lang-title { position: absolute; top: 10px; right: 10px; z-index: 3; gap: 4px; font-size: 11px; padding: 3px 9px; line-height: 1.2; }
+html body .lang-pick.lang-title select { padding-right: 14px; font-size: 11px; max-width: 92px; }
+html body #menu-panel { padding-top: 40px !important; }
 html body #menu-panel { position: relative; }
 html[data-ui='light'] body .lang-pick { background: var(--key-ivory); color: #2a261f; border-color: rgba(60, 50, 30, 0.35); box-shadow: inset 0 1px 0 #fff, 0 3px 0 #b2aa99, 0 8px 16px rgba(30, 24, 14, 0.22); }
 /* Arabic: panels, cards and the title card read right to left (the 3D view and HUD keep their places). */
@@ -2930,3 +2932,5 @@ html body .cal-list time { font-size: 13px; opacity: 0.75; }
 .confetti i { position: absolute; top: -24px; width: 9px; height: 14px; border-radius: 2px; opacity: 0.95; animation: confetti-fall linear forwards; }
 .confetti i.emoji { width: auto; height: auto; font-size: 26px; font-style: normal; background: none; }
 @keyframes confetti-fall { 0% { transform: translate3d(0, 0, 0) rotate(0) } 100% { transform: translate3d(var(--x), 110vh, 0) rotate(var(--r)); opacity: 0.85 } }
+html body .lang-pick select { border: 0 !important; box-shadow: none !important; background-color: transparent !important; outline: none; min-height: 0 !important; height: auto !important; color: inherit !important; }
+html body .agent-prompt, html body [data-no-i18n] pre { direction: ltr !important; unicode-bidi: isolate !important; text-align: left !important; }

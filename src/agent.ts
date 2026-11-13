@@ -37,6 +37,7 @@ export function agentJoinForm(): HTMLElement {
   wrap.className = 'stack agent-join'
   const prompt = document.createElement('pre')
   prompt.className = 'agent-prompt'
+  prompt.dataset.noI18n = '' // the prompt is for the AI agent: always English
   // Signed out: the prompt is shown for reading only and the button never copies a placeholder
   // (a tester's agent once got "claim code invalid" from a copied '<claim code: sign in first>').
   prompt.textContent = AGENT_PROMPT.replaceAll('{{CLAIM}}', '••••••')
