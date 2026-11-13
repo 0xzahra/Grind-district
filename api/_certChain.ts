@@ -2,7 +2,9 @@
 import { encodeAbiParameters, keccak256, encodeFunctionData, decodeFunctionResult, type Abi } from 'viem'
 
 export const BASE_RPC = process.env.CERT_BASE_RPC || 'https://mainnet.base.org'
-export const NEAR_RPC = process.env.CERT_NEAR_RPC || process.env.VITE_NEAR_RPC || 'https://rpc.mainnet.near.org'
+// The RPC must be on the contract's own network: a .testnet contract read through the mainnet RPC finds nothing
+// (the certificate page then said "Not minted yet" for minted tokens).
+export const nearRpc = () => process.env.CERT_NEAR_RPC || ((process.env.VITE_CERT_NFT_NEAR ?? '').endsWith('.testnet') ? 'https://rpc.testnet.near.org' : 'https://rpc.mainnet.near.org')
 export const baseContract = () => (/^0x[0-9a-fA-F]{40}$/.test(process.env.VITE_CERT_NFT_BASE ?? '') ? (process.env.VITE_CERT_NFT_BASE as `0x${string}`) : null)
 export const nearContract = () => (/^[a-z0-9._-]{2,64}$/.test(process.env.VITE_CERT_NFT_NEAR ?? '') ? process.env.VITE_CERT_NFT_NEAR! : null)
 export const baseChainId = () => Number(process.env.VITE_CERT_NFT_BASE_CHAIN || 8453)
@@ -35,7 +37,7 @@ export async function mintedOnBase(username: string, course: string): Promise<Mi
 export async function mintedOnNear(username: string, course: string): Promise<Minted | null> {
   const c = nearContract(); if (!c) return null
   const args = Buffer.from(JSON.stringify({ username, course_id: course })).toString('base64')
-  const j = (await timed(NEAR_RPC, { jsonrpc: '2.0', id: 'gd', method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: c, method_name: 'cert_for', args_base64: args } })) as { result?: { result?: number[] } }
+  const j = (await timed(nearRpc(), { jsonrpc: '2.0', id: 'gd', method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: c, method_name: 'cert_for', args_base64: args } }, 6000)) as { result?: { result?: number[] } }
   if (!j.result?.result) return null
   const t = JSON.parse(Buffer.from(j.result.result).toString('utf8')) as { token_id: string; owner_id: string } | null
   if (!t) return null
