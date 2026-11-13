@@ -52,9 +52,9 @@ Proof it has run: tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistr
 | --- | --- | --- |
 | ![Makeup kit: lipstick, blush, eyeshadow and liner samples](docs/screenshots/makeup.jpg) | ![Studio renders of necklaces and rings](docs/screenshots/jewellery.jpg) | ![Garments on wooden hangers in the boutique](docs/screenshots/boutique-racks.jpg) |
 
-| Your street | The casino front |  |
+| Grind Pass | Your street | The casino front |
 | --- | --- | --- |
-| ![Corner store and pharmacy on the street by your home](docs/screenshots/street.jpg) | ![Closed for good: how gambling and trading differ](docs/screenshots/casino.jpg) |  |
+| ![Grind Pass: free and premium tracks side by side](docs/screenshots/grind-pass.jpg) | ![Corner store and pharmacy on the street by your home](docs/screenshots/street.jpg) | ![Closed for good: how gambling and trading differ](docs/screenshots/casino.jpg) |
 
 Screenshots are from the game on a 390 × 844 phone screen (the city, street, boutique and casino views are desktop).
 
