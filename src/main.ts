@@ -1453,7 +1453,9 @@ const apiAgents = createRemoteAgents(scene)
       physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
       nightLevel = 1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.3)
-      post.setNight(nightLevel)
+      // Night bloom (soft halos on lamps and signs) comes in as the sun goes down: with the low sun still in
+      // the sky it flooded the whole screen at dusk.
+      post.setNight(1 - THREE.MathUtils.smoothstep(sunUp, -0.12, 0.04))
       // Ease everything with the same curve: env map and exposure fall away after dusk.
       scene.environmentIntensity = 0.5 * (1 - nightLevel) + 0.07 * nightLevel
       // Night: let the street lamps do the lighting (deeper blue between the warm pools).
