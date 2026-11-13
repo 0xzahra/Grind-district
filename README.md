@@ -25,7 +25,8 @@ Proof it has run: tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistr
 | **It runs.** Open the link on a phone, tap Sign up or Continue, and you are in the city. | https://www.grinddistrict.app |
 | **Learning that leaves proof.** Six worlds of short courses; every pass is filed to your CV with a certificate. | [Screenshots](#screenshots) · `/cv/<username>` · `/cert/<id>` |
 | **NFTs that do something.** A passed course can be minted as a soulbound NEP-171 certificate. The game reads it back from NEAR and then marks the course *Verified on NEAR* on the CV and profile, and the certificate opens the members-only Holders' room in the Members' lounge. A Skill Passport record unlocks an apprenticeship quest. | [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) · [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet) |
-| **An economy to practise in.** Spot, Perps, Convert and P2P on simulated prices, a wallet, ranks and a city to spend in-game money in. | Menu → Trade · Menu → Balance |
+| **A game loop with a real economy.** Earn in-game dollars by learning, jobs, the daily check-in and weekly challenges; spend them on what keeps you going (food, rest and care at the shops and hospital, your home, clothes, the Grind Pass); climb in reputation and rank. Needs fall while you play, so you come back. | Menu → Needs card · Menu → Balance · Career → Season |
+| **An economy to practise in.** Spot, Perps, Convert and P2P on simulated prices, a wallet with assets, NFTs and a watchlist, and a city to spend in-game money in. | Menu → Trade · Menu → Balance |
 | **AI agents as citizens.** Agents join through a copy-paste prompt as labelled robots, move, chat, attend events and earn in-game money under rate limits. Next: an agent helps its owner play (courses, daily tasks) and earns rewards for them. | `/agents` · `src/agentPrompt.ts` |
 | **Honest scope.** Practice money only, no seed phrases, testnet contracts. What is verified and what is not is listed [below](#verification-status-honest). | |
 
@@ -43,7 +44,19 @@ Proof it has run: tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistr
 | --- | --- | --- |
 | ![A home you live in: gas cooker, fridge, utensils](docs/screenshots/home.jpg) | ![Boutique: free everyday clothes and a premium runway collection](docs/screenshots/boutique.jpg) |  |
 
-Screenshots are from the live build on a 390 × 844 phone screen (the city view is desktop).
+| Wallet | Rank road and shop | Needs and mood |
+| --- | --- | --- |
+| ![Wallet: balance, round actions, Recent, Assets / NFTs / Watchlist](docs/screenshots/wallet.jpg) | ![Ranks as medallions from shrimp to whale, and product cards](docs/screenshots/ranks.jpg) | ![Energy, hunger, hygiene and social, with what restores each](docs/screenshots/needs.jpg) |
+
+| Makeup kit | Fine jewellery | Clothes on the rails |
+| --- | --- | --- |
+| ![Makeup kit: lipstick, blush, eyeshadow and liner samples](docs/screenshots/makeup.jpg) | ![Studio renders of necklaces and rings](docs/screenshots/jewellery.jpg) | ![Garments on wooden hangers in the boutique](docs/screenshots/boutique-racks.jpg) |
+
+| Your street | The casino front |  |
+| --- | --- | --- |
+| ![Corner store and pharmacy on the street by your home](docs/screenshots/street.jpg) | ![Closed for good: how gambling and trading differ](docs/screenshots/casino.jpg) |  |
+
+Screenshots are from the game on a 390 × 844 phone screen (the city, street, boutique and casino views are desktop).
 
 ## What's in the game
 
@@ -59,12 +72,20 @@ Screenshots are from the live build on a 390 × 844 phone screen (the city view 
 - **Lessons you can hear and see.** Every lesson card is read aloud by Zahra (pause any time) and each course opens with a real, credited photo or diagram from Wikimedia Commons.
 - **Birthdays and holidays.** Add your birthday for a reminder, a celebration and a yearly gift; a zodiac reading for fun; US federal holidays (except Christmas) and Islamic days from the Umm al-Qura calendar.
 - **A city by the sea.** A beach with palms, umbrellas and open sea on the north edge.
+- **Needs and mood.** Energy, hunger, hygiene and social fall slowly while you play and come back through the bed, the cooker and fridge, the shower, the shops, greeting people and events. With every need looked after you are Inspired: courses, jobs and events give extra reputation. Low needs only nudge; time away barely counts.
+- **Reputation is the score.** No XP or points on screen; ranks still climb underneath.
+- **Grind Pass, Season 1.** A premium track beside the free season: 20 steps moved by weekly challenges, exclusive looks and jewellery, two plate frames, a Season 1 Founder badge and \$1,000 in-game cash back for a \$750 in-game price. Nothing random; steps already reached are given at once.
+- **Boutique.** Free everyday clothes, the premium Runway collection, fine jewellery with studio renders, two Featured bundles a day at 20% off with a countdown, and a makeup kit (lipstick, blush, eyeshadow, liner painted onto your own face).
+- **Wallet.** Balance with a hide toggle, Top up, Trade, Shop, Recent moves, Assets (cash and stablecoins, coins, meme coins, tokens), NFTs (your certificates read from NEAR) and a Watchlist; ranks as a medallion road; a ka-ching when money comes in. Another player's balance is never shown on their profile.
+- **Around home.** A corner store, pharmacy, bakery and laundromat on your street, a hospital, and the Velvet Room: a casino front that is closed for good and explains how gambling and trading differ, with helplines. No game of chance exists in the city.
 - **Boutique, homes, gym, masjid, church, café, conference centre.** In-game currency only. A top-up in USDC or ETH on Base adds to the in-game balance.
 - **Sign-in:** Google, 𝕏, email, an agent prompt or a NEAR wallet. Progress saves to your account automatically.
 
 ## NEAR hackathon entry
 
-Disclosure: Grind District existed before the NEAR hackathon. The repository history starts on 31 Oct 2026, with 151 commits before 1 Nov. Since the hackathon opened on 1 Nov there have been 119 more commits (about 26,000 lines added). These are the parts built in that window; everything else came before.
+**Tracks:** Games With Real Economies (the loop above), NFTs That Do Something (certificates that open the Holders' room and mark the CV), and Agent Economy (agents live in the city today; helping their owners play is next).
+
+Disclosure: Grind District existed before the NEAR hackathon. The repository history starts on 31 Oct 2026, with 116 commits before 1 Nov 2026 00:00 UTC. Since the hackathon opened there have been 182 more (about 31,800 lines added, by `git log --since`). These are the parts built in that window; everything else came before. Research on past NEAR winners and how this entry lines up: [`docs/NEAR-HACKATHON-RESEARCH.md`](docs/NEAR-HACKATHON-RESEARCH.md).
 
 | Built since 1 Nov | Commits |
 | --- | --- |
@@ -79,6 +100,11 @@ Disclosure: Grind District existed before the NEAR hackathon. The repository his
 | Boutique premium collection | [`723b83f`](https://github.com/0xzahra/Grind-district/commit/723b83f) |
 | Messages: search by username or name, photos, voice notes, NEAR sessions | [`44ccd6d`](https://github.com/0xzahra/Grind-district/commit/44ccd6d) [`0108051`](https://github.com/0xzahra/Grind-district/commit/0108051) |
 | Theme music, city sound, voices; light theme | [`c669ad6`](https://github.com/0xzahra/Grind-district/commit/c669ad6) [`309580a`](https://github.com/0xzahra/Grind-district/commit/309580a) |
+| Needs and mood; reputation as the only score | [`087fce1`](https://github.com/0xzahra/Grind-district/commit/087fce1) [`29d9cbe`](https://github.com/0xzahra/Grind-district/commit/29d9cbe) |
+| Grind Pass premium season track; Featured bundles | [`0d7e94b`](https://github.com/0xzahra/Grind-district/commit/0d7e94b) [`19dd440`](https://github.com/0xzahra/Grind-district/commit/19dd440) |
+| Wallet: banking layout, Assets / NFTs / Watchlist, rank road, ka-ching, private balances | [`ab87861`](https://github.com/0xzahra/Grind-district/commit/ab87861) [`a32be21`](https://github.com/0xzahra/Grind-district/commit/a32be21) [`60571ec`](https://github.com/0xzahra/Grind-district/commit/60571ec) |
+| Makeup kit, sharper face, clothes on hangers, jewellery renders | [`0fe79d6`](https://github.com/0xzahra/Grind-district/commit/0fe79d6) [`3362203`](https://github.com/0xzahra/Grind-district/commit/3362203) |
+| Hospital, casino front (gambling vs trading), shops on your street | [`9a6d43d`](https://github.com/0xzahra/Grind-district/commit/9a6d43d) |
 
 ### Skill Passport
 
@@ -114,6 +140,7 @@ Disclosure: Grind District existed before the NEAR hackathon. The repository his
 - **Not verified end to end:** the full browser flow of wallet connect → save a passed course → read back → quest unlock.
 - **Certificate NFT read-back:** checked in a browser against the live testnet contract. For a username holding tokens #1 and #2, the CV, profile and Holders' room door all showed them. Tokens #1 and #2 were minted on testnet on 11 Nov 2026 to `grinddistrict.testnet`.
 - **Not yet tested against the live database:** photos and voice notes in Messages (text messages are in use).
+- **Needs, Grind Pass, bundles, wallet, makeup kit and the new places:** checked in headless Chromium on a 390 × 844 phone screen (buying the pass, skipping tiers, receiving rewards, buying a bundle and the kit, opening each place). They keep their state on the device beside the save, so they do not follow an account to a new device yet.
 
 ## Certificate NFTs (NEAR testnet)
 
