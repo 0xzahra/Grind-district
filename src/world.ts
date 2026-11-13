@@ -1123,7 +1123,10 @@ export function createWorld(options: {
     skyTop.copy(tmpA)
     skyLow.copy(tmpB)
     background.copy(tmpB)
-    fog.color.copy(tmpB)
+    // Once the sun is down the haze dims and cools with the light, so the city reads against the glowing
+    // horizon instead of sinking into a flat orange wash.
+    const afterglow = elev >= 0 ? 1 : THREE.MathUtils.smoothstep(elev, -0.12, 0)
+    fog.color.copy(tmpB).lerp(nightLow, (1 - afterglow) * 0.6)
     fog.density = 0.0054 - day * 0.0031 + dusk * 0.0008 // light aerial haze: crisp by day, a little more at dusk
     // Day: softer sun (Zahra: too bright). Night: lamps. Dusk: warm amber.
     const up = Math.max(0.35, Math.abs(elev))
@@ -1132,7 +1135,10 @@ export function createWorld(options: {
     sun.color.copy(elev >= 0 ? sunDay : moonLight).lerp(sunDusk, dusk * 0.85)
     if (seasonBear) sun.color.lerp(moonLight, 0.25)
     // Warmer key with less flat fill: deeper shadows by day, a low orange sun at dusk, cool moonlight at night.
-    sun.intensity = (elev >= 0 ? 0.25 + day * 1.5 + dusk * 0.12 : 0.1) * (seasonBear ? 0.88 : 1)
+    // The sun fades out over its last few degrees (and the moon takes over below), rather than the light
+    // dropping to a sixth in one frame at sunset.
+    const setting = THREE.MathUtils.smoothstep(elev, 0, 0.06)
+    sun.intensity = (elev >= 0 ? 0.1 + (0.15 + day * 1.5 + dusk * 0.12) * setting : 0.1) * (seasonBear ? 0.88 : 1)
     sun.castShadow = day > 0.2
     hemi.intensity = 0.17 + day * 0.91 // bright sky fill by day; enough at night that the street never goes black
     hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.5)
