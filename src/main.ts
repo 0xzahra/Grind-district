@@ -553,16 +553,27 @@ const apiAgents = createRemoteAgents(scene)
   // Screenshot: capture on pointerdown (render a frame, PNG blob, File) so the click can call navigator.share
   // synchronously with ONLY files (Android targets drop images when text/url ride along). Fallback: download.
   let shotFile: Promise<File | null> | null = null
+  // The game's logo goes on every screenshot (the same mark as the HUD), loaded once up front.
+  const shotLogo = new Image(); shotLogo.decoding = 'async'; shotLogo.src = '/brand/logo-new.webp'
   const capture = (): Promise<File | null> => {
     try { post.render() } catch { /* use the last frame */ }
     const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height
     const g = out.getContext('2d')!
     g.drawImage(canvas, 0, 0)
     const s = Math.max(1, out.width / 1200)
-    g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
-    const label = 'GRIND DISTRICT', w = g.measureText(label).width
-    g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
-    g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
+    if (shotLogo.complete && shotLogo.naturalWidth > 0) {
+      // Bottom right, a quarter of the shorter side wide, with a soft shadow so it reads on sky or floor.
+      const w = Math.round(Math.min(out.width, out.height) * 0.26), h = Math.round(w * shotLogo.naturalHeight / shotLogo.naturalWidth)
+      const m = Math.round(Math.min(out.width, out.height) * 0.035)
+      g.save(); g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = Math.round(10 * s); g.shadowOffsetY = Math.round(2 * s)
+      g.drawImage(shotLogo, out.width - w - m, out.height - h - m, w, h)
+      g.restore()
+    } else {
+      g.font = `600 ${Math.round(18 * s)}px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif`
+      const label = 'GRIND DISTRICT', w = g.measureText(label).width
+      g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
+      g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
+    }
     return new Promise((ok) => out.toBlob((b) => ok(b ? new File([b], `grind-district-${Date.now()}.png`, { type: 'image/png' }) : null), 'image/png'))
   }
   const shotBtn = document.querySelector<HTMLButtonElement>('#shot')
