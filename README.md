@@ -1,6 +1,18 @@
 # Grind District
 
-**A free 3D life-sim where you learn Web3 by living it.** Walk a shared city, pass short courses, take a job, practise trading with in-game money, and leave with a CV and certificates you can verify, including soulbound certificate NFTs on NEAR testnet.
+**The problem:** millions of people want to work in Web3, but they learn in scattered videos, get scammed on the way, and end up with nothing that proves what they know.
+
+**Grind District** is a free 3D city where you learn Web3 by living it, and every lesson you pass becomes proof: a CV, a certificate, and a soulbound certificate NFT on NEAR that the game reads back to unlock things.
+
+### The NEAR flow, end to end (about 3 minutes)
+
+1. **Learn.** Open [grinddistrict.app](https://www.grinddistrict.app), sign in (NEAR wallet, Google, X or email), walk to Campus and pass a one-minute lesson with Zahra.
+2. **Prove.** The pass goes on your CV with a certificate (Profile > Certificates), each with a public page.
+3. **Mint on NEAR.** Open the certificate and tap *Mint as NFT* > NEAR. The soulbound NEP-171 token is minted on [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) to your NEAR testnet account (0.05 NEAR attached for storage).
+4. **It does something.** The game calls `cert_for(username, course)` on the contract and, for every token it finds, marks that course *Verified on NEAR* on your CV and profile and opens the members-only **Holders' room** in the Members' lounge.
+5. **Anyone can check it.** The certificate's public page reads the chain too: [this certificate](https://www.grinddistrict.app/cert/eyJ2IjoyLCJuIjoiMHh6YXJhIiwidSI6InphcmEiLCJyIjoiQ3JhYiIsImMiOiJpbnRlcm5ldCIsInQiOiJXaGF0IHRoZSBpbnRlcm5ldCBpcyIsImQiOiIyMDI2LTExLTEwIiwiYXQiOjE3OTQzMzc0MjE1NDJ9) shows *Minted on NEAR · [Token #1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1)*.
+
+Proof it has run: tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1) and [#2](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/2) were minted from the game on 11 Nov 2026; the Holders' room and the verified marks read them back (screenshots below).
 
 **Play now (phone or desktop, no install):** https://www.grinddistrict.app · [Public demo post](https://x.com/0xarewah/status/2119301193100837169) · Made by [Zahra](https://0xzahra.github.io)
 
