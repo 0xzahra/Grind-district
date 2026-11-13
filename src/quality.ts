@@ -42,17 +42,39 @@ const Grade = {
     vec4 c = texture2D(tDiffuse, vUv);
     vec3 col = c.rgb;
     float l = dot(col, vec3(0.2126,0.7152,0.0722));
-    col = mix(col, vec3(l), 0.05);
-    col = (col - 0.5) * 1.05 + 0.5;
-    col += vec3(0.03,0.035,0.04) * 0.10 * (1.0 - l);
-    col *= mix(vec3(1.0), vec3(1.02,1.0,0.96), smoothstep(0.5,1.0,l));
+    // Colour correction: deeper blacks (cuts the haze), clean contrast, richer colour, warm highlights.
+    col = max(col - 0.014, 0.0) * 1.016;
+    col = (col - 0.5) * 1.08 + 0.5;
+    col += vec3(0.0, 0.006, 0.012) * (1.0 - l);
+    col *= mix(vec3(1.0), vec3(1.025,1.0,0.965), smoothstep(0.5,1.0,l));
     col = col / (1.0 + 0.06 * max(col - 0.85, 0.0) * 4.0); // gentle highlight shoulder: no blown whites
-    col = mix(vec3(l), col, 0.9);
+    float l2 = dot(col, vec3(0.2126,0.7152,0.0722));
+    col = mix(vec3(l2), col, 1.1);
     vec2 d = vUv - 0.5;
     col *= 1.0 - 0.04 * smoothstep(0.35, 0.85, dot(d,d) * 2.0);
     float n = fract(sin(dot(vUv * (time + 1.0), vec2(12.9898,78.233))) * 43758.5453);
     col += (n - 0.5) * grain;
     gl_FragColor = vec4(clamp(col,0.0,1.0), c.a);
+  }`,
+}
+
+/** Contrast-adaptive sharpening after anti-aliasing: crisper edges and textures without halos (strong where flat,
+ * light where edges already have contrast). Five texture reads a pixel. */
+const Sharpen = {
+  uniforms: { tDiffuse: { value: null }, amount: { value: 0.5 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; varying vec2 vUv;
+  void main(){
+    vec2 px = 1.0 / vec2(textureSize(tDiffuse, 0));
+    vec4 c4 = texture2D(tDiffuse, vUv);
+    vec3 c = c4.rgb;
+    vec3 n = texture2D(tDiffuse, vUv + vec2(0.0, px.y)).rgb, s = texture2D(tDiffuse, vUv - vec2(0.0, px.y)).rgb;
+    vec3 e = texture2D(tDiffuse, vUv + vec2(px.x, 0.0)).rgb, w = texture2D(tDiffuse, vUv - vec2(px.x, 0.0)).rgb;
+    vec3 mn = min(c, min(min(n, s), min(e, w))), mx = max(c, max(max(n, s), max(e, w)));
+    vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, vec3(1e-4)), 0.0, 1.0));
+    vec3 wgt = -amp * mix(0.125, 0.2, amount);
+    vec3 outc = (c + (n + s + e + w) * wgt) / (1.0 + 4.0 * wgt);
+    gl_FragColor = vec4(clamp(outc, 0.0, 1.0), c4.a);
   }`,
 }
 
@@ -187,6 +209,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     } else if (level === 'high') {
       try { composer.addPass(new SMAAPass()) } catch (error) { console.warn('[grind] SMAA unavailable', error) }
     }
+    // Sharpen last, after anti-aliasing (which softens a little): Medium a touch, High a bit more.
+    { const sharp = new ShaderPass(Sharpen); sharp.uniforms.amount!.value = level === 'high' ? 0.6 : 0.45; composer.addPass(sharp) }
   }
   return {
     configure(graphics: Graphics, width: number, height: number, ratio: number) {

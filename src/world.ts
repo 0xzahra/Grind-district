@@ -280,7 +280,7 @@ export function createWorld(options: {
   sky.raycast = () => undefined
   sky.renderOrder = -1
   scene.add(sky)
-  const fog = new THREE.FogExp2(0x0a1412, 0.012)
+  const fog = new THREE.FogExp2(0x0a1412, 0.0095) // a little less haze: crisper distance
   scene.fog = fog
   const background = new THREE.Color(0x070a09)
   scene.background = background
@@ -1082,7 +1082,7 @@ export function createWorld(options: {
     seasonBear = bear
     background.setHex(night ? 0x0a1018 : dusk ? 0x3a2218 : 0xb8cfc8)
     fog.color.copy(background)
-    fog.density = night ? 0.008 : dusk ? 0.0075 : 0.0045 // richer depth haze (Zahra: not flat bright)
+    fog.density = night ? 0.0066 : dusk ? 0.0056 : 0.0038 // depth haze, kept light so the city reads crisp
     sun.color.setHex(bear ? 0xc9d7ff : dusk ? 0xff9a5c : 0xffe6c4)
     sun.intensity = (night ? 0.55 : dusk ? 0.95 : 1.25) * (bear ? 0.82 : 1)
     hemi.intensity = night ? 0.3 : dusk ? 0.48 : 0.72
@@ -1124,7 +1124,7 @@ export function createWorld(options: {
     skyLow.copy(tmpB)
     background.copy(tmpB)
     fog.color.copy(tmpB)
-    fog.density = 0.0064 - day * 0.0036 + dusk * 0.0016 // lighter haze by day // soft aerial haze by day, thicker at dusk
+    fog.density = 0.0054 - day * 0.0031 + dusk * 0.0008 // light aerial haze: crisp by day, a little more at dusk
     // Day: softer sun (Zahra: too bright). Night: lamps. Dusk: warm amber.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)
