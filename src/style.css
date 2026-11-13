@@ -3113,3 +3113,75 @@ html body #sheet .mk .mk-row button.primary, html body #sheet .mk .mk-row button
 .gvt-head span:nth-child(2) { color: #ff8a7a; } .gvt-head span:nth-child(3) { color: #3ee8a0; }
 .gvt-k { font-weight: 650; color: #f5f5f7; }
 .gvt-a { color: #f2b8ae; } .gvt-b { color: #b8f0d6; }
+
+/* ===== Wallet: rank road + shop row ===== */
+.rk { padding: 14px 12px 10px; border-radius: 22px; background: radial-gradient(120% 90% at 50% 0%, rgba(217,178,106,.12), transparent 60%), #121417; border: 1px solid rgba(217,178,106,.18); }
+.rk-head { display: grid; gap: 4px; padding: 0 4px 12px; }
+.rk-head small { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a39a8a; }
+.rk-head b { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #f5f2ea; }
+.rk-head .rk-note { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12px; color: #a39a8a; }
+.rk-bar { display: block; height: 6px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; margin: 4px 0 2px; }
+.rk-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #b3842e, #f3d58a, #fff1c4); box-shadow: 0 0 10px rgba(243,213,138,.5); }
+.rk-road { position: relative; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 4px 10px; scroll-snap-type: x mandatory; }
+.rk-road::-webkit-scrollbar { display: none; }
+.rk-road::before { content: ''; position: absolute; left: 30px; right: 30px; top: 31px; height: 2px; background: linear-gradient(90deg, rgba(217,178,106,.6), rgba(255,255,255,.08)); }
+.rk-stop { position: relative; flex: 0 0 62px; display: grid; justify-items: center; gap: 6px; padding: 0 !important; min-height: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; cursor: pointer; scroll-snap-align: center; color: #8e8e93; }
+.rk-stop small { font-size: 11px; font-weight: 600; color: inherit; }
+.rk-stop.done, .rk-stop.now { color: #e9cf96; }
+.rk-stop.next { color: #f5f2ea; }
+.rk-stop:not(.done):not(.now):not(.next) .rk-medal { filter: grayscale(.85) brightness(.55); }
+.rk-stop.now .rk-medal { box-shadow: 0 0 0 3px #121417, 0 0 0 5px #f3d58a, 0 0 18px rgba(243,213,138,.55), inset 0 2px 3px rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35); }
+.rk-stop.next .rk-medal { box-shadow: 0 0 0 3px #121417, 0 0 0 5px rgba(255,255,255,.35), inset 0 2px 3px rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35); animation: rk-pulse 2.2s ease-in-out infinite; }
+.rk-stop.sel small { color: #fff; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(243,213,138,.7); }
+@keyframes rk-pulse { 50% { box-shadow: 0 0 0 3px #121417, 0 0 0 5px rgba(255,255,255,.6), 0 0 14px rgba(255,255,255,.35), inset 0 2px 3px rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35); } }
+.rk-medal { position: relative; z-index: 1; display: grid; place-items: center; border-radius: 50%; box-shadow: 0 0 0 3px #121417, inset 0 2px 3px rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35), 0 4px 10px rgba(0,0,0,.4); }
+.rk-medal.sm { width: 54px; height: 54px; } .rk-medal.lg { width: 64px; height: 64px; flex: none; }
+.rk-medal::after { content: ''; position: absolute; inset: 5px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); }
+.rk-glyph { font-size: 26px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+.rk-medal.lg .rk-glyph { font-size: 31px; }
+.rk-medal.copper { background: radial-gradient(circle at 35% 30%, #f0b88c, #b06a3a 55%, #6a3a1c); }
+.rk-medal.bronze { background: radial-gradient(circle at 35% 30%, #f3cf98, #b8813f 55%, #6f4a1e); }
+.rk-medal.silver { background: radial-gradient(circle at 35% 30%, #ffffff, #c3cad4 50%, #737d8a); }
+.rk-medal.gold { background: radial-gradient(circle at 35% 30%, #fff3c4, #e2b44f 50%, #8a6420); }
+.rk-medal.platinum { background: radial-gradient(circle at 35% 30%, #ffffff, #cfe4f2 45%, #7f9cb3); }
+.rk-medal.obsidian { background: radial-gradient(circle at 35% 30%, #7a86b8, #2c3150 50%, #0b0d18); box-shadow: 0 0 0 3px #121417, inset 0 2px 3px rgba(160,200,255,.5), inset 0 -3px 5px rgba(0,0,0,.5), 0 0 16px rgba(110,170,255,.35); }
+.rk-card { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+.rk-card b { display: block; font-size: 17px; font-weight: 700; color: #f5f2ea; }
+.rk-card small { display: block; font-size: 12px; color: #a39a8a; margin-top: 2px; }
+.rk-tag { padding: 6px 11px; border-radius: 999px; font-size: 12px; font-weight: 650; background: rgba(255,255,255,.08); color: #c7c7cc; white-space: nowrap; }
+.rk-tag.on { background: rgba(243,213,138,.18); color: #f3d58a; }
+.rk-buy { min-height: 0 !important; padding: 11px 16px !important; border: 0 !important; border-radius: 14px !important; cursor: pointer; white-space: nowrap;
+  font: 700 14px/1 -apple-system, Inter, system-ui, sans-serif !important; color: #2a1d06 !important;
+  background: linear-gradient(180deg, #fff1c4, #e2b44f 55%, #b3842e) !important; box-shadow: 0 3px 0 #7d5a1c, 0 8px 16px rgba(179,132,46,.35), inset 0 1px 0 rgba(255,255,255,.7) !important; }
+.rk-buy:disabled { filter: grayscale(.7) brightness(.7); cursor: not-allowed; }
+.rk-buy:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #7d5a1c, 0 4px 10px rgba(179,132,46,.3), inset 0 1px 0 rgba(255,255,255,.7) !important; }
+.rk-foot { margin: 8px 4px 2px !important; font-size: 11.5px !important; }
+.shop-row { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 12px; scroll-snap-type: x mandatory; margin: 0 -2px; }
+.shop-row::-webkit-scrollbar { display: none; }
+.shop-card { flex: 0 0 150px; display: grid; grid-template-rows: 112px auto auto; gap: 0; padding: 0 !important; min-height: 0 !important; border-radius: 20px !important; overflow: hidden; text-align: left; cursor: pointer; scroll-snap-align: start;
+  border: 1px solid rgba(255,255,255,.1) !important; box-shadow: 0 10px 22px -12px rgba(0,0,0,.7) !important; background: #16181b !important; color: #f5f5f7 !important; }
+.shop-media { display: grid; place-items: center; overflow: hidden; }
+.shop-media img, .shop-media svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shop-icon { width: 58px; height: 58px; display: grid; place-items: center; }
+.shop-icon svg { width: 58px !important; height: 58px !important; fill: none; stroke: rgba(255,255,255,.92); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 4px 8px rgba(0,0,0,.35)); }
+.shop-card.champagne .shop-media { background: radial-gradient(120% 100% at 30% 0%, #f6e3b8, #b8955a 60%, #6a5228); }
+.shop-card.emerald .shop-media { background: radial-gradient(120% 100% at 30% 0%, #8ff0c4, #1f9d63 55%, #0b4a31); }
+.shop-card.rose .shop-media { background: radial-gradient(120% 100% at 30% 0%, #f7c6cf, #c0636e 55%, #5a1f2c); }
+.shop-card.walnut .shop-media { background: radial-gradient(120% 100% at 30% 0%, #d9b48a, #7a4f2c 55%, #3a2414); }
+.shop-card.graphite .shop-media { background: linear-gradient(180deg, #2c3034, #191c1f); }
+.shop-card.sky .shop-media { background: linear-gradient(180deg, #2c3a48, #181e26); }
+.shop-txt { display: grid; gap: 2px; padding: 10px 12px 4px; }
+.shop-txt b { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.shop-txt small { font-size: 11.5px; color: #a1a1a6; line-height: 1.3; }
+.shop-foot { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 12px; }
+.shop-foot strong { font-size: 14px; font-weight: 750; color: #f3d58a; }
+.shop-go { font-size: 12px; font-weight: 650; color: #3ee8a0; }
+/* Rank road and shop row stay inside the sheet; the card's media fills its band. */
+#cc-sheet-body .wal-ranks, #cc-sheet-body .rk, #cc-sheet-body .rk-card, #cc-sheet-body .rk-head, #cc-sheet-body .cc-spend { min-width: 0; max-width: 100%; }
+#cc-sheet-body .rk { overflow: hidden; }
+#cc-sheet-body .rk-card > div { min-width: 0; }
+html body #cc-sheet-body .shop-card { display: flex !important; flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; height: auto !important; }
+html body #cc-sheet-body .shop-media { flex: 0 0 112px; height: 112px; width: 100%; align-self: stretch; }
+html body #cc-sheet-body .shop-media > * { width: 100%; height: 100%; }
+html body #cc-sheet-body .shop-media .shop-icon { width: 64px; height: 64px; }
+#cc-sheet-body .wal-ranks, #cc-sheet-body .wal-assets { grid-template-columns: minmax(0, 1fr) !important; }

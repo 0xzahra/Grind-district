@@ -58,6 +58,7 @@ import { startPass } from './pass.ts'
 import { startCashAlert } from './sfx.ts'
 import { startReputation } from './rep.ts'
 import { renderHoldings } from './walletHoldings.ts'
+import { renderRankRoad, renderShopRow } from './walletRanks.ts'
 import { createEstate } from './estate.ts'
 import { createBeach } from './beach.ts'
 import './style.css'
@@ -784,16 +785,19 @@ const apiAgents = createRemoteAgents(scene)
       paintRanks(b)
       if (b.total < 1) return
       spend.append(el('h3', b.toppedUp > 0 ? 'Spend it' : 'Things to buy'))
-      const items: Array<[string, string, () => void]> = [
-        ['Premium outfits', 'Suits, gowns, watch, pearls · from $90', go(() => ui.open('boutique'))],
-        ['House upgrade', 'Furnish your home, next tier', go(() => travelHook('Your house', true))],
-        ['Gadgets', 'Phones, laptops, drones · in-game', go(() => ui.open('gadgets'))],
-        ['Car or jet', 'Auto dealership · in-game', go(() => ui.open('dealer'))],
-        ['Lounge pass', "Members' lounge rooms", go(() => travelHook('Members lounge', true))],
-      ]
-      const grid = el('div', '', 'cc-spend-grid')
-      for (const [t, d, f] of items) { const btn = el('button', '', 'cc-row'); btn.type = 'button'; btn.append(el('strong', t), el('p', d)); btn.onclick = f; grid.append(btn) }
-      spend.append(grid)
+      const shop = el('div')
+      renderShopRow(shop, [
+        { title: 'Runway looks', sub: 'Tuxedos, gowns, couture abayas', price: 'from $340', icon: 'look', tone: 'champagne', go: go(() => ui.open('boutique')) },
+        { title: 'Grand tourer', sub: 'Two seats, tan leather', price: '$900', pic: 'tourer', tone: 'graphite', go: go(() => ui.open('dealer')) },
+        { title: 'Grind Pass', sub: '20 rewards, $1,000 back', price: '$750', icon: 'pass', tone: 'emerald', go: go(() => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'weekly' }))) },
+        { title: 'Light jet', sub: 'Six seats, regional range', price: '$1,200', pic: 'lightjet', tone: 'sky', go: go(() => ui.open('dealer')) },
+        { title: 'Pro phone', sub: 'Titanium, triple camera', price: '$90', pic: 'phonepro', tone: 'graphite', go: go(() => ui.open('gadgets')) },
+        { title: 'Sky drone', sub: 'Two-seat electric air taxi', price: '$1,650', pic: 'skydrone', tone: 'sky', go: go(() => ui.open('dealer')) },
+        { title: 'Makeup kit', sub: 'Lipstick, blush, shadow, liner', price: '$120', icon: 'makeup', tone: 'rose', go: go(() => ui.open('boutique')) },
+        { title: 'House upgrade', sub: 'Furnish the next tier', price: 'in-game', icon: 'house', tone: 'walnut', go: go(() => travelHook('Your house', true)) },
+        { title: "Members' lounge", sub: 'Rooms open by rank', price: 'by rank', icon: 'lounge', tone: 'walnut', go: go(() => travelHook('Members lounge', true)) },
+      ])
+      spend.append(shop)
     }
     topBtn.onclick = () => {
       topBtn.disabled = true; topBtn.textContent = 'Opening…'
@@ -805,34 +809,21 @@ const apiAgents = createRemoteAgents(scene)
       })
     }
     const topSlot = el('div')
-    const usd = (n: number, dp = 2) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })
     // Ranks: every rank comes with its level balance. The next one can be bought with in-game balance once
     // more than $5 has been topped up; ranks are still earned free by learning.
     const paintRanks = (b: ReturnType<typeof balanceSplit>) => {
-      const idx = RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id)
       const ladder = el('div', '', 'wal-ranks')
       ladder.append(el('h3', 'Ranks'))
-      RANKS.forEach((r, i) => {
-        const row = el('div', '', 'wal-row' + (i === idx ? ' now' : ''))
-        const nm = el('div', '', 'wal-names'); nm.append(el('b', r.label), el('small', 'Level balance ' + usd(RANK_START[r.id], 0)))
-        row.append(el('span', String(i + 1), 'wal-ico'), nm)
-        if (i < idx) row.append(el('span', 'Reached', 'wal-tag'))
-        else if (i === idx) row.append(el('span', 'Your rank', 'wal-tag on'))
-        else if (i === idx + 1) {
-          const price = RANK_START[r.id]
-          const buy = el('button', 'Buy · ' + usd(price, 0), 'wal-key gold'); buy.type = 'button'
-          buy.disabled = b.toppedUp <= 5 || b.total < price
-          buy.onclick = () => {
-            const paid = spendInGame(price, 'Bought ' + r.label + ' rank', 'Rank purchase with in-game balance.')
-            if (!paid.ok) { ui.toast(paid.message); return }
-            bonusXp(Math.max(1, r.xp - getSave().xp), 'Reached ' + r.label, 'Rank bought with in-game balance.')
-            credited()
-          }
-          row.append(buy)
-        } else row.append(el('span', 'Later', 'wal-tag'))
-        ladder.append(row)
-      })
-      if (idx < RANKS.length - 1) ladder.append(el('p', b.toppedUp > 5 ? 'Buying the next rank is paid from your in-game balance and credits the level step of that rank.' : 'Top up more than $5 to unlock rank purchases. Ranks are also earned free by learning.', 'cc-muted'))
+      const road = el('div')
+      // Same rule as before: the next rank can be bought from the in-game balance once more than $5 is topped up.
+      renderRankRoad(road, { toppedUp: b.toppedUp, total: b.total, buy: (i) => {
+        const r = RANKS[i]!, price = RANK_START[r.id]
+        const paid = spendInGame(price, 'Bought ' + r.label + ' rank', 'Rank purchase with in-game balance.')
+        if (!paid.ok) { ui.toast(paid.message); return }
+        bonusXp(Math.max(1, r.xp - getSave().xp), 'Reached ' + r.label, 'Rank bought with in-game balance.')
+        credited()
+      } })
+      ladder.append(road)
       spend.append(ladder)
     }
     // Everything held, valued at practice prices.
