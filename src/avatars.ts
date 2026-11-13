@@ -1,3 +1,4 @@
+import { makeup } from './makeup.ts'
 import { getMorph, citizenScale } from './morph.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import * as THREE from 'three'
@@ -216,7 +217,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       glasses: own && !female,
       makeup: undefined, // no makeup (Zahra: free modest creator, no makeup)
       extras: own ? extras(luxury) : undefined,
-      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().figure ? outfit().top : outfit().top ?? tint } : crowdLook(variant!),
+      look: own ? { ...(female ? { hair, ...(mo.skin ? { skin: mo.skin } : {}) } : { hair, skin: mo.skin ?? 0xe8c3a6 }), ...outfit(), top: outfit().figure ? outfit().top : outfit().top ?? tint, makeup: makeup(), sharp: true } : crowdLook(variant!),
       height: female ? 1.68 : 1.78,
       detail: own ? 1 : 0.5,
     })
@@ -232,7 +233,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         avatar.object.userData.face = now.f ?? 1
         ;(avatar.object.userData.setFace as ((f: number) => void) | undefined)?.(now.f ?? 1)
         const o = outfit()
-        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.figure ? o.top : o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown, figure: o.figure }
+        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.figure ? o.top : o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown, figure: o.figure, makeup: makeup(), sharp: true }
         avatar.object.userData.extras = extras(lux)
         ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))
         avatar.object.userData.look = look

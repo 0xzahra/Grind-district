@@ -27,6 +27,7 @@ import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
+import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
@@ -813,6 +814,34 @@ export function mountUi(
         box.append(row)
       }
       lux.append(box)
+    }
+    // Makeup kit: buy it once, then every shade is free to change (makeup.ts paints it onto your face).
+    {
+      const mk = document.createElement('div'); mk.className = 'mk'
+      const mh = document.createElement('div'); mh.className = 'feat-head'
+      mh.append(Object.assign(document.createElement('b'), { textContent: 'Makeup kit' }), Object.assign(document.createElement('small'), { textContent: kitOwned() ? 'Yours · tap a shade to wear it' : `Lipstick, blush, eyeshadow and liner · ${money(KIT_USD)} once` }))
+      mk.append(mh)
+      if (!kitOwned()) {
+        mk.append(button(`Buy the kit · ${money(KIT_USD)}`, 'primary', () => { const r = buyKit(); finish(r.message); if (r.ok) { hooks.onStyle(); open('boutique') } }))
+      } else {
+        const now = makeup() ?? {}
+        const shades = (title: string, list: Array<{ label: string; hex: number | null }>, key: 'lip' | 'blush' | 'shadow') => {
+          const row = document.createElement('div'); row.className = 'tabs swatches mk-row'
+          const paintRow = (cur: number | null | undefined) => { for (const b of row.querySelectorAll('button')) b.className = (b.dataset.hex === String(cur ?? 'none')) ? 'primary' : 'ghost' }
+          for (const sh of list) {
+            const b = button(sh.hex == null ? '∅' : '', 'ghost', () => { setMakeup({ [key]: sh.hex }); paintRow(sh.hex); hooks.onStyle() })
+            b.dataset.hex = String(sh.hex ?? 'none'); b.title = sh.label; b.setAttribute('aria-label', `${title} ${sh.label}`)
+            if (sh.hex != null) b.style.setProperty('background', `#${sh.hex.toString(16).padStart(6, '0')}`, 'important')
+            row.append(b)
+          }
+          paintRow(now[key])
+          mk.append(para(title, 'kicker'), row)
+        }
+        shades('Lipstick', LIPSTICK, 'lip'); shades('Blush', BLUSH_SHADES, 'blush'); shades('Eyeshadow', SHADOW, 'shadow')
+        const liner = button(now.liner ? 'Liner · on' : 'Liner · off', now.liner ? 'primary' : 'ghost', () => { const on = !(makeup()?.liner); setMakeup({ liner: on }); liner.textContent = on ? 'Liner · on' : 'Liner · off'; liner.className = on ? 'primary' : 'ghost'; hooks.onStyle() })
+        mk.append(para('Eyeliner', 'kicker'), liner)
+      }
+      lux.append(mk)
     }
     rail('Grind Pass exclusives', passPieces, true, lux)
     rail('Runway looks', by('look', true), true, lux)

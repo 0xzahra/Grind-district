@@ -28,7 +28,12 @@ export type Look = {
   gown?: boolean
   /** A boutique look: wear this figure whatever the body's usual one is. */
   figure?: HumanModel
+  /** Makeup kit (boutique): painted onto the face in the texture. */
+  makeup?: Makeup
+  /** The player's own figure: the texture is drawn at twice the size with the face sharpened. */
+  sharp?: boolean
 }
+export type Makeup = { lip?: number | null; blush?: number | null; shadow?: number | null; liner?: boolean }
 export type Metal = 'gold' | 'rose' | 'steel'
 export type Extras = {
   chain?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean
@@ -151,11 +156,63 @@ function pixels(t: Template): Promise<{ base: ImageData; mask: ImageData } | nul
 
 type Skin = { texture: THREE.Texture; users: number; key: string }
 const skins = new Map<string, Promise<Skin | null>>()
-const wants = (t: Template, look?: Look) => !!look && REGIONS.some((r) => look[r] !== undefined && t.regions[r])
+const wants = (t: Template, look?: Look) => !!look && (REGIONS.some((r) => look[r] !== undefined && t.regions[r]) || !!look.sharp || hasMakeup(look.makeup))
+const hasMakeup = (m?: Makeup) => !!m && (m.lip != null || m.blush != null || m.shadow != null || !!m.liner)
+
+// Where the face sits in every figure's atlas (tools/pack-rocketbox.mjs packs the head at x 512..1024, y 0..512
+// of a 1024x640 sheet, and the Rocketbox heads share one layout). Atlas pixels at 1024 wide.
+const FACE = { lips: [770, 205, 32, 12], cheeks: [[710, 183], [830, 183]], eyes: [[740, 146], [800, 146]] } as const
+/** Paint makeup into RGBA data (sRGB bytes) of a w x h atlas: soft-edged, keeping the skin's own shading. */
+function paintMakeup(data: Uint8ClampedArray, w: number, h: number, m: Makeup): void {
+  const sx = w / 1024, sy = h / 640
+  const c = new THREE.Color()
+  const blend = (x0: number, y0: number, rx: number, ry: number, hex: number, amt: number, mode: 'tint' | 'shade', gate?: (r: number, g: number, b: number) => number) => {
+    c.setHex(hex)
+    const tr = c.r, tg = c.g, tb = c.b, tl = 0.2126 * tr + 0.7152 * tg + 0.0722 * tb
+    const cx = x0 * sx, cy = y0 * sy, ax = rx * sx, ay = ry * sy
+    for (let y = Math.max(0, Math.floor(cy - ay)); y <= Math.min(h - 1, Math.ceil(cy + ay)); y++) {
+      for (let x = Math.max(0, Math.floor(cx - ax)); x <= Math.min(w - 1, Math.ceil(cx + ax)); x++) {
+        const d = ((x - cx) / ax) ** 2 + ((y - cy) / ay) ** 2
+        if (d >= 1) continue
+        const o = (y * w + x) * 4
+        const r = toLin[data[o]!]!, g = toLin[data[o + 1]!]!, b = toLin[data[o + 2]!]!
+        const e = 1 - d
+        let k = amt * e * e * (3 - 2 * e) // smooth falloff to the edge
+        if (gate) k *= gate(r, g, b)
+        if (k <= 0) continue
+        const l = Math.max(0.002, 0.2126 * r + 0.7152 * g + 0.0722 * b)
+        // tint: the colour carried by the skin's own light and shade; shade: a darker wash (liner, shadow).
+        const s = mode === 'tint' ? THREE.MathUtils.clamp(l / Math.max(0.02, tl) * 0.8, 0.25, 1.2) : 1
+        const nr = mode === 'tint' ? tr * s : tr, ng = mode === 'tint' ? tg * s : tg, nb = mode === 'tint' ? tb * s : tb
+        data[o] = out8(r + (nr - r) * k); data[o + 1] = out8(g + (ng - g) * k); data[o + 2] = out8(b + (nb - b) * k)
+      }
+    }
+  }
+  // Lips: only where the skin is already lip-red, so the colour follows the real lip shape.
+  if (m.lip != null) { const [x, y, rx, ry] = FACE.lips; blend(x, y, rx, ry, m.lip, 0.85, 'tint', (r, g) => THREE.MathUtils.clamp((r / Math.max(g, 0.004) - 1.35) / 0.5, 0, 1)) }
+  if (m.blush != null) for (const [x, y] of FACE.cheeks) blend(x, y, 24, 17, m.blush, 0.3, 'tint')
+  if (m.shadow != null) for (const [x, y] of FACE.eyes) blend(x, y - 9, 20, 8, m.shadow, 0.5, 'tint')
+  if (m.liner) for (const [x, y] of FACE.eyes) blend(x, y - 4, 17, 2.6, 0x120c0a, 0.75, 'shade')
+}
+/** Unsharp mask over the head area (x 512..1024, y 0..512 at 1024 wide): crisper eyes, brows and lips. */
+function sharpenFace(data: Uint8ClampedArray, w: number, h: number, amount: number): void {
+  const x0 = Math.floor(w * 0.5), x1 = w - 1, y1 = Math.min(h - 1, Math.floor(h * 0.8))
+  const src = new Uint8ClampedArray(data)
+  for (let y = 1; y < y1; y++) {
+    for (let x = x0 + 1; x < x1; x++) {
+      const o = (y * w + x) * 4
+      for (let ch = 0; ch < 3; ch++) {
+        const i = o + ch
+        const blur = (src[i - 4]! + src[i + 4]! + src[i - w * 4]! + src[i + w * 4]! + 4 * src[i]! + src[i - w * 4 - 4]! + src[i - w * 4 + 4]! + src[i + w * 4 - 4]! + src[i + w * 4 + 4]!) / 12
+        data[i] = src[i]! + (src[i]! - blur) * amount
+      }
+    }
+  }
+}
 
 /** The figure's texture with each region shifted to the look's colour. `detail` 1 = full size, 0.5 = half (crowd). */
 function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
-  const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}`
+  const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}|${look.sharp && detail >= 1 ? 's' : ''}|${hasMakeup(look.makeup) ? JSON.stringify(look.makeup) : ''}`
   let p = skins.get(key)
   if (!p) {
     p = pixels(t).then((px) => {
@@ -197,8 +254,22 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
         data[o] = out8(r + (nr - r) * wt); data[o + 1] = out8(g + (ng - g) * wt); data[o + 2] = out8(b + (nb - b) * wt)
       }
       const full = document.createElement('canvas'); full.width = w; full.height = h
-      full.getContext('2d')!.putImageData(new ImageData(data, w, h), 0, 0)
       let canvas = full
+      if (look.sharp && detail >= 1) {
+        // The player's own figure: drawn at twice the size, makeup painted at that size, the face sharpened.
+        full.getContext('2d')!.putImageData(new ImageData(data, w, h), 0, 0)
+        const big = document.createElement('canvas'); big.width = w * 2; big.height = h * 2
+        const g = big.getContext('2d', { willReadFrequently: true })!
+        g.imageSmoothingQuality = 'high'; g.drawImage(full, 0, 0, w * 2, h * 2)
+        const id = g.getImageData(0, 0, w * 2, h * 2)
+        if (hasMakeup(look.makeup)) paintMakeup(id.data, w * 2, h * 2, look.makeup!)
+        sharpenFace(id.data, w * 2, h * 2, 0.6)
+        g.putImageData(id, 0, 0)
+        canvas = big
+      } else {
+        if (hasMakeup(look.makeup)) paintMakeup(data, w, h, look.makeup!)
+        full.getContext('2d')!.putImageData(new ImageData(data, w, h), 0, 0)
+      }
       if (detail < 1) {
         canvas = document.createElement('canvas'); canvas.width = Math.round(w * detail); canvas.height = Math.round(h * detail)
         const g = canvas.getContext('2d')!; g.imageSmoothingQuality = 'high'; g.drawImage(full, 0, 0, canvas.width, canvas.height)
@@ -206,7 +277,7 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
       const texture = new THREE.CanvasTexture(canvas)
       texture.flipY = false
       texture.colorSpace = THREE.SRGBColorSpace
-      texture.anisotropy = 4
+      texture.anisotropy = look.sharp ? 8 : 4
       return { texture, users: 0, key }
     })
     skins.set(key, p)
