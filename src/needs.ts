@@ -21,6 +21,8 @@ const full = (): Record<Need, number> => ({ energy: 90, hunger: 85, hygiene: 90,
 let s: Store = { v: full(), at: Date.now(), nudged: {}, bonusDay: '', bonusCount: 0 }
 let loadedFor = ''
 const listeners = new Set<() => void>()
+// The account's needs arrived with its save (extras.ts): read them again.
+if (typeof window !== 'undefined') window.addEventListener('gd:extras-applied', () => { loadedFor = ''; for (const f of listeners) f() })
 let toast: (m: string) => void = () => {}
 const clamp = (n: number) => Math.max(0, Math.min(100, n))
 

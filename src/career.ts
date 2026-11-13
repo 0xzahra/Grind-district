@@ -21,6 +21,8 @@ let c: Career = blank()
 function load(): void { try { c = { ...blank(), ...(JSON.parse(localStorage.getItem(key()) ?? '{}') as Partial<Career>) } } catch { c = blank() } }
 function store(): void { try { localStorage.setItem(key(), JSON.stringify(c)) } catch { /* private mode */ } for (const f of listeners) f() }
 const listeners = new Set<() => void>()
+// The account's season and job progress arrived with its save (extras.ts): read it again.
+if (typeof window !== 'undefined') window.addEventListener('gd:extras-applied', () => { load(); for (const f of listeners) f() })
 export const onCareer = (f: () => void) => { listeners.add(f) }
 
 const day = () => new Date().toISOString().slice(0, 10)

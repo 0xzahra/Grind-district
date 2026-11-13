@@ -102,6 +102,8 @@ const KEY = 'gd.wardrobe.v1'
 type Store = { owned: string[]; worn: Worn }
 const load = (): Store => { try { const s = JSON.parse(localStorage.getItem(KEY) ?? '') as Store; if (s && Array.isArray(s.owned)) return { owned: s.owned, worn: { ...s.worn, acc: s.worn?.acc ?? [] } } } catch { /* fresh */ } return { owned: PIECES.filter((p) => !p.usd).map((p) => p.id), worn: { acc: [] } } }
 let store = load()
+// The account's wardrobe arrived with its save (extras.ts): read it again.
+if (typeof window !== 'undefined') window.addEventListener('gd:extras-applied', () => { store = load() })
 const save = () => localStorage.setItem(KEY, JSON.stringify(store))
 export const owns = (id: string) => store.owned.includes(id) || !PIECES.find((p) => p.id === id)?.usd
 export const worn = (): Worn => store.worn

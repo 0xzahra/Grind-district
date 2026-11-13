@@ -176,6 +176,8 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const { adoptAccount, holdNearProof } = await import('./state.ts')
     if (nearProof) holdNearProof(nearProof)
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
+    // The account's needs, Grind Pass, season, makeup kit and wardrobe come back with its save (extras.ts).
+    try { (await import('./extras.ts')).applyExtras(j.save, j.userId) } catch { /* the save itself is loaded */ }
     const st = await import('./state.ts')
     // Sign-up bonus on a first username claim. NEAR accounts also check on login: their starter grant used to
     // need a Privy token and never landed. The server pays it once per account (fresh only the first time).
@@ -575,19 +577,29 @@ export async function accessToken(): Promise<string | null> {
   }
 }
 
+/** The save as it is sent to the account: with the small stores kept beside it (needs, Grind Pass, season,
+ *  makeup kit, wardrobe) under one extra key. The local save itself is not changed. See extras.ts. */
+async function withExtras<T extends object>(save: T): Promise<T> {
+  try {
+    const x = await import('./extras.ts')
+    x.markOwner(localStorage.getItem('gd.privy.userId'))
+    return { ...save, extras: x.collectExtras() }
+  } catch { return save }
+}
+
 export async function syncProgress(token?: string | null): Promise<boolean> {
   if (!localStorage.getItem(CLAIMED_KEY)) return true
   const t = token ?? await accessToken()
   if (!t) return false
   const { getSave } = await import('./state.ts')
-  const r = await fetch('/api/profile?op=progress', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify({ save: getSave() }) }).catch(() => null)
+  const r = await fetch('/api/profile?op=progress', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify({ save: await withExtras(getSave()) }) }).catch(() => null)
   return !!r && r.ok
 }
 
 async function syncProgressNear(near: unknown): Promise<boolean> {
   if (!localStorage.getItem(CLAIMED_KEY)) return true
   const { getSave } = await import('./state.ts')
-  const r = await fetch('/api/profile?op=progress', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ save: getSave(), near }) }).catch(() => null)
+  const r = await fetch('/api/profile?op=progress', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ save: await withExtras(getSave()), near }) }).catch(() => null)
   return !!r && r.ok
 }
 
