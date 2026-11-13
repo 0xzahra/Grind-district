@@ -8,6 +8,7 @@ import { seatSpot, type Seat } from './seating.ts'
 import { createTvScreen } from './tv.ts'
 import { animateWater } from './water.ts'
 import { RANKS, rankFor } from './logic.ts'
+import { certNftContract, certNftNetwork, certNftOn, certNfts, type HeldCert } from './nftAccess.ts'
 import { buildHomeFurniture } from './homeFurniture.ts'
 import { buildHomeLife } from './homeLife.ts'
 import { MEN, posedHuman } from './humans.ts'
@@ -20,8 +21,8 @@ export type Use = { id: string; x: number; z: number; r: number; title: string; 
 type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
-const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2 }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 }, conference: { w: 18, d: 14 }, lounge: { w: 16, d: 12 } }
+const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2, lounge: -3 }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 17, d: 13 }, studio: { w: 14, d: 10 }, conference: { w: 18, d: 14 }, lounge: { w: 16, d: 18 } }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
   house: { spot: 'yours', cx: 36, cz: 32 },
@@ -729,42 +730,146 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
     if (id === 'lounge') {
       // Members' lounge: quiet walnut, leather and brass. Stations unlock by the visitor's rank; friends and guests may walk in.
+      // The south end is the Holders' room behind a glass wall. Its door opens only for players whose username holds a
+      // Grind District certificate NFT on NEAR (read from the chain by nftAccess.ts, never from local state), and its
+      // desks give holders tools the lounge keeps for higher ranks. The lounge itself sits 3 m north of the room centre.
+      const Z0 = -3
       const walnut = std(0x4e3626, 0.55), leather = std(0x3a2a20, 0.7), brass = std(0xb08d57, 0.35, 0.6), rugM = std(0x6b4b3a, 0.95)
       const lampGlass = new THREE.MeshStandardMaterial({ color: 0x1f6b4f, emissive: 0x2fae7a, emissiveIntensity: 0.45, roughness: 0.25, side: THREE.DoubleSide })
-      const rug = add(new THREE.PlaneGeometry(7, 4.5), rugM, 0, 0.02, 0); rug.rotation.x = -Math.PI / 2
+      const rug = add(new THREE.PlaneGeometry(7, 4.5), rugM, 0, 0.02, Z0); rug.rotation.x = -Math.PI / 2
+      const bankerLamp = (x: number, z: number) => {
+        add(new THREE.CylinderGeometry(0.07, 0.085, 0.025, 12), brass, x, 0.763, z)
+        add(new THREE.CylinderGeometry(0.012, 0.012, 0.26, 6), brass, x, 0.9, z)
+        add(new THREE.CylinderGeometry(0.06, 0.06, 0.26, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2), lampGlass, x, 1.03, z)
+      }
       // Each station opens a real tool: study, practice trading, certificates, Career / Earn Paths.
       const STATIONS: Array<{ sid: string; title: string; rank: number; x: number; z: number; text: string; go: () => void }> = [
-        { sid: 'library', title: 'Study desk', rank: 0, x: -5.5, z: -4, text: 'Opens the courses. Pick up where you left off.', go: () => hooks.openPanel('learn') },
-        { sid: 'strategy', title: 'Trading desk', rank: 0, x: -1.8, z: -4.6, text: 'Practice trading with in-game balance only.', go: () => hooks.openPanel('trade') },
-        { sid: 'trophy', title: 'Trophy wall', rank: 0, x: 1.8, z: -4.6, text: 'Your course certificates, ready to share.', go: () => hooks.openCerts?.() },
-        { sid: 'board', title: 'Career board', rank: 0, x: 5.5, z: -4, text: 'Career progress, Earn Paths and jobs.', go: () => hooks.openCareer?.('paths') },
-        { sid: 'study', title: 'Weekly planner', rank: 2, x: 5.5, z: 3.5, text: 'This week\u2019s challenges in Career.', go: () => hooks.openCareer?.('weekly') },
-        { sid: 'suite', title: 'Mentor suite', rank: 4, x: -5.5, z: 3.5, text: 'Jobs and duties for senior members.', go: () => hooks.openCareer?.('jobs') },
+        { sid: 'library', title: 'Study desk', rank: 0, x: -5.5, z: Z0 - 4, text: 'Opens the courses. Pick up where you left off.', go: () => hooks.openPanel('learn') },
+        { sid: 'strategy', title: 'Trading desk', rank: 0, x: -1.8, z: Z0 - 4.6, text: 'Practice trading with in-game balance only.', go: () => hooks.openPanel('trade') },
+        { sid: 'trophy', title: 'Trophy wall', rank: 0, x: 1.8, z: Z0 - 4.6, text: 'Your course certificates, ready to share.', go: () => hooks.openCerts?.() },
+        { sid: 'board', title: 'Career board', rank: 0, x: 5.5, z: Z0 - 4, text: 'Career progress, Earn Paths and jobs.', go: () => hooks.openCareer?.('paths') },
+        { sid: 'study', title: 'Weekly planner', rank: 2, x: 5.5, z: Z0 + 3.5, text: 'This week’s challenges in Career.', go: () => hooks.openCareer?.('weekly') },
+        { sid: 'suite', title: 'Mentor suite', rank: 4, x: -5.5, z: Z0 + 3.5, text: 'Jobs and duties for senior members.', go: () => hooks.openCareer?.('jobs') },
       ]
       const RN = ['Shrimp', 'Crab', 'Fish', 'Dolphin', 'Shark', 'Whale']
       // Writing desks on brass legs with a drawer pedestal; colliders match the old solid blocks.
-      deskKit(STATIONS.map((st) => [st.x, st.z] as Spot), 1.6, 0.8, 0.75, walnut, brass, [0.85, 0.45])
-      inst(new THREE.BoxGeometry(0.45, 0.6, 0.66), walnut, STATIONS.map((st) => [st.x - 0.5, 0.33, st.z]))
-      inst(new THREE.BoxGeometry(0.3, 0.025, 0.02), brass, STATIONS.flatMap((st) => [[st.x - 0.5, 0.5, st.z + 0.335], [st.x - 0.5, 0.25, st.z + 0.335]] as Array<[number, number, number]>))
+      const DESKS = [...STATIONS.map((st) => [st.x, st.z] as Spot), [-5.2, 7.4] as Spot, [5.2, 7.4] as Spot]
+      deskKit(DESKS, 1.6, 0.8, 0.75, walnut, brass, [0.85, 0.45])
+      inst(new THREE.BoxGeometry(0.45, 0.6, 0.66), walnut, DESKS.map(([x, z]) => [x - 0.5, 0.33, z]))
+      inst(new THREE.BoxGeometry(0.3, 0.025, 0.02), brass, DESKS.flatMap(([x, z]) => [[x - 0.5, 0.5, z + 0.335], [x - 0.5, 0.25, z + 0.335]] as Array<[number, number, number]>))
+      for (const [x, z] of DESKS) bankerLamp(x + 0.55, z)
       for (const st of STATIONS) {
-        // Banker's lamp: brass foot and stem, green glass shade.
-        add(new THREE.CylinderGeometry(0.07, 0.085, 0.025, 12), brass, st.x + 0.55, 0.763, st.z)
-        add(new THREE.CylinderGeometry(0.012, 0.012, 0.26, 6), brass, st.x + 0.55, 0.9, st.z)
-        add(new THREE.CylinderGeometry(0.06, 0.06, 0.26, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(-Math.PI / 2), lampGlass, st.x + 0.55, 1.03, st.z)
         use({ id: `lounge-${st.sid}`, x: st.x, z: st.z + 1, r: 1.2, title: st.title, body: st.rank ? `${RN[st.rank]}+ · ${st.text}` : st.text, enter: 'Open', run: () => {
           const lvl = hooks.rankIndex?.() ?? 0
           if (lvl >= st.rank) st.go()
-          else hooks.toast(`${st.title} unlocks at ${RN[st.rank]}. Keep learning and showing up.`)
+          else hooks.toast(`${st.title} unlocks at ${RN[st.rank]}. Certificate NFT holders can use it now in the Holders’ room at the back.`)
         } })
       }
       // Trophy wall: brass frames on the north wall behind the trophy station.
       for (let k = 0; k < 4; k++) box(0.55, 0.42, 0.05, brass, 1.0 + k * 0.55, -d / 2 + 0.06, 1.5, false)
-      const sofas = [[-2, 1.5, 0], [2, 1.5, 0], [0, 3.2, Math.PI]] as Array<[number, number, number]>
+      const sofas = [[-2, Z0 + 1.5, 0], [2, Z0 + 1.5, 0], [0, Z0 + 3.2, Math.PI]] as Array<[number, number, number]>
       for (const [x, z, ry] of sofas) { box(1.8, 0.45, 0.8, leather, x, z, 0, true, ry); box(1.8, 0.5, 0.18, leather, x, z + (ry ? -0.35 : 0.35), 0.45, false, ry) }
       // Rolled arms and a seam between the two seat cushions so the blocks read as sofas.
       inst(new THREE.BoxGeometry(0.16, 0.66, 0.8), leather, sofas.flatMap(([x, z, ry]) => [[x - 0.92, 0.33, z, ry], [x + 0.92, 0.33, z, ry]] as Array<[number, number, number, number]>))
       inst(new THREE.BoxGeometry(0.015, 0.02, 0.6), std(0x22180f, 0.8), sofas.map(([x, z, ry]) => [x, 0.455, z + (ry ? 0.05 : -0.05), ry]))
-      box(1.2, 0.4, 0.7, walnut, 0, 2.4)
+      box(1.2, 0.4, 0.7, walnut, 0, Z0 + 2.4)
+
+      // ---------- Holders' room (z 3.2 to 9): a glass wall with a door that checks the chain ----------
+      const WZ = 3.2, GAP = 0.85 // glass wall line; half-width of the doorway
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0xd6ece6, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.2, depthWrite: false })
+      for (const sx of [-1, 1]) {
+        const len = w / 2 - GAP, cx = sx * (GAP + len / 2)
+        box(len, 2.7, 0.03, glassMat, cx, WZ, 0, true).castShadow = false
+        box(len, 0.06, 0.07, brass, cx, WZ, 2.7, false)
+        box(len, 0.08, 0.07, brass, cx, WZ, 0, false)
+        for (let x = GAP; x < w / 2; x += 2.4) box(0.05, 2.76, 0.07, brass, sx * x, WZ, 0, false)
+      }
+      box(2 * GAP + 0.1, H - 2.7, 0.1, walnut, 0, WZ, 2.7, false) // transom over the door
+      const sign = add(new THREE.PlaneGeometry(1.5, 0.4), new THREE.MeshBasicMaterial({ map: canvasTex(384, 102, (g) => {
+        g.fillStyle = '#2b1d14'; g.fillRect(0, 0, 384, 102); g.strokeStyle = '#c9a25e'; g.lineWidth = 3; g.strokeRect(6, 6, 372, 90)
+        g.fillStyle = '#e9cd8f'; g.textAlign = 'center'; g.font = '600 34px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('HOLDERS’ ROOM', 192, 50)
+        g.fillStyle = '#cdb88f'; g.font = '500 19px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('Certificate NFT holders', 192, 80)
+      }) }), 0, 2.95, WZ - 0.06)
+      sign.rotation.y = Math.PI
+      sign.castShadow = false
+      // Two glass leaves with brass edges; they slide apart once the chain confirms a certificate.
+      const leaves = [-1, 1].map((sx) => {
+        const leaf = new THREE.Group()
+        const pane = new THREE.Mesh(new THREE.BoxGeometry(GAP, 2.62, 0.025), glassMat); pane.position.y = 1.36; leaf.add(pane)
+        for (const ex of [-GAP / 2 + 0.02, GAP / 2 - 0.02]) { const edge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.62, 0.05), brass); edge.position.set(ex, 1.36, 0); leaf.add(edge) }
+        const pull = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.5, 8), brass); pull.position.set(-sx * (GAP / 2 - 0.12), 1.1, -0.05); leaf.add(pull)
+        leaf.position.set(sx * GAP / 2, 0, WZ + 0.06)
+        group.add(leaf)
+        return leaf
+      })
+      const doorBlock: Obstacle = { kind: 'box', x: o.x, z: o.z + WZ, hx: GAP + 0.05, hz: 0.15 }
+      obstacles.push(doorBlock)
+      // The back wall lists the player's verified certificates, painted from the chain read.
+      const wallCanvas = document.createElement('canvas'); wallCanvas.width = 1024; wallCanvas.height = 460
+      const wallTex = new THREE.CanvasTexture(wallCanvas); wallTex.colorSpace = THREE.SRGBColorSpace
+      const paintWall = (held: HeldCert[]) => {
+        const g = wallCanvas.getContext('2d')!
+        const bg = g.createLinearGradient(0, 0, 0, 460); bg.addColorStop(0, '#2e2017'); bg.addColorStop(1, '#1c130d'); g.fillStyle = bg; g.fillRect(0, 0, 1024, 460)
+        g.strokeStyle = '#c9a25e'; g.lineWidth = 6; g.strokeRect(14, 14, 996, 432)
+        g.fillStyle = '#e9cd8f'; g.textAlign = 'left'; g.font = '600 46px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('Holders’ wall', 54, 86)
+        g.fillStyle = '#bfae8c'; g.font = '400 24px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
+        g.fillText(held.length ? `Certificates verified on ${certNftNetwork}` : 'Verified certificates appear here', 54, 126)
+        g.font = '500 30px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
+        held.slice(0, 6).forEach((h, i) => {
+          const y = 190 + i * 42
+          g.fillStyle = '#7fd3a6'; g.fillText('✓', 54, y)
+          g.fillStyle = '#f3e9d6'; g.fillText(h.title.length > 34 ? `${h.title.slice(0, 33)}…` : h.title, 92, y)
+          g.fillStyle = '#c9a25e'; g.textAlign = 'right'; g.fillText(`token #${h.tokenId}`, 966, y); g.textAlign = 'left'
+        })
+        if (held.length > 6) { g.fillStyle = '#bfae8c'; g.fillText(`and ${held.length - 6} more`, 92, 190 + 6 * 42) }
+        g.fillStyle = '#8f7f62'; g.font = '400 20px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText(`${certNftContract || 'Certificate NFTs'} · soulbound NEP-171 · no money value`, 54, 424)
+        wallTex.needsUpdate = true
+      }
+      paintWall([])
+      box(4.9, 2.3, 0.06, brass, 0, d / 2 - 0.05, 0.65, false)
+      const wallArt = add(new THREE.PlaneGeometry(4.7, 2.11), new THREE.MeshBasicMaterial({ map: wallTex, toneMapped: false }), 0, 1.8, d / 2 - 0.09)
+      wallArt.rotation.y = Math.PI
+      wallArt.castShadow = false
+      // Two armchairs and a side table in the middle of the room.
+      const chairs: Array<[number, number]> = [[-1.25, 1], [1.25, -1]]
+      for (const [x, dir] of chairs) {
+        box(0.8, 0.42, 0.8, leather, x, 5.6, 0, true)
+        box(0.16, 0.55, 0.8, leather, x - dir * 0.34, 5.6, 0.42, false)
+        for (const sz of [-0.36, 0.36]) box(0.8, 0.2, 0.12, leather, x, 5.6 + sz, 0.42, false)
+        seat(`holders-${dir > 0 ? 'w' : 'e'}`, 'Armchair', x, 5.6, dir * Math.PI / 2, 0.45)
+      }
+      add(new THREE.CylinderGeometry(0.32, 0.32, 0.04, 20), walnut, 0, 0.56, 5.6)
+      add(new THREE.CylinderGeometry(0.04, 0.06, 0.54, 10), brass, 0, 0.27, 5.6, true)
+      let roomOpen = false
+      const openRoom = () => {
+        if (roomOpen) return
+        roomOpen = true
+        const k = obstacles.indexOf(doorBlock); if (k >= 0) obstacles.splice(k, 1)
+        const t0 = performance.now()
+        const slide = (now: number) => {
+          const t = Math.min(1, (now - t0) / 750), e = 1 - (1 - t) ** 3
+          leaves.forEach((leaf, i) => { leaf.position.x = (i ? 1 : -1) * (GAP / 2 + e * GAP * 0.95) })
+          if (t < 1) requestAnimationFrame(slide)
+        }
+        requestAnimationFrame(slide)
+      }
+      use({ id: 'holders-door', x: 0, z: WZ - 0.9, r: 1.0, title: 'Holders’ room', body: 'Members only: players who hold a Grind District certificate NFT. The door checks the chain.', enter: 'Enter', run: () => {
+        if (roomOpen) return hooks.toast('The door is open. Walk in.')
+        if (!certNftOn()) return hooks.toast('This room opens for certificate NFT holders. Minting is not switched on in this build.')
+        if (!getSave().username) return hooks.toast('Sign in first: the door checks certificates minted to your username.')
+        hooks.toast('Checking your certificates on NEAR…')
+        certNfts().then((held) => {
+          if (!held.length) return hooks.toast('Members only. Pass a course, open its certificate (Profile > Certificates) and tap Mint as NFT on NEAR. Then this door opens for you.')
+          paintWall(held)
+          openRoom()
+          hooks.toast(`Welcome in. ${held.length} certificate${held.length === 1 ? '' : 's'} verified on NEAR.`)
+        }).catch(() => hooks.toast('Could not reach NEAR just now. Nothing changed; try the door again in a moment.'))
+      } })
+      // Holders' desks: the tools the lounge keeps for Fish and Shark ranks, open to any certificate holder.
+      const holdersOnly = (go: () => void) => () => { if (roomOpen) go(); else hooks.toast('For certificate NFT holders.') }
+      use({ id: 'holders-mentor', x: -5.2, z: 6.4, r: 1.2, title: 'Mentor desk', body: 'Jobs and duties the lounge keeps for Shark rank. Open to certificate holders.', enter: 'Open', run: holdersOnly(() => hooks.openCareer?.('jobs')) })
+      use({ id: 'holders-planner', x: 5.2, z: 6.4, r: 1.2, title: 'Planner desk', body: 'This week’s challenges, kept for Fish rank in the lounge. Open to certificate holders.', enter: 'Open', run: holdersOnly(() => hooks.openCareer?.('weekly')) })
+      use({ id: 'holders-wall', x: 0, z: d / 2 - 1.3, r: 1.3, title: 'Holders’ wall', body: 'Your certificates as the chain records them. Your CV shows the same marks.', enter: 'Open my CV', run: holdersOnly(() => hooks.openPanel('profile')) })
     }
     if (id === 'conference') {
       // Conference centre: raised walnut stage on the north wall, a lectern, one big schedule screen,
@@ -850,9 +955,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       }
       // The house has cutaway walls and no ceiling, so nothing can hang there: pendants only in roofed rooms.
       if (id === 'house') continue
-      const stem = new THREE.Mesh(propGeo.stem, propMat.shadeCap); at(stem, x, 3.05, 0)
-      const shade = new THREE.Mesh(propGeo.shade, propMat.shade); at(shade, x, 2.68, 0)
-      const cap = new THREE.Mesh(propGeo.shadeTop, propMat.shadeCap); at(cap, x, 2.88, 0)
+      const pz = DOOR_Z[id] ?? 0 // pendants over the main floor (the lounge's sits north of its Holders' room)
+      const stem = new THREE.Mesh(propGeo.stem, propMat.shadeCap); at(stem, x, 3.05, pz)
+      const shade = new THREE.Mesh(propGeo.shade, propMat.shade); at(shade, x, 2.68, pz)
+      const cap = new THREE.Mesh(propGeo.shadeTop, propMat.shadeCap); at(cap, x, 2.88, pz)
     }
   }
   return {
@@ -881,7 +987,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
       if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.2, z: o.z + DOOR_Z.house!, yaw: Math.PI / 2 }
-      return { x: o.x - SIZE[id].w / 2 + 2.0, z: o.z, yaw: -Math.PI / 2 }
+      return { x: o.x - SIZE[id].w / 2 + 2.0, z: o.z + (DOOR_Z[id] ?? 0), yaw: -Math.PI / 2 }
     },
     exit(doorX: number, doorZ: number): { x: number; z: number } {
       const id = inside

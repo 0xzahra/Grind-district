@@ -2842,3 +2842,12 @@ html[data-ui='light'] body #sheet .bal-card .bal-num { color: #7a5a1c !important
 html[data-ui='light'] body #sheet .bar, html[data-ui='light'] body .cr-track { background: rgba(40, 32, 20, 0.12) !important; }
 html[data-ui='light'] body #sheet .nameplate { background: linear-gradient(180deg, #ffffff, #ece7dd) !important; border: 1px solid rgba(40, 32, 20, 0.16) !important; box-shadow: 0 2px 0 #c8c0b0, 0 6px 14px rgba(30, 24, 14, 0.16) !important; }
 html[data-ui='light'] body #sheet .nameplate span { color: #6b655a !important; }
+
+/* Certificate NFTs read back from NEAR (nftAccess.ts): a small green "Verified" mark with the token link. */
+html body .nft-ok { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .01em; line-height: 1.5; color: #0f5132; background: #d9f2e4; border: 1px solid #8fd1ad; text-decoration: none; white-space: nowrap; vertical-align: middle }
+html body .cert-list .nft-ok { margin-left: 6px; font-size: 10px; padding: 1px 6px }
+html body .nft-ok { width: auto !important; min-width: 0 !important; height: auto !important; min-height: 0 !important; box-shadow: none !important; transform: none !important }
+html body .cv-paper .nft-ok { display: inline-flex !important; margin: 4px 0 0 !important; padding: 1px 8px !important; font-size: 10.5px !important }
+html body .cv-paper li .nft-ok { margin: 0 0 0 2px !important }
+html body #sheet .nameplate .nft-badge, html body .nameplate .nft-badge { display: block; margin-top: 4px; font-size: 11px !important; font-weight: 600; color: #8fe3b5 !important; letter-spacing: .01em }
+html[data-ui='light'] body #sheet .nameplate .nft-badge { color: #0f6b3e !important }

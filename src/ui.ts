@@ -352,9 +352,11 @@ export function mountUi(
       renderLuxury(),
       head('CV'), (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length >= 3) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (certIds.length < 3) wrap.append(para(`Pass ${3 - certIds.length} more course${certIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted')); return wrap })(),
       // Certificates sit with the CV they belong to.
-      head('Certificates'), (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) list.append(button(SKILL_META[id].title, 'ghost', () => void openCertificate(id))); if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })(), document.createElement('hr'),
+      head('Certificates'), (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })(), document.createElement('hr'),
       head('Books'), renderBooks(),
     )
+    // Certificates minted on NEAR are read back from the chain and marked Verified (CV, list, nameplate).
+    if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(glass) })
     const share = document.createElement('section')
     share.className = 'glass'
     const link = (src: 'profile' | 'invite') => src === 'profile' ? profileLink(save.username) : shareLink('/', 'invite', save.username)

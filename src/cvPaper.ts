@@ -37,6 +37,7 @@ export function renderCvPaper(): HTMLElement {
     if (where) row.append(el('em', '', where))
     if (lines.length) { const ul = el('ul'); for (const l of lines) ul.append(el('li', '', l)); row.append(ul) }
     sec.append(row)
+    return row
   }
   const areas = tracks.length ? tracks.slice(0, 3).map((t) => t.title.toLowerCase()).join(', ') : 'crypto fundamentals, online safety and wallet security'
   section('Profile').append(el('div', 'cv-p', done.length || specialist.length
@@ -47,10 +48,11 @@ export function renderCvPaper(): HTMLElement {
   for (const t of tracks.slice(0, 4)) item(exp, `${t.title} · practical track`, 'Grind District Campus', '', [t.topics])
   if (!job && !tracks.length) exp.append(el('div', 'cv-p cv-muted', 'Roles appear here once a job is taken in Careers.'))
   const edu = section('Education and certifications')
+  edu.dataset.sec = 'edu' // nftAccess.ts adds the on-chain credentials here
   const current = modules.find((w) => !worldDone(w.n))
   item(edu, 'Web3 Foundations Programme', 'Grind District Campus', done.length >= modules.length ? 'Completed' : `${done.length} of ${modules.length} modules`,
     done.length ? done.map((w) => `${w.title}${w.badge ? ` (${w.badge} badge)` : ''}`) : [`In progress: ${current ? current.title : 'foundation modules'}`])
-  for (const id of specialist) { const at = passedAt(id); item(edu, `${SKILL_META[id].title} · certificate`, 'Grind District Campus', at ? month(at) : '', [SKILL_META[id].cv.replace(/^[^—]+— /, '').replace(/^./, (ch) => ch.toUpperCase())]) }
+  for (const id of specialist) { const at = passedAt(id); item(edu, `${SKILL_META[id].title} · certificate`, 'Grind District Campus', at ? month(at) : '', [SKILL_META[id].cv.replace(/^[^—]+— /, '').replace(/^./, (ch) => ch.toUpperCase())]).dataset.course = id }
   const sk = section('Skills')
   const tags = [...new Set([...done.map((w) => MODULE_SKILL[w.n] ?? w.title), ...specialist.map((id) => SKILL_META[id].title), ...tracks.map((t) => t.title)])].slice(0, 14)
   const list = el('div', 'cv-skills')
