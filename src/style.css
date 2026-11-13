@@ -3067,3 +3067,34 @@ html body button.cr-next small { display: block; font-size: 10.5px !important; l
 html body button.cr-next strong { display: block; font-size: 15.5px !important; line-height: 1.25 !important; font-weight: 650; color: #f5f2ea; }
 html body button.cr-next span { display: block; font-size: 12px !important; line-height: 1.4 !important; color: #b8b0a2; }
 .cr-tabs { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); padding-right: 18px !important; }
+
+/* Wallet, second pass: the mint card sits evenly inside the sheet (no one-sided bleed), sections close up. */
+html body #cc-sheet-body .wal-hero { margin: 0 0 12px !important; width: auto !important; max-width: none !important; border-radius: 24px !important; padding: 16px 16px 16px !important; }
+#cc-sheet-body .wal-recent { margin: 0 0 12px !important; }
+#cc-sheet-body .wal-assets { margin: 0 0 12px !important; }
+#cc-sheet-body .wal-assets h3, #cc-sheet-body .cc-spend h3, #cc-sheet-body .wal-ranks h3 { margin: 14px 0 8px !important; }
+#cc-sheet-body .cc-spend > :first-child { margin-top: 0 !important; }
+.wal-hold { padding: 10px 10px 6px; border-radius: 22px; background: #121715; border: 1px solid rgba(255,255,255,.06); }
+.wal-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,.06); margin-bottom: 10px; }
+.wal-seg button { min-height: 0 !important; padding: 8px 4px !important; border: 0 !important; border-radius: 9px !important; background: none !important; box-shadow: none !important; color: #a8b3ae !important; font: 600 12.5px/1 -apple-system, Inter, system-ui, sans-serif !important; cursor: pointer; }
+.wal-seg button.on { background: rgba(255,255,255,.14) !important; color: #fff !important; }
+.wal-group { margin: 10px 4px 6px !important; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8e9a95; }
+.wal-group:first-child { margin-top: 2px !important; }
+.wal-empty { margin: 4px 4px 10px !important; font-size: 12.5px; }
+.wal-tx-ico.cash { background: linear-gradient(145deg, #1aa67e, #0c6f53); color: #fff; }
+.wal-tx-ico.big { background: rgba(247, 147, 26, .2); color: #f7b955; font-size: 10px; }
+.wal-tx-ico.alt { background: rgba(98, 126, 234, .22); color: #a7b6f5; font-size: 10px; }
+.wal-tx-ico.meme { background: rgba(232, 116, 175, .2); color: #f2a3c9; font-size: 10px; }
+.wal-tx-ico.tok { background: rgba(62, 232, 160, .16); color: #6ff0b8; font-size: 9.5px; }
+.wal-tx .wal-star { order: 3; }
+.wal-star { min-height: 0 !important; padding: 0 0 0 6px !important; border: 0 !important; background: none !important; box-shadow: none !important; color: #6b7570 !important; font-size: 17px !important; cursor: pointer; line-height: 1; }
+.wal-star.on { color: #f2c94c !important; }
+.wal-tx:has(.wal-star) { grid-template-columns: 38px 1fr auto auto; }
+.wal-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 2px 8px; }
+.wal-chip { min-height: 0 !important; padding: 7px 11px !important; border-radius: 999px !important; border: 1px solid rgba(255,255,255,.12) !important; background: rgba(255,255,255,.05) !important; box-shadow: none !important; color: #d9e6e1 !important; font: 600 12px/1 -apple-system, Inter, system-ui, sans-serif !important; cursor: pointer; }
+.wal-nft { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 10px; margin-bottom: 6px; border-radius: 16px; background: linear-gradient(135deg, rgba(62,232,160,.10), rgba(255,255,255,.03)); border: 1px solid rgba(62,232,160,.22); text-decoration: none; color: inherit; }
+.wal-nft-art { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(145deg, #1f3a5f, #0e1726); color: #e9cf96; box-shadow: inset 0 0 0 1px rgba(233,207,150,.4); }
+.wal-nft-art svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.wal-nft b { display: block; font-size: 13.5px; font-weight: 600; color: #f5f5f7; }
+.wal-nft small { display: block; font-size: 11.5px; color: #8e9a95; }
+.wal-mint { display: block; width: 100%; margin: 6px 0 8px !important; min-height: 0 !important; padding: 11px 12px !important; border-radius: 14px !important; border: 1px dashed rgba(233,207,150,.45) !important; background: rgba(233,207,150,.06) !important; box-shadow: none !important; color: #e9cf96 !important; font: 600 12.5px/1.3 -apple-system, Inter, system-ui, sans-serif !important; text-align: left; cursor: pointer; }

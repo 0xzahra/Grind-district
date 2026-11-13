@@ -1,5 +1,5 @@
 import { nextMission } from './worlds.ts'
-import { COINS, RANKS, RANK_START } from './logic.ts'
+import { RANKS, RANK_START } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
@@ -56,6 +56,7 @@ import { createPhysicalSky } from './sky.ts'
 import { startNeeds, tickNeeds, socialised, paintNeedsCard, renderNeeds, onNeeds } from './needs.ts'
 import { startPass } from './pass.ts'
 import { startCashAlert } from './sfx.ts'
+import { renderHoldings } from './walletHoldings.ts'
 import { createEstate } from './estate.ts'
 import { createBeach } from './beach.ts'
 import './style.css'
@@ -834,15 +835,8 @@ const apiAgents = createRemoteAgents(scene)
     }
     // Everything held, valued at practice prices.
     const assets = el('div', '', 'wal-assets')
-    const paintAssets = () => {
-      const s = getSave(), b = balanceSplit()
-      const rows: Array<[string, string, string, number]> = [['$', 'Cash', 'Earned ' + usd(b.earned) + ' · topped up ' + usd(b.toppedUp), b.total]]
-      const hold = (sym: string, name: string, qty: number, price: number) => { if (qty > 0) rows.push([sym[0]!, name, qty.toLocaleString('en-US', { maximumFractionDigits: 6 }) + ' ' + sym, qty * price]) }
-      hold('COIN', 'District Coin', s.unit.qty, s.unitPrice); hold('MEME', 'Meme Token', s.meme.qty, s.memePrice)
-      for (const c of COINS) { const h = s.coins[c.id]; if (h && h.qty > 0) hold(c.label.split(' · ')[0]!, c.label.split(' · ')[1] ?? c.label, h.qty, s.coinPrices[c.id] ?? c.base) }
-      assets.replaceChildren(el('h3', 'Your assets'))
-      for (const [ini, name, sub, val] of rows) { const row = el('div', '', 'wal-row'); const nm = el('div', '', 'wal-names'); nm.append(el('b', name), el('small', sub)); row.append(el('span', ini, 'wal-ico'), nm, el('b', usd(val), 'wal-val')); assets.append(row) }
-    }
+    // Assets, NFTs and Watchlist tabs (walletHoldings.ts).
+    const paintAssets = () => renderHoldings(assets, { profile: go(() => ui.open('profile')) })
     paintSpend(); paintAssets()
     // Four round actions on the mint header. Top up presses the existing Top up button (its handler and the
     // top-up flow are unchanged); it opens the form just under the header.
