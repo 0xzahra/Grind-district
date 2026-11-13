@@ -177,7 +177,10 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   const T: Array<[string, string]> = [['courses', 'Lessons'], ['paths', 'Careers'], ['overview', 'Progress'], ['history', 'History'], ['weekly', 'Season'], ['jobs', 'Jobs']]
   for (const [id, label] of T) { const b = btn(label, () => renderCareer(root, go, onPins, id), 'cr-tab' + (id === tab ? ' on' : '')); tabs.append(b) }
   root.replaceChildren(tabs, body)
-  { const n = nextStepCard(); if (n) body.append(n) }
+  // The open tab is always fully in view in the scrolling strip.
+  requestAnimationFrame(() => { const on = tabs.querySelector<HTMLElement>('.cr-tab.on'); if (on) tabs.scrollLeft = Math.max(0, on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2) })
+  // The next-step card guides learning; Season, History and Jobs open straight on their own content.
+  if (tab === 'courses' || tab === 'paths' || tab === 'overview') { const n = nextStepCard(); if (n) body.append(n) }
   if (tab === 'courses') {
     const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed).length
     body.append(el('h3', 'Courses on Campus'), bar('Courses passed', passed, SKILL_ORDER.length), el('p', 'Each pass is filed to your CV, resume and portfolio with a certificate.', 'cc-muted'),

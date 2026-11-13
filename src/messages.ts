@@ -490,7 +490,8 @@ export async function openProfile(username: string): Promise<void> {
   info.append(badges)
   head.append(silhouette(p), info)
   const sheet = el('div', '', 'pf-sheet')
-  sheet.append(el('h3', 'Career sheet'), el('p', `Rank: ${p.rank || 'New'}${p.job ? ` · ${p.job}` : ''} · Reputation ${p.reputation.toLocaleString()}${typeof p.balance === 'number' ? ` · $${p.balance.toFixed(2)}` : ''}`))
+  // Public view: rank, job and reputation only. A player's balance, wallet, needs and purchases stay private.
+  sheet.append(el('h3', 'Career sheet'), el('p', `Rank: ${p.rank || 'New'}${p.job ? ` · ${p.job}` : ''} · Reputation ${p.reputation.toLocaleString()}`))
   sheet.append(el('h3', 'Courses on CV'))
   if (p.skills.length) { const ul = el('ul', '', 'pf-skills'); for (const s of p.skills) ul.append(el('li', s)); sheet.append(ul) }
   else sheet.append(el('p', 'No courses completed yet.', 'cc-muted'))

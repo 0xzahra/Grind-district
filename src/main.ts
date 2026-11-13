@@ -55,6 +55,7 @@ import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
 import { startNeeds, tickNeeds, socialised, paintNeedsCard, renderNeeds, onNeeds } from './needs.ts'
 import { startPass } from './pass.ts'
+import { startCashAlert } from './sfx.ts'
 import { createEstate } from './estate.ts'
 import { createBeach } from './beach.ts'
 import './style.css'
@@ -654,6 +655,7 @@ const apiAgents = createRemoteAgents(scene)
   initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
   startNeeds((m) => ui.toast(m))
   startPass((m) => ui.toast(m))
+  startCashAlert()
   // startMoments ticks immediately when a moment is live; interiors is declared further down, so guard the TDZ.
   startMoments(() => { try { return interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z } } catch { return { x: pos.x, z: pos.z } } })
   subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })
@@ -731,21 +733,45 @@ const apiAgents = createRemoteAgents(scene)
     const save = getSave()
     // The big balance sits in a sticky head so it stays in view while the top-up form grows below it,
     // and it re-reads the ledger every second while the sheet is open (credits land asynchronously).
-    const head = el('div', '', 'cc-balance-head')
-    const big = el('p', `$${save.ledger.toFixed(2)}`, 'cc-big')
-    const split = el('p', '', 'cc-split')
-    const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toFixed(2)}`)); split.append(c) } }
+    // Wallet: a banking-app layout (mint header with the balance and four round actions, a dark Recent card).
+    const hero = el('div', '', 'wal-hero')
+    const hr = new Date().getHours()
+    const greet = el('div', '', 'wal-greet')
+    const ini = (save.name || save.username || 'G').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    const who = el('div'); who.append(el('b', `Hi, ${(save.name || save.username || 'there').split(' ')[0]}`), el('small', hr < 12 ? 'Good morning 👋' : hr < 17 ? 'Good afternoon 👋' : 'Good evening 👋'))
+    greet.append(el('span', ini, 'wal-avatar'), who)
+    let hideBal = false; try { hideBal = localStorage.getItem('gd.wallet.hide') === '1' } catch { /* private mode */ }
+    const eye = el('button', '', 'wal-eye'); eye.type = 'button'; eye.setAttribute('aria-label', 'Show or hide balance')
+    const label = el('p', '', 'wal-label'); label.append(el('span', 'Available balance'), eye)
+    const big = el('p', '', 'cc-big wal-big')
+    const paintBig = () => {
+      const v = getSave().ledger
+      big.dataset.v = v.toFixed(2)
+      eye.innerHTML = hideBal ? '<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A9.8 9.8 0 0 1 12 5c5 0 9 4.5 10 7-.4 1-1.3 2.4-2.6 3.7M6.6 6.6C4.5 8 3 10 2 12c1 2.5 5 7 10 7 1.6 0 3-.4 4.3-1"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M2 12c1-2.5 5-7 10-7s9 4.5 10 7c-1 2.5-5 7-10 7S3 14.5 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>'
+      if (hideBal) { big.replaceChildren('$ ••••••'); return }
+      const [w, c] = v.toFixed(2).split('.')
+      big.replaceChildren(`$${Number(w).toLocaleString('en-US')}`, el('small', `.${c}`))
+    }
+    eye.onclick = () => { hideBal = !hideBal; try { localStorage.setItem('gd.wallet.hide', hideBal ? '1' : '0') } catch { /* private mode */ } paintBig() }
+    paintBig()
+    const idRow = el('div', '', 'wal-id')
+    const chips = gameWalletChip()
+    if (chips.length) idRow.append(...chips)
+    else idRow.append(el('small', `Wallet ID ${save.username ? '@' + save.username : 'guest'}`))
+    idRow.append(el('span', 'USD', 'wal-cur'))
+    const split = el('p', '', 'cc-split wal-split')
+    const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)); split.append(c) } }
     paintSplit()
-    head.append(el('small', 'Total balance · in-game', 'wal-kick'), big, split, ...gameWalletChip())
-    sheetBody.replaceChildren(head)
+    const roundActs = el('div', '', 'wal-round')
+    hero.append(greet, label, big, idRow, roundActs, split)
+    sheetBody.replaceChildren(hero)
     const tick = window.setInterval(() => {
       if (ccSheet.hidden || sheetTitle.textContent !== 'Balance' || !big.isConnected) { clearInterval(tick); return }
-      const v = `$${getSave().ledger.toFixed(2)}`
-      if (big.textContent !== v) { big.textContent = v; paintSplit(); paintSpend(); paintAssets() }
+      if (big.dataset.v !== getSave().ledger.toFixed(2)) { paintBig(); paintSplit(); paintSpend(); paintAssets(); paintRecent() }
     }, 1000)
     const topBtn = el('button', 'Top up', 'topup-go')
     topBtn.type = 'button'
-    const credited = () => { paintStatus(); big.textContent = `$${getSave().ledger.toFixed(2)}`; paintSplit(); paintSpend(); paintAssets(); spend.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+    const credited = () => { paintStatus(); paintBig(); paintSplit(); paintSpend(); paintAssets(); paintRecent(); spend.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
     // 'Spend it': after a deposit (or any time there is cash), shortcuts to the premium things in the city.
     const spend = el('div', '', 'cc-spend')
     const go = (fn: () => void) => () => { closeSheet(); setCC(false); fn() }
@@ -818,15 +844,46 @@ const apiAgents = createRemoteAgents(scene)
       for (const [ini, name, sub, val] of rows) { const row = el('div', '', 'wal-row'); const nm = el('div', '', 'wal-names'); nm.append(el('b', name), el('small', sub)); row.append(el('span', ini, 'wal-ico'), nm, el('b', usd(val), 'wal-val')); assets.append(row) }
     }
     paintSpend(); paintAssets()
-    const acts = el('div', '', 'wal-actions')
-    const tradeBtn = el('button', 'Trade', 'wal-key'); tradeBtn.type = 'button'; tradeBtn.onclick = go(() => ui.open('trade'))
-    acts.append(topBtn, tradeBtn)
-    sheetBody.append(acts, topSlot, assets, spend, el('h3', 'In-game activity'))
-    const list = el('ol', '', 'cc-list')
-    const moves = save.activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
-    for (const a of moves) { const li = el('li'); li.append(el('strong', a.label), el('time', when(a.at)), el('p', a.detail)); list.append(li) }
-    if (!moves.length) list.append(el('li', 'No in-game balance moves yet.', 'empty'))
-    sheetBody.append(list)
+    // Four round actions on the mint header. Top up presses the existing Top up button (its handler and the
+    // top-up flow are unchanged); it opens the form just under the header.
+    const ICON: Record<string, string> = {
+      top: '<svg viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>',
+      trade: '<svg viewBox="0 0 24 24"><path d="M4 16.5 9.5 11l3.5 3.5L20 7.5M15 7.5h5v5"/></svg>',
+      shop: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8Zm3 0a3 3 0 0 1 6 0"/></svg>',
+      more: '<svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg>',
+    }
+    const round = (icon: string, text: string, fn: () => void) => {
+      const b = el('button', '', 'wal-act'); b.type = 'button'
+      const c = el('span', '', 'wal-act-c'); c.innerHTML = ICON[icon]!
+      b.append(c, el('small', text)); b.onclick = fn; return b
+    }
+    roundActs.append(
+      round('top', 'Top up', () => { topBtn.click(); window.setTimeout(() => topSlot.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300) }),
+      round('trade', 'Trade', go(() => ui.open('trade'))),
+      round('shop', 'Shop', go(() => ui.open('boutique'))),
+      round('more', 'More', () => spend.scrollIntoView({ behavior: 'smooth', block: 'start' })),
+    )
+    // Recent: the balance moves, newest first, with the amount on the right.
+    const recent = el('div', '', 'wal-recent')
+    let showAll = false
+    const paintRecent = () => {
+      const moves = getSave().activities.filter((a) => a.kind === 'money' || a.kind === 'trade' || a.kind === 'gig' || a.kind === 'tax' || /\$/.test(a.detail + a.label))
+      const head = el('div', '', 'wal-recent-head'); head.append(el('b', 'Recent'))
+      if (moves.length > 4) { const all = el('button', showAll ? 'Show less' : 'See all', 'wal-see'); all.type = 'button'; all.onclick = () => { showAll = !showAll; paintRecent() }; head.append(all) }
+      recent.replaceChildren(head)
+      for (const a of showAll ? moves : moves.slice(0, 4)) {
+        const m = a.detail.match(/^([+-])?\$([\d,]+(?:\.\d+)?)/) ?? a.label.match(/([+-])\$([\d,]+(?:\.\d+)?)/)
+        const sign = m?.[1] ?? (/^(Bought|Paid|Grind Pass ·|Grind Pass tier skip)/.test(a.label) ? '-' : /^(Top-up|Starting|Sign-up)/.test(a.label) ? '+' : '')
+        const row = el('div', '', 'wal-tx')
+        const ab = a.label.replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '$'
+        const nm = el('div'); nm.append(el('b', a.label), el('small', when(a.at)))
+        row.append(el('span', ab, 'wal-tx-ico'), nm, el('span', m ? `${sign}$${m[2]}` : '', `wal-tx-amt${sign === '+' ? ' in' : sign === '-' ? ' out' : ''}`))
+        recent.append(row)
+      }
+      if (!moves.length) recent.append(el('p', 'No balance moves yet. Pass a course or check in to earn your first dollars.', 'cc-muted'))
+    }
+    paintRecent()
+    sheetBody.append(topSlot, recent, assets, spend)
   })
   must('#cc-sheet-back').addEventListener('click', closeSheet)
   railToggle.addEventListener('click', () => setCC(document.body.classList.contains('rail-shut')))

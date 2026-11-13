@@ -30,9 +30,20 @@ for (const p of PIECES) if (p.pass && !TIERS[p.pass]) TIERS[p.pass] = { kind: 'p
 export const PASS_TOP = SEASON[SEASON.length - 1]?.at ?? 20
 export const CASH_BACK = Object.values(TIERS).reduce((a, r) => a + (r.kind === 'cash' ? r.usd : 0), 0)
 
-type Store = { owned: boolean; at: number; granted: number }
+/** Free-track steps with no item give this much XP, so no step on either track is ever empty. */
+export const FREE_XP = 40
+type Store = { owned: boolean; at: number; granted: number; free?: number }
 const key = () => `${slotKey()}.pass`
 const read = (): Store => { try { return { owned: false, at: 0, granted: 0, ...(JSON.parse(localStorage.getItem(key()) ?? '{}') as Partial<Store>) } } catch { return { owned: false, at: 0, granted: 0 } } }
+/** Free XP for the steps reached since last time (first run starts from where you are; nothing back-paid twice). */
+function freeCatchUp(): void {
+  const s = read(), pts = Math.min(PASS_TOP, getCareer().seasonPts)
+  if (s.free == null) { s.free = pts; write(s); return }
+  while (s.free < pts) {
+    s.free += 1; write(s)
+    if (!SEASON.some((r) => r.at === s.free)) bonusXp(FREE_XP, `Season step ${s.free}`, 'Free track reward.')
+  }
+}
 const write = (s: Store) => { try { localStorage.setItem(key(), JSON.stringify(s)) } catch { /* private mode */ } }
 
 export const passOwned = () => read().owned
@@ -76,6 +87,7 @@ export function startPass(say: (m: string) => void): void {
   toast = say
   seen = getCareer().seasonPts
   catchUp()
+  freeCatchUp()
   setSeasonExtra(renderPass)
   onCareer(() => {
     const pts = getCareer().seasonPts
@@ -83,6 +95,7 @@ export function startPass(say: (m: string) => void): void {
     const was = seen
     seen = pts
     if (pts < was) return
+    freeCatchUp()
     if (passOwned()) {
       const n = catchUp()
       if (n) toast(`Grind Pass tier ${pts}: ${tierLabel(pts)}.`)
@@ -138,7 +151,7 @@ export function renderPass(root: HTMLElement, rerender: () => void): void {
     const prem = el('span', tierLabel(n, lady), `gp-prem${owned && reached ? ' got' : owned ? '' : ' locked'}`)
     const r = TIERS[n]
     if (owned && reached && r?.kind === 'frame') { const on = equippedFrame() === r.id; prem.append(btn(on ? 'Equipped' : 'Equip', () => { equipFrame(on ? '' : r.id); rerender() }, 'cr-chip')) }
-    li.append(el('b', String(n)), el('span', free ? free.label : '·', `gp-free${free && reached ? ' got' : ''}`), prem)
+    li.append(el('b', String(n)), el('span', free ? free.label : `+${FREE_XP} XP`, `gp-free${reached ? ' got' : ''}`), prem)
     ladder.append(li)
   }
   const foot = el('div', '', 'gp-foot')
