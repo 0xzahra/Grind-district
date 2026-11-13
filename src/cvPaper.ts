@@ -19,7 +19,7 @@ export function renderCvPaper(): HTMLElement {
   const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
   // Specialist courses are the full-length ones (seven to ten minutes of reading and a graded exercise).
   const specialist = passed.filter((id) => parseInt(courseById(id)?.minutes ?? '0', 10) >= 5)
-  const modules = WORLDS.filter((w) => w.boss)
+  const modules = WORLDS.filter((w) => w.n < 6) // the five foundation worlds (World 6 is the career world)
   const done = modules.filter((w) => worldDone(w.n))
   const passedAt = (id: SkillId) => s.activities.find((a) => a.kind === 'skill' && a.label === `Passed ${SKILL_META[id].title}`)?.at
   const job = JOBS.find((j) => j.id === c.job)

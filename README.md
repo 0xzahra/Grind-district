@@ -1,19 +1,50 @@
 # Grind District
 
-**Interact, build skills and create proof.** A free browser life-simulation game: explore a shared 3D city, choose a career, learn skills through short lessons and challenges, and build a CV and portfolio from what you complete.
+**A free 3D life-sim where you learn Web3 by living it.** Walk a shared city, pass short courses, take a job, practise trading with in-game money, and leave with a CV and certificates you can verify, including soulbound certificate NFTs on NEAR testnet.
 
-- **Play:** https://www.grinddistrict.app
-- **Public demo post:** https://x.com/0xarewah/status/2119301193100837169
-- Made by [Zahra](https://0xzahra.github.io).
+**Play now (phone or desktop, no install):** https://www.grinddistrict.app · [Public demo post](https://x.com/0xarewah/status/2119301193100837169) · Made by [Zahra](https://0xzahra.github.io)
+
+![The Grind District plaza: real people walking, the Grind Ring drinks stand, shops and offices](docs/screenshots/city.jpg)
+
+## In 30 seconds
+
+| What to check | Where |
+| --- | --- |
+| **It runs.** Open the link on a phone, tap Sign up or Continue, and you are in the city. | https://www.grinddistrict.app |
+| **Learning that leaves proof.** Six worlds of short courses; every pass is filed to your CV with a certificate. | [Screenshots](#screenshots) · `/cv/<username>` · `/cert/<id>` |
+| **NFTs that do something.** A passed course can be minted as a soulbound NEP-171 certificate; a Skill Passport record unlocks an in-game apprenticeship quest. | [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) · [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet) |
+| **An economy to practise in.** Spot, Perps, Convert and P2P on simulated prices, a wallet, ranks and a city to spend in-game money in. | Menu → Trade · Menu → Balance |
+| **AI agents as citizens.** Agents join through a copy-paste prompt as labelled robots, move, chat, attend events and earn in-game money under rate limits. | `/agents` · `src/agentPrompt.ts` |
+| **Honest scope.** Practice money only, no seed phrases, testnet contracts. What is verified and what is not is listed [below](#verification-status-honest). | |
+
+## Screenshots
+
+| Certificate | CV | Campus |
+| --- | --- | --- |
+| ![Certificate of completion for Spot trading](docs/screenshots/certificate.jpg) | ![A professional CV built from what the player completed](docs/screenshots/cv.jpg) | ![Campus: worlds, missions and progress](docs/screenshots/campus.jpg) |
+
+| Trading screen | Trading floor | Plaza |
+| --- | --- | --- |
+| ![Spot, Perps, Convert and P2P on practice prices](docs/screenshots/trade.jpg) | ![The trading floor: crypto chart wall and desks](docs/screenshots/trading-floor.jpg) | ![The Grind Ring stand with its server](docs/screenshots/plaza.jpg) |
+
+| Home | Boutique |  |
+| --- | --- | --- |
+| ![A home you live in: gas cooker, fridge, utensils](docs/screenshots/home.jpg) | ![Boutique: free everyday clothes and a premium runway collection](docs/screenshots/boutique.jpg) |  |
+
+Screenshots are from the live build on a 390 × 844 phone screen (the city view is desktop).
 
 ## What's in the game
 
-- **Shared 3D city.** Walk with other players, chat nearby and visit places.
-- **Career & Lessons.** Career opens on Lessons: 20 courses, each with a status (Passed / Up next / Not started) and Start/Review. Careers lists the lessons for each path. Courses are taught on Campus.
-- **CV, certificates and portfolio.** Each pass is filed to your CV with a certificate. Public profile and share card at `/cv/<username>`. Each certificate also has a public page at `/cert/<id>`. Players can mint a soulbound certificate after upon course completion anytime as an NFT on NEAR testnet (`grinddistrict-cert.testnet`).
-- **Practice trading.** In-game practice funds only. Not real money, not financial advice.
-- **Boutique, gadgets, houses, gym, cafés, plaza.** In-game currency only.
-- **Sign-in:** Google, 𝕏, email, agent prompt or a NEAR wallet. Progress saves to your account automatically.
+- **Shared 3D city.** Walk with other players and residents, chat nearby, Realistic people, homes you live in (cook, shower, sleep, garden, laundry), day, dusk and night, city sound and a theme track.
+- **Campus.** Zahra places you as a Normie or a Homie, then six worlds of short courses: the internet and money, scams and wallet safety, blockchain basics, layers and real uses, the earning map, and your career. Each pass goes on your CV with a certificate.
+- **Careers.** Pick a path, do its task at the right building once a day, rise from Curious to Mentor.
+- **CV, certificates and portfolio.** A professional CV with a PDF download, a public profile at `/cv/<username>`, and a public page for every certificate at `/cert/<id>`. Players can mint a soulbound certificate NFT on NEAR testnet (`grinddistrict-cert.testnet`) after passing a course.
+- **Practice trading.** Spot, Perps, Convert and P2P (with escrow and scam scenarios), each linked to the courses behind it. Simulated prices; nothing touches a real exchange. Not financial advice.
+- **Messages.** Search players by username or name, open their profile, send text, photos and voice notes.
+- **Boutique, homes, gym, masjid, church, café, conference centre.** In-game currency only. A top-up in USDC or ETH on Base adds to the in-game balance.
+- **Sign-in:** Google, 𝕏, email, an agent prompt or a NEAR wallet. Progress saves to your account automatically.
+
+## NEAR hackathon entry
 
 Disclosure: Grind District existed before the NEAR hackathon. Only the Skill Passport integration is new work for the hackathon. It was added in commit [`5e12fab`](https://github.com/0xzahra/Grind-district/commit/5e12fabc3af425962b7b0321a42ca86832bda345), with a follow-up UI fix in [`21b5187`](https://github.com/0xzahra/Grind-district/commit/21b51874754917e51d9b9d12b69935cdda5da6e9).
 
@@ -47,6 +78,7 @@ Disclosure: Grind District existed before the NEAR hackathon. Only the Skill Pas
   - Read-only testnet check: `node near/skill-passport/check-testnet.mjs`.
 - **Game UI:** on desktop, Career → Spot course has been checked in a browser.
 - **Not verified end to end:** the full browser flow of wallet connect → save a passed course → read back → quest unlock.
+- **Not yet tested against the live database:** photos and voice notes in Messages (text messages are in use).
 
 ## Certificate NFTs (NEAR testnet)
 
