@@ -2857,3 +2857,27 @@ html[data-ui='light'] body #sheet .nameplate .nft-badge { color: #0f6b3e !import
 html body .tour-spot { animation: tour-glow 1.4s ease-in-out infinite !important; border-radius: 999px; z-index: 60 }
 @media (prefers-reduced-motion: reduce) { html body .tour-spot { animation: none !important; box-shadow: 0 0 0 4px rgba(26, 243, 143, 0.8) !important } }
 html body .mentor.tour-up { top: calc(env(safe-area-inset-top, 0px) + 120px) !important; bottom: auto !important }
+
+/* Sheet header (Settings, Profile, ...): solid and above the content, and it also covers the strip above it,
+   so text and keys never show through or over it while the page scrolls. */
+html body #sheet .sheet-card .sheet-head { z-index: 30 !important; background: #0b1210 !important; box-shadow: 0 -48px 0 0 #0b1210 !important; }
+html[data-ui='light'] body #sheet .sheet-card .sheet-head { background: #fbf9f4 !important; box-shadow: 0 -48px 0 0 #fbf9f4 !important; }
+/* Account, danger and support links are raised keys like every other button. */
+html body #sheet .sheet-card button.danger {
+  position: relative; border-radius: 14px !important; border: 1px solid #7d1f29 !important; background: var(--key-red) !important; box-shadow: var(--key-red-sh) !important;
+  color: #2a0508 !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) !important; font-weight: 700 !important; padding-left: 16px !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out !important;
+}
+html body #sheet .sheet-card button.danger:active { transform: translateY(2px) !important; box-shadow: var(--key-down) !important; }
+html body #sheet .sheet-card a.help-link {
+  display: flex !important; align-items: center; justify-content: center; margin: 6px 0; padding: 13px 18px !important; border-radius: 14px !important;
+  border: 1px solid #8a6a2c !important; background: var(--key-gold) !important; box-shadow: var(--key-gold-sh) !important; color: #1c1508 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45); font-weight: 700 !important; font-size: 15px !important; text-decoration: none !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out !important;
+}
+html body #sheet .sheet-card a.help-link:active { transform: translateY(2px); box-shadow: var(--key-down) !important; }
+html[data-ui='light'] body #sheet .sheet-card button.ghost:not(.topup *):not([aria-pressed='true']) {
+  background: var(--key-ivory) !important; border: 1px solid rgba(60, 50, 30, 0.35) !important;
+  box-shadow: inset 0 1px 0 #ffffff, inset 0 -2px 0 rgba(60, 50, 30, 0.14), 0 3px 0 #b2aa99, 0 8px 16px rgba(30, 24, 14, 0.22) !important;
+}
+html[data-ui='light'] body #sheet .sheet-card button.ghost:not(.topup *):active { transform: translateY(2px) !important; box-shadow: inset 0 1px 0 #ffffff, 0 1px 0 #b2aa99, 0 3px 6px rgba(30, 24, 14, 0.2) !important; }

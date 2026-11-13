@@ -307,6 +307,11 @@ async function poll(): Promise<void> {
 
 export function mountMessages(c: Ctx): void {
   ctx = c
+  // Right after a NEAR sign-in the signed login message is still fresh (ten minutes): swap it for the Messages
+  // token straight away, so a NEAR player never has to confirm again for Messages.
+  const adopt = () => { if (userId().startsWith('near:')) void nearToken() }
+  window.setInterval(adopt, 5000)
+  window.addEventListener('focus', adopt)
   window.setTimeout(() => void poll(), 4000)
   window.setInterval(() => void poll(), 20000)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void poll() })
