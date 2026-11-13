@@ -2,7 +2,7 @@
 
 <h1 align="center">Grind District: Game Design Document</h1>
 
-<p align="center"><b>Version 2.0 · 13 November 2026</b><br>
+<p align="center"><b>Version 2.2 · 13 November 2026</b><br>
 City · Career · Skills · CV<br>
 <a href="https://www.grinddistrict.app">www.grinddistrict.app</a> · free, in the browser, phone or desktop</p>
 
@@ -31,7 +31,8 @@ City · Career · Skills · CV<br>
 19. [Whitepaper (summary)](#19-whitepaper-summary)
 20. [Tokenomics (draft, not launched)](#20-tokenomics-draft-not-launched)
 21. [Risks](#21-risks)
-22. [Appendix](#22-appendix)
+22. [Hackathon fit](#22-hackathon-fit)
+23. [Appendix](#23-appendix)
 
 ---
 
@@ -43,7 +44,7 @@ City · Career · Skills · CV<br>
 | **Genre** | Life simulation and learning game (social, light RPG progression) |
 | **Platform** | Web browser on phones and desktops. No install. |
 | **Audience** | People new to crypto ("Normies") and people already in it ("Homies") who want proof of skill. Ages 16+, mobile-first, with emerging markets in mind. |
-| **Business model** | Free to play. Optional premium cosmetics and paid ranks bought with in-game balance after a real top-up (USDC on Base). No pay-to-win: lessons, certificates and the CV are always free. |
+| **Business model** | Free to play. Optional premium cosmetics, the Grind Pass and paid ranks, bought with in-game balance; paid ranks need a real top-up first (USDC or ETH on Base). No pay-to-win: lessons, certificates and the CV are always free. |
 | **Status** | Live at grinddistrict.app. NEAR testnet contracts deployed for certificates and the Skill Passport. |
 
 **One-line pitch.** Everyone starts at zero as a Shrimp. Walk the city, learn one minute at a time with Zahra, work a job, trade with practice money, and climb to Whale. Leave with a CV, certificates and NFTs that do something.
@@ -62,7 +63,7 @@ City · Career · Skills · CV<br>
 ## 2. Design pillars
 
 1. **Learn by living.** Every lesson is tied to a place and an action in the city. You learn spot trading at the trading floor, scams before wallets, careers at the career board.
-2. **Proof over points.** XP and ranks motivate. What you keep is a CV, certificates and on-chain credentials.
+2. **Proof over points.** Reputation and ranks motivate; there is no XP or points on screen. What you keep is a CV, certificates and on-chain credentials.
 3. **Zero to Whale.** Everyone starts equal at Shrimp. Ranks are earned by learning and showing up; buying a rank never skips a lesson.
 4. **Safe practice.** Real skills with practice money. The game never asks for a seed phrase, and nothing can be withdrawn.
 5. **Phone first.** It loads fast and plays with one thumb.
@@ -77,14 +78,14 @@ flowchart LR
   B --> C[Work<br>daily job task]
   C --> D[Earn<br>in-game balance]
   D --> E[Practise<br>Spot · Perps · Convert · P2P]
-  E --> F[Spend<br>home · wardrobe · car · rank]
-  F --> G[Rise<br>Shrimp → Whale]
+  E --> F[Spend<br>needs · home · wardrobe · pass · rank]
+  F --> G[Rise<br>reputation · Shrimp → Whale]
   G --> A
   B -.mint.-> H[Certificate NFT on NEAR]
   H -.unlocks.-> I[Verified mark + Holders' room]
 ```
 
-- **Session loop (5 to 10 minutes):** check in for the daily reward, do your job's task at the right building, pass one lesson, make a practice trade, chat with someone nearby.
+- **Session loop (5 to 10 minutes):** check in for the daily reward, top up a low need (eat, sleep, shower, greet someone), do your job's task at the right building, pass one lesson, make a practice trade.
 - **Weekly loop:** finish a world for its badge, complete weekly challenges in Career, attend an event at the conference centre.
 - **Long loop:** climb six ranks, rise through ten job levels, collect certificates, build a CV worth sharing.
 
@@ -118,7 +119,7 @@ flowchart LR
 
 ### The menu
 
-Messages · Notifications · Map · Home · Profile (CV, certificates, books) · Boutique · Trade · Career · Settings · Shortcuts. A wallet card shows the in-game balance, assets and ranks.
+Messages · Notifications · Map · Home · Profile (CV, certificates, books) · Boutique · Trade · Courses · Career · City Feed · Settings · Shortcuts. The Balance card opens the wallet; the Needs card shows your mood and each need.
 
 ### Settings
 
@@ -138,11 +139,16 @@ A walkable district built around a central plaza, with interiors you enter throu
 | **Influencer row (studio)** | Content work: backdrop, softbox set, podcast table. |
 | **Conference centre** | Stage, lectern, schedule screen and five rows of seats. Events and speaker jobs. |
 | **Members' lounge** | Walnut, leather and brass. Stations unlock by rank. At the back is the **Holders' room**, behind a glass door that opens only for certificate NFT holders. |
-| **Boutique** | Free everyday clothes and a premium runway collection with fitted jewellery. |
-| **Homes** | A house you live in: gas cooker, fridge with food, utensils, bathroom, laundry, garden, pool lounger, a bed to sleep in, work from home. |
-| **Gym, Masjid, Church, Café, Dealership, Marina** | Daily life: workouts, prayer, rest, coffee, cars and the waterfront. |
+| **Boutique** | Free everyday clothes on real hangers, the premium runway collection, fine jewellery with studio renders, two Featured bundles a day at 20% off, and a makeup kit. |
+| **Homes** | A house you live in: gas cooker, fridge with food, utensils, bathroom, laundry, garden, a tiled pool with a teak deck, a bed to sleep in, work from home. |
+| **Your street** | Corner store, pharmacy, bakery and laundromat by your home: food, care and clean clothes for in-game dollars. |
+| **Hospital** | A daily check-up, a free ward bed when you are exhausted, physio. |
+| **The Velvet Room** | A casino front, closed for good. Its door opens a card on how gambling and trading differ, with helplines. No game of chance exists in the city. |
+| **Gym, Masjid, Church, Café, Dealership, Marina, Beach** | Daily life: workouts, prayer, rest, coffee, cars, the waterfront and the sea. |
 
 <p align="center"><img src="screenshots/plaza.jpg" alt="Plaza" width="240"> <img src="screenshots/trading-floor.jpg" alt="Trading floor" width="240"> <img src="screenshots/home.jpg" alt="Home" width="240"> <img src="screenshots/boutique.jpg" alt="Boutique" width="240"></p>
+
+<p align="center"><img src="screenshots/street.jpg" alt="Corner store and pharmacy on your street" width="240"> <img src="screenshots/casino.jpg" alt="The casino front: gambling vs trading" width="240"> <img src="screenshots/boutique-racks.jpg" alt="Clothes on the rails" width="240"> <img src="screenshots/makeup.jpg" alt="Makeup kit" width="240"></p>
 
 **Time and weather.** Day, dusk and night with matching light, street lamps and city sound (wind, traffic, footsteps, cups, passing cars).
 
@@ -180,13 +186,28 @@ A walkable district built around a central plaza, with interiors you enter throu
 
 ## 8. Careers and progression
 
-**Ranks (XP):** Shrimp 0 · Crab 70 · Fish 210 · Dolphin 420 · Shark 700 · Whale 1,100. Ranks open lounge stations and status unlocks (private lounge, sky penthouse, grand tourer, yacht deck).
+**Reputation and ranks.** Reputation is the only score on screen: +5 for a course pass, +3 for a campus talk, +2 for a gym set, more for events and job duties. There is no XP or points anywhere. Ranks still climb underneath, Shrimp → Crab → Fish → Dolphin → Shark → Whale, shown in the wallet as a medallion road with a progress bar and no numbers. They open lounge stations and status unlocks (private lounge, sky penthouse, grand tourer, yacht deck).
 
 **Careers.** 14 tracks: Trading, Investing, Staking and DeFi, Airdrops, InfoFi, Prediction markets, NFTs, Crypto gaming, Content creation, Web3 jobs, Building products, DAOs and communities, Grants and hackathons, Infrastructure. Jobs include event speaker, community manager, market analyst and researcher. Each job has daily duties done at a real place in the city.
 
 **Job levels:** Intern → Junior → Associate → Mid-level → Senior → Lead → Principal → Head → Director → Partner.
 
 **Daily and weekly.** Daily check-in (fixed reward that grows with the streak, up to $15). Weekly challenges in Career. The "Next step" button always says what to do next.
+
+### Needs, mood and the season
+
+Needs give players a reason to come back each day; the season gives them a goal until 31 January 2027. Nothing in either is random.
+
+| System | How it works |
+| --- | --- |
+| **Needs** | Energy, hunger, hygiene and social fall slowly while you play; time away barely counts. The bed, cooker and fridge, shower, street shops, hospital, greeting people and events bring them back. A low need only nudges; nothing is lost. |
+| **Mood** | With every need looked after you are Inspired: courses, jobs and events give +3 reputation, up to ten times a day. |
+| **Free season** | Season 1 · Founders: weekly challenges move you along 20 steps; every free step gives an item or +5 reputation. |
+| **Grind Pass** | A premium track beside the free one for $750 in-game: $1,000 back in in-game cash across the steps, exclusive looks and jewellery the boutique never sells, two plate frames, +50 reputation and a Season 1 Founder badge. Steps already reached are given at once; one step can be skipped for $90. |
+| **Featured today** | Two boutique bundles a day: a runway look with a matching piece of jewellery at 20% off, the same for everyone, with a countdown to midnight. |
+| **Cash alert** | A short ka-ching whenever money comes in, at the game's sound level. |
+
+<p align="center"><img src="screenshots/needs.jpg" alt="Needs and mood" width="240"> <img src="screenshots/grind-pass.jpg" alt="Grind Pass: free and premium tracks" width="240"></p>
 
 ---
 
@@ -211,14 +232,21 @@ Assets are grouped as **Coins** (District Coin, BTC, ETH, SOL…) and **Tokens**
 
 | Sources | Sinks |
 | --- | --- |
-| Welcome bonus $1,000 (once per account) | Boutique premium collection and jewellery |
-| +$15 per course passed; +$50 for World 1 | Homes and furniture |
-| Daily check-in, up to $15 with a streak | Cars and status items (with upkeep) |
-| Job duties and weekly challenges | Paid ranks (only after a real top-up above $5) |
-| Practice trading gains | Practice trading losses and perps liquidations |
-| Optional top-up: USDC on Base (default $5, 1 to 1,000) | |
+| Welcome bonus $1,000 (once per account) | Boutique: premium looks, jewellery, Featured bundles, the $120 makeup kit |
+| +$15 per course passed; +$50 for World 1 | Grind Pass $750; one step skip $90 |
+| Daily check-in, up to $15 with a streak; $25 birthday gift once a year | Street shops, pharmacy and hospital, which restore needs |
+| Job duties and weekly challenges | Homes and furniture |
+| Grind Pass cash back, $1,000 across the season | Cars and status items (with upkeep) |
+| Practice trading gains | Paid ranks (only after a real top-up above $5) |
+| Optional top-up: USDC or ETH on Base (default $5, 1 to 1,000) | Practice trading losses and perps liquidations |
 
-**Books.** The profile keeps a simple balance sheet: assets (cash, holdings) against liabilities (luxury items that cost upkeep). This teaches the difference between an asset and a liability.
+**Books.** A private ledger in Profile: a balance sheet (cash, investments at market, total assets, items that cost upkeep, net worth), a holdings table with average cost and profit or loss, the things you own, and a dated journal of every money move in and out. It teaches assets against liabilities.
+
+**Wallet.** The balance with a hide toggle; round Top up, Trade and Shop keys; Recent moves; tabs for Assets (cash and stablecoins, coins, meme coins, tokens), NFTs (certificates read from NEAR, with token links) and a Watchlist; the rank road; and product cards with real renders. Nobody else ever sees your balance, holdings or ledger: the public profile shows none of them.
+
+**Gambling is not trading.** The Velvet Room on your street is a casino front, closed for good; nothing inside takes a bet. Its card sets the two side by side: in gambling the house wins by design and losses are chased; in trading you need an edge, a tested plan, and losses capped before you enter. It ends with helplines (US 1-800-GAMBLER, UK 0808 8020 133) and a link to practise on the Trade screen.
+
+<p align="center"><img src="screenshots/wallet.jpg" alt="Wallet" width="240"> <img src="screenshots/ranks.jpg" alt="Rank road and shop" width="240"></p>
 
 **Design rules.** No pay-to-win: learning, the CV and certificates are free. Buying a rank never skips a lesson. Top-ups are clearly real money in; they never come back out.
 
@@ -259,9 +287,10 @@ AI agents join the city through a copy-paste prompt (`/agents`). They appear as 
 
 ## 14. Art, audio and UX
 
-- **Look.** Warm, realistic city in the browser: rigged people, physically based materials (brick, stone, oak, tile), soft shadows, a sky with day, dusk and night, glow and depth effects on High.
+- **Look.** Warm, realistic city in the browser: rigged people, physically based materials (brick, stone, oak, tile), soft shadows, a sky with day, dusk and night, glow and depth effects on High. Your own face is drawn at twice the detail, with makeup painted on.
 - **UI.** Raised 3D keys, iPhone-style type (Inter; the logo keeps its own lettering), dark and light themes, big touch targets, panels that never cover the controls.
-- **Audio.** The theme "Market Velocity" from the title screen into the city. City sound you can hear. Voices: Zahra's recorded lines, residents and the server speak in voices that fit them. Music dips while someone speaks.
+- **Audio.** The theme "Market Velocity" from the title screen into the city. City sound you can hear. Voices: Zahra's recorded lines, residents and the server speak in voices that fit them. Music dips while someone speaks. A ka-ching plays when money comes in.
+- **Speed.** The city's code, walking animations and ground textures are fetched while the title card is up, and resident models load after the first frame. Opening the district on a throttled phone profile went from 11.5 s to 5.5 s.
 - **Brand.** Green GRIND DISTRICT wordmark with the shrimp (everyone starts as a Shrimp). The site icon uses the same logo.
 
 ---
@@ -286,6 +315,8 @@ Performance budget: Low, Medium and High graphics; phone pixel ratio capped; ren
 
 - Practice money only; no withdrawals. Prices are simulated. Not financial advice.
 - The game never asks for a seed phrase. Scam awareness (World 2) comes before wallets and trading.
+- No game of chance exists anywhere in the city. The casino is a closed front that explains gambling against trading, with helplines.
+- Balances, holdings and the ledger never appear on a public profile.
 - Certificates are practice credentials, not accredited qualifications, and say so.
 - NFTs are soulbound (cannot be sold), have no money value, and are on testnet.
 - No personal data is written on chain. Players can delete their account and data.
@@ -307,10 +338,10 @@ North star: **weekly players who pass at least one lesson.**
 
 | Phase | When | What |
 | --- | --- | --- |
-| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, certificate NFTs that unlock the Holders' room (NEAR testnet). |
-| **Next** | Dec 2026 – Q1 2027 | Push and email notifications (new messages, daily streaks, events). A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. Base certificate mint. |
+| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). |
+| **Next** | Dec 2026 – Q1 2027 | Needs, pass and makeup kit saved to the account. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. Base certificate mint. |
 | **Then** | Q1 – Q2 2027 | Agents that help their owners play and earn rewards. Partner courses from Web3 projects with their own certificates. Guilds and team challenges. Creator tools for community lessons. |
-| **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Season pass and seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
+| **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
 
 ---
 
@@ -360,10 +391,33 @@ North star: **weekly players who pass at least one lesson.**
 | Low-end phones | Low graphics, capped pixel ratio, paused rendering behind panels |
 | Farming rewards with bots | Rate limits, labelled agents, caps, verified progress only |
 | Regulation of tokens | No token today; legal review before any launch |
+| Gambling harm | No game of chance; the casino is a closed front with a gambling vs trading card and helplines |
+| Pay to win | The Grind Pass and bundles are cosmetics and cash back, nothing random; learning, the CV and certificates stay free; a bought rank never skips a lesson |
+| Progress on a new device | Needs, pass and makeup kit live beside the save on the device for now; moving them to the account is next |
 
 ---
 
-## 22. Appendix
+## 22. Hackathon fit
+
+Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in three tracks. Submissions close on 14 November 2026 at 23:59 UTC, and the judged work is what was built since 1 November (see the README's disclosure and diff).
+
+| Track | What a judge can open |
+| --- | --- |
+| Games With Real Economies | The daily loop: needs fall, players earn by learning and jobs, spend at the shops, the boutique and the Grind Pass, and climb in reputation (sources and sinks in section 10) |
+| NFTs That Do Something | A soulbound certificate on `grinddistrict-cert.testnet` marks the course Verified on NEAR and opens the Holders' room |
+| Agent Economy | Agents join through a prompt as labelled robots that move, chat and earn under rate limits |
+
+| Criterion | Evidence |
+| --- | --- |
+| Technical implementation | Two Rust contracts on NEAR testnet with 33 passing unit tests; tokens #1 and #2 minted; the game reads them back with `cert_for`; type checks and logic tests in every build |
+| Design | A phone-first 3D city with Low, Medium and High graphics, 14 languages, light and dark themes and a voiced guide |
+| Impact | Free Web3 learning with scam awareness first, and proof an employer can check on chain |
+| Originality | A life sim where a lesson leaves a soulbound credential that changes the world around you |
+| Sustainability | A closed in-game economy with sources and sinks and a season pass; no token is needed to play |
+
+---
+
+## 23. Appendix
 
 - **Play:** https://www.grinddistrict.app
 - **Source:** https://github.com/0xzahra/Grind-district

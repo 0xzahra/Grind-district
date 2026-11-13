@@ -85,7 +85,15 @@ Screenshots are from the game on a 390 × 844 phone screen (the city, street, bo
 
 **Tracks:** Games With Real Economies (the loop above), NFTs That Do Something (certificates that open the Holders' room and mark the CV), and Agent Economy (agents live in the city today; helping their owners play is next).
 
-Disclosure: Grind District existed before the NEAR hackathon. The repository history starts on 31 Oct 2026, with 116 commits before 1 Nov 2026 00:00 UTC. Since the hackathon opened there have been 182 more (about 31,800 lines added, by `git log --since`). These are the parts built in that window; everything else came before. Research on past NEAR winners and how this entry lines up: [`docs/NEAR-HACKATHON-RESEARCH.md`](docs/NEAR-HACKATHON-RESEARCH.md).
+**Disclosure: an existing project with new work in the window.** Grind District existed before the NEAR hackathon. The repository history starts on 31 Oct 2026, with 116 commits before 1 Nov 2026 00:00 UTC; those are the baseline. Since the hackathon opened there have been 188 more (about 32,000 lines added, by `git log --since`).
+
+- **Baseline:** tag [`pre-hackathon`](https://github.com/0xzahra/Grind-district/tree/pre-hackathon), commit `39a1707`, the last commit before 1 Nov 2026 00:00 UTC.
+- **Submission:** tag [`hackathon-submission`](https://github.com/0xzahra/Grind-district/tree/hackathon-submission).
+- **Everything built in the window, as one diff:** [pre-hackathon...hackathon-submission](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...hackathon-submission).
+- **Pre-existing product on another chain: yes.** The in-game balance top-up on Base (USDC or ETH, Solidity in `contracts/`) was built before 1 Nov. It is not part of the NEAR entry.
+- **All of the NEAR work was built in the window:** NEAR wallet sign-in, the Skill Passport contract, the certificate NFT contract, and what the certificates unlock in the game.
+
+The table lists the main parts built in the window. Research on past NEAR winners and how this entry lines up: [`docs/NEAR-HACKATHON-RESEARCH.md`](docs/NEAR-HACKATHON-RESEARCH.md).
 
 | Built since 1 Nov | Commits |
 | --- | --- |
@@ -133,8 +141,8 @@ Disclosure: Grind District existed before the NEAR hackathon. The repository his
 
 ### Verification status (honest)
 
-- **Contract:** unit tests in `near/skill-passport/src/tests.rs` cover saving a record and rejecting duplicates.
-  - Run with `cd near/skill-passport && cargo test`.
+- **Contracts:** unit tests pass: 22 in `near/skill-passport` (saving a record, rejecting duplicates and more) and 11 in `near/cert-nft`.
+  - Run with `cd near/skill-passport && cargo test` and `cd near/cert-nft && cargo test`.
   - Read-only testnet check: `node near/skill-passport/check-testnet.mjs`.
 - **Game UI:** on desktop, Career → Spot course has been checked in a browser.
 - **Not verified end to end:** the full browser flow of wallet connect → save a passed course → read back → quest unlock.
@@ -162,14 +170,20 @@ The full GDD (how to play, world, economy, NFTs, roadmap, whitepaper summary and
 
 ## Run from source
 
-```bash
-npm ci
-npm run dev        # local dev server
-npm run build      # tsc + logic/lanes/look checks + vite build
-node tests/career-lessons.check.mjs
-```
+Node 22 or newer. Rust with `cargo` for the contract tests.
 
-Sign-in, cloud save and APIs need the project's Privy/Supabase environment, which is not included. Without it, a local build can still open the city for development.
+| Do | You should see |
+| --- | --- |
+| `npm ci` | Dependencies installed |
+| `npm run build` | `tsc` passes, each check script prints `ok` lines, then `✓ built` |
+| `node tests/career-lessons.check.mjs` | Two `ok` lines |
+| `cd near/skill-passport && cargo test` | `test result: ok. 22 passed` |
+| `cd near/cert-nft && cargo test` | `test result: ok. 11 passed` |
+| `node near/skill-passport/check-testnet.mjs` | The live contract's info read from NEAR testnet, then `OK` |
+| `npm run dev`, then open the local address it prints | The title card with Sign up, Sign in and Agents |
+| On that title card, open the browser console and run `window.dispatchEvent(new Event('gd-enter-city'))` | The city opens in about 10 seconds with the *Welcome to Grind District* card |
+
+Sign-in, cloud save, Messages and the APIs need the project's Privy and Supabase keys, which are not in the repository (see `.env.example`). Without them, the console line above opens the city on the device: walking, Campus, the boutique, Trade, the wallet and the needs all work with a local save. The full signed-in game, including minting, is at https://www.grinddistrict.app.
 
 ## How to play
 
@@ -183,10 +197,29 @@ Sign-in, cloud save and APIs need the project's Privy/Supabase environment, whic
 
 ## Licences
 
+See [`LICENSE`](LICENSE).
+
 - NEAR contracts (`near/skill-passport/` and `near/cert-nft/`): MIT.
 - Third-party art and models: see `CREDITS.md` (CC0 and similar).
-- Other game art and music: not covered by the MIT licence.
+- Other game code, art and music: published to read, build, run and review; reuse needs permission.
 
-## Stack
+## Libraries and templates
 
-Vite, TypeScript, Three.js, Privy, Supabase, Vercel, Rust (NEAR), Foundry (Solidity).
+No starter template was used. Third-party models, textures, photos and sounds are listed in [`CREDITS.md`](CREDITS.md).
+
+| Library | Used for |
+| --- | --- |
+| [three](https://threejs.org) | The 3D city, people and rooms (WebGL) |
+| [near-sdk](https://crates.io/crates/near-sdk) 5.30 (Rust) | The Skill Passport and certificate NFT contracts |
+| [@hot-labs/near-connect](https://www.npmjs.com/package/@hot-labs/near-connect) | NEAR wallet connection, sign-in and mint transactions |
+| [@privy-io/js-sdk-core](https://www.npmjs.com/package/@privy-io/js-sdk-core), [@privy-io/server-auth](https://www.npmjs.com/package/@privy-io/server-auth) | Google, X and email sign-in |
+| [@supabase/supabase-js](https://www.npmjs.com/package/@supabase/supabase-js) | Saves, messages, presence and media storage |
+| [viem](https://viem.sh), [ox](https://oxlib.sh) | Base top-up transactions |
+| [@vercel/og](https://www.npmjs.com/package/@vercel/og), [@napi-rs/canvas](https://www.npmjs.com/package/@napi-rs/canvas) | Link previews and certificate images |
+| [web-push](https://www.npmjs.com/package/web-push), [nodemailer](https://www.npmjs.com/package/nodemailer) | Message alerts by push and email |
+| [qrcode-generator](https://www.npmjs.com/package/qrcode-generator) | QR codes in the wallet |
+| [@fontsource](https://fontsource.org) Inter, Archivo Black, Cormorant Garamond, Outfit | Typefaces |
+| [@gltf-transform](https://gltf-transform.dev), [meshoptimizer](https://github.com/zeux/meshoptimizer), [sharp](https://sharp.pixelplumbing.com) | Compressing models and images (build scripts) |
+| [Vite](https://vite.dev), [TypeScript](https://www.typescriptlang.org) | Build and type checks |
+
+Hosting on Vercel; data on Supabase; earlier Base contracts with Foundry (Solidity).

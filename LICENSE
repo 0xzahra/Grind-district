@@ -1,0 +1,19 @@
+Grind District licence
+
+Copyright (c) 2026 Zahra Usman. All rights reserved, except as set out below.
+
+1. NEAR contracts. The code in near/skill-passport/ and near/cert-nft/ is
+   released under the MIT licence. See the LICENSE file in each folder.
+
+2. Third-party material. Models, textures, fonts, photos and sounds made by
+   others keep their own licences, listed in CREDITS.md and in package.json.
+
+3. Everything else. The game's source code, art, music, voice recordings, and
+   the Grind District name and logo are published so that anyone may read,
+   build, run and review them, including hackathon judges and screeners.
+   Copying, redistributing, or using them in another product, commercially or
+   not, needs written permission from the copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
