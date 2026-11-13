@@ -27,6 +27,7 @@ import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
+import { PLACES, placeNodes, casinoNodes } from './places.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
@@ -1279,6 +1280,14 @@ export function mountUi(
 
   const render = (panel: PanelId): HTMLElement => {
     switch (panel) {
+      case 'hospital':
+      case 'grocer':
+      case 'pharmacy':
+      case 'bakery':
+      case 'laundromat':
+        return renderSimple(PLACES[panel].title, placeNodes(panel, { para, button, finish: (m) => finish(m), reopen: () => open(panel) }))
+      case 'casino':
+        return renderSimple('The Velvet Room', casinoNodes({ para, button, learn: () => open('learn'), trade: () => open('trade') }))
       case 'intro':
         return renderSimple('Welcome to Grind District', [
           para('Everyone starts at zero here.'),

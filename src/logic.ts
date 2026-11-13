@@ -118,6 +118,12 @@ export type PanelId =
   | 'tax'
   | 'season'
   | 'shared'
+  | 'hospital'
+  | 'grocer'
+  | 'pharmacy'
+  | 'bakery'
+  | 'laundromat'
+  | 'casino'
 
 export const RANKS: { id: RankId; label: string; xp: number }[] = [
   { id: 'shrimp', label: 'Shrimp', xp: 0 },

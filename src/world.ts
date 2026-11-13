@@ -598,6 +598,20 @@ export function createWorld(options: {
   const dealerAt = { x: -27, z: 10.4 }
   spot('dealer', dealerAt.x + 2.2, dealerAt.z - 3.1, 2.2, 'Auto dealership', 'Cars, jets and air taxis for in-game cash.', 'dealer', 'Browse')
   reserved.push({ kind: 'box', x: dealerAt.x, z: dealerAt.z, hx: 3.4, hz: 3.4 })
+  // Around home (places.ts): the hospital on the west side, the casino front by Mempool (for show: closed for
+  // good, it explains gambling vs trading), and a corner store, pharmacy, bakery and laundromat on your street.
+  const hospital = addBuilding({ x: -53, z: 24, w: 11, d: 10, h: 5.6, door: 'px', title: 'Hospital', subtitle: 'clinic · pharmacy · ward', seed: 61, style: 'civic', floors: 2 })
+  spot('hospital', hospital.x, hospital.z, 2.4, 'Grind District Hospital', 'Check-ups, a quiet ward and physio. Look after the body that does the grinding.', 'hospital', 'Go in')
+  const casino = addBuilding({ x: 19, z: 55, w: 10, d: 8, h: 5, door: 'nz', title: 'The Velvet Room', subtitle: 'casino · closed for good', seed: 67, style: 'glass', facade: 'charcoal' })
+  spot('casino', casino.x, casino.z, 2.4, 'The Velvet Room', 'A casino front, closed for good. Nothing inside takes a bet: read how gambling and trading differ.', 'casino', 'Read the door')
+  const grocer = addBuilding({ x: 55, z: 49.8, w: 6, d: 4.6, h: 3.4, door: 'nx', title: 'Corner store', subtitle: 'snacks · groceries', seed: 71, style: 'brick' })
+  spot('grocer', grocer.x, grocer.z, 2.1, 'Corner store', 'Snacks, drinks and groceries a few steps from home.', 'grocer', 'Shop')
+  const pharmacy = addBuilding({ x: 55, z: 54.8, w: 6, d: 4.6, h: 3.4, door: 'nx', title: 'Pharmacy', subtitle: 'everyday care', seed: 73, style: 'arch' })
+  spot('pharmacy', pharmacy.x, pharmacy.z, 2.1, 'Pharmacy', 'Vitamins and toiletries on your street.', 'pharmacy', 'Shop')
+  const bakery = addBuilding({ x: 31, z: 56, w: 5, d: 6, h: 3.3, door: 'nz', title: 'Bakery', subtitle: 'bread · tea', seed: 79, style: 'brick', facade: 'charcoal' })
+  spot('bakery', bakery.x, bakery.z, 2.1, 'Bakery', 'Fresh bread, tea and cake for the neighbours.', 'bakery', 'Go in')
+  const laundry = addBuilding({ x: 37.5, z: 56, w: 5, d: 6, h: 3.3, door: 'px', title: 'Laundromat', subtitle: 'wash · fold', seed: 83, style: 'kiosk' })
+  spot('laundromat', laundry.x, laundry.z, 2.1, 'Laundromat', 'Wash, dry and fold while you get on with your day.', 'laundromat', 'Drop off')
   architecture.flush(scene)
   buildShowroom(scene, { obstacles, pavilion: { x: -20, z: 15.8, w: 5.4, d: 4.2 }, dealer: dealerAt })
 
