@@ -91,6 +91,9 @@ export function foliageMaterial(): THREE.MeshLambertMaterial {
   if (shared) return shared
   // Plain green until the photograph arrives, never white.
   const m = new THREE.MeshLambertMaterial({ color: 0x4f8a3e, vertexColors: true, alphaTest: 0.42, side: THREE.DoubleSide })
+  // Effects that redraw the scene with one material for all (the High ambient-occlusion pass) skip foliage: they
+  // would draw every leaf card as a solid square and leave grey patches around the trees.
+  m.userData.foliage = true
   // No mipmaps on the leaves: averaged alpha turns a card seen edge-on into a flat grey-green patch.
   new THREE.TextureLoader().load('/tex/nature/leaves.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; m.map = t; m.color.setHex(0xffffff); m.needsUpdate = true })
   shared = m
@@ -113,12 +116,14 @@ export function createTrees(scene: THREE.Scene, spots: Array<[number, number, nu
   loader.load('/tex/nature/bark.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = o.anisotropy ?? 4; bark.map = t; bark.color.setHex(0xffffff); bark.needsUpdate = true })
   const n = spots.length
   const trunks = new THREE.InstancedMesh(trunkGeometry(), bark, n)
-  const crowns = new THREE.InstancedMesh(crownGeometry(o.light ? 38 : 70, 11), leaves, n)
+  // Fuller crowns (more, smaller gaps), so the dark heart never shows through as a ball.
+  const crowns = new THREE.InstancedMesh(crownGeometry(o.light ? 44 : 86, 11), leaves, n)
   // A dark leafy heart inside each crown, so the sky never shows straight through the middle of a tree.
-  const heartGeo = new THREE.IcosahedronGeometry(0.56, 1)
+  const heartGeo = new THREE.IcosahedronGeometry(0.5, 1)
   heartGeo.scale(1, 0.78, 1)
   heartGeo.translate(0, 1.82, 0)
-  const hearts = new THREE.InstancedMesh(heartGeo, new THREE.MeshLambertMaterial({ color: 0x2c4a22 }), n)
+  const hearts = new THREE.InstancedMesh(heartGeo, new THREE.MeshLambertMaterial({ color: 0x3a5a2c }), n)
+  hearts.userData.noAO = true
   trunks.castShadow = true
   trunks.receiveShadow = true
   crowns.castShadow = true

@@ -156,6 +156,17 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       try {
         const ao = new GTAOPass(scene, camera, 1, 1)
         ao.blendIntensity = 0.75
+        // Foliage stays out of the AO normal pass (one material for everything there ignores the leaf cut-outs).
+        const aoPass = ao as unknown as { _overrideVisibility: () => void; _visibilityCache: THREE.Object3D[] }
+        const hideBase = aoPass._overrideVisibility.bind(ao)
+        aoPass._overrideVisibility = () => {
+          hideBase()
+          scene.traverse((o) => {
+            const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
+            const leafy = o.userData.noAO || (m && !Array.isArray(m) && m.userData?.foliage)
+            if (leafy && o.visible) { o.visible = false; aoPass._visibilityCache.push(o) }
+          })
+        }
         ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.2, thickness: 1.0, scale: 1.0, samples: 12 })
         composer.addPass(ao)
       } catch (error) {
