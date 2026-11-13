@@ -327,7 +327,7 @@ const BASE_COURSES: Course[] = [
     questions: [
       {
         prompt: 'Someone asks for your recovery phrase "to verify the grind." You:',
-        choices: ['Send the words', 'Stop. The phrase is the keys, and this city never asks for it', 'Paste it into a form titled Verify', 'Trade it for XP'],
+        choices: ['Send the words', 'Stop. The phrase is the keys, and this city never asks for it', 'Paste it into a form titled Verify', 'Trade it for a bonus'],
         answer: 1,
         hint: 'The phrase restores the keys. Verification does not need it.',
       },

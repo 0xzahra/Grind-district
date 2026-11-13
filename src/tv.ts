@@ -39,7 +39,7 @@ function paint(tv: Tv) {
   if (slide === 0) {
     // City stats.
     g.fillStyle = '#8d877c'; g.font = '500 15px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('YOUR CITY FILE', 24, 82)
-    const rows: Array<[string, string]> = [['Rank', rankFor(s.xp).label], ['XP', String(s.xp ?? 0)], ['Courses passed', String(passedCount())]]
+    const rows: Array<[string, string]> = [['Rank', rankFor(s.xp).label], ['Reputation', String(s.reputation ?? 0)], ['Courses passed', String(passedCount())]]
     rows.forEach(([k, val], i) => {
       const y = 118 + i * 38
       g.fillStyle = '#b9b2a5'; g.font = '400 19px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText(k, 24, y)

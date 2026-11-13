@@ -39,7 +39,6 @@ import {
   BODIES,
   CHAIN_USD,
   CLIMATE_USD,
-  COURSE_XP,
   COURSE_CASH,
   DRONES,
   VEHICLES,
@@ -398,7 +397,7 @@ export function mountUi(
     const next = nextRank(save.xp)
     const wrap = stack()
     wrap.append(para(`@${save.username}`, 'muted'))
-    wrap.append(para(next ? `${rank.label} · ${save.xp} XP · ${next.label} at ${next.xp}` : `${rank.label} · ${save.xp} XP. The ladder stays open.`))
+    wrap.append(para(next ? `${rank.label} · Reputation ${save.reputation} · next rank ${next.label}` : `${rank.label} · Reputation ${save.reputation}. The ladder stays open.`))
     const track = document.createElement('div')
     track.className = 'bar'
     const fill = document.createElement('div')
@@ -618,14 +617,14 @@ export function mountUi(
             showExercise(questionIndex + 1)
           }))
         } else {
-          const submit = button(passed ? 'On your CV' : `Check · +${COURSE_XP} XP · +${money(COURSE_CASH)}`, 'primary', () => {
+          const submit = button(passed ? 'On your CV' : `Check · +${money(COURSE_CASH)} · +5 reputation`, 'primary', () => {
             const missing = picks.findIndex((pick) => pick === null)
             if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
             const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
             if (outcome.ok) {
               const extra = (outcome.stipend ? ' Campus put $25.00 practice on your ledger.' : '') + ` +${money(COURSE_CASH)} course bonus.`
               const focus = outcome.focus ? ' Focus added a quarter.' : ''
-              const bonus = outcome.bonus ? ` Streak +${outcome.bonus} XP.` : ''
+              const bonus = outcome.bonus ? ' Streak kept.' : ''
               finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
               showCourse(id)
               return
@@ -1071,7 +1070,7 @@ export function mountUi(
       body.className = 'wallet-body'
       body.append(
         para('Reset game progress?', 'kicker'),
-        para('This erases your in-game balance, XP and rank progress, courses, trades, inventory, and activity history — including the cloud copy — and syncs $0.00 to your account.', 'muted'),
+        para('This erases your in-game balance, reputation and rank progress, courses, trades, inventory, and activity history — including the cloud copy — and syncs $0.00 to your account.', 'muted'),
         para('It does NOT sign you out. Username, email/sign-in, and avatar stay. The $1,000 starting bonus is not paid again.'),
         para('Separate from Delete my account.', 'muted'),
       )

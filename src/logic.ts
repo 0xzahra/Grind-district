@@ -909,7 +909,7 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
     `${save.name}  ·  @${save.username}`,
     'Grind District profile',
     '',
-    `Rank        ${rank.label} · ${save.xp} XP${next ? ` (${next.label} at ${next.xp})` : ''}`,
+    `Rank        ${rank.label}${next ? ` (next: ${next.label})` : ''}`,
     ...(jobTitle ? [`Job         ${jobTitle}`] : []),
     `Reputation  ${save.reputation}`,
     `Streak      ${save.streak} day${save.streak === 1 ? '' : 's'}`,
@@ -934,7 +934,7 @@ export function documents(save: Save, now = new Date(), jobTitle = ''): { cv: st
   ].join('\n')
 
   const resume = [
-    `${save.name} (@${save.username}) is a ${rank.label} in Grind District with ${save.xp} XP.`,
+    `${save.name} (@${save.username}) is a ${rank.label} in Grind District with reputation ${save.reputation}.`,
     '',
     skills.length
       ? `Skills: ${skills.join('; ')}.`
@@ -1048,7 +1048,7 @@ export function sharedText(profile: SharedProfile): string {
   return [
     `${profile.n}${profile.u ? ` · @${profile.u}` : ''} · ${rank.label}`,
     'Grind District profile',
-    `${profile.x} XP · reputation ${profile.p} · ${profile.s}-day streak`,
+    `Reputation ${profile.p} · ${profile.s}-day streak`,
     skills.length ? `Skills: ${skills.join(', ')}` : 'Skills: none yet',
     'Recent activity:',
     ...(profile.a.length ? profile.a.map((line) => `- ${line}`) : ['- nothing yet']),

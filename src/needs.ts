@@ -4,7 +4,7 @@
 // your mood turns Inspired and courses, jobs and events give a little extra XP; a low need only nudges, with the
 // place that fixes it. Time away barely counts (no punishment for a day off). Kept per save slot beside the
 // save, so the save format is unchanged.
-import { slotKey, onActivity, bonusXp } from './state.ts'
+import { slotKey, onActivity, addReputation } from './state.ts'
 
 export type Need = 'energy' | 'hunger' | 'hygiene' | 'social'
 export const NEEDS: ReadonlyArray<{ id: Need; label: string; low: string; fix: string; perMin: number }> = [
@@ -54,8 +54,8 @@ export function mood(): Mood {
   const vals = NEEDS.map((n) => s.v[n.id])
   const lowest = NEEDS.reduce((a, n) => (s.v[n.id] < s.v[a.id] ? n : a), NEEDS[0]!)
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-  if (s.v[lowest.id] >= 55 && avg >= 72) return { id: 'inspired', label: 'Inspired', note: 'Every need looked after: courses, jobs and events give +10 XP.', lowest: lowest.id }
-  if (s.v[lowest.id] >= 30) return { id: 'content', label: 'Content', note: `Top up ${lowest.label.toLowerCase()} to feel Inspired and earn bonus XP.`, lowest: lowest.id }
+  if (s.v[lowest.id] >= 55 && avg >= 72) return { id: 'inspired', label: 'Inspired', note: 'Every need looked after: courses, jobs and events give +3 reputation.', lowest: lowest.id }
+  if (s.v[lowest.id] >= 30) return { id: 'content', label: 'Content', note: `Top up ${lowest.label.toLowerCase()} to feel Inspired and earn bonus reputation.`, lowest: lowest.id }
   return { id: 'low', label: lowest.low, note: lowest.fix, lowest: lowest.id }
 }
 
@@ -74,7 +74,7 @@ export function adjust(d: Partial<Record<Need, number>>, say: 'now' | 'later' | 
   }
   store()
   const after = mood().id
-  const line = after === 'inspired' && before !== 'inspired' ? 'Mood: Inspired. Courses, jobs and events now give +10 XP.' : parts.join(' · ')
+  const line = after === 'inspired' && before !== 'inspired' ? 'Mood: Inspired. Courses, jobs and events now give +3 reputation.' : parts.join(' · ')
   // 'later': after the action's own message (dinner is ready, you feel fresh) has had its moment.
   if (line && say === 'now') toast(line)
   else if (line && say === 'later') window.setTimeout(() => toast(line), 4400)
@@ -135,7 +135,7 @@ export function startNeeds(say: (m: string) => void): void {
     else if (label.startsWith('Joined ')) { d = { social: 30, energy: -6 }; counts = true }
     else if (label === 'Sat through the campus talk') { d = { social: 15 }; counts = true }
     else if (kind === 'skill' && label.startsWith('Passed ')) { d = { energy: -8 }; counts = true }
-    else if (kind === 'gig') { d = { energy: -10, hunger: -5 }; counts = true }
+    else if (kind === 'gig' && label.startsWith('Job duty')) { d = { energy: -10, hunger: -5 }; counts = true }
     if (d) adjust(d, 'quiet')
     // Inspired: a little extra XP for the things that matter, up to ten times a day.
     if (counts && mood().id === 'inspired') {
@@ -144,7 +144,7 @@ export function startNeeds(say: (m: string) => void): void {
       if (s.bonusCount < 10) {
         s.bonusCount++
         store()
-        window.setTimeout(() => bonusXp(10, 'Inspired bonus', 'Every need looked after: +10 XP.'), 0)
+        window.setTimeout(() => addReputation(3, 'Inspired bonus', 'Every need looked after: +3 reputation.'), 0)
       }
     }
   })
@@ -163,7 +163,7 @@ function bar(n: (typeof NEEDS)[number], v: number, big: boolean): HTMLElement {
 export function paintNeedsCard(card: HTMLElement): void {
   const m = mood(), v = needs()
   const head = el('span', '', 'nd-head')
-  head.append(el('strong', m.label), el('small', m.id === 'inspired' ? '+10 XP on courses, jobs and events' : 'Needs · tap for what helps'))
+  head.append(el('strong', m.label), el('small', m.id === 'inspired' ? '+3 reputation on courses, jobs and events' : 'Needs · tap for what helps'))
   const bars = el('span', '', 'nd-bars')
   for (const n of NEEDS) bars.append(bar(n, v[n.id], false))
   card.dataset.mood = m.id

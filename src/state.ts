@@ -637,7 +637,7 @@ export function finishGym(hits: number, swings: number): { message: string; rank
   log('skill', `Gym ${hits}/${swings}`, 'Consistency rep. Balance was not involved.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: `${hits}/${swings} logged. +${hits * 5} XP${bonus ? `, plus ${bonus} for showing up` : ''}.` }
+  return { already: false, rankedUp, message: `${hits}/${swings} logged. Reputation +2${bonus ? ', and your streak counts' : ''}.` }
 }
 
 export function attendChurch(): { message: string; rankedUp?: RankId; already: boolean } {
@@ -742,7 +742,7 @@ export function hearTalk(): { message: string; rankedUp?: RankId; already: boole
   log('skill', 'Sat through the campus talk', 'Proof of work, not a slogan. Ninety seconds, then back outside.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: 'You stayed. +18 XP. The talk is on your portfolio.' }
+  return { already: false, rankedUp, message: 'You stayed. Reputation +3. The talk is on your portfolio.' }
 }
 
 export function readRobot(): { message: string; rankedUp?: RankId; already: boolean } {

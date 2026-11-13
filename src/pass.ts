@@ -4,7 +4,7 @@
 // in-game cash back that adds up to more than the pass costs. Bought once with the in-game balance (earned or
 // topped up). Nothing random, nothing timed out from under you: a reward you reached is always yours. Stored
 // per save slot beside the save, so the save format is unchanged.
-import { slotKey, getSave, spendInGame, earnCash, bonusXp } from './state.ts'
+import { slotKey, getSave, spendInGame, earnCash, addReputation } from './state.ts'
 import { getCareer, onCareer, advanceSeason, equipFrame, equippedFrame, post, setSeasonExtra } from './career.ts'
 import { SEASON } from './careerData.ts'
 import { PIECES, own, owns } from './wardrobe.ts'
@@ -18,20 +18,20 @@ type Reward =
   | { kind: 'cash'; usd: number }
   | { kind: 'piece' }
   | { kind: 'frame'; id: string; label: string }
-  | { kind: 'xp'; xp: number }
+  | { kind: 'rep'; rep: number }
 const TIERS: Record<number, Reward> = {
   1: { kind: 'cash', usd: 60 }, 4: { kind: 'cash', usd: 100 }, 6: { kind: 'cash', usd: 120 }, 9: { kind: 'cash', usd: 140 },
   12: { kind: 'cash', usd: 160 }, 15: { kind: 'cash', usd: 180 }, 18: { kind: 'cash', usd: 240 },
   5: { kind: 'frame', id: 'frame-pass', label: 'Emerald pass frame' },
-  17: { kind: 'xp', xp: 250 },
+  17: { kind: 'rep', rep: 50 },
   20: { kind: 'frame', id: 'frame-founder', label: 'Founder gold frame + Season 1 Founder badge' },
 }
 for (const p of PIECES) if (p.pass && !TIERS[p.pass]) TIERS[p.pass] = { kind: 'piece' }
 export const PASS_TOP = SEASON[SEASON.length - 1]?.at ?? 20
 export const CASH_BACK = Object.values(TIERS).reduce((a, r) => a + (r.kind === 'cash' ? r.usd : 0), 0)
 
-/** Free-track steps with no item give this much XP, so no step on either track is ever empty. */
-export const FREE_XP = 40
+/** Free-track steps with no item give this much reputation, so no step on either track is ever empty. */
+export const FREE_REP = 5
 type Store = { owned: boolean; at: number; granted: number; free?: number }
 const key = () => `${slotKey()}.pass`
 const read = (): Store => { try { return { owned: false, at: 0, granted: 0, ...(JSON.parse(localStorage.getItem(key()) ?? '{}') as Partial<Store>) } } catch { return { owned: false, at: 0, granted: 0 } } }
@@ -41,7 +41,7 @@ function freeCatchUp(): void {
   if (s.free == null) { s.free = pts; write(s); return }
   while (s.free < pts) {
     s.free += 1; write(s)
-    if (!SEASON.some((r) => r.at === s.free)) bonusXp(FREE_XP, `Season step ${s.free}`, 'Free track reward.')
+    if (!SEASON.some((r) => r.at === s.free)) addReputation(FREE_REP, `Season step ${s.free}`, 'Free track reward.')
   }
 }
 const write = (s: Store) => { try { localStorage.setItem(key(), JSON.stringify(s)) } catch { /* private mode */ } }
@@ -55,7 +55,7 @@ export function tierLabel(n: number, lady = getSave().body === 'zuri'): string {
   const r = TIERS[n]
   if (!r) return ''
   if (r.kind === 'cash') return `$${r.usd} cash back`
-  if (r.kind === 'xp') return `+${r.xp} XP rank boost`
+  if (r.kind === 'rep') return `+${r.rep} reputation`
   if (r.kind === 'frame') return r.label
   const ps = PIECES.filter((p) => p.pass === n)
   const mine = ps.find((p) => !p.for || p.for === (lady ? 'lady' : 'gent')) ?? ps[0]
@@ -68,7 +68,7 @@ function grant(n: number): void {
   const r = TIERS[n]
   if (!r) return
   if (r.kind === 'cash') earnCash(r.usd, `Grind Pass tier ${n}`, 'Cash back on the Grind Pass premium track.')
-  else if (r.kind === 'xp') bonusXp(r.xp, `Grind Pass tier ${n}`, 'Rank boost on the Grind Pass premium track.')
+  else if (r.kind === 'rep') addReputation(r.rep, `Grind Pass tier ${n}`, 'Reputation on the Grind Pass premium track.')
   else if (r.kind === 'frame') { if (!equippedFrame() || n === PASS_TOP) equipFrame(r.id) }
   else for (const p of PIECES) if (p.pass === n && !owns(p.id)) own(p.id)
 }
@@ -151,7 +151,7 @@ export function renderPass(root: HTMLElement, rerender: () => void): void {
     const prem = el('span', tierLabel(n, lady), `gp-prem${owned && reached ? ' got' : owned ? '' : ' locked'}`)
     const r = TIERS[n]
     if (owned && reached && r?.kind === 'frame') { const on = equippedFrame() === r.id; prem.append(btn(on ? 'Equipped' : 'Equip', () => { equipFrame(on ? '' : r.id); rerender() }, 'cr-chip')) }
-    li.append(el('b', String(n)), el('span', free ? free.label : `+${FREE_XP} XP`, `gp-free${reached ? ' got' : ''}`), prem)
+    li.append(el('b', String(n)), el('span', free ? free.label : `+${FREE_REP} reputation`, `gp-free${reached ? ' got' : ''}`), prem)
     ladder.append(li)
   }
   const foot = el('div', '', 'gp-foot')

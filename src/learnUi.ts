@@ -45,11 +45,11 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
   const next = RANKS[rankI + 1]
   const cur = RANKS[rankI]
   const frac = next ? (s.xp - cur.xp) / (next.xp - cur.xp) : 1
-  // Header: level, XP bar, streak flame (muted amber, no glow)
+  // Header: level, progress bar to the next rank, streak flame (muted amber, no glow). No XP numbers: reputation only.
   const head = h('div', 'lx-head')
   const lvl = h('div', 'lx-lvl'); lvl.append(ring(frac, 56, String(rankI + 1)))
   const meta = h('div', 'lx-meta')
-  meta.append(h('b', '', `Level ${rankI + 1} · ${cur.label}`), h('small', '', next ? `${s.xp} / ${next.xp} XP to ${next.label}` : `${s.xp} XP · top level`))
+  meta.append(h('b', '', `Level ${rankI + 1} · ${cur.label}`), h('small', '', next ? `Reputation ${s.reputation} · next rank ${next.label}` : `Reputation ${s.reputation} · top rank`))
   const bar = h('div', 'lx-bar'); const fill = h('i'); fill.style.width = `${Math.round(frac * 100)}%`; bar.append(fill); meta.append(bar)
   const streak = h('div', 'lx-streak'); streak.innerHTML = `<svg width="18" height="22" viewBox="0 0 18 22"><path d="M9 1c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z" fill="#c8894a"/></svg><b>${s.streak}</b><small>day streak</small>`
   head.append(lvl, meta, streak)
@@ -60,7 +60,7 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
   if (nextCourse) {
     const w = worldOf(nextCourse.id)
     const card = h('button', 'lx-continue')
-    card.append(h('small', '', `Continue · World ${w?.n ?? 1}: ${w?.title ?? ''}`), h('b', '', SKILL_META[nextCourse.id].title), h('span', '', `${nextCourse.minutes} · ${nextCourse.questions.length} checks · +70 XP`))
+    card.append(h('small', '', `Continue · World ${w?.n ?? 1}: ${w?.title ?? ''}`), h('b', '', SKILL_META[nextCourse.id].title), h('span', '', `${nextCourse.minutes} · ${nextCourse.questions.length} checks · +5 reputation`))
     card.onclick = () => onCourse(nextCourse.id)
     root.append(card)
   }
