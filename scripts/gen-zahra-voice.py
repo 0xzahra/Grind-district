@@ -4,6 +4,8 @@
     KOKORO_DIR=/path/to/model python3 scripts/gen-zahra-voice.py lines.json
     node --experimental-strip-types --import ./scripts/ts-hooks.mjs scripts/lesson-lines.ts > lessons.json
     KOKORO_DIR=/path/to/model VOICE_KBPS=40k python3 scripts/gen-zahra-voice.py lessons.json
+    Translated lines (native voices): node ... scripts/zahra-lines-lang.ts es > es.json, then
+    VOICE=ef_dora VOICE_LANG=es python3 scripts/gen-zahra-voice.py es.json   (fr: ff_siwis fr-fr, hi: hf_alpha hi, pt: pf_dora pt-br)
 
 KOKORO_DIR holds kokoro-v1.0.onnx and voices-v1.0.bin (github.com/thewh1teagle/kokoro-onnx releases).
 Writes public/assets/voice/zahra/<key>.mp3 and src/zahraVoice.ts (the list of recorded keys). The key is a hash
@@ -36,7 +38,10 @@ for i, line in enumerate(lines):
     kk = key(line)
     dst = f'{out}/{kk}.mp3'
     if not os.path.exists(dst):
-        samples, sr = k.create(line, voice='af_heart', speed=0.97, lang='en-us')
+        # PRON: spoken spellings for names in other languages (the clip key stays the on-screen text).
+        spoken = line
+        for a, b in json.loads(os.environ.get('PRON', '{}')).items(): spoken = spoken.replace(a, b)
+        samples, sr = k.create(spoken, voice=os.environ.get('VOICE', 'af_heart'), speed=float(os.environ.get('SPEED', '0.97')), lang=os.environ.get('VOICE_LANG', 'en-us'))
         with tempfile.NamedTemporaryFile(suffix='.wav') as w:
             sf.write(w.name, samples, sr)
             subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', w.name, '-af', 'highpass=f=70,loudnorm=I=-16:TP=-1.5:LRA=7', '-ac', '1', '-ar', '24000', '-b:a', os.environ.get('VOICE_KBPS', '48k'), dst], check=True)

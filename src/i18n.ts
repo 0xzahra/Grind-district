@@ -187,6 +187,10 @@ export const lang = (): LangId => current
 export const speechLang = (): string => LANGS.find((l) => l.id === current)?.speech ?? 'en-GB'
 export const isEnglish = (): boolean => current.startsWith('en')
 
+/** Every translation in one language, keyed by the English string (for recording voice clips). */
+export function tableFor(l: string): Record<string, string> { const out: Record<string, string> = {}; for (const [en, m] of TABLE) if (m[l]) out[en] = m[l]!; return out }
+/** The English source of a line shown in the current language (undefined when it is not a known translation). */
+export function sourceOf(text: string): string | undefined { const t0 = text.trim(); for (const [en, m] of TABLE) if (m[current] === t0) return en; return undefined }
 /** True when `text` is an English UI string that has a translation in the current language (not shown yet). */
 export const untranslated = (text: string): boolean => !current.startsWith('en') && !!TABLE.get(text.trim())?.[current]
 let values: { lang: string; set: Set<string> } | null = null

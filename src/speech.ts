@@ -4,7 +4,7 @@
 // Voices switch; it is on unless the player turned it off.
 import { duckMusic } from './music.ts'
 import { ZAHRA_CLIPS } from './zahraVoice.ts'
-import { isEnglish, speechLang, untranslated, isTranslation } from './i18n.ts'
+import { isEnglish, speechLang, untranslated, isTranslation, sourceOf } from './i18n.ts'
 const PREF = 'gd.voices'
 const read = () => { try { return localStorage.getItem(PREF) } catch { return null } }
 export const voicesOn = () => read() !== 'off' && typeof speechSynthesis !== 'undefined'
@@ -26,47 +26,63 @@ if (typeof speechSynthesis !== 'undefined') { load(); speechSynthesis.addEventLi
 // Names the common phone and desktop voices go by, so a woman never gets a man's voice.
 const FEMALE = /female|woman|samantha|karen|moira|tessa|fiona|victoria|zira|hazel|susan|serena|allison|ava|joanna|salli|kimberly|libby|sonia|aria|jenny|natasha|google uk english female|google us english/i
 const MALE = /male|man\b|daniel|alex|fred|oliver|arthur|george|david|mark|guy|ryan|thomas|rishi|aaron|google uk english male/i
+// Native-sounding voices first: the phone's natural / neural / premium voices before the basic ones.
+const QUALITY = /natural|neural|premium|enhanced|online|google|siri|wavenet/i
+// Chinese voices may be tagged zh-* or cmn-*; Portuguese prefers Brazil, Spanish any region.
+const LANG_TAGS: Record<string, RegExp> = { zh: /^(zh|cmn)/i, pt: /^pt/i, ar: /^ar/i, sw: /^sw/i, ha: /^ha/i, yo: /^yo/i }
+/** The phone has a voice for this language (two-letter code). */
+export const hasVoiceFor = (code: string): boolean => { if (!all.length) load(); const re = LANG_TAGS[code] ?? new RegExp(`^${code}`, 'i'); return all.some((v) => re.test(v.lang)) }
 function pick(gender: 'f' | 'm', want2 = 'en'): SpeechSynthesisVoice | undefined {
   if (!all.length) load()
   if (want2 !== 'en') {
-    // Another language: that language's voices first (woman's or man's by name where the name says so).
-    const own = all.filter((v) => v.lang.toLowerCase().startsWith(want2))
-    const avoid2 = gender === 'f' ? MALE : FEMALE
-    return own.find((v) => (gender === 'f' ? FEMALE : MALE).test(v.name)) ?? own.find((v) => !avoid2.test(v.name)) ?? own[0]
+    // Another language: only that language's voices (an English voice reading it would mangle it).
+    const re = LANG_TAGS[want2] ?? new RegExp(`^${want2}`, 'i')
+    const own = all.filter((v) => re.test(v.lang))
+    const avoid2 = gender === 'f' ? MALE : FEMALE, want3 = gender === 'f' ? FEMALE : MALE
+    const rank = (v: SpeechSynthesisVoice) => (QUALITY.test(v.name) ? 0 : 2) + (want3.test(v.name) ? 0 : avoid2.test(v.name) ? 3 : 1) + (v.localService ? 0 : 0.5)
+    return [...own].sort((a, b) => rank(a) - rank(b))[0]
   }
   const want = gender === 'f' ? FEMALE : MALE, avoid = gender === 'f' ? MALE : FEMALE
   const pool = voices.filter((v) => want.test(v.name) && !(gender === 'f' && /\bmale\b/i.test(v.name) && !/female/i.test(v.name)))
-  const ordered = [...pool.filter((v) => /en-(gb|ng|za|au)/i.test(v.lang)), ...pool]
+  const ordered = [...pool.filter((v) => QUALITY.test(v.name)), ...pool.filter((v) => /en-(gb|ng|za|au)/i.test(v.lang)), ...pool]
   return ordered[0] ?? voices.find((v) => !avoid.test(v.name)) ?? voices[0]
 }
 
 const duck = duckMusic
 
+/** Play one of Zahra's recorded lines (English, or a native recording of a translated line). */
+function speakClip(text: string, name: string): void {
+  stopSpeaking()
+  const a = new Audio(`/assets/voice/zahra/${clipKey(text)}.mp3`)
+  clip = a
+  a.onplay = () => { duck(true); talking(name, true) }
+  a.onended = a.onerror = a.onpause = () => { if (clip === a) clip = null; duck(false); talking(name, false) }
+  void a.play().catch(() => { duck(false); talking(name, false) })
+}
 /** Say a line as a person. `seed` gives each person a slightly different pitch and pace. Interrupts the last line. */
 export function speak(text: string, who: { gender: 'f' | 'm'; seed?: number; voice?: 'zahra' } = { gender: 'f' }): void {
   if (!clipsOn() || !text.trim()) return
   const name = who.voice ?? 'person'
   // In another language a UI line is spoken once its translation is on screen; other lines stay English.
   if (!isEnglish() && untranslated(text)) return
-  if (who.voice === 'zahra' && ZAHRA_CLIPS.has(clipKey(text))) {
-    stopSpeaking()
-    const a = new Audio(`/assets/voice/zahra/${clipKey(text)}.mp3`)
-    clip = a
-    a.onplay = () => { duck(true); talking(name, true) }
-    a.onended = a.onerror = a.onpause = () => { if (clip === a) clip = null; duck(false); talking(name, false) }
-    void a.play().catch(() => { duck(false); talking(name, false) })
-    return
-  }
+  if (who.voice === 'zahra' && ZAHRA_CLIPS.has(clipKey(text))) return speakClip(text, name)
   if (!voicesOn()) return
-  const want2 = !isEnglish() && isTranslation(text) ? speechLang().slice(0, 2).toLowerCase() : 'en'
+  let want2 = !isEnglish() && isTranslation(text) ? speechLang().slice(0, 2).toLowerCase() : 'en'
+  // No voice for that language on this phone (often Hausa or Yoruba): say the English line instead, in Zahra's
+  // recorded voice where there is one, rather than an English voice mangling the other language.
+  if (want2 !== 'en' && !hasVoiceFor(want2)) {
+    const en = sourceOf(text)
+    if (en) { if (who.voice === 'zahra' && ZAHRA_CLIPS.has(clipKey(en))) return speakClip(en, name); text = en; want2 = 'en' }
+  }
   try {
     stopSpeaking()
     const u = new SpeechSynthesisUtterance(text.replace(/[·•]/g, ',').replace(/[\u{1F300}-\u{1FAFF}]/gu, ''))
     const v = pick(who.gender, want2)
     if (v) { u.voice = v; u.lang = v.lang } else if (want2 !== 'en') u.lang = speechLang()
     const k = ((who.seed ?? 0) * 0.618) % 1
-    u.pitch = who.gender === 'f' ? 1.02 + k * 0.18 : 0.82 + k * 0.16
-    u.rate = 0.97 + k * 0.08
+    // Clear and well paced: native voices at their natural pitch, a little slower than default.
+    u.pitch = want2 !== 'en' ? 1 : who.gender === 'f' ? 1.02 + k * 0.12 : 0.86 + k * 0.12
+    u.rate = want2 !== 'en' ? 0.92 : 0.94 + k * 0.06
     u.volume = 1
     u.onstart = () => { duck(true); talking(name, true) }
     u.onend = u.onerror = () => { duck(false); talking(name, false) }
