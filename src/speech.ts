@@ -3,9 +3,18 @@
 // women, a man's for men, each person with their own pitch. Music dips while someone speaks. Settings has a
 // Voices switch; it is on unless the player turned it off.
 import { duckMusic } from './music.ts'
+import { ZAHRA_CLIPS } from './zahraVoice.ts'
 const PREF = 'gd.voices'
 const read = () => { try { return localStorage.getItem(PREF) } catch { return null } }
 export const voicesOn = () => read() !== 'off' && typeof speechSynthesis !== 'undefined'
+const clipsOn = () => read() !== 'off'
+// Zahra's lines are recorded with a neural voice (scripts/gen-zahra-voice.py); the key is the same hash of the
+// normalised line. A line without a clip uses the device's voice.
+const norm = (t: string) => t.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/\u2026/g, '...').split(/\s+/).filter(Boolean).join(' ').trim().toLowerCase()
+export function clipKey(t: string): string { let h = 0x811c9dc5; for (const ch of norm(t)) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(16).padStart(8, '0') }
+let clip: HTMLAudioElement | null = null
+/** Tells the cards who is talking, so Zahra's face can show she is speaking. */
+const talking = (who: string, on: boolean) => window.dispatchEvent(new CustomEvent('gd:voice', { detail: { who, on } }))
 export function setVoices(on: boolean): void { try { localStorage.setItem(PREF, on ? 'on' : 'off') } catch { /* session only */ } if (!on) stopSpeaking() }
 
 let voices: SpeechSynthesisVoice[] = []
@@ -26,10 +35,21 @@ function pick(gender: 'f' | 'm'): SpeechSynthesisVoice | undefined {
 const duck = duckMusic
 
 /** Say a line as a person. `seed` gives each person a slightly different pitch and pace. Interrupts the last line. */
-export function speak(text: string, who: { gender: 'f' | 'm'; seed?: number } = { gender: 'f' }): void {
-  if (!voicesOn() || !text.trim()) return
+export function speak(text: string, who: { gender: 'f' | 'm'; seed?: number; voice?: 'zahra' } = { gender: 'f' }): void {
+  if (!clipsOn() || !text.trim()) return
+  const name = who.voice ?? 'person'
+  if (who.voice === 'zahra' && ZAHRA_CLIPS.has(clipKey(text))) {
+    stopSpeaking()
+    const a = new Audio(`/assets/voice/zahra/${clipKey(text)}.mp3`)
+    clip = a
+    a.onplay = () => { duck(true); talking(name, true) }
+    a.onended = a.onerror = a.onpause = () => { if (clip === a) clip = null; duck(false); talking(name, false) }
+    void a.play().catch(() => { duck(false); talking(name, false) })
+    return
+  }
+  if (!voicesOn()) return
   try {
-    speechSynthesis.cancel()
+    stopSpeaking()
     const u = new SpeechSynthesisUtterance(text.replace(/[·•]/g, ',').replace(/[\u{1F300}-\u{1FAFF}]/gu, ''))
     const v = pick(who.gender)
     if (v) { u.voice = v; u.lang = v.lang }
@@ -37,9 +57,9 @@ export function speak(text: string, who: { gender: 'f' | 'm'; seed?: number } = 
     u.pitch = who.gender === 'f' ? 1.02 + k * 0.18 : 0.82 + k * 0.16
     u.rate = 0.97 + k * 0.08
     u.volume = 1
-    u.onstart = () => duck(true)
-    u.onend = u.onerror = () => duck(false)
+    u.onstart = () => { duck(true); talking(name, true) }
+    u.onend = u.onerror = () => { duck(false); talking(name, false) }
     speechSynthesis.speak(u)
   } catch { /* no speech on this device */ }
 }
-export function stopSpeaking(): void { try { speechSynthesis.cancel() } catch { /* */ } duck(false) }
+export function stopSpeaking(): void { try { speechSynthesis.cancel() } catch { /* */ } if (clip) { const c = clip; clip = null; c.pause() } duck(false) }

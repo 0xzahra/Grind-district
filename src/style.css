@@ -2881,3 +2881,15 @@ html[data-ui='light'] body #sheet .sheet-card button.ghost:not(.topup *):not([ar
   box-shadow: inset 0 1px 0 #ffffff, inset 0 -2px 0 rgba(60, 50, 30, 0.14), 0 3px 0 #b2aa99, 0 8px 16px rgba(30, 24, 14, 0.22) !important;
 }
 html[data-ui='light'] body #sheet .sheet-card button.ghost:not(.topup *):active { transform: translateY(2px) !important; box-shadow: inset 0 1px 0 #ffffff, 0 1px 0 #b2aa99, 0 3px 6px rgba(30, 24, 14, 0.2) !important; }
+
+/* Zahra's face on her card (rendered from her figure in the city); it glows and a small wave moves while she speaks. */
+html body .mentor .mentor-face.has-photo { width: 58px; height: 58px; clip-path: none; border-radius: 50%; background-color: #e9e2d4; background-size: cover; background-position: 50% 42%; color: transparent; position: relative; border: 2px solid #c9a25e; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); transition: box-shadow 160ms ease; }
+html body .mentor .mentor-face .mentor-wave { display: none; }
+html body .mentor.speaking .mentor-face.has-photo { animation: zahra-talk 1.1s ease-in-out infinite; }
+html body .mentor.speaking .mentor-face .mentor-wave { display: block; position: absolute; right: -5px; bottom: -3px; width: 22px; height: 16px; border-radius: 8px; background: #1af38f; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  -webkit-mask: linear-gradient(#000 0 0) 4px 50% / 2px 6px no-repeat, linear-gradient(#000 0 0) 8px 50% / 2px 10px no-repeat, linear-gradient(#000 0 0) 12px 50% / 2px 7px no-repeat, linear-gradient(#000 0 0) 16px 50% / 2px 11px no-repeat;
+  mask: linear-gradient(#000 0 0) 4px 50% / 2px 6px no-repeat, linear-gradient(#000 0 0) 8px 50% / 2px 10px no-repeat, linear-gradient(#000 0 0) 12px 50% / 2px 7px no-repeat, linear-gradient(#000 0 0) 16px 50% / 2px 11px no-repeat;
+  animation: zahra-wave 0.5s steps(2, end) infinite; }
+@keyframes zahra-talk { 0%, 100% { box-shadow: 0 0 0 0 rgba(26, 243, 143, 0.0), 0 4px 12px rgba(0, 0, 0, 0.35) } 50% { box-shadow: 0 0 0 5px rgba(26, 243, 143, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35) } }
+@keyframes zahra-wave { 0% { transform: scaleY(0.75) } 100% { transform: scaleY(1.15) } }
+@media (prefers-reduced-motion: reduce) { html body .mentor.speaking .mentor-face.has-photo, html body .mentor.speaking .mentor-face .mentor-wave { animation: none; } }

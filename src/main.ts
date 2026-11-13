@@ -459,6 +459,7 @@ const apiAgents = createRemoteAgents(scene)
     // Camera sits on the far side of the player from Zahra, so she and the Campus door are in frame.
     face: () => { camYaw = Math.atan2(pos.x - ada.position.x, pos.z - ada.position.z) },
     toCampus: () => travelHook('Campus', false),
+    face3d: (() => { const shot = createPortrait(renderer!, () => ada, { w: 256, h: 256, head: true, headY: 1.5 }); return () => shot() })(),
   })
   // Zahra's welcome tour: once per device, after the first-run intro card closes; Settings can replay it.
   const startTour = (force = false) => {
@@ -1169,7 +1170,9 @@ const apiAgents = createRemoteAgents(scene)
     target = null
     faceYaw = s.yaw
   }
-  const streetSpots: Hotspot[] = [...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn)),
+  // Zahra at the Campus steps: walk up (or tap her) and she introduces herself, any time.
+  const zahraSpot: Hotspot = { id: 'zahra', x: ada.position.x, z: ada.position.z, r: 1.9, title: 'Zahra', body: 'Campus guide · onboarding', enter: 'Talk to Zahra', use: () => mentor.hello() }
+  const streetSpots: Hotspot[] = [zahraSpot, ...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn)),
     ...workoutSpots().map((s, i) => ({ ...seatSpot(`workout-${i}`, 'Workout spot', s, sitOn), body: 'Do a few squats. Move to stop.', enter: 'Exercise' }))]
   let streetDoor = { x: 0, z: 0 }
   const enterRoom = (doorSpot: Hotspot) => {
@@ -1491,7 +1494,9 @@ const apiAgents = createRemoteAgents(scene)
       const reach = groundHit ? tapPoint.distanceTo(raycaster.ray.origin) + 0.9 : Infinity
       const tapped = interiors.inside ? null : net.pick(raycaster, reach)
       const npc = !tapped && !interiors.inside ? crowd.pick(raycaster, reach) : null
-      if (tapped) void openPeer(tapped)
+      const zahraHit = !tapped && !interiors.inside && Math.hypot(pos.x - ada.position.x, pos.z - ada.position.z) < 30 && raycaster.intersectObject(ada, true).some((h) => h.distance < reach)
+      if (zahraHit) { if (!mentor.isOpen() && !ui.isOpen()) mentor.hello() }
+      else if (tapped) void openPeer(tapped)
       else if (npc) showNpcCard(npc)
       else if (groundHit) {
         target = tapPoint.clone()

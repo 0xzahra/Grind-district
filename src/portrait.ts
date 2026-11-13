@@ -2,9 +2,10 @@ import * as THREE from 'three'
 
 // Profile portrait: renders the player's own current avatar (full body, face to camera) into an
 // offscreen target under a clean studio light, then returns a PNG data URL. One render on demand, never per frame.
-export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => THREE.Object3D) {
-  const W = 360
-  const H = 600
+/** Full-body portrait (profile), or with `head` a head-and-shoulders shot (Zahra's face on her card). */
+export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => THREE.Object3D, opts: { w?: number; h?: number; head?: boolean; headY?: number } = {}) {
+  const W = opts.w ?? 360
+  const H = opts.h ?? 600
   const studio = new THREE.Scene()
   const key = new THREE.DirectionalLight(0xfff4e8, 1.6)
   key.position.set(1.6, 3, 3)
@@ -39,9 +40,11 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
       box.setFromObject(obj)
       box.getSize(size)
       box.getCenter(center)
-      const h = Math.max(size.y, 0.5) * 1.12
+      // headY: the head's height in the figure (a name tag above the head would throw off the bounding box).
+      if (opts.head) center.y = opts.headY ?? box.max.y - size.y * 0.115
+      const h = opts.head ? (opts.headY ? opts.headY * 0.27 : size.y * 0.25) : Math.max(size.y, 0.5) * 1.12
       const dist = h / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
-      camera.position.set(center.x + dist * 0.18, center.y + h * 0.04, center.z + dist)
+      camera.position.set(center.x + dist * (opts.head ? 0.22 : 0.18), center.y + h * (opts.head ? 0.08 : 0.04), center.z + dist)
       camera.lookAt(center.x, center.y, center.z)
       studio.environment = parent instanceof THREE.Scene ? parent.environment : env
       studio.environmentIntensity = 0.35
