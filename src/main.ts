@@ -469,7 +469,7 @@ const apiAgents = createRemoteAgents(scene)
       })
       return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
     } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
-    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
+    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return (yaw?: number, into?: HTMLCanvasElement) => shot(yaw, into) })(),
   })
   performance.mark('gd:pre-mentor')
   const mentor = createMentorCard({

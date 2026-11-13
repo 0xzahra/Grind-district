@@ -153,6 +153,32 @@ function pixels(t: Template): Promise<{ base: ImageData; mask: ImageData } | nul
   })()
   return t.pixels
 }
+// Crowd figures wear their texture at half size: recolour at that size too (a quarter of the pixels; it was
+// recoloured at full size and shrunk afterwards). The mask is shrunk without smoothing so region ids stay exact.
+const smallPixels = new Map<string, Promise<{ base: ImageData; mask: ImageData } | null>>()
+function pixelsAt(t: Template, detail: number): Promise<{ base: ImageData; mask: ImageData } | null> {
+  if (detail >= 1) return pixels(t)
+  const key = `${t.name}|${detail}`
+  let p = smallPixels.get(key)
+  if (!p) {
+    p = pixels(t).then((px) => {
+      if (!px) return null
+      const w = Math.max(1, Math.round(px.base.width * detail)), h = Math.max(1, Math.round(px.base.height * detail))
+      const shrink = (src: ImageData, smooth: boolean) => {
+        const from = document.createElement('canvas'); from.width = src.width; from.height = src.height
+        from.getContext('2d')!.putImageData(src, 0, 0)
+        const to = document.createElement('canvas'); to.width = w; to.height = h
+        const g = to.getContext('2d', { willReadFrequently: true })!
+        g.imageSmoothingEnabled = smooth; if (smooth) g.imageSmoothingQuality = 'high'
+        g.drawImage(from, 0, 0, w, h)
+        return g.getImageData(0, 0, w, h)
+      }
+      return { base: shrink(px.base, true), mask: shrink(px.mask, false) }
+    })
+    smallPixels.set(key, p)
+  }
+  return p
+}
 
 type Skin = { texture: THREE.Texture; users: number; key: string }
 const skins = new Map<string, Promise<Skin | null>>()
@@ -194,11 +220,12 @@ function paintMakeup(data: Uint8ClampedArray, w: number, h: number, m: Makeup): 
   if (m.shadow != null) for (const [x, y] of FACE.eyes) blend(x, y - 9, 20, 8, m.shadow, 0.5, 'tint')
   if (m.liner) for (const [x, y] of FACE.eyes) blend(x, y - 4, 17, 2.6, 0x120c0a, 0.75, 'shade')
 }
-/** Unsharp mask over the head area (x 512..1024, y 0..512 at 1024 wide): crisper eyes, brows and lips. */
+/** Unsharp mask over the face (eyes, brows, nose and lips: x 600..960, y 60..330 of the 1024 x 640 atlas). */
 function sharpenFace(data: Uint8ClampedArray, w: number, h: number, amount: number): void {
-  const x0 = Math.floor(w * 0.5), x1 = w - 1, y1 = Math.min(h - 1, Math.floor(h * 0.8))
+  const sx = w / 1024, sy = h / 640
+  const x0 = Math.floor(600 * sx), x1 = Math.min(w - 1, Math.ceil(960 * sx)), y0 = Math.max(1, Math.floor(60 * sy)), y1 = Math.min(h - 1, Math.ceil(330 * sy))
   const src = new Uint8ClampedArray(data)
-  for (let y = 1; y < y1; y++) {
+  for (let y = y0; y < y1; y++) {
     for (let x = x0 + 1; x < x1; x++) {
       const o = (y * w + x) * 4
       for (let ch = 0; ch < 3; ch++) {
@@ -215,7 +242,7 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
   const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}|${look.sharp && detail >= 1 ? 's' : ''}|${hasMakeup(look.makeup) ? JSON.stringify(look.makeup) : ''}`
   let p = skins.get(key)
   if (!p) {
-    p = pixels(t).then((px) => {
+    p = pixelsAt(t, detail).then((px) => {
       if (!px) return null
       const { base, mask } = px
       const w = base.width, h = base.height
@@ -270,10 +297,7 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
         if (hasMakeup(look.makeup)) paintMakeup(data, w, h, look.makeup!)
         full.getContext('2d')!.putImageData(new ImageData(data, w, h), 0, 0)
       }
-      if (detail < 1) {
-        canvas = document.createElement('canvas'); canvas.width = Math.round(w * detail); canvas.height = Math.round(h * detail)
-        const g = canvas.getContext('2d')!; g.imageSmoothingQuality = 'high'; g.drawImage(full, 0, 0, canvas.width, canvas.height)
-      }
+      // (Crowd textures were recoloured at their shown size already: see pixelsAt.)
       const texture = new THREE.CanvasTexture(canvas)
       texture.flipY = false
       texture.colorSpace = THREE.SRGBColorSpace

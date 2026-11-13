@@ -1,5 +1,5 @@
 import { itemPic } from './itemPics.ts'
-import { getMorph, setMorph, HAIRS, SKIN_TONES, type Style } from './morph.ts'
+import { getMorph, setMorph, HAIRS, SKIN_TONES } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
@@ -50,7 +50,6 @@ import {
   SKILL_META,
   TAX_USD,
   TINTS,
-  TINT_STYLE,
   money,
   nextRank,
   progressToNext,
@@ -120,7 +119,7 @@ type Hooks = {
   travel?: (title: string, enter?: boolean) => void
   /** Baked top-down map (data URL, '' if not baked yet), its half-extent in metres, and pin positions by guide title. */
   satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number }>; me?: { x: number; z: number } }
-  portrait?: () => string | null
+  portrait?: (yaw?: number, into?: HTMLCanvasElement) => string | null
 }
 
 export type Ui = {
@@ -677,20 +676,29 @@ export function mountUi(
     return frame('Gym', stack(para('Treadmill, bench, rack and mats. One logged set a day.'), log, walk, result))
   }
 
-  let boutiqueStyle: Style = 'all'
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
     const wrap = stack(para('Everyday clothes are free. The Runway collection and fine jewellery are premium, paid from your in-game balance. Tap a piece to wear it.', 'muted'))
-    { // Live outfit preview: a fresh portrait of your own avatar after every change. Taken a frame after the
-      // panel paints, so the Boutique opens at once.
+    { // Live outfit preview: your own avatar on a light studio backdrop, after every change. Drag sideways to turn
+      // it round. Drawn a frame after the panel paints (so the Boutique opens at once), straight into a canvas.
       if (hooks.portrait) {
-        const img = document.createElement('img'); img.src = BLANK_IMG; img.alt = 'Your current outfit'; img.className = 'outfit-preview'; wrap.append(img)
-        requestAnimationFrame(() => window.setTimeout(() => { if (!img.isConnected) return; const s = hooks.portrait?.(); if (s) img.src = s; else img.remove() }, 0))
-        // A new body or outfit swaps in its real model a moment later; retake the picture then, so the
-        // preview never shows the placeholder body.
-        const retake = () => { if (!img.isConnected) return; const next = hooks.portrait?.(); if (next) img.src = next }
-        window.addEventListener('gd-avatar-ready', () => window.setTimeout(retake, 60), { once: true })
-        window.setTimeout(retake, 900)
+        const stage = document.createElement('div'); stage.className = 'outfit-stage'
+        const cv = document.createElement('canvas'); cv.className = 'outfit-preview'
+        cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', 'Your current outfit. Drag to turn.')
+        const hint = document.createElement('span'); hint.className = 'outfit-hint'; hint.textContent = 'Drag to turn'
+        stage.append(cv, hint); wrap.append(stage)
+        let yaw = 0, queued = false, dragX: number | null = null
+        const draw = () => { queued = false; if (cv.isConnected) hooks.portrait?.(yaw, cv) }
+        const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => window.setTimeout(draw, 0)) }
+        later()
+        // A new body or outfit swaps in its real model a moment later; draw again then, so the preview never
+        // shows the placeholder body.
+        window.addEventListener('gd-avatar-ready', () => window.setTimeout(later, 60), { once: true })
+        window.setTimeout(later, 900)
+        cv.addEventListener('pointerdown', (e) => { dragX = e.clientX; try { cv.setPointerCapture(e.pointerId) } catch { /* */ } stage.classList.add('turning') })
+        cv.addEventListener('pointermove', (e) => { if (dragX === null) return; yaw += (e.clientX - dragX) * 0.014; dragX = e.clientX; later() })
+        const end = () => { dragX = null; stage.classList.remove('turning') }
+        cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end)
       }
     }
     const bodies = document.createElement('div')
@@ -704,15 +712,9 @@ export function mountUi(
       bodies.append(node)
     }
     wrap.append(bodies, para(BODIES.find((body) => body.id === save.body)?.blurb ?? '', 'muted'))
-    const styles = document.createElement('div')
-    styles.className = 'tabs'
-    for (const [id, label] of [['all', 'All'], ['office', 'Office'], ['street', 'Street'], ['african', 'African-inspired']] as const) {
-      styles.append(button(label, boutiqueStyle === id ? 'primary' : 'ghost', () => { boutiqueStyle = id; open('boutique') }))
-    }
-    wrap.append(para('Style', 'kicker'), styles)
     const tints = document.createElement('div')
     tints.className = 'tabs'
-    for (const tint of TINTS.filter((t) => boutiqueStyle === 'all' || (TINT_STYLE[t.id] ?? []).includes(boutiqueStyle))) {
+    for (const tint of TINTS) {
       const node = button('', save.tint === tint.hex ? 'primary' : 'ghost', () => {
         setTint(tint.hex)
         { const w = worn(); if (w.top) { const cur = PIECES.find((x) => x.id === w.top); if (cur) wear(cur) } } // colour wins over a worn top so the change is visible

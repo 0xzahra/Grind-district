@@ -165,6 +165,10 @@ const bootTitlePreview = () => {
 // Phones: start after a short idle so the opening card paints first. Fallback sky only if WebGL fails.
 const schedulePreview = () => {
   if (opening) return
+  // The weakest phones (2 GB of memory or less, or data saver on) keep the still sky behind the title card: the
+  // 3D preview would make Sign in and Continue slow to answer, and the city itself matters more.
+  const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } }
+  if ((nav.deviceMemory ?? 8) <= 2 || nav.connection?.saveData) { document.getElementById('menu')?.classList.add('menu-fallback'); return }
   const titleCoarse = matchMedia('(pointer: coarse)').matches || innerWidth < 820
   if (titleCoarse) {
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback

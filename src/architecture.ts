@@ -316,7 +316,24 @@ export function createArchitecture(o: {
     })
     return m
   }
-  const loadPhoto = (key: keyof Photos, url: string) => { const img = new Image(); img.decoding = 'async'; img.onload = () => { photos[key] = img; for (const f of repaint) f() }; img.src = url }
+  // The photo-textured facades replace the drawn ones in one repaint, once both photos are in, in idle time after
+  // the city is showing (or after 4 s, for the title preview), so repainting never holds up the city opening.
+  let repaintTimer = 0
+  const repaintSoon = () => {
+    window.clearTimeout(repaintTimer)
+    repaintTimer = window.setTimeout(() => {
+      const run = () => { for (const f of repaint) f() }
+      const idle = () => { const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback; if (ric) ric(run, { timeout: 2500 }); else run() }
+      if (performance.getEntriesByName('gd:revealed').length || !document.getElementById('view')) idle()
+      else {
+        let done = false
+        const go = () => { if (done) return; done = true; idle() }
+        window.addEventListener('gd:revealed', go, { once: true })
+        window.setTimeout(go, 4000)
+      }
+    }, 120)
+  }
+  const loadPhoto = (key: keyof Photos, url: string) => { const img = new Image(); img.decoding = 'async'; img.onload = () => { photos[key] = img; repaintSoon() }; img.src = url }
   loadPhoto('brick', '/tex/nature/brick.webp')
   loadPhoto('stone', '/tex/surf/stone_d.webp')
   const F: Record<Facade, THREE.MeshStandardMaterial> = {

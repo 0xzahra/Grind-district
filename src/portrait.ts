@@ -16,7 +16,9 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
   const box = new THREE.Box3()
   const size = new THREE.Vector3()
   const center = new THREE.Vector3()
-  return (): string | null => {
+  /** `yaw` turns the figure (0 = facing the camera). With `into`, the shot is drawn straight into that canvas
+   *  (no PNG step: fast enough to follow a drag) and the result is 'drawn'. */
+  return (yaw = 0, into?: HTMLCanvasElement): string | null => {
     const obj = getObject()
     const parent = obj.parent
     const pos = obj.position.clone()
@@ -35,7 +37,7 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
       studio.add(obj)
       obj.position.set(0, 0, 0)
       obj.quaternion.identity()
-      for (const { child } of inner) child.rotation.y = 0 // rig faces +z: toward the camera
+      for (const { child } of inner) child.rotation.y = yaw // rig faces +z: toward the camera
       obj.updateMatrixWorld(true)
       box.setFromObject(obj)
       box.getSize(size)
@@ -55,15 +57,15 @@ export function createPortrait(renderer: THREE.WebGLRenderer, getObject: () => T
       renderer.render(studio, camera)
       const px = new Uint8Array(W * H * 4)
       renderer.readRenderTargetPixels(target, 0, 0, W, H, px)
-      const canvas = document.createElement('canvas')
-      canvas.width = W
-      canvas.height = H
+      const canvas = into ?? document.createElement('canvas')
+      if (canvas.width !== W) canvas.width = W
+      if (canvas.height !== H) canvas.height = H
       const ctx = canvas.getContext('2d')
       if (!ctx) return null
       const img = ctx.createImageData(W, H)
       for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4)
       ctx.putImageData(img, 0, 0)
-      return canvas.toDataURL('image/png')
+      return into ? 'drawn' : canvas.toDataURL('image/png')
     } catch {
       return null
     } finally {

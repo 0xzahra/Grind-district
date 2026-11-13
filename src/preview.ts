@@ -113,10 +113,24 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   let raf = 0
   let last = performance.now()
   let t = 0
-  const frameGap = coarse ? 33 : 16
+  // The preview must never make the title card slow to answer. It measures what a frame costs the main thread
+  // and lowers its own frame rate on slow phones (30, 20, 15 or 10 fps), pauses for a moment whenever the
+  // player touches or types (so Sign in and Continue answer at once), and stops while a sign-in dialog covers it.
+  let frameGap = coarse ? 33 : 16
+  let cost = 0
+  let hush = 0
+  const press = () => { hush = performance.now() + 700 }
+  addEventListener('pointerdown', press, { capture: true, passive: true })
+  addEventListener('keydown', press, { capture: true })
+  // Compile every shader before the first frame, without blocking: drawing first made the browser wait for each
+  // shader to finish (seconds on a slow phone, with the title card frozen). Until then the card shows its sky.
+  let ready = false
+  void Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((r) => window.setTimeout(r, 6000))]).then(() => { ready = true })
   const loop = (now: number) => {
     raf = requestAnimationFrame(loop)
-    if (document.hidden || now - last < frameGap) return
+    if (!ready || document.hidden || now < hush || now - last < frameGap) return
+    if (document.getElementById('login-dlg')) { last = now; return }
+    const began = performance.now()
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     t += dt
@@ -135,10 +149,14 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     relabel += dt
     if (relabel > 2) { relabel = 0; hideLabels() }
     composer.render(dt)
+    cost = cost ? cost * 0.85 + (performance.now() - began) * 0.15 : performance.now() - began
+    frameGap = coarse ? (cost > 30 ? 100 : cost > 18 ? 66 : cost > 10 ? 50 : 33) : (cost > 20 ? 33 : 16)
   }
   raf = requestAnimationFrame(loop)
   return () => {
     cancelAnimationFrame(raf)
+    removeEventListener('pointerdown', press, { capture: true })
+    removeEventListener('keydown', press, { capture: true })
     removeEventListener('resize', resize)
     try { composer.dispose() } catch { /* */ }
     try { renderer.dispose() } catch { /* */ }
