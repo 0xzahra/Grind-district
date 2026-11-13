@@ -1,6 +1,8 @@
 // Opening-card entry: keep Three / city code out of the first paint. The playable city
 // chunk (`main.ts`) loads only after Sign in / Continue → Enter.
 import './style.css'
+// Panel theme (Settings > Theme): applied before anything paints, so there is no flash of the other theme.
+try { if (localStorage.getItem('gd.ui') === 'light') document.documentElement.dataset.ui = 'light' } catch { /* private mode: dark */ }
 import './glass.css'
 // The game's typeface: the system face on Apple devices (San Francisco), and Inter, the open typeface drawn to
 // the same model, everywhere else. Bundled, so Android and Windows see the same clean letters.

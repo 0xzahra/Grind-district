@@ -2791,3 +2791,54 @@ html body #cc-sheet-body .dm-tool.live { border-color: #7d1f29; background: var(
 #cc-sheet-body .dm-tools { display: flex; gap: 8px; margin-top: 8px; }
 #cc-sheet-body .dm-photo { display: block; max-width: min(240px, 100%); max-height: 300px; border-radius: 12px; margin: 2px 0 4px; object-fit: cover; cursor: zoom-in; }
 #cc-sheet-body .dm-voice { display: block; width: min(240px, 100%); height: 36px; margin: 2px 0 4px; }
+
+/* ===== Light theme (Settings > Theme). Dark is the default. The 3D city keeps its own GM / Dusk / GN light;
+   this changes the panels, menu, keys and cards: ivory surfaces, dark ink, light raised keys. Gold, green and
+   red keep their meaning. ===== */
+html[data-ui='light'] {
+  --ink: #1d1b17; --dim: #6b655a;
+  --key-dark: linear-gradient(180deg, #ffffff 0%, #f3f0e9 55%, #dfd9cd 100%);
+  --key-dark-sh: inset 0 1px 0 #ffffff, inset 0 -2px 0 rgba(60, 50, 30, 0.1), 0 2px 0 #b9b1a1, 0 6px 14px rgba(60, 50, 30, 0.18);
+  --key-down: inset 0 2px 5px rgba(60, 50, 30, 0.22), 0 0 0 transparent, 0 1px 2px rgba(60, 50, 30, 0.15);
+  --gd-line: rgba(40, 32, 20, 0.12); --gd-line-strong: rgba(40, 32, 20, 0.22); --gd-surface: rgba(40, 32, 20, 0.04); --gd-surface-hi: rgba(40, 32, 20, 0.08);
+  color-scheme: light;
+}
+/* Surfaces */
+html[data-ui='light'] body #sheet .sheet-card, html[data-ui='light'] body #nav.cc .cc-sheet, html[data-ui='light'] body .mentor, html[data-ui='light'] body #menu #menu-panel {
+  background: linear-gradient(180deg, #fdfbf6 0%, #f4f0e7 100%) !important; color: #1d1b17 !important; border-color: rgba(40, 32, 20, 0.14) !important;
+  box-shadow: inset 0 1px 0 #ffffff, 0 18px 44px rgba(30, 24, 14, 0.28) !important;
+}
+html[data-ui='light'] body #sheet .sheet-head { border-bottom-color: rgba(40, 32, 20, 0.1) !important; background: transparent !important; }
+html[data-ui='light'] body #nav.cc .cc-card, html[data-ui='light'] body #nav.cc .cc-slider { background: rgba(253, 251, 246, 0.94) !important; border-color: rgba(40, 32, 20, 0.12) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html[data-ui='light'] body #nav.cc { background: rgba(240, 236, 228, 0.35) !important; }
+html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor) :is(.glass, .cr-card, .lx-unit, .lx-card, .xch-ticket, .xch-tile, .xch-pos, .xch-box, .cc-split span, .ward, .quest, .lx-head) { background-color: rgba(40, 32, 20, 0.045) !important; border-color: rgba(40, 32, 20, 0.12) !important; }
+html[data-ui='light'] body #toast, html[data-ui='light'] body #npc-card { background: linear-gradient(180deg, #fdfbf6, #f1ece2) !important; color: #1d1b17 !important; border-color: rgba(138, 106, 44, 0.45) !important; box-shadow: 0 10px 26px rgba(30, 24, 14, 0.25) !important; }
+/* Ink: text that is light-on-dark by default becomes dark-on-light; muted text a warm grey. */
+html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor, #menu-panel) :is(h1, h2, h3, h4, p, b, strong, label, li, dd, time, em, .xch-price, .cc-label, .cc-btn-label, .mentor-say, .mentor-who b, .title-headline, .wal-names b, .wal-val, .xch-amount):not([data-dir]) { color: #1d1b17 !important; text-shadow: none !important; }
+html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor, #menu-panel) :is(small, .muted, .cc-muted, .xch-note, .xch-label, dt, .title-desc, .xch-names small, .wal-names small, .wal-kick, .npc-routine, .cr-sub) { color: #6b655a !important; }
+html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor) :is(.kicker, .xch-group, h3.lx-unit-t, .rail-head) { color: #8a6a2c !important; }
+html[data-ui='light'] body #npc-card .npc-doing { color: #8a6a2c !important; }
+/* Keys: light raised keys with dark labels (gold, green and red keys keep their own colours). */
+html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor, #menu, .login-dlg) button:not(.primary):not(.xch-go):not([aria-selected='true']):not([aria-pressed='true']):not(.live):not(#menu-create):not(#play):not(#account-existing),
+html[data-ui='light'] body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn, #menu-profile, .greet-fab, #online-chip), html[data-ui='light'] body #cam-tools .cam-btn,
+html[data-ui='light'] body #nav.cc :is(.cc-btn, .cc-item .cc-circle:not(.cc-accent)), html[data-ui='light'] body .goal-pill.folded {
+  color: #2a261f !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+html[data-ui='light'] body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn, #menu-profile, #online-chip), html[data-ui='light'] body #cam-tools .cam-btn, html[data-ui='light'] body #nav.cc :is(.cc-btn, .cc-item .cc-circle:not(.cc-accent)), html[data-ui='light'] body .goal-pill.folded {
+  background: radial-gradient(120% 120% at 32% 22%, #ffffff 0%, #ece7dd 55%, #d3ccbe 100%) !important; border-color: rgba(60, 50, 30, 0.35) !important;
+  box-shadow: inset 0 1px 0 #ffffff, inset 0 -2px 3px rgba(60, 50, 30, 0.12), 0 2px 0 #b2aa99, 0 6px 14px rgba(30, 24, 14, 0.28) !important;
+}
+html[data-ui='light'] body #nav.cc .cc-quad .cc-btn { background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important; }
+html[data-ui='light'] body #online-chip { color: #1d1b17 !important; }
+/* Inputs and the segmented controls on the trading card. */
+html[data-ui='light'] body :is(#sheet, #nav.cc) :is(input[type='text'], input[type='search'], select, textarea) { background: #ffffff !important; color: #1d1b17 !important; border-color: rgba(40, 32, 20, 0.22) !important; box-shadow: inset 0 1px 2px rgba(40, 32, 20, 0.12) !important; }
+html[data-ui='light'] body .sheet-card .xch-seg { background: rgba(40, 32, 20, 0.08) !important; border-color: rgba(40, 32, 20, 0.14) !important; box-shadow: inset 0 2px 4px rgba(40, 32, 20, 0.14) !important; }
+html[data-ui='light'] body .sheet-card .xch-seg button:not([aria-selected='true']) { color: #6b655a !important; text-shadow: none !important; }
+html[data-ui='light'] body .sheet-card .xch-chart { filter: none; }
+html[data-ui='light'] body .sheet-card .xch-ico, html[data-ui='light'] body #cc-sheet-body .wal-ico { color: #ffffff !important; }
+/* Light theme: the balance card becomes a warm gold-on-ivory card; tracks and the name plate go light. */
+html[data-ui='light'] body #sheet .bal-card { background: linear-gradient(135deg, #fff8e6, #f3e6c4) !important; border-color: rgba(138, 106, 44, 0.45) !important; }
+html[data-ui='light'] body #sheet .bal-card .bal-num { color: #7a5a1c !important; }
+html[data-ui='light'] body #sheet .bar, html[data-ui='light'] body .cr-track { background: rgba(40, 32, 20, 0.12) !important; }
+html[data-ui='light'] body #sheet .nameplate { background: linear-gradient(180deg, #ffffff, #ece7dd) !important; border: 1px solid rgba(40, 32, 20, 0.16) !important; box-shadow: 0 2px 0 #c8c0b0, 0 6px 14px rgba(30, 24, 14, 0.16) !important; }
+html[data-ui='light'] body #sheet .nameplate span { color: #6b655a !important; }

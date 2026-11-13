@@ -925,6 +925,17 @@ export function mountUi(
       }))
     }
     times.append(button('Auto', held ? 'ghost' : 'primary', () => { clock('auto'); hooks.onLook(); open('settings') }))
+    // Panel theme: Dark (default) or Light. Separate from GM day / Dusk / GN night, which light the city.
+    const theme = document.createElement('div')
+    theme.className = 'tabs'
+    const light = document.documentElement.dataset.ui === 'light'
+    for (const [label, on] of [['Dark', false], ['Light', true]] as const) {
+      theme.append(button(label, on === light ? 'primary' : 'ghost', () => {
+        if (on) document.documentElement.dataset.ui = 'light'; else delete document.documentElement.dataset.ui
+        try { localStorage.setItem('gd.ui', on ? 'light' : 'dark') } catch { /* session only */ }
+        open('settings')
+      }))
+    }
     const graphics = document.createElement('div')
     graphics.className = 'tabs'
     for (const level of ['low', 'medium', 'high'] as const) {
@@ -1062,6 +1073,9 @@ export function mountUi(
       para('GN time', 'kicker'),
       para('Choose your GN time. The city stays open in all three.', 'muted'),
       times,
+      para('Theme', 'kicker'),
+      para('Dark or light panels, menu and buttons. The city keeps its own time of day.', 'muted'),
+      theme,
       para('Graphics', 'kicker'),
       graphics,
       para(({
