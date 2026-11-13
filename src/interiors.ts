@@ -361,14 +361,45 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       screen.rotation.y = Math.PI
       screen.rotation.x = 0.18
       use({ id: 'desk', x: DX, z: 2.6, r: 1.0, title: 'Desk · laptop', body: 'Your CV, live on the screen.', enter: 'Open my CV', run: () => hooks.openPanel('profile') })
-      // Indoor pool (SE) with a stone deck.
-      box(4.6, 0.04, 5.8, std(0xd8d0c2, 0.7), 7.4, 3.8, 0, false)
-      const water = new THREE.MeshStandardMaterial({ color: 0x3f8fb8, emissive: 0x1d5f80, emissiveIntensity: 0.35, roughness: 0.05, metalness: 0.1 })
-      const pool = add(new THREE.PlaneGeometry(2.6, 4.6), water, 7.6, 0.06, 4.0)
+      // Indoor pool (SE): a teak deck, a travertine coping, a basin of aqua mosaic tiles with a lane stripe,
+      // clear water just under the coping (you see the tiled floor through it), an underwater light and a
+      // chrome ladder.
+      const teak = canvasTex(256, 256, (g) => {
+        g.fillStyle = '#8a5a34'; g.fillRect(0, 0, 256, 256)
+        for (let i = 0; i < 8; i++) { const y = i * 32; g.fillStyle = i % 2 ? '#94633b' : '#83552f'; g.fillRect(0, y, 256, 30); g.fillStyle = 'rgba(40,22,10,.55)'; g.fillRect(0, y + 30, 256, 2); g.fillStyle = 'rgba(255,220,170,.05)'; for (let k = 0; k < 6; k++) g.fillRect(0, y + 4 + k * 4, 256, 1) }
+      })
+      teak.wrapS = teak.wrapT = THREE.RepeatWrapping; teak.repeat.set(2.4, 3)
+      box(4.6, 0.04, 5.8, new THREE.MeshStandardMaterial({ map: teak, roughness: 0.62 }), 7.4, 3.8, 0, false)
+      const tiles = canvasTex(256, 256, (g) => {
+        g.fillStyle = '#d7eef2'; g.fillRect(0, 0, 256, 256)
+        for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const v = (x * 7 + y * 13) % 5; g.fillStyle = ['#7fcbd9', '#8fd3df', '#6fc0d0', '#9adbe4', '#86cfdc'][v]!; g.fillRect(x * 16 + 1, y * 16 + 1, 14, 14) }
+      })
+      tiles.wrapS = tiles.wrapT = THREE.RepeatWrapping; tiles.repeat.set(5, 9)
+      const tileMat = new THREE.MeshStandardMaterial({ map: tiles, roughness: 0.25 })
+      const basin = add(new THREE.PlaneGeometry(2.6, 4.6), tileMat, 7.6, 0.046, 4.0); basin.rotation.x = -Math.PI / 2; basin.castShadow = false; basin.receiveShadow = true
+      const lane = add(new THREE.PlaneGeometry(0.16, 3.9), std(0x1f4f6a, 0.3), 7.6, 0.048, 4.0); lane.rotation.x = -Math.PI / 2; lane.castShadow = false
+      for (const z of [2.25, 5.75]) { const t = add(new THREE.PlaneGeometry(0.6, 0.16), std(0x1f4f6a, 0.3), 7.6, 0.048, z); t.rotation.x = -Math.PI / 2; t.castShadow = false }
+      // Tiled side walls of the basin, then the coping over them.
+      for (const [w2, d2, x, z] of [[2.6, 0.02, 7.6, 1.71], [2.6, 0.02, 7.6, 6.29], [0.02, 4.6, 6.31, 4.0], [0.02, 4.6, 8.89, 4.0]] as const) box(w2, 0.09, d2, tileMat, x, z, 0.045, false)
+      const travertine = std(0xe9e1d2, 0.55)
+      box(3.04, 0.1, 0.22, travertine, 7.6, 1.59, 0.04, false); box(3.04, 0.1, 0.22, travertine, 7.6, 6.41, 0.04, false)
+      box(0.22, 0.1, 4.6, travertine, 6.19, 4.0, 0.04, false); box(0.22, 0.1, 4.6, travertine, 9.01, 4.0, 0.04, false)
+      const water = new THREE.MeshStandardMaterial({ color: 0x6fd0e0, emissive: 0x1d7f9f, emissiveIntensity: 0.12, roughness: 0.04, metalness: 0.05, transparent: true, opacity: 0.68, envMapIntensity: 1.3, depthWrite: false })
+      const pool = add(new THREE.PlaneGeometry(2.6, 4.6), water, 7.6, 0.118, 4.0)
       pool.rotation.x = -Math.PI / 2
       pool.castShadow = false
+      pool.renderOrder = 2
       animateWater(pool)
-      water.emissiveIntensity = 0.08
+      // Underwater light at the south wall, and a chrome ladder at the north end.
+      const glowLight = add(new THREE.CircleGeometry(0.11, 20), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xcff6ff, emissiveIntensity: 1.6 }), 7.6, 0.09, 6.27)
+      glowLight.castShadow = false
+      const chrome = std(0xd9dde2, 0.15, 1)
+      for (const x of [7.3, 7.9]) {
+        const rail = new THREE.CatmullRomCurve3([new THREE.Vector3(x, 0.14, 1.3), new THREE.Vector3(x, 0.72, 1.36), new THREE.Vector3(x, 0.8, 1.6), new THREE.Vector3(x, 0.5, 1.82), new THREE.Vector3(x, 0.05, 1.86)].map((v) => v.clone()))
+        const m = add(new THREE.TubeGeometry(rail, 20, 0.022, 8, false), chrome, 0, 0, 0)
+        m.castShadow = true
+      }
+      for (const y of [0.09]) box(0.6, 0.02, 0.08, chrome, 7.6, 1.84, y, false)
       // Slightly inside the water edge so the player can stand right at the rim on the narrow deck.
       obstacles.push({ kind: 'box', x: o.x + 7.6, z: o.z + 4.0, hx: 1.15, hz: 2.15 })
       seat('pool', 'Pool edge', 6.3, 4.0, Math.PI / 2, 0.1)

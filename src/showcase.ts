@@ -202,10 +202,12 @@ function jewel(g: THREE.Group, id: string): void {
     for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; face.add(mesh(new THREE.BoxGeometry(0.0011, i % 3 ? 0.002 : 0.0035, 0.0005), hand, Math.sin(a) * 0.0155, Math.cos(a) * 0.0155, 0.0061).rotateZ(-a)) }
     if (/chronograph/.test(pid)) for (const [x, y] of [[-0.008, -0.004], [0.008, -0.004], [0, -0.01]]) face.add(mesh(new THREE.TorusGeometry(0.0034, 0.0004, 6, 20), hand, x!, y!, 0.0062))
     face.add(mesh(new THREE.CylinderGeometry(0.0024, 0.0024, 0.004, 12).rotateZ(Math.PI / 2), metal, 0.0235, 0, 0))
-    const band = mesh(new THREE.TorusGeometry(0.026, 0.0045, 8, 40).scale(1, 1.25, 1.6), metal, 0, -0.004, -0.018)
-    band.rotation.x = Math.PI / 2.4
-    face.position.set(0, 0.035, 0); face.rotation.x = -0.25
-    g.add(band, face)
+    // Upright on its stand, facing you, the bracelet looping back behind the case like a watch on a cushion.
+    const band = mesh(new THREE.TorusGeometry(0.026, 0.0048, 10, 48).scale(1, 1.05, 1), metal, 0, 0.037, -0.024)
+    band.rotation.y = Math.PI / 2
+    const cushion = mesh(new THREE.CapsuleGeometry(0.013, 0.03, 6, 16).rotateZ(Math.PI / 2), std(0x2a2d31, 0.85), 0, 0.03, -0.024)
+    face.position.set(0, 0.037, 0.002); face.rotation.x = -0.08
+    g.add(cushion, band, face)
     return
   }
   if (/ring|band|signet|solitaire/.test(pid)) {
