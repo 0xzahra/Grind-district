@@ -29,6 +29,8 @@ import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
+import { languagePicker } from './i18n.ts'
+import { speak, stopSpeaking } from './speech.ts'
 import {
   BODIES,
   CHAIN_USD,
@@ -200,6 +202,12 @@ function garment(slot: string, label: string, c: string): string {
   return svg(`<circle cx="20" cy="20" r="11" fill="${c}" ${st}/>`)
 }
 
+// Lesson voice: on unless the player paused it (then it stays paused until they press Play).
+const LESSON_VOICE = 'gd.lessonVoice'
+const lessonVoiceOn = () => { try { return localStorage.getItem(LESSON_VOICE) !== 'off' } catch { return true } }
+const setLessonVoice = (on: boolean) => { try { localStorage.setItem(LESSON_VOICE, on ? 'on' : 'off') } catch { /* session only */ } }
+const ZAHRA = { gender: 'f', seed: 3, voice: 'zahra' } as const
+
 export function mountUi(
   sheet: HTMLElement,
   toastNode: HTMLElement,
@@ -295,6 +303,7 @@ export function mountUi(
   const close = () => {
     const was = current
     stop()
+    stopSpeaking()
     current = null
     sheet.hidden = true
     sheet.replaceChildren()
@@ -542,7 +551,13 @@ export function mountUi(
           if (i > 0) nav.append(button('← Back', 'ghost', () => paint(i - 1)))
           if (i < cards.length - 1) nav.append(button(`Next · ${i + 1}/${cards.length}`, 'primary', () => paint(i + 1)))
           else nav.append(button(passed ? 'Review the exercises' : `Quick check · ${total}`, 'primary', () => showExercise(0)))
-          cardBox.replaceChildren(dots, para(cards[i] ?? '', 'bite-say'), nav)
+          const voice = button(lessonVoiceOn() ? '⏸ Pause voice' : '▶ Play voice', 'ghost lx-voice', () => {
+            const on = !lessonVoiceOn(); setLessonVoice(on)
+            voice.textContent = on ? '⏸ Pause voice' : '▶ Play voice'
+            if (on) speak(cards[i] ?? '', ZAHRA); else stopSpeaking()
+          })
+          cardBox.replaceChildren(dots, voice, para(cards[i] ?? '', 'bite-say'), nav)
+          if (lessonVoiceOn()) speak(cards[i] ?? '', ZAHRA); else stopSpeaking()
           if (i === cards.length - 1 && sources) cardBox.append(para(sources, 'muted'))
         }
         paint(0)
@@ -553,6 +568,7 @@ export function mountUi(
       const showExercise = (questionIndex: number) => {
         const question = course.questions[questionIndex]
         if (!question) return
+        stopSpeaking()
         const wrap = stack(button('← Back to the lesson', 'ghost', showLesson))
         const head = document.createElement('div')
         head.className = 'ex-head'
@@ -1076,6 +1092,8 @@ export function mountUi(
       para('GN time', 'kicker'),
       para('Choose your GN time. The city stays open in all three.', 'muted'),
       times,
+      para('Language', 'kicker'),
+      languagePicker(),
       para('Theme', 'kicker'),
       para('Dark or light panels, menu and buttons. The city keeps its own time of day.', 'muted'),
       theme,

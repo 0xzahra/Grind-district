@@ -12,8 +12,12 @@ import { loadSave } from './state.ts'
 import { startTracking } from './track.ts'
 import { watchUpdates } from './update.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
+import { languagePicker, startI18n } from './i18n.ts'
 
 watchUpdates()
+// Languages: the picker sits at the top of the title card (Settings has the same switch).
+document.getElementById('menu-panel')?.prepend(languagePicker('lang-pick lang-title'))
+startI18n()
 // The theme starts with the first tap on the title screen and carries on into the city.
 resumeMusicOnFirstTap()
 

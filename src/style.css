@@ -2893,3 +2893,17 @@ html body .mentor.speaking .mentor-face .mentor-wave { display: block; position:
 @keyframes zahra-talk { 0%, 100% { box-shadow: 0 0 0 0 rgba(26, 243, 143, 0.0), 0 4px 12px rgba(0, 0, 0, 0.35) } 50% { box-shadow: 0 0 0 5px rgba(26, 243, 143, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35) } }
 @keyframes zahra-wave { 0% { transform: scaleY(0.75) } 100% { transform: scaleY(1.15) } }
 @media (prefers-reduced-motion: reduce) { html body .mentor.speaking .mentor-face.has-photo, html body .mentor.speaking .mentor-face .mentor-wave { animation: none; } }
+
+/* Language picker: a raised pill with a globe (title card and Settings). */
+html body .lang-pick { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 12px; border-radius: 999px; background: var(--key-dark); box-shadow: var(--key-dark-sh); border: 1px solid rgba(0, 0, 0, 0.7); color: #f6f1e6; font-size: 14px; font-weight: 600; cursor: pointer; }
+html body .lang-pick select { appearance: none; -webkit-appearance: none; background: transparent; border: 0; color: inherit; font: inherit; padding: 2px 18px 2px 0; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 6px top 55%, right 1px top 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+html body .lang-pick select option { color: #111; }
+html body .lang-pick.lang-title { display: flex; width: max-content; margin: 0 auto 10px; font-size: 13px; padding: 5px 12px; }
+html body #menu-panel { position: relative; }
+html[data-ui='light'] body .lang-pick { background: var(--key-ivory); color: #2a261f; border-color: rgba(60, 50, 30, 0.35); box-shadow: inset 0 1px 0 #fff, 0 3px 0 #b2aa99, 0 8px 16px rgba(30, 24, 14, 0.22); }
+/* Arabic: panels, cards and the title card read right to left (the 3D view and HUD keep their places). */
+html[data-lang='ar'] :is(#sheet .sheet-card, #nav.cc .cc-sheet, .mentor, #menu-panel, .login-dlg, .toast) { direction: rtl; }
+html body .lx-voice { align-self: flex-start; margin: 2px 0 6px; padding: 7px 14px !important; font-size: 13px !important; border-radius: 999px !important; }
+html body .lang-pick { width: max-content; align-self: flex-start; }
+/* Mixed text in Arabic mode: each line takes the direction of its own words (English lesson text stays left to right). */
+html[data-lang='ar'] :is(#sheet .sheet-card, #nav.cc .cc-sheet, .mentor, #menu-panel, .login-dlg, .toast) :is(p, li, span, strong, small, em, h1, h2, h3, h4, label, button, a, div) { unicode-bidi: plaintext; text-align: start; }
