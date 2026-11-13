@@ -2934,3 +2934,10 @@ html body .cal-list time { font-size: 13px; opacity: 0.75; }
 @keyframes confetti-fall { 0% { transform: translate3d(0, 0, 0) rotate(0) } 100% { transform: translate3d(var(--x), 110vh, 0) rotate(var(--r)); opacity: 0.85 } }
 html body .lang-pick select { border: 0 !important; box-shadow: none !important; background-color: transparent !important; outline: none; min-height: 0 !important; height: auto !important; color: inherit !important; }
 html body .agent-prompt, html body [data-no-i18n] pre { direction: ltr !important; unicode-bidi: isolate !important; text-align: left !important; }
+
+/* Course pictures: a real photo or diagram at the top of each lesson, credited underneath. */
+html body .lx-photo { margin: 0 0 6px; border-radius: 16px; overflow: hidden; background: #0f1412; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); }
+html body .lx-photo img { display: block; width: 100%; height: auto; max-height: 240px; object-fit: cover; aspect-ratio: 16 / 10; }
+html body .lx-photo figcaption { padding: 5px 10px 6px; font-size: 10.5px; line-height: 1.3; color: rgba(255, 255, 255, 0.62); background: rgba(0, 0, 0, 0.35); }
+html body .lx-photo figcaption a { color: inherit; text-decoration: underline; }
+html[data-ui='light'] body .lx-photo figcaption { color: #6b655a; background: #efeae0; }

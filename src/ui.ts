@@ -21,7 +21,7 @@ import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
 import { biteCards } from './mentor.ts'
-import { courseArt } from './courseArt.ts'
+import { courseVisual } from './courseArt.ts'
 import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
@@ -518,7 +518,7 @@ export function mountUi(
       const course = COURSES.find((item) => item.id === id)
       if (!course) return
       const lock = lockReason(id)
-      if (lock) { const w = worldOf(id); body.replaceChildren(stack(button('← Your worlds', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'), para(`🔒 ${lock}.${w ? ` This mission is in World ${w.n}: ${w.title}.` : ''}`))); return }
+      if (lock) { const w = worldOf(id); body.replaceChildren(stack(button('← Your worlds', 'ghost', showList), courseVisual(id), para(SKILL_META[id].title, 'kicker'), para(`🔒 ${lock}.${w ? ` This mission is in World ${w.n}: ${w.title}.` : ''}`))); return }
       const save = getSave()
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
@@ -535,7 +535,7 @@ export function mountUi(
       // Each view replaces the whole body and scrolls the sheet to the top, so an exercise never sits on top of lesson text.
       const toTop = () => { let n: HTMLElement | null = body; while (n) { if (n.scrollHeight > n.clientHeight + 1) n.scrollTop = 0; n = n.parentElement } }
       const showLesson = () => {
-        const wrap = stack(button('← Your path', 'ghost', showList), courseArt(id, 'lx-hero'), para(SKILL_META[id].title, 'kicker'))
+        const wrap = stack(button('← Your path', 'ghost', showList), courseVisual(id), para(SKILL_META[id].title, 'kicker'))
         if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
         if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
         if (passed && nearPassportOn()) wrap.append(nearPassportPanel(id, passed))

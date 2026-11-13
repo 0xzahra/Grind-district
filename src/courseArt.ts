@@ -1,5 +1,6 @@
 // Original, tiny inline SVG illustrations per course topic (no images to download). Calm palette, no glow.
 import type { SkillId } from './logic.ts'
+import { COURSE_PHOTOS } from './coursePhotos.ts'
 type Art = { bg: [string, string]; m: string }
 const coin = (x: number, y: number, r: number, c = '#e9c77b') => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x}" cy="${y}" r="${r * 0.68}" fill="none" stroke="#9c7a35" stroke-width="2"/>`
 const bars = (c: string) => [14, 26, 20, 36, 30, 44].map((hh, i) => `<rect x="${18 + i * 14}" y="${70 - hh}" width="9" height="${hh}" rx="2" fill="${c}" opacity="${0.55 + i * 0.07}"/>`).join('')
@@ -65,4 +66,19 @@ export function courseArt(id: SkillId, cls = 'lx-art'): HTMLElement {
   const gid = `g-${id}-${cls}`
   w.innerHTML = `<svg viewBox="0 0 120 80" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a.bg[0]}"/><stop offset="1" stop-color="${a.bg[1]}"/></linearGradient></defs><rect width="120" height="80" fill="url(#${gid})"/><circle cx="104" cy="10" r="26" fill="#fff" opacity=".06"/><circle cx="12" cy="78" r="30" fill="#000" opacity=".1"/>${a.m}</svg>`
   return w
+}
+
+/** A real photo or diagram for the course (Wikimedia Commons, credited under it); the drawn art when there is none. */
+export function courseVisual(id: SkillId, cls = 'lx-hero'): HTMLElement {
+  const p = COURSE_PHOTOS[id]
+  if (!p) return courseArt(id, cls)
+  const fig = document.createElement('figure'); fig.className = 'lx-photo'
+  const img = document.createElement('img')
+  img.src = `/img/courses/${id}.webp`; img.alt = p.alt; img.loading = 'lazy'; img.decoding = 'async'
+  img.onerror = () => fig.replaceWith(courseArt(id, cls))
+  const cap = document.createElement('figcaption'); cap.dataset.noI18n = ''
+  const a = document.createElement('a'); a.href = p.page; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Wikimedia Commons'
+  cap.append(`${p.author ? `${p.author} · ` : ''}${p.license} · `, a)
+  fig.append(img, cap)
+  return fig
 }
