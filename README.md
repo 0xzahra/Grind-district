@@ -42,6 +42,11 @@ Screenshots are from the live build on a 390 × 844 phone screen (the city view 
 - **CV, certificates and portfolio.** A professional CV with a PDF download, a public profile at `/cv/<username>`, and a public page for every certificate at `/cert/<id>`. Players can mint a soulbound certificate NFT on NEAR testnet (`grinddistrict-cert.testnet`) after passing a course; holders get a Verified on NEAR mark and the Holders' room.
 - **Practice trading.** Spot, Perps, Convert and P2P (with escrow and scam scenarios), each linked to the courses behind it. Simulated prices; nothing touches a real exchange. Not financial advice.
 - **Messages.** Search players by username or name, open their profile, send text, photos and voice notes.
+- **Alerts.** Phone and browser push for new messages (Settings > Phone alerts), and Gmail email alerts for Google and email sign-ins once `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set.
+- **14 languages.** English (US and UK), Arabic (right to left), Chinese, Spanish, Hausa, Swahili, Japanese, Korean, Turkish, French, Portuguese, Hindi and Yoruba, picked on the title screen or in Settings.
+- **Lessons you can hear and see.** Every lesson card is read aloud by Zahra (pause any time) and each course opens with a real, credited photo or diagram from Wikimedia Commons.
+- **Birthdays and holidays.** Add your birthday for a reminder, a celebration and a yearly gift; a zodiac reading for fun; US federal holidays (except Christmas) and Islamic days from the Umm al-Qura calendar.
+- **A city by the sea.** A beach with palms, umbrellas and open sea on the north edge.
 - **Boutique, homes, gym, masjid, church, café, conference centre.** In-game currency only. A top-up in USDC or ETH on Base adds to the in-game balance.
 - **Sign-in:** Google, 𝕏, email, an agent prompt or a NEAR wallet. Progress saves to your account automatically.
 
