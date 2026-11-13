@@ -87,9 +87,8 @@ Screenshots are from the game on a 390 × 844 phone screen (the city, street, bo
 
 **Disclosure: an existing project with new work in the window.** Grind District existed before the NEAR hackathon. The repository history starts on 31 Oct 2026, with 116 commits before 1 Nov 2026 00:00 UTC; those are the baseline. Since the hackathon opened there have been 188 more (about 32,000 lines added, by `git log --since`).
 
-- **Baseline:** tag [`pre-hackathon`](https://github.com/0xzahra/Grind-district/tree/pre-hackathon), commit `39a1707`, the last commit before 1 Nov 2026 00:00 UTC.
-- **Submission:** tag [`hackathon-submission`](https://github.com/0xzahra/Grind-district/tree/hackathon-submission).
-- **Everything built in the window, as one diff:** [pre-hackathon...hackathon-submission](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...hackathon-submission).
+- **Baseline:** commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39a1707838b957b8542f9df282e8488a8cee575c), the last commit before 1 Nov 2026 00:00 UTC. Everything up to it came before the hackathon.
+- **Everything built in the window, as one diff:** [`39a1707...main`](https://github.com/0xzahra/Grind-district/compare/39a1707838b957b8542f9df282e8488a8cee575c...main).
 - **Pre-existing product on another chain: yes.** The in-game balance top-up on Base (USDC or ETH, Solidity in `contracts/`) was built before 1 Nov. It is not part of the NEAR entry.
 - **All of the NEAR work was built in the window:** NEAR wallet sign-in, the Skill Passport contract, the certificate NFT contract, and what the certificates unlock in the game.
 
