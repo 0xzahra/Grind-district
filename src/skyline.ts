@@ -64,7 +64,9 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   const rand = () => ((rnd = (rnd * 16807) % 2147483647) / 2147483647)
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2 + rand() * 0.05
-    const r = 104 + rand() * 36
+    // North of the city is the beach and the sea: those towers stand across the bay instead.
+    const rr = rand(), north = Math.sin(a) < -0.5
+    const r = north ? 330 + rr * 120 : 104 + rr * 36
     const x = Math.cos(a) * r
     const z = Math.sin(a) * r
     const w = 8 + rand() * 10

@@ -54,6 +54,7 @@ import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
 import { createEstate } from './estate.ts'
+import { createBeach } from './beach.ts'
 import './style.css'
 import './glass.css'
 import { createPortrait } from './portrait.ts'
@@ -245,6 +246,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
 const apiAgents = createRemoteAgents(scene)
   const physSky = createPhysicalSky(scene)
   createEstate(scene, { graphics: getSave().graphics, obstacles: world.obstacles, hotspots: world.hotspots, toast: (m) => ui.toast(m) })
+  const beach = createBeach(scene, getSave().graphics)
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
@@ -1463,6 +1465,7 @@ const apiAgents = createRemoteAgents(scene)
     world.tick(elapsed, focus.set(pos.x, 0, pos.z))
     watch.tick(elapsed, focus, nightLevel)
     skyline.tick(elapsed, nightLevel)
+    beach.tick(dt)
     ambient.tick(elapsed, focus, nightLevel)
     if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
     try { setAmbientPlace(Boolean(interiors.inside), Math.hypot(pos.x, pos.z)) } catch { /* */ }
