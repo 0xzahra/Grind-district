@@ -53,6 +53,7 @@ import { createSeating, plazaSeats, seatSpot, workoutSpots, type Seat } from './
 import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
+import { startNeeds, tickNeeds, socialised, paintNeedsCard, renderNeeds, onNeeds } from './needs.ts'
 import { createEstate } from './estate.ts'
 import { createBeach } from './beach.ts'
 import './style.css'
@@ -234,6 +235,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     greetToast(line)
     speak(line, { gender: getSave().body === 'zuri' ? 'f' : 'm', seed: 1 })
     greetShown = 0; greetCool = 20; greetBtn.hidden = true
+    socialised(10)
   })
   let greetToast: (m: string) => void = () => {}
   let greetShown = 0
@@ -649,6 +651,7 @@ const apiAgents = createRemoteAgents(scene)
   })
   const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
   initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
+  startNeeds((m) => ui.toast(m))
   // startMoments ticks immediately when a moment is live; interiors is declared further down, so guard the TDZ.
   startMoments(() => { try { return interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z } } catch { return { x: pos.x, z: pos.z } } })
   subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })
@@ -678,7 +681,7 @@ const apiAgents = createRemoteAgents(scene)
     document.body.classList.toggle('rail-shut', !open)
     nav.inert = !open // keyboard and screen readers skip the shut menu too
     railToggle.setAttribute('aria-expanded', String(open))
-    if (open) paintStatus()
+    if (open) { paintStatus(); paintNeedsCard(must('#cc-needs')) }
     else closeSheet()
   }
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
@@ -833,7 +836,7 @@ const apiAgents = createRemoteAgents(scene)
     const hit = target.closest('button, a')
     // Buttons that open a sheet inside the control centre (Career, Feed, ...) must not close it: closing runs
     // closeSheet, so the sheet flashed open then vanished. Only close when the tap left no sheet open.
-    if (!hit || ['cc-keys', 'cc-bell', 'cc-status', 'cc-msg', 'cc-career', 'cc-feed'].includes(hit.id)) return
+    if (!hit || ['cc-keys', 'cc-bell', 'cc-status', 'cc-msg', 'cc-career', 'cc-feed', 'cc-needs'].includes(hit.id)) return
     window.setTimeout(() => { if (ccSheet.hidden) setCC(false) }, 0)
   })
   window.addEventListener('keydown', (event) => {
@@ -1079,6 +1082,7 @@ const apiAgents = createRemoteAgents(scene)
   chat.addEventListener('submit', (event) => {
     event.preventDefault()
     net.setMe(identity())
+    if (chatInput.value.trim()) socialised(5)
     net.say(chatInput.value)
     chatInput.value = ''
     chatInput.blur()
@@ -1130,6 +1134,8 @@ const apiAgents = createRemoteAgents(scene)
     enterRoom(spot)
   }
   must('#go-home').addEventListener('click', goHome)
+  must('#cc-needs').addEventListener('click', () => openSheet('Needs & mood', () => renderNeeds(sheetBody, goHome)))
+  onNeeds(() => { if (!document.body.classList.contains('rail-shut')) paintNeedsCard(must('#cc-needs')); if (!ccSheet.hidden && sheetBody.querySelector('.nd-mood')) renderNeeds(sheetBody, goHome) })
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Home' && !ui.isOpen()) {
       event.preventDefault()
@@ -1812,6 +1818,7 @@ const apiAgents = createRemoteAgents(scene)
       return
     }
     elapsed += dt
+    if (revealed) tickNeeds(dt)
     try {
       update(dt)
       post.frame(dt, elapsed)

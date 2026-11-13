@@ -2941,3 +2941,29 @@ html body .lx-photo img { display: block; width: 100%; height: auto; max-height:
 html body .lx-photo figcaption { padding: 5px 10px 6px; font-size: 10.5px; line-height: 1.3; color: rgba(255, 255, 255, 0.62); background: rgba(0, 0, 0, 0.35); }
 html body .lx-photo figcaption a { color: inherit; text-decoration: underline; }
 html[data-ui='light'] body .lx-photo figcaption { color: #6b655a; background: #efeae0; }
+
+/* ===== Needs and mood (control centre card + sheet) ===== */
+html body #nav.cc #cc-needs { order: 3; display: flex; align-items: center; gap: 14px; padding: 12px 16px; color: #f5f5f7; text-align: left; font: inherit; cursor: pointer; }
+#cc-needs .nd-head { flex: 0 0 auto; min-width: 92px; }
+#cc-needs .nd-head strong { display: block; font: 600 16px/1.2 -apple-system, Inter, system-ui, sans-serif; }
+#cc-needs .nd-head small { display: block; opacity: .72; font-size: 11px; line-height: 1.3; max-width: 120px; }
+#cc-needs[data-mood="inspired"] .nd-head strong { color: #3ee8a0; }
+#cc-needs[data-mood="low"] .nd-head strong { color: #f2b45a; }
+#cc-needs .nd-bars { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; min-width: 0; }
+.nd-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; min-width: 0; }
+.nd-name { font-size: 10.5px; font-weight: 600; letter-spacing: -0.01em; opacity: .85; white-space: nowrap; }
+.nd-track { position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; min-width: 28px; }
+.nd-track i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: linear-gradient(90deg, #2fd28c, #6ff0b8); transition: width .5s ease; }
+.nd-row.mid .nd-track i { background: linear-gradient(90deg, #d9b26a, #f0cf86); }
+.nd-row.low .nd-track i { background: linear-gradient(90deg, #e0704f, #f2a067); }
+.nd-val { font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; min-width: 22px; text-align: right; }
+.nd-mood { padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,.08); margin-bottom: 12px; }
+.nd-mood strong { display: block; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
+.nd-mood p { margin: 4px 0 0; font-size: 13px; line-height: 1.45; opacity: .82; }
+.nd-mood.inspired strong { color: #3ee8a0; }
+.nd-mood.low strong { color: #f2b45a; }
+.nd-list { display: grid; gap: 12px; margin-bottom: 10px; }
+.nd-item .nd-row { grid-template-columns: 70px 1fr 30px; }
+.nd-item .nd-name { font-size: 13px; }
+.nd-item .nd-track { height: 7px; }
+.nd-item p { margin: 4px 0 0; font-size: 12px; }

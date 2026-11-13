@@ -1,3 +1,4 @@
+import { usedAtHome } from './needs.ts'
 import * as THREE from 'three'
 import { ownedHouseItems } from './career.ts'
 import { floorFinish, glossFloor, wallFinish, type FloorKind } from './surfaces.ts'
@@ -176,7 +177,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
     const box = (bw: number, bh: number, bd: number, mat: THREE.Material, x: number, z: number, y = 0, block = true, ry = 0) =>
       add(new THREE.BoxGeometry(bw, bh, bd), mat, x, y + bh / 2, z, block, ry)
-    const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }) => uses.push({ ...u, x: o.x + u.x, z: o.z + u.z })
+    // Every interaction also tells needs.ts (the bed restores energy, the cooker hunger, the shower hygiene...).
+    const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }) => uses.push({ ...u, x: o.x + u.x, z: o.z + u.z, run: () => { u.run(); usedAtHome(u.id) } })
     // Seats: room-local position, facing yaw, seat-top height. Tap or E sits; any move stands.
     const seat = (sid: string, title: string, x: number, z: number, yaw: number, y: number) => {
       const sp = seatSpot(`${id}-seat-${sid}`, title, { x: o.x + x, z: o.z + z, yaw, y }, hooks.sit, 1.3)
