@@ -51,9 +51,17 @@ export function stocks(): Promise<Stock[]> {
 }
 
 async function chain() {
-  const [{ createPublicClient, http }, { base }] = await Promise.all([import('viem'), import('viem/chains')])
-  return createPublicClient({ chain: base, transport: http(RPC, { retryCount: 2 }) })
+  const { createPublicClient, http } = await import('viem')
+  return createPublicClient({ chain: BASE, transport: http(RPC, { retryCount: 2 }) })
 }
+// Base mainnet, defined here: importing viem/chains pulls in every chain viem knows (a 559 KB download).
+const BASE = {
+  id: 8453,
+  name: 'Base',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: [RPC] } },
+  contracts: { multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' as const, blockCreated: 5022 } },
+} as const
 const BALANCE = [{ type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] }] as const
 
 /** Shares of each listed stock this address holds, read from Base (balance × multiplier), largest first. */

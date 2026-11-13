@@ -58,9 +58,17 @@ function startTape(): void {
 const series = (a: Asset): number[] => { const s = getSave(); return a.desk === 'unit' ? s.unitHist : a.desk === 'meme' ? s.memeHist : tape.get(a.id) ?? [] }
 const change = (a: Asset): number => { const s = series(a); const first = s[0] ?? priceOf(a); return first > 0 ? (priceOf(a) / first - 1) * 100 : 0 }
 
+// Chart sizes come from a ResizeObserver, so a repaint never forces a layout to read the canvas size.
+const chartSize = new WeakMap<HTMLCanvasElement, { w: number; h: number }>()
+const sizer = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
+  for (const e of entries) { const r = e.contentRect; if (r.width > 0) chartSize.set(e.target as HTMLCanvasElement, { w: r.width, h: r.height }) }
+}) : null
 function drawChart(cv: HTMLCanvasElement, data: number[], up: boolean): void {
+  if (!cv.isConnected) return
   const dpr = Math.min(window.devicePixelRatio || 1, 3)
-  const w = cv.clientWidth || 320, hgt = cv.clientHeight || 132
+  let size = chartSize.get(cv)
+  if (!size) { size = { w: cv.clientWidth || 320, h: cv.clientHeight || 132 }; chartSize.set(cv, size); sizer?.observe(cv) }
+  const w = size.w, hgt = size.h
   if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(hgt * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(hgt * dpr) }
   const g = cv.getContext('2d')
   if (!g || data.length < 2) return

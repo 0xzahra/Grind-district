@@ -3305,3 +3305,14 @@ html body #sheet :is(.feat, .mk) { margin-top: 14px !important; }
 .nameplate .club-pin { display: inline-block; margin-top: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; color: #2a2108; background: linear-gradient(135deg, #f1dc9c, #c9a24a); }
 html[data-ui='light'] .sheet-card .club { --line: rgba(20, 24, 30, 0.12); --panel: rgba(20, 24, 30, 0.04); }
 html[data-ui='light'] .sheet-card .club-card strong { color: #8a6a1c; }
+
+/* Speed: single-column grids get an explicit minmax(0, 1fr) track. Left on the implicit auto track, every
+   nested grid measured its whole subtree again for min- and max-content, so a forced layout of the Trade
+   sheet took 1.5 s (7 s on a slow phone). With a fixed track each child is laid out once at the column width:
+   about 2 ms. :where() keeps this at zero specificity, so any rule that sets its own columns still wins. */
+:where(.stack, .glass, .profile-hero, .cert-list, .field, .cc-list, .wallet-body, .login-options, .login-providers,
+  .creator-controls, .quest-main, .wx-pane, .nd-list, .gp-ladder, .feat, .mk, .gvt, .ldg, .ldg-rows, .club, .club-rows,
+  .club-brief, .cal-list, .cal-card, .wal-assets, .wal-ranks, .xch, .xch-body, .xch-pane, .xch-quote, .xch-ticket,
+  .xch-row, .xch-list, .xch-book, .xch-pos, .xch-box, .xch-learn, .xch-steps, .xch-actions) {
+  grid-template-columns: minmax(0, 1fr);
+}

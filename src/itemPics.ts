@@ -67,10 +67,33 @@ export function setShopRenderer(renderer: THREE.WebGLRenderer, environment: () =
   shots.clear()
 }
 
-function photo(id: string): string | null {
-  if (!shoot) return null
-  if (!shots.has(id)) { try { shots.set(id, shoot(id)) } catch { shots.set(id, null) } }
-  return shots.get(id) ?? null
+// Photos are taken in the background, one per frame after the panel has painted, so a shop opens at once
+// with its drawn placeholders and each photo swaps in as it is ready (it used to take every photo before the
+// panel could appear: seconds on a phone). Taken photos stay cached for the session.
+const waiting = new Map<string, Array<(url: string | null) => void>>()
+const line: string[] = []
+let pumping = false
+function pump(): void {
+  if (pumping) return
+  pumping = true
+  const next = () => {
+    const id = line.shift()
+    if (!id) { pumping = false; return }
+    let url: string | null = null
+    if (shoot) { try { url = shoot(id) } catch { url = null } }
+    shots.set(id, url)
+    for (const f of waiting.get(id) ?? []) f(url)
+    waiting.delete(id)
+    requestAnimationFrame(() => window.setTimeout(next, 0))
+  }
+  requestAnimationFrame(() => window.setTimeout(next, 0))
+}
+function photoLater(id: string, done: (url: string | null) => void): void {
+  const list = waiting.get(id)
+  if (list) { list.push(done); return }
+  waiting.set(id, [done])
+  line.push(id)
+  pump()
 }
 
 // Fallback: inline SVG illustrations (no network, crisp on phones).
@@ -104,11 +127,18 @@ const PICS: Record<string, string> = {
 /** A shop picture for `id`. With `label`, a small name tag sits on the picture like a showroom plaque. */
 export function itemPic(id: string, label?: string): HTMLElement {
   const d = document.createElement('div'); d.className = 'shop-pic'; d.setAttribute('role', 'img'); d.setAttribute('aria-label', label ?? id)
-  const url = photo(id)
-  if (url) {
+  const put = (url: string) => {
     const img = document.createElement('img'); img.src = url; img.alt = ''; img.decoding = 'async'
-    d.classList.add('shop-pic-photo'); d.append(img)
-  } else d.innerHTML = PICS[id] ?? S('')
+    d.classList.add('shop-pic-photo')
+    d.querySelector(':scope > svg')?.remove()
+    d.prepend(img)
+  }
+  const have = shots.get(id)
+  if (have) put(have)
+  else {
+    d.innerHTML = PICS[id] ?? S('')
+    if (shoot && !shots.has(id)) photoLater(id, (url) => { if (url) put(url) })
+  }
   if (label) { const tag = document.createElement('span'); tag.className = 'shop-tag'; tag.textContent = label; d.append(tag) }
   return d
 }

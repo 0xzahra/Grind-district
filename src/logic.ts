@@ -373,23 +373,27 @@ export function seasonLabel(season: Season): string {
   return season === 'bull' ? 'Bull' : 'Bear'
 }
 
+// One formatter for the whole session: building an Intl.DateTimeFormat is slow, and this runs in loops.
+let lagosFmt: Intl.DateTimeFormat | null = null
 export function lagosDay(now: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
+  lagosFmt ??= new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Lagos',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(now)
+  })
+  return lagosFmt.format(now)
 }
 
+let stampFmt: Intl.DateTimeFormat | null = null
 export function lagosStamp(ts: number): string {
-  const date = new Intl.DateTimeFormat('en-GB', {
+  stampFmt ??= new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Africa/Lagos',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(ts))
-  return date
+  })
+  return stampFmt.format(new Date(ts))
 }
 
 export function dayDiff(earlier: string, later: string): number {
@@ -402,9 +406,11 @@ export function cents(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+let moneyFmt: Intl.NumberFormat | null = null
 export function money(value: number): string {
   const sign = value < 0 ? '-' : ''
-  return `${sign}$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  moneyFmt ??= new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `${sign}$${moneyFmt.format(Math.abs(value))}`
 }
 
 /** Holding quantity for display (not dollars). Up to 6 dp, trim trailing zeros. */

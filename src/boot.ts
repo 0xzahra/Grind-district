@@ -59,6 +59,7 @@ function revealCity() {
 async function begin() {
   if (opening) return
   opening = true
+  performance.mark('gd:enter')
   play.disabled = true
   play.textContent = 'Opening the district'
   menuNote.textContent = ''
@@ -66,6 +67,7 @@ async function begin() {
   stopPreview = () => {}
   // Two frames so Mac Safari frees the title-preview GL context before the city canvas asks for one.
   await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+  performance.mark('gd:frames')
 
   let shown = false
   let attempts = 0
@@ -121,7 +123,9 @@ async function begin() {
       import('./assets.ts'),
       import('./main.ts'),
     ])
+    performance.mark('gd:imports')
     prepareAssets()
+    performance.mark('gd:assets')
     await city.startCity(reveal, (error) => { void flatFallback(error) })
     window.clearTimeout(watchdog)
   } catch (error) {

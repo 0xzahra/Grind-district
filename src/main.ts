@@ -151,6 +151,7 @@ function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
 let abandoned = false
 
 export async function startCity(onReveal: () => void, onFail: (error: unknown) => void = () => {}) {
+  performance.mark('gd:start-fn')
   const canvas = must<HTMLCanvasElement>('#view')
   const boot = must<HTMLDivElement>('#boot')
   must<HTMLParagraphElement>('#boot-text')
@@ -1892,6 +1893,7 @@ const apiAgents = createRemoteAgents(scene)
     if (revealed) tickNeeds(dt)
     try {
       update(dt)
+      if (!revealed) performance.mark('gd:first-update')
       post.frame(dt, elapsed)
       post.render()
       if (snapNext) { snapNext = false; shotBtn?.click() }

@@ -132,6 +132,9 @@ export type Ui = {
   refresh: () => void
 }
 
+// A transparent pixel: holds an image's place (no alt-text flash) until its real picture is taken.
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+
 function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
   const node = document.createElement('button')
   node.type = 'button'
@@ -341,12 +344,13 @@ export function mountUi(
     const save = getSave()
     const hero = document.createElement('div')
     hero.className = 'profile-hero'
-    const shot = hooks.portrait?.() ?? null
-    if (shot) {
+    // The full-body portrait is taken a frame after the profile paints, so the panel opens at once.
+    if (hooks.portrait) {
       const img = document.createElement('img')
-      img.src = shot
+      img.src = BLANK_IMG
       img.alt = `${save.name}, full body`
       hero.append(img)
+      requestAnimationFrame(() => window.setTimeout(() => { if (!img.isConnected) return; const s = hooks.portrait?.(); if (s) img.src = s; else img.remove() }, 0))
       window.setTimeout(() => { if (!img.isConnected) return; const next = hooks.portrait?.(); if (next) img.src = next }, 900)
     }
     // Nameplate under the portrait wears the equipped season frame (slate, brass, gold).
@@ -677,10 +681,11 @@ export function mountUi(
   const renderBoutique = (): HTMLElement => {
     const save = getSave()
     const wrap = stack(para('Everyday clothes are free. The Runway collection and fine jewellery are premium, paid from your in-game balance. Tap a piece to wear it.', 'muted'))
-    { // Live outfit preview: a fresh portrait of your own avatar after every change.
-      const shot = hooks.portrait?.() ?? null
-      if (shot) {
-        const img = document.createElement('img'); img.src = shot; img.alt = 'Your current outfit'; img.className = 'outfit-preview'; wrap.append(img)
+    { // Live outfit preview: a fresh portrait of your own avatar after every change. Taken a frame after the
+      // panel paints, so the Boutique opens at once.
+      if (hooks.portrait) {
+        const img = document.createElement('img'); img.src = BLANK_IMG; img.alt = 'Your current outfit'; img.className = 'outfit-preview'; wrap.append(img)
+        requestAnimationFrame(() => window.setTimeout(() => { if (!img.isConnected) return; const s = hooks.portrait?.(); if (s) img.src = s; else img.remove() }, 0))
         // A new body or outfit swaps in its real model a moment later; retake the picture then, so the
         // preview never shows the placeholder body.
         const retake = () => { if (!img.isConnected) return; const next = hooks.portrait?.(); if (next) img.src = next }
@@ -1583,7 +1588,8 @@ export function mountUi(
     sheet.replaceChildren(render(panel))
     if (previous !== panel) {
       const closeButton = sheet.querySelector('button')
-      if (closeButton instanceof HTMLElement) closeButton.focus()
+      // preventScroll: focusing must not force a scroll-into-view layout while the panel is still settling.
+      if (closeButton instanceof HTMLElement) closeButton.focus({ preventScroll: true })
     }
     sheet.scrollTop = 0
   }
