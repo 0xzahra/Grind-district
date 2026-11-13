@@ -305,8 +305,47 @@ async function poll(): Promise<void> {
   } finally { polling = false }
 }
 
+// ---------- Alerts outside the game: push to this device, and email ----------
+const PUSH = 'gd.push.v1'
+export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+export const pushOn = () => { try { return localStorage.getItem(PUSH) === 'on' && Notification.permission === 'granted' } catch { return false } }
+const b64ToBytes = (s: string) => { const p = s.replace(/-/g, '+').replace(/_/g, '/'); const raw = atob(p + '='.repeat((4 - (p.length % 4)) % 4)); return Uint8Array.from(raw, (ch) => ch.charCodeAt(0)) }
+/** Turn message alerts on this device on or off. Returns a line to show the player. */
+export async function setPush(on: boolean): Promise<string> {
+  if (!pushSupported()) return 'This browser cannot show alerts. On iPhone, add the game to your Home Screen first.'
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js')
+    if (!on) {
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) { await api('push-sub', { post: { sub: sub.toJSON(), on: false } }); await sub.unsubscribe() }
+      localStorage.setItem(PUSH, 'off')
+      return 'Phone alerts are off.'
+    }
+    if ((await Notification.requestPermission()) !== 'granted') return 'Alerts are blocked for this site. Allow notifications in your browser settings.'
+    const key = ((await (await fetch('/api/messages?op=push-key')).json()) as { key?: string }).key
+    if (!key) return 'Could not reach the server. Try again.'
+    const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) }))
+    const r = await api<{ ok: boolean }>('push-sub', { post: { sub: sub.toJSON(), on: true } })
+    if (r.status === 401) return 'Sign in first, then turn phone alerts on.'
+    if (!r.ok) return 'Could not save alerts. Try again.'
+    localStorage.setItem(PUSH, 'on')
+    return 'Phone alerts are on: new messages reach you even when the game is closed.'
+  } catch { return 'Could not turn alerts on in this browser.' }
+}
+/** Email alerts for new messages (Google and email sign-ins). `on` undefined = read only. */
+export async function emailAlerts(on?: boolean): Promise<{ on: boolean; ready: boolean } | null> {
+  const r = await api<{ on: boolean; ready: boolean }>('email-pref', on === undefined ? {} : { post: { on } })
+  return r.ok ? r.data : null
+}
+
 export function mountMessages(c: Ctx): void {
   ctx = c
+  // A tapped alert opens that conversation (fresh tab: ?dm=<user>; open tab: a message from the service worker).
+  const openFrom = (url: string) => { try { const u = new URL(url, location.href).searchParams.get('dm'); if (u) window.setTimeout(() => void openThread(u), 1500) } catch { /* */ } }
+  openFrom(location.href)
+  navigator.serviceWorker?.addEventListener?.('message', (e: MessageEvent) => { if (e.data?.type === 'gd-open') openFrom(String(e.data.url ?? '')) })
+  // Keep this device's subscription fresh once alerts are on.
+  if (pushOn()) window.setTimeout(() => void setPush(true), 8000)
   // Right after a NEAR sign-in the signed login message is still fresh (ten minutes): swap it for the Messages
   // token straight away, so a NEAR player never has to confirm again for Messages.
   const adopt = () => { if (userId().startsWith('near:')) void nearToken() }

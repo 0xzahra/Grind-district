@@ -4,6 +4,7 @@ import { cleanUsername } from './_username.js'
 import { previewBody, signLines, storeMedia } from './_dmMedia.js'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { verifyNearLogin, nearUserId, type NearProof } from './_nearAuth.js'
+import { cleanSub, emailOff, emailToken, notifyMessage, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
 
 // Direct messages. Identity = Privy token -> players.username, or for NEAR sign-ins a Messages session token
 // (op=near-session swaps a fresh NEP-413 signed login for a 30-day token bound to near:<account>).
@@ -62,6 +63,15 @@ export default async function handler(req: Req, res: Res) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return res.status(503).json({ error: 'not configured' })
   const db = createClient(url, key, { auth: { persistSession: false } })
+  // Notifications: the push public key, and the one-click email opt-out link from an alert email.
+  if (String(req.query?.op ?? '') === 'push-key') return res.status(200).json({ key: vapidKeys().pub })
+  if (String(req.query?.op ?? '') === 'email-off') {
+    const u = cleanUsername(req.query?.u), t = String(req.query?.t ?? '')
+    const ok = u.ok && t === emailToken(u.name) && await setEmailOff(db, u.name, true)
+    res.setHeader('content-type', 'text/html; charset=utf-8')
+    ;(res.status(ok ? 200 : 400) as unknown as { send(b: string): void }).send(`<!doctype html><meta name=viewport content='width=device-width'><body style="font-family:system-ui;padding:32px;max-width:520px;margin:auto"><h2>${ok ? 'Email alerts are off' : 'This link is not valid'}</h2><p>${ok ? 'You will not get message emails from Grind District. Turn them back on in Settings in the game.' : 'Open Settings in the game to change email alerts.'}</p><p><a href='https://www.grinddistrict.app'>Open Grind District</a></p></body>`)
+    return
+  }
   if (req.method === 'POST' && String(req.query?.op ?? '') === 'near-session') {
     const proof = (req.body ?? {}).near as NearProof | undefined
     if (!proof || typeof proof !== 'object') return res.status(400).json({ error: 'missing NEAR proof' })
@@ -77,6 +87,15 @@ export default async function handler(req: Req, res: Res) {
   const op = String(req.query?.op ?? '')
   const b = (req.body ?? {}) as Record<string, unknown>
 
+  if (req.method === 'POST' && op === 'push-sub') {
+    const sub = cleanSub(b.sub)
+    if (!sub) return res.status(400).json({ error: 'bad subscription' })
+    return res.status(200).json({ ok: await savePushSub(db, user, sub, b.on !== false) })
+  }
+  if (op === 'email-pref') {
+    if (req.method === 'POST') await setEmailOff(db, user, b.on === false)
+    return res.status(200).json({ on: !(await emailOff(db, user)), ready: !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) })
+  }
   if (op === 'inbox') {
     const [rows, blocks] = await Promise.all([
       db.from('messages').select('id,sender,recipient,body,created_at,read_at').or(`sender.eq.${user},recipient.eq.${user}`).order('created_at', { ascending: false }).limit(400),
@@ -212,6 +231,8 @@ export default async function handler(req: Req, res: Res) {
     }
     const ins = await db.from('messages').insert({ sender: user, recipient: other, body }).select('id,sender,recipient,body,created_at,read_at').single()
     if (ins.error) return res.status(500).json({ error: 'Could not send' })
+    // Alert the recipient (push to their devices, an email when set up); never blocks the send for long.
+    await notifyMessage(db, user, other, previewBody(body), ins.data.id as number).catch(() => undefined)
     const [line] = await signLines(db, [ins.data])
     return res.status(200).json({ line })
   }

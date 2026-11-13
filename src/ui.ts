@@ -1019,6 +1019,19 @@ export function mountUi(
       setNotifications(!notificationsOn())
       open('settings')
     }))
+    // Alerts outside the game: push to this phone or computer, and email for Google / email sign-ins.
+    void import('./messages.ts').then((m) => {
+      const phone = button(m.pushOn() ? 'Phone alerts on' : 'Phone alerts off', m.pushOn() ? 'primary' : 'ghost', () => {
+        phone.disabled = true
+        void m.setPush(!m.pushOn()).then((line) => { toast(line); open('settings') })
+      })
+      const mail = button('Email alerts…', 'ghost', () => {
+        mail.disabled = true
+        void m.emailAlerts(mail.dataset.on !== '1').then((st) => { if (!st) { toast('Sign in with Google or email to get email alerts.'); mail.disabled = false; return } toast(st.on ? 'Email alerts are on for new messages.' : 'Email alerts are off.'); open('settings') })
+      })
+      notifyRow.append(phone, mail)
+      void m.emailAlerts().then((st) => { if (!st) { mail.textContent = 'Email alerts (sign in)'; return } mail.dataset.on = st.on ? '1' : ''; mail.textContent = st.on ? 'Email alerts on' : 'Email alerts off'; if (st.on) { mail.classList.remove('ghost'); mail.classList.add('primary') } })
+    })
     const support = document.createElement('a')
     support.href = 'https://t.me/flowerflowchat'
     support.target = '_blank'
