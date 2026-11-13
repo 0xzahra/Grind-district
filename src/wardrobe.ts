@@ -11,6 +11,8 @@ export type Piece = {
   figure?: string; palette?: { top?: number; bottom?: number; shoes?: number }
   kind?: Jewel
   note?: string
+  /** Grind Pass exclusive: never sold in the boutique, granted by a pass tier (see pass.ts). */
+  pass?: number
 }
 export const PIECES: Piece[] = [
   // ---- Free looks: the outfits the city's own figures already wear, exactly as they come ----
@@ -78,6 +80,22 @@ export const PIECES: Piece[] = [
   { id: 'ring-signet', slot: 'acc', label: 'Gold signet ring', usd: 210, hex: 0xd9b26a, for: 'gent', kind: 'ring' },
   { id: 'watch-rose', slot: 'acc', label: 'Rose-gold watch', usd: 380, hex: 0xd9a08a, kind: 'watch' },
   { id: 'watch-gold', slot: 'acc', label: 'Gold watch', usd: 540, hex: 0xd9b26a, kind: 'watch' },
+  // ---- Grind Pass · Season 1 exclusives (pass = the tier that grants them; usd = shown value only) ----
+  { id: 'pass-ring-onyx', slot: 'acc', label: 'Onyx signet ring', usd: 240, hex: 0x2a2a2e, for: 'gent', kind: 'ring', pass: 2 },
+  { id: 'pass-ear-emerald', slot: 'acc', label: 'Emerald studs', usd: 240, hex: 0x1f8a5a, for: 'lady', kind: 'earrings', pass: 2 },
+  { id: 'pass-watch-onyx', slot: 'acc', label: 'Onyx chronograph', usd: 420, hex: 0x2a2a2e, kind: 'watch', pass: 3 },
+  { id: 'pass-tux-onyx', slot: 'look', label: 'Onyx & gold tuxedo', usd: 680, hex: 0x16171a, for: 'gent', figure: 'look_tux', palette: { top: 0x16171a, bottom: 0x16171a, shoes: 0x8a6a2c }, pass: 7 },
+  { id: 'pass-gown-gold', slot: 'look', label: 'Gold evening set', usd: 680, hex: 0xc9a24a, for: 'lady', figure: 'look_gown', palette: { top: 0xc9a24a, bottom: 0xc9a24a, shoes: 0x16171a }, pass: 7 },
+  { id: 'pass-chain-rose', slot: 'acc', label: 'Rose-gold chain', usd: 320, hex: 0xd9a08a, kind: 'necklace', pass: 8 },
+  { id: 'pass-ring-emerald', slot: 'acc', label: 'Emerald ring', usd: 360, hex: 0x1f8a5a, kind: 'ring', pass: 10 },
+  { id: 'pass-thobe-midnight', slot: 'look', label: 'Midnight royal thobe', usd: 620, hex: 0x1d2340, for: 'gent', figure: 'look_thobe', palette: { top: 0x1d2340 }, pass: 11 },
+  { id: 'pass-abaya-midnight', slot: 'look', label: 'Midnight couture abaya', usd: 620, hex: 0x1d2340, for: 'lady', figure: 'abaya', palette: { top: 0x1d2340 }, pass: 11 },
+  { id: 'pass-watch-platinum', slot: 'acc', label: 'Platinum watch', usd: 640, hex: 0xe4e6ea, kind: 'watch', pass: 13 },
+  { id: 'pass-pendant-emerald', slot: 'acc', label: 'Emerald pendant', usd: 560, hex: 0x2fa86e, kind: 'necklace', pass: 14 },
+  { id: 'pass-tux-emerald', slot: 'look', label: 'Emerald dinner suit', usd: 720, hex: 0x1f4f44, for: 'gent', figure: 'look_tux', palette: { top: 0x1f4f44, bottom: 0x16171a }, pass: 16 },
+  { id: 'pass-soiree-emerald', slot: 'look', label: 'Emerald soirée set', usd: 720, hex: 0x1f6b4f, for: 'lady', figure: 'look_party', palette: { top: 0x1f6b4f, bottom: 0x16171a }, pass: 16 },
+  { id: 'pass-thobe-gold', slot: 'look', label: 'Gold-thread royal thobe', usd: 760, hex: 0xc9a24a, for: 'gent', figure: 'look_thobe', palette: { top: 0xc9a24a }, pass: 19 },
+  { id: 'pass-skirtsuit-emerald', slot: 'look', label: 'Emerald atelier skirt suit', usd: 760, hex: 0x1f4f44, for: 'lady', figure: 'look_skirtsuit', palette: { top: 0x1f4f44, bottom: 0x1f4f44 }, pass: 19 },
 ]
 export type Worn = { look?: string; top?: string; bottom?: string; shoes?: string; acc: string[] }
 const KEY = 'gd.wardrobe.v1'

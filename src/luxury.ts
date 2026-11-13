@@ -1,6 +1,7 @@
 // Luxury unlock loop: daily login streak (fixed reward, no randomness) and aspirational status unlocks.
 import { getSave, earnCash } from './state.ts'
 import { RANKS } from './logic.ts'
+import { passFounder, passOwned } from './pass.ts'
 
 const KEY = 'gd.lux.v1'
 type Lux = { last: string; streak: number; best: number }
@@ -43,6 +44,8 @@ export function renderBadges(): HTMLElement {
   const got = unlocked(); const wrap = h('div', 'lux-badges')
   for (const u of UNLOCKS) if (got.includes(u.id)) wrap.append(h('span', 'lux-badge', u.title))
   const l = load(); if (l.streak >= 3) wrap.append(h('span', 'lux-badge', `${l.streak}-day streak`))
+  if (passFounder()) wrap.append(h('span', 'lux-badge gp-badge', 'Season 1 Founder'))
+  else if (passOwned()) wrap.append(h('span', 'lux-badge gp-badge', 'Grind Pass'))
   return wrap
 }
 export function renderLuxury(): HTMLElement {

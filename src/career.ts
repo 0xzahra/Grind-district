@@ -88,6 +88,17 @@ function onAct(kind: string, label: string): void {
   if (got.k === 'course' && got.course) post(`Passed ${SKILL_META[got.course].title}.`, 'place:Campus')
   store()
 }
+/** The Grind Pass draws itself at the top of the Season tab (pass.ts registers it; no import cycle). */
+let seasonExtra: ((root: HTMLElement, rerender: () => void) => void) | null = null
+export function setSeasonExtra(fn: (root: HTMLElement, rerender: () => void) => void): void { seasonExtra = fn }
+/** Grind Pass tier skip: one season step, granting that step's free reward. False at the top of the track. */
+export function advanceSeason(): boolean {
+  const top = SEASON[SEASON.length - 1]?.at ?? 20
+  if (c.seasonPts >= top) return false
+  c.seasonPts += 1; grantRewards(); store(); return true
+}
+/** Wear a plate frame from the free track or the Grind Pass ('' takes it off). */
+export function equipFrame(id: string): void { c.frame = id; store() }
 function grantRewards(): void { for (const r of SEASON) if (c.seasonPts === r.at) { post(`Unlocked ${r.label} on the free season track.`); if (r.kind === 'house') c.houseItems.push(r.id) } }
 
 export const rankIdx = (n: number) => RANK_STEPS.reduce((a, s, i) => (n >= s ? i : a), 0)
@@ -163,7 +174,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   const s = getSave()
   const tabs = el('div', '', 'cr-tabs')
   const body = el('div', '', 'cr-body')
-  const T: Array<[string, string]> = [['courses', 'Lessons'], ['paths', 'Careers'], ['overview', 'Progress'], ['history', 'History'], ['weekly', 'Weekly'], ['jobs', 'Jobs']]
+  const T: Array<[string, string]> = [['courses', 'Lessons'], ['paths', 'Careers'], ['overview', 'Progress'], ['history', 'History'], ['weekly', 'Season'], ['jobs', 'Jobs']]
   for (const [id, label] of T) { const b = btn(label, () => renderCareer(root, go, onPins, id), 'cr-tab' + (id === tab ? ' on' : '')); tabs.append(b) }
   root.replaceChildren(tabs, body)
   { const n = nextStepCard(); if (n) body.append(n) }
@@ -220,9 +231,10 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
       body.append(card)
     }
   } else if (tab === 'weekly') {
-    body.append(el('h3', `This week · ${c.week}`), el('p', 'Free season track. Cosmetic rewards only. Nothing to buy, nothing random.', 'cc-muted'))
+    { const x = seasonExtra; if (x) x(body, () => renderCareer(root, go, onPins, tab)) }
+    body.append(el('h3', `This week · ${c.week}`), el('p', 'Each challenge done moves the season one step. Nothing random.', 'cc-muted'))
     for (const w of weekly()) body.append(bar(`${w.text} · +$50`, c.weekCounts[w.id] ?? 0, w.count))
-    body.append(el('h3', `Season · ${c.seasonPts} of ${SEASON[SEASON.length - 1]?.at ?? 20} challenges`))
+    body.append(el('h3', `Free track · ${c.seasonPts} of ${SEASON[SEASON.length - 1]?.at ?? 20} challenges`))
     const ol = el('ol', '', 'cr-season')
     for (const r of SEASON) {
       const got = c.seasonPts >= r.at

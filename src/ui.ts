@@ -727,7 +727,9 @@ export function mountUi(
     const isOn = (pc: Piece) => pc.slot === 'acc' ? worn().acc.includes(pc.id) : worn()[pc.slot] === pc.id
     const card = (pc: Piece, premium: boolean) => {
       const on = isOn(pc), mine = owns(pc.id)
-      const node = button('', `ghost ward${on ? ' on' : ''}${premium ? ' lux' : ''}`, () => {
+      const node = button('', `ghost ward${on ? ' on' : ''}${premium ? ' lux' : ''}${pc.pass && !mine ? ' pass-locked' : ''}`, () => {
+        // Grind Pass exclusives are never sold here: a locked one opens the Season tab.
+        if (pc.pass && !mine) { close(); window.dispatchEvent(new CustomEvent('gd:career', { detail: 'weekly' })); return }
         if (!mine) { const r = buyWant(pc.label, pc.usd); if (!r.ok) { finish(r.message); return } own(pc.id) }
         wear(pc)
         hooks.onBody()
@@ -735,7 +737,7 @@ export function mountUi(
       })
       const sw = document.createElement('i'); sw.innerHTML = garment(pc.kind ?? pc.slot, pc.label, `#${pc.hex.toString(16).padStart(6, '0')}`)
       const nm = document.createElement('b'); nm.textContent = pc.label
-      const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? (pc.usd ? 'Owned · tap to wear' : 'Free · tap to wear') : money(pc.usd)
+      const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? (pc.usd ? 'Owned · tap to wear' : 'Free · tap to wear') : pc.pass ? `Grind Pass · tier ${pc.pass}` : money(pc.usd)
       // Clothes are shown on the real figure that wears them (a studio photograph), not as an icon.
       const shot = shotFor(pc, lady)
       if (shot) {
@@ -755,8 +757,9 @@ export function mountUi(
       for (const pc of list) grid.append(card(pc, premium))
       into.append(para(title, 'kicker'), grid)
     }
-    const all = PIECES.filter(mineOf)
+    const all = PIECES.filter((x) => mineOf(x) && !x.pass)
     const by = (slot: Slot, paid: boolean) => all.filter((x) => x.slot === slot && !x.kind && (x.usd > 0) === paid)
+    const passPieces = PIECES.filter((x) => mineOf(x) && x.pass)
     const free = document.createElement('section'); free.className = 'rail-free'
     const freeHead = document.createElement('div'); freeHead.className = 'rail-head'
     freeHead.append(Object.assign(document.createElement('b'), { textContent: 'Free wardrobe' }), Object.assign(document.createElement('small'), { textContent: 'Yours from day one. Nothing here costs anything.' }))
@@ -769,6 +772,7 @@ export function mountUi(
     const luxHead = document.createElement('div'); luxHead.className = 'rail-head'
     luxHead.append(Object.assign(document.createElement('b'), { textContent: 'Premium · Runway collection' }), Object.assign(document.createElement('small'), { textContent: 'Evening wear, tailoring and fine jewellery. Paid with your in-game balance.' }))
     lux.append(luxHead)
+    rail('Grind Pass exclusives', passPieces, true, lux)
     rail('Runway looks', by('look', true), true, lux)
     rail('Tailoring & dresses', by('top', true), true, lux)
     rail('Trousers', by('bottom', true), true, lux)

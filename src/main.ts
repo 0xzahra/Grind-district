@@ -54,6 +54,7 @@ import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
 import { startNeeds, tickNeeds, socialised, paintNeedsCard, renderNeeds, onNeeds } from './needs.ts'
+import { startPass } from './pass.ts'
 import { createEstate } from './estate.ts'
 import { createBeach } from './beach.ts'
 import './style.css'
@@ -652,6 +653,7 @@ const apiAgents = createRemoteAgents(scene)
   const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
   initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
   startNeeds((m) => ui.toast(m))
+  startPass((m) => ui.toast(m))
   // startMoments ticks immediately when a moment is live; interiors is declared further down, so guard the TDZ.
   startMoments(() => { try { return interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z } } catch { return { x: pos.x, z: pos.z } } })
   subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })

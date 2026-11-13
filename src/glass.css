@@ -49,3 +49,5 @@ html.title-on #app > :not(#menu):not(#boot):not(#view), html.title-on body > :no
 .nameplate.frame-slate { border: 2px solid #6b7280; }
 .nameplate.frame-brass { border: 2px solid #a8865a; box-shadow: inset 0 0 0 1px rgba(255,240,210,.18); }
 .nameplate.frame-gold { border: 2px solid #cdb27a; box-shadow: inset 0 0 0 1px rgba(255,248,230,.25); }
+.nameplate.frame-pass { border: 2px solid #2fd28c; box-shadow: inset 0 0 0 1px rgba(200,255,230,.22), 0 0 14px rgba(47,210,140,.28); }
+.nameplate.frame-founder { border: 2px solid #e2bf72; box-shadow: inset 0 0 0 1px rgba(255,241,196,.45), 0 0 18px rgba(217,178,106,.42); }
