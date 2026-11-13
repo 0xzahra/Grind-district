@@ -12,9 +12,9 @@
 | --- | --- |
 | **It runs.** Open the link on a phone, tap Sign up or Continue, and you are in the city. | https://www.grinddistrict.app |
 | **Learning that leaves proof.** Six worlds of short courses; every pass is filed to your CV with a certificate. | [Screenshots](#screenshots) · `/cv/<username>` · `/cert/<id>` |
-| **NFTs that do something.** A passed course can be minted as a soulbound NEP-171 certificate; a Skill Passport record unlocks an in-game apprenticeship quest. | [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) · [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet) |
+| **NFTs that do something.** A passed course can be minted as a soulbound NEP-171 certificate. The game reads it back from NEAR and then marks the course *Verified on NEAR* on the CV and profile, and the certificate opens the members-only Holders' room in the Members' lounge. A Skill Passport record unlocks an apprenticeship quest. | [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) · [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet) |
 | **An economy to practise in.** Spot, Perps, Convert and P2P on simulated prices, a wallet, ranks and a city to spend in-game money in. | Menu → Trade · Menu → Balance |
-| **AI agents as citizens.** Agents join through a copy-paste prompt as labelled robots, move, chat, attend events and earn in-game money under rate limits. | `/agents` · `src/agentPrompt.ts` |
+| **AI agents as citizens.** Agents join through a copy-paste prompt as labelled robots, move, chat, attend events and earn in-game money under rate limits. Next: an agent helps its owner play (courses, daily tasks) and earns rewards for them. | `/agents` · `src/agentPrompt.ts` |
 | **Honest scope.** Practice money only, no seed phrases, testnet contracts. What is verified and what is not is listed [below](#verification-status-honest). | |
 
 ## Screenshots
@@ -36,9 +36,10 @@ Screenshots are from the live build on a 390 × 844 phone screen (the city view 
 ## What's in the game
 
 - **Shared 3D city.** Walk with other players and residents, chat nearby, Realistic people, homes you live in (cook, shower, sleep, garden, laundry), day, dusk and night, city sound and a theme track.
+- **Zahra, your guide.** A short spoken welcome tour (what Web3 is, how to play), then she meets you at the Campus steps: walk up or tap her any time. Her lines are recorded with a natural voice.
 - **Campus.** Zahra places you as a Normie or a Homie, then six worlds of short courses: the internet and money, scams and wallet safety, blockchain basics, layers and real uses, the earning map, and your career. Each pass goes on your CV with a certificate.
 - **Careers.** Pick a path, do its task at the right building once a day, rise from Curious to Mentor.
-- **CV, certificates and portfolio.** A professional CV with a PDF download, a public profile at `/cv/<username>`, and a public page for every certificate at `/cert/<id>`. Players can mint a soulbound certificate NFT on NEAR testnet (`grinddistrict-cert.testnet`) after passing a course.
+- **CV, certificates and portfolio.** A professional CV with a PDF download, a public profile at `/cv/<username>`, and a public page for every certificate at `/cert/<id>`. Players can mint a soulbound certificate NFT on NEAR testnet (`grinddistrict-cert.testnet`) after passing a course; holders get a Verified on NEAR mark and the Holders' room.
 - **Practice trading.** Spot, Perps, Convert and P2P (with escrow and scam scenarios), each linked to the courses behind it. Simulated prices; nothing touches a real exchange. Not financial advice.
 - **Messages.** Search players by username or name, open their profile, send text, photos and voice notes.
 - **Boutique, homes, gym, masjid, church, café, conference centre.** In-game currency only. A top-up in USDC or ETH on Base adds to the in-game balance.
@@ -46,7 +47,23 @@ Screenshots are from the live build on a 390 × 844 phone screen (the city view 
 
 ## NEAR hackathon entry
 
-Disclosure: Grind District existed before the NEAR hackathon. Only the Skill Passport integration is new work for the hackathon. It was added in commit [`5e12fab`](https://github.com/0xzahra/Grind-district/commit/5e12fabc3af425962b7b0321a42ca86832bda345), with a follow-up UI fix in [`21b5187`](https://github.com/0xzahra/Grind-district/commit/21b51874754917e51d9b9d12b69935cdda5da6e9).
+Disclosure: Grind District existed before the NEAR hackathon. The repository history starts on 31 Oct 2026, with 151 commits before 1 Nov. Since the hackathon opened on 1 Nov there have been 119 more commits (about 26,000 lines added). These are the parts built in that window; everything else came before.
+
+| Built since 1 Nov | Commits |
+| --- | --- |
+| NEAR Skill Passport contract and in-game quest unlock (7 Nov) | [`5e12fab`](https://github.com/0xzahra/Grind-district/commit/5e12fab) [`21b5187`](https://github.com/0xzahra/Grind-district/commit/21b5187) |
+| NEAR sign-in with a signed NEP-413 message | [`baff3dc`](https://github.com/0xzahra/Grind-district/commit/baff3dc) [`4487baa`](https://github.com/0xzahra/Grind-district/commit/4487baa) |
+| Certificate NFT contract (soulbound NEP-171, 11 Nov), certificate art and public `/cert` pages, mint from the game | [`6a72ce0`](https://github.com/0xzahra/Grind-district/commit/6a72ce0) [`920539b`](https://github.com/0xzahra/Grind-district/commit/920539b) |
+| Certificate NFTs that do something: Verified on NEAR marks on CV and profile, the holders-only room | [`948eae5`](https://github.com/0xzahra/Grind-district/commit/948eae5) |
+| Campus as six worlds with Zahra; her welcome tour and recorded voice | [`261de84`](https://github.com/0xzahra/Grind-district/commit/261de84) [`65a80d7`](https://github.com/0xzahra/Grind-district/commit/65a80d7) [`108f0f4`](https://github.com/0xzahra/Grind-district/commit/108f0f4) |
+| Semi-realistic people with motion-captured walking, sitting and talking | [`0c21457`](https://github.com/0xzahra/Grind-district/commit/0c21457) |
+| Homes you live in (cook, sleep, shower, laundry, garden) | [`87d0a0b`](https://github.com/0xzahra/Grind-district/commit/87d0a0b) |
+| Practice trading: Spot, Perps and Convert; P2P with escrow; the trading floor; wallet and ranks | [`4633dac`](https://github.com/0xzahra/Grind-district/commit/4633dac) [`24c738d`](https://github.com/0xzahra/Grind-district/commit/24c738d) [`50509f9`](https://github.com/0xzahra/Grind-district/commit/50509f9) [`d0c953a`](https://github.com/0xzahra/Grind-district/commit/d0c953a) |
+| Boutique premium collection | [`723b83f`](https://github.com/0xzahra/Grind-district/commit/723b83f) |
+| Messages: search by username or name, photos, voice notes, NEAR sessions | [`44ccd6d`](https://github.com/0xzahra/Grind-district/commit/44ccd6d) [`0108051`](https://github.com/0xzahra/Grind-district/commit/0108051) |
+| Theme music, city sound, voices; light theme | [`c669ad6`](https://github.com/0xzahra/Grind-district/commit/c669ad6) [`309580a`](https://github.com/0xzahra/Grind-district/commit/309580a) |
+
+### Skill Passport
 
 - **Contract:** `grinddistrict-passport.testnet` (NEAR testnet). Source is in `near/skill-passport/` (Rust, MIT licence).
 - **Explorer:** https://testnet.nearblocks.io/address/grinddistrict-passport.testnet
@@ -78,6 +95,7 @@ Disclosure: Grind District existed before the NEAR hackathon. Only the Skill Pas
   - Read-only testnet check: `node near/skill-passport/check-testnet.mjs`.
 - **Game UI:** on desktop, Career → Spot course has been checked in a browser.
 - **Not verified end to end:** the full browser flow of wallet connect → save a passed course → read back → quest unlock.
+- **Certificate NFT read-back:** checked in a browser against the live testnet contract. For a username holding tokens #1 and #2, the CV, profile and Holders' room door all showed them. Tokens #1 and #2 were minted on testnet on 11 Nov 2026 to `grinddistrict.testnet`.
 - **Not yet tested against the live database:** photos and voice notes in Messages (text messages are in use).
 
 ## Certificate NFTs (NEAR testnet)
@@ -91,6 +109,7 @@ This is a different contract from the Skill Passport. It mints a soulbound (non-
 - **Owner:** `grinddistrict-passport.testnet`
 - **Collection:** Grind District Certificate (`GDCERT`)
 - **Metadata on the NFT:** course name, player name and username, full timestamp, certificate id, issuer (Grind District), chain, and a link to the public certificate page at `https://www.grinddistrict.app/cert/<id>`.
+- **What holding one does:** the game calls `cert_for(username, course)` (read-only) for each passed course. Tokens it finds mark that course *Verified on NEAR* with the token link on the CV, the certificate list and the profile nameplate, and add an *On-chain credentials* entry to the CV. They also open the Holders' room in the Members' lounge, whose desks give holders tools the lounge otherwise keeps for higher ranks (`src/nftAccess.ts`).
 - **Flag (public, build time):** `VITE_CERT_NFT_NEAR=grinddistrict-cert.testnet`. Base mint stays hidden until `VITE_CERT_NFT_BASE` is set after a Base deploy.
 
 ## Run from source
