@@ -3277,3 +3277,31 @@ html body #sheet :is(.feat, .mk) { margin-top: 14px !important; }
 .wardrobe .ward.photo.jewel i { aspect-ratio: 3 / 4 !important; }
 .wardrobe .ward.photo { align-content: start; }
 .wardrobe .ward.photo small { margin-top: 0; }
+
+/* Stockholders' Club (stockClub.ts): the door card, holdings, briefings and the nameplate pin. */
+.sheet-card .club { --line: rgba(255, 255, 255, 0.1); --panel: rgba(255, 255, 255, 0.045); display: grid; gap: 10px; font-variant-numeric: tabular-nums; }
+.sheet-card .club h4 { margin: 8px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.sheet-card .club h5 { margin: 6px 0 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+.sheet-card .club .club-note { padding: 10px 12px; border-radius: 12px; background: rgba(214, 178, 94, 0.12); border: 1px solid rgba(214, 178, 94, 0.35); }
+.sheet-card .club .club-busy { opacity: 0.8; }
+.sheet-card .club-card { display: grid; gap: 2px; padding: 14px; border-radius: 16px; background: linear-gradient(135deg, rgba(214, 178, 94, 0.2), rgba(214, 178, 94, 0.05)); border: 1px solid rgba(214, 178, 94, 0.45); }
+.sheet-card .club-card strong { font-size: 18px; color: #e9cf8e; }
+.sheet-card .club-card span { font-size: 13px; opacity: 0.8; overflow-wrap: anywhere; }
+.sheet-card .club-rows { display: grid; gap: 6px; }
+.sheet-card .club-row { display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100% !important; min-height: 48px; padding: 8px 12px !important; border-radius: 12px !important; border: 1px solid var(--line) !important; background: var(--panel) !important; color: var(--ink); text-align: left; }
+.sheet-card .club-row.on { border-color: rgba(214, 178, 94, 0.55) !important; }
+.sheet-card .club-row b { font-weight: 700; }
+.sheet-card .club-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.8; font-size: 13px; }
+.sheet-card .club-row em { font-style: normal; font-weight: 600; }
+.sheet-card .club-brief { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.sheet-card .club-brief h4 { margin: 0; }
+.sheet-card .club-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.sheet-card .club-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.sheet-card .club-toggle input { width: 20px; height: 20px; accent-color: #d6b25e; }
+.sheet-card .club-peek { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.sheet-card .club-peek input { min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-size: 14px; }
+.sheet-card .club-peek button { width: auto !important; min-height: 44px; padding: 0 16px !important; }
+.sheet-card .club-peek-out { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.nameplate .club-pin { display: inline-block; margin-top: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; color: #2a2108; background: linear-gradient(135deg, #f1dc9c, #c9a24a); }
+html[data-ui='light'] .sheet-card .club { --line: rgba(20, 24, 30, 0.12); --panel: rgba(20, 24, 30, 0.04); }
+html[data-ui='light'] .sheet-card .club-card strong { color: #8a6a1c; }

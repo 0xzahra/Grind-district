@@ -78,6 +78,7 @@ Screenshots are from the game on a 390 × 844 phone screen (the city, street, bo
 - **Boutique.** Free everyday clothes, the premium Runway collection, fine jewellery with studio renders, two Featured bundles a day at 20% off with a countdown, and a makeup kit (lipstick, blush, eyeshadow, liner painted onto your own face).
 - **Wallet.** Balance with a hide toggle, Top up, Trade, Shop, Recent moves, Assets (cash and stablecoins, coins, meme coins, tokens), NFTs (your certificates read from NEAR) and a Watchlist; ranks as a medallion road; a ka-ching when money comes in. Another player's balance is never shown on their profile.
 - **Around home.** A corner store, pharmacy, bakery and laundromat on your street, a hospital, and the Velvet Room: a casino front that is closed for good and explains how gambling and trading differ, with helplines. No game of chance exists in the city.
+- **Stockholders' Club (Base).** A building beside the Members' lounge that opens for players who hold a tokenized stock on Base: prove it with one signature, get research sessions and a club pin, and lose membership after selling. The address and amounts stay on the device. See [`docs/BASE-STOCKS.md`](docs/BASE-STOCKS.md).
 - **Boutique, homes, gym, masjid, church, café, conference centre.** In-game currency only. A top-up in USDC or ETH on Base adds to the in-game balance.
 - **Sign-in:** Google, 𝕏, email, an agent prompt or a NEAR wallet. Progress saves to your account automatically.
 
@@ -91,6 +92,8 @@ Screenshots are from the game on a 390 × 844 phone screen (the city, street, bo
 - **Everything built in the window, as one diff:** [`39a1707...main`](https://github.com/0xzahra/Grind-district/compare/39a1707838b957b8542f9df282e8488a8cee575c...main).
 - **Pre-existing product on another chain: yes.** The in-game balance top-up on Base (USDC or ETH, Solidity in `contracts/`) was built before 1 Nov. It is not part of the NEAR entry.
 - **All of the NEAR work was built in the window:** NEAR wallet sign-in, the Skill Passport contract, the certificate NFT contract, and what the certificates unlock in the game.
+- **Cut-off:** the NEAR submission is the last commit on `main` before 14 Nov 2026 23:59 UTC. Later commits are work after the hackathon.
+- **Not part of the NEAR entry:** the Stockholders' Club, a Base feature for a separate competition ([`docs/BASE-STOCKS.md`](docs/BASE-STOCKS.md)).
 
 The table lists the main parts built in the window. Research on past NEAR winners and how this entry lines up: [`docs/NEAR-HACKATHON-RESEARCH.md`](docs/NEAR-HACKATHON-RESEARCH.md).
 

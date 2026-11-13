@@ -612,6 +612,10 @@ export function createWorld(options: {
   spot('bakery', bakery.x, bakery.z, 2.1, 'Bakery', 'Fresh bread, tea and cake for the neighbours.', 'bakery', 'Go in')
   const laundry = addBuilding({ x: 37.5, z: 56, w: 5, d: 6, h: 3.3, door: 'px', title: 'Laundromat', subtitle: 'wash · fold', seed: 83, style: 'kiosk' })
   spot('laundromat', laundry.x, laundry.z, 2.1, 'Laundromat', 'Wash, dry and fold while you get on with your day.', 'laundromat', 'Drop off')
+  // The Stockholders' Club (stockClub.ts), beside the Members' lounge: opens for players who hold a tokenized stock
+  // on Base, proved with one signature and re-checked on every visit.
+  const club = addBuilding({ x: -37, z: -26, w: 9, d: 7, h: 4.4, door: 'px', title: "Stockholders' Club", subtitle: 'members · Base', seed: 89, style: 'arch', facade: 'stone' })
+  spot('club', club.x, club.z, 2.3, "Stockholders' Club", 'A members\' club for people who hold tokenized stocks on Base. Prove a holding to join; research sessions inside.', 'club', 'Go in')
   architecture.flush(scene)
   buildShowroom(scene, { obstacles, pavilion: { x: -20, z: 15.8, w: 5.4, d: 4.2 }, dealer: dealerAt })
 

@@ -29,6 +29,7 @@ import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { renderLedger } from './ledger.ts'
 import { PLACES, placeNodes, casinoNodes } from './places.ts'
+import { clubNodes, markPlate } from './stockClub.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
@@ -355,6 +356,7 @@ export function mountUi(
     const pn = document.createElement('strong'); pn.textContent = save.name || 'Player'
     const pu = document.createElement('span'); pu.textContent = save.username ? `@${save.username}` : rankFor(save.xp).label
     plate.append(pn, pu)
+    markPlate(plate)
     hero.append(plate, renderBadges())
     const glass = document.createElement('section')
     glass.className = 'glass'
@@ -1295,6 +1297,8 @@ export function mountUi(
         return renderSimple(PLACES[panel].title, placeNodes(panel, { para, button, finish: (m) => finish(m), reopen: () => open(panel) }))
       case 'casino':
         return renderSimple('The Velvet Room', casinoNodes({ para, button, learn: () => open('learn'), trade: () => open('trade') }))
+      case 'club':
+        return renderSimple("Stockholders' Club", clubNodes({ para, button, trade: () => open('trade') }))
       case 'intro':
         return renderSimple('Welcome to Grind District', [
           para('Everyone starts at zero here.'),

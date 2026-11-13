@@ -124,6 +124,7 @@ export type PanelId =
   | 'bakery'
   | 'laundromat'
   | 'casino'
+  | 'club'
 
 export const RANKS: { id: RankId; label: string; xp: number }[] = [
   { id: 'shrimp', label: 'Shrimp', xp: 0 },
