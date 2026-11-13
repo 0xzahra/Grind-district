@@ -171,6 +171,21 @@ const schedulePreview = () => {
   }
 }
 schedulePreview()
+// Fetch the city while the title card is up: its code, the walking animations and the ground textures, so
+// tapping Continue opens the district without waiting on a download. Low priority, after the card has painted.
+const prefetchCity = () => {
+  if (opening) return
+  void import('./main.ts').catch(() => undefined)
+  void import('./assets.ts').catch(() => undefined)
+  for (const u of ['/models/figures/r1/motion-m.glb', '/models/figures/r1/motion-f.glb', '/tex/nature/grass_t.webp', '/tex/nature/pavers_t.webp', '/tex/nature/wood_t.webp']) {
+    void fetch(u, { priority: 'low' } as RequestInit).catch(() => undefined)
+  }
+}
+{
+  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
+  if (ric) ric(prefetchCity, { timeout: 2500 })
+  else window.setTimeout(prefetchCity, 1200)
+}
 window.addEventListener('gd-auth-changed', () => {
   // Never restart the title WebGL preview while entering the city — that race was burning the
   // only GL context on phones so Continue after avatar failed with "could not open on this device".

@@ -194,6 +194,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   ])
 
   { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,20}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
+  performance.mark('gd:city-start')
   const renderer = createRenderer(canvas)
   if (!renderer) {
     await startFlat(onReveal)
@@ -210,6 +211,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   const image = mark.image as { width?: number; height?: number }
   const aspect = image.width && image.height ? image.height / image.width : 0.86
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  performance.mark('gd:renderer')
   const world = createWorld({
     scene,
     anisotropy: Math.min(16, renderer.capabilities.getMaxAnisotropy()),
@@ -220,6 +222,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     getSeries: () => ({ unit: getSave().unitHist, meme: getSave().memeHist }),
   })
   let travelHook: (title: string, enter?: boolean) => void = () => {}
+  performance.mark('gd:world')
   const crowd = createCrowd(scene, (x, z) => districtName(x, z))
   const greetBtn = document.createElement('button')
   greetBtn.type = 'button'; greetBtn.id = 'greet'; greetBtn.className = 'glass-fab greet-fab'; greetBtn.textContent = 'Greet'; greetBtn.hidden = true
@@ -251,6 +254,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   let npcCard: HTMLElement | null = null
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
+  performance.mark('gd:crowd-agents')
   const physSky = createPhysicalSky(scene)
   createEstate(scene, { graphics: getSave().graphics, obstacles: world.obstacles, hotspots: world.hotspots, toast: (m) => ui.toast(m) })
   const beach = createBeach(scene, getSave().graphics)
@@ -266,6 +270,7 @@ const apiAgents = createRemoteAgents(scene)
   }))
   createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics, walkLines: citizenWalkLines })
   createStreetscape(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
+  performance.mark('gd:estate-beach-skyline-street')
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
   let bob = 0
@@ -370,7 +375,9 @@ const apiAgents = createRemoteAgents(scene)
   applyEnvironment(renderer, scene)
   setShopRenderer(renderer, () => scene.environment)
   setLookRenderer(renderer, () => scene.environment)
+  performance.mark('gd:traffic-weather-avatar')
   const post = createPost(renderer, scene, camera)
+  performance.mark('gd:post')
   const probe = createProbe(() => getSave().graphics, (g) => { setGraphics(g); applyGraphics() })
   const applyGraphics = () => {
     const graphics = getSave().graphics
@@ -460,6 +467,7 @@ const apiAgents = createRemoteAgents(scene)
     } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
     portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return () => shot() })(),
   })
+  performance.mark('gd:pre-mentor')
   const mentor = createMentorCard({
     toast: (m) => ui.toast(m),
     onRank: () => world.setRank(rankFor(getSave().xp).label),
@@ -577,6 +585,7 @@ const apiAgents = createRemoteAgents(scene)
   })
 
 
+  performance.mark('gd:pre-input')
   const input = createInput(canvas, stick, nub)
   // Hidden stubs kept for any legacy callers.
   must('#cam-in').addEventListener('click', () => input.nudgeZoom(-260))
@@ -1030,6 +1039,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   document.querySelector('#hud header')?.append(onlineChip)
   document.body.append(onlineCard)
+  performance.mark('gd:pre-net')
   const net = createNet({
     scene,
     me: identity(),
@@ -1107,6 +1117,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   // Tap another player: their public profile (full-body shot + what they chose to share), then Message.
   let peerTarget: THREE.Object3D | null = null
+  performance.mark('gd:pre-peershot')
   const peerShot = createPortrait(renderer, () => peerTarget!)
   let peerBusy = false
   const openPeer = async (p: { id: string; name: string; username: string; object: THREE.Object3D }) => {
@@ -1194,6 +1205,7 @@ const apiAgents = createRemoteAgents(scene)
   })
   let busyFor = 0
   let exitCooldown = 0
+  performance.mark('gd:ui-net')
   const interiors = createInteriors(scene, {
     rankIndex: () => RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id),
     toast: (text) => ui.toast(text),
@@ -1830,7 +1842,9 @@ const apiAgents = createRemoteAgents(scene)
     }
   }
 
+  performance.mark('gd:interiors-loop')
   await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 4000, () => undefined, 'Shader warm-up')
+  performance.mark('gd:shaders')
   // While the full-screen menu is open the city holds still: no movement, no camera drift, no redraw.
   // The blurred backdrop keeps showing the last frame, so nothing behind the menu can shake or zoom,
   // and phones stop paying for a full 3D frame plus the blur on every tick. Dragging a zoom/look
@@ -1873,6 +1887,8 @@ const apiAgents = createRemoteAgents(scene)
       if (revealed) probe(dt)
       if (!revealed) {
         revealed = true
+        performance.mark('gd:revealed')
+        window.dispatchEvent(new Event('gd:revealed'))
         onReveal()
         boot.classList.add('hidden')
         boot.setAttribute('aria-hidden', 'true')

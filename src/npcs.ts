@@ -74,7 +74,13 @@ function robot(): { object: THREE.Group; x: number; z: number } {
   tip.position.y = 1.64
   root.add(body, head, eye, antenna, tip, label('Unit 4', 'Agent'))
   // Upgrade to the three.js RobotExpressive model (CC0, Tomás Laulhé) with walk animation once loaded.
-  void import('three/examples/jsm/loaders/GLTFLoader.js').then(({ GLTFLoader }) =>
+  // The model is 450 KB: it loads once the city is on screen (the box robot stands in until then), so it never
+  // delays the district opening.
+  const later = new Promise<void>((done) => {
+    window.addEventListener('gd:revealed', () => window.setTimeout(done, 2500), { once: true })
+    window.setTimeout(done, 30000)
+  })
+  void later.then(() => import('three/examples/jsm/loaders/GLTFLoader.js')).then(({ GLTFLoader }) =>
     new GLTFLoader().loadAsync('/models/chars/RobotExpressive.glb')).then((gltf) => {
     const model = gltf.scene
     const box = new THREE.Box3().setFromObject(model)
