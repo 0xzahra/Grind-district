@@ -1,4 +1,5 @@
 import { usedAtHome } from './needs.ts'
+import { garmentKit } from './garments.ts'
 import * as THREE from 'three'
 import { ownedHouseItems } from './career.ts'
 import { floorFinish, glossFloor, wallFinish, type FloorKind } from './surfaces.ts'
@@ -427,27 +428,34 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const rail = std(0xc9a25e, 0.4, 0.85)
       // Fashion-house palette: ivory, blush, champagne, noir, nude, wine, dove grey.
       const colours = [0xf3ece2, 0xe4b9b4, 0xd8c3a0, 0x2a2a2e, 0xc9a08a, 0x6e2533, 0xb8b4b0]
-      const garments: Array<{ x: number; z: number; c: number; long: boolean }> = []
-      for (const z of [-2.4, 0.4, 3.0]) {
+      // Three rails of real clothes on wooden hangers (garments.ts): blazers, shirts, dresses, abayas and folded
+      // trousers, each in a fashion-house colour, with a little sway so no two hang exactly alike.
+      type Hung = { x: number; z: number; c: number; cut: 'blazer' | 'shirt' | 'dress' | 'abaya' | 'trousers'; ry: number }
+      const hung: Hung[] = []
+      const RAILS: Array<{ z: number; cuts: Hung['cut'][] }> = [
+        { z: -2.4, cuts: ['blazer', 'blazer', 'shirt', 'shirt', 'trousers', 'trousers', 'blazer'] },
+        { z: 0.4, cuts: ['dress', 'dress', 'abaya', 'dress', 'abaya', 'dress', 'dress'] },
+        { z: 3.0, cuts: ['shirt', 'blazer', 'shirt', 'dress', 'shirt', 'trousers', 'blazer'] },
+      ]
+      for (const { z, cuts } of RAILS) {
         box(2.6, 0.05, 0.05, rail, 1.2, z, 1.6, false)
         box(0.05, 1.6, 0.05, rail, 0.0, z, 0, false); box(0.05, 1.6, 0.05, rail, 2.4, z, 0, false)
+        box(0.5, 0.04, 0.4, rail, 0.0, z, 0.02, false); box(0.5, 0.04, 0.4, rail, 2.4, z, 0.02, false)
         obstacles.push({ kind: 'box', x: o.x + 1.2, z: o.z + z, hx: 1.35, hz: 0.35 })
-        for (let i = 0; i < 7; i++) garments.push({ x: 0.2 + i * 0.33, z, c: colours[(i * 3 + Math.round(z) + 14) % 7] ?? 0x555555, long: (i + Math.round(z)) % 3 === 0 })
+        cuts.forEach((cut, i) => hung.push({ x: 0.22 + i * 0.33, z, c: colours[(i * 3 + Math.round(z) + 14) % 7] ?? 0x555555, cut, ry: (((i * 7 + Math.round(z * 3)) % 5) - 2) * 0.06 }))
       }
       {
-        // Each garment: sloped shoulders, a nipped waist and a flared hem, hanging from a brass hook.
-        const cut = (hem: number) => {
-          const sh = new THREE.Shape([[-0.25, 0.84], [-0.07, 0.9], [0.07, 0.9], [0.25, 0.84], [0.19, 0.55], [0.26, hem], [-0.26, hem], [-0.19, 0.55]].map(([px, py]) => new THREE.Vector2(px!, py!)))
-          return new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: false }).translate(0, 0, -0.035).rotateY(Math.PI / 2)
-        }
-        const cloth = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true })
+        const fabric = new THREE.TextureLoader().load('/tex/surf/fabric_n.webp', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3) })
+        const kit = garmentKit(fabric)
         const tint = new THREE.Color()
-        for (const long of [false, true]) {
-          const list = garments.filter((g) => g.long === long)
-          const im = inst(cut(long ? -0.25 : 0.12), cloth, list.map((g) => [g.x, 0.66, g.z]))
+        for (const cut of ['blazer', 'shirt', 'dress', 'abaya', 'trousers'] as const) {
+          const list = hung.filter((g) => g.cut === cut)
+          if (!list.length) continue
+          // Hanger bar sits just under the rail; the garment hangs from it.
+          const im = inst(kit.cuts[cut], kit.cloth, list.map((g) => [g.x, 1.5, g.z, g.ry]))
           list.forEach((g, i) => im.setColorAt(i, tint.setHex(g.c)))
         }
-        inst(new THREE.TorusGeometry(0.03, 0.006, 5, 10, Math.PI * 1.4).rotateY(Math.PI / 2), rail, garments.map((g) => [g.x, 1.58, g.z]))
+        inst(kit.hanger, kit.wood, hung.map((g) => [g.x, 1.5, g.z, g.ry]))
       }
       const mirror = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, roughness: 0.03, metalness: 1 })
       box(0.06, 2.0, 1.2, mirror, w / 2 - 0.05, -1.5, 0.3, false)

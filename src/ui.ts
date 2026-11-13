@@ -28,7 +28,7 @@ import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { PLACES, placeNodes, casinoNodes } from './places.ts'
-import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW } from './makeup.ts'
+import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
 import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
@@ -741,8 +741,12 @@ export function mountUi(
       const nm = document.createElement('b'); nm.textContent = pc.label
       const pr = document.createElement('small'); pr.textContent = on ? 'Wearing' : mine ? (pc.usd ? 'Owned · tap to wear' : 'Free · tap to wear') : pc.pass ? `Grind Pass · tier ${pc.pass}` : money(pc.usd)
       // Clothes are shown on the real figure that wears them (a studio photograph), not as an icon.
-      const shot = shotFor(pc, lady)
-      if (shot) {
+      // Jewellery is shown as the piece itself: a studio render of the watch, ring, necklace or earrings.
+      const shot = pc.kind ? null : shotFor(pc, lady)
+      if (pc.kind) {
+        node.classList.add('photo', 'jewel')
+        sw.replaceChildren(itemPic(`jw:${pc.id}`))
+      } else if (shot) {
         node.classList.add('photo')
         const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'
         const show = (url: string) => { img.src = url; sw.replaceChildren(img) }
@@ -829,16 +833,22 @@ export function mountUi(
           const row = document.createElement('div'); row.className = 'tabs swatches mk-row'
           const paintRow = (cur: number | null | undefined) => { for (const b of row.querySelectorAll('button')) b.className = (b.dataset.hex === String(cur ?? 'none')) ? 'primary' : 'ghost' }
           for (const sh of list) {
-            const b = button(sh.hex == null ? '∅' : '', 'ghost', () => { setMakeup({ [key]: sh.hex }); paintRow(sh.hex); hooks.onStyle() })
+            const b = button('', 'ghost', () => { setMakeup({ [key]: sh.hex }); paintRow(sh.hex); hooks.onStyle() })
             b.dataset.hex = String(sh.hex ?? 'none'); b.title = sh.label; b.setAttribute('aria-label', `${title} ${sh.label}`)
-            if (sh.hex != null) b.style.setProperty('background', `#${sh.hex.toString(16).padStart(6, '0')}`, 'important')
+            // A product sample for each shade: lipstick bullet, blush compact, eyeshadow pan.
+            const art = document.createElement('span'); art.className = 'mk-art'; art.innerHTML = sampleSvg(key, sh.hex)
+            const cap = document.createElement('small'); cap.textContent = sh.label
+            b.append(art, cap)
             row.append(b)
           }
           paintRow(now[key])
           mk.append(para(title, 'kicker'), row)
         }
         shades('Lipstick', LIPSTICK, 'lip'); shades('Blush', BLUSH_SHADES, 'blush'); shades('Eyeshadow', SHADOW, 'shadow')
-        const liner = button(now.liner ? 'Liner · on' : 'Liner · off', now.liner ? 'primary' : 'ghost', () => { const on = !(makeup()?.liner); setMakeup({ liner: on }); liner.textContent = on ? 'Liner · on' : 'Liner · off'; liner.className = on ? 'primary' : 'ghost'; hooks.onStyle() })
+        const liner = button('', now.liner ? 'primary mk-liner' : 'ghost mk-liner', () => { const on = !(makeup()?.liner); setMakeup({ liner: on }); lcap.textContent = on ? 'Liner on' : 'Liner off'; liner.className = on ? 'primary mk-liner' : 'ghost mk-liner'; hooks.onStyle() })
+        const lart = document.createElement('span'); lart.className = 'mk-art'; lart.innerHTML = LINER_SVG
+        const lcap = document.createElement('small'); lcap.textContent = now.liner ? 'Liner on' : 'Liner off'
+        liner.append(lart, lcap)
         mk.append(para('Eyeliner', 'kicker'), liner)
       }
       lux.append(mk)

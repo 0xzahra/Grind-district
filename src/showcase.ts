@@ -4,6 +4,7 @@
 import * as THREE from 'three'
 import { carGeometry, type CarKind } from './cars.ts'
 import type { Obstacle } from './physics.ts'
+import { PIECES } from './wardrobe.ts'
 
 const std = (color: number, roughness = 0.5, metalness = 0, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra })
@@ -172,9 +173,69 @@ export function itemModel(id: string): THREE.Group {
       for (const x of [-0.08, 0.08]) g.add(mesh(new THREE.BoxGeometry(0.012, 0.012, 0.36), M.graphite, x, 0.04, 0))
       break
     }
+    default:
+      if (id.startsWith('jw:')) jewel(g, id.slice(3))
   }
   return g
 }
+
+// Jewellery for the boutique's product pictures: id 'jw:<piece id>' (wardrobe.ts), e.g. jw:watch-gold.
+// Metal from the piece colour, stones and pearls where the name says so.
+function jewel(g: THREE.Group, id: string): void {
+  const piece = PIECES.find((p) => p.id === id)
+  const hex = piece?.hex ?? 0xd9b26a
+  const pid = `${id} ${piece?.label.toLowerCase() ?? ''}`
+  const metal = std(hex, hex === 0x2a2a2e ? 0.28 : 0.18, 0.95, { envMapIntensity: 1.4 })
+  const stone = (c: number) => std(c, 0.04, 0.1, { transparent: true, opacity: 0.92, envMapIntensity: 2.2, emissive: c, emissiveIntensity: 0.08 })
+  const gemColour = /emerald/.test(pid) ? 0x1f9d63 : 0xeef6ff
+  const pearl = std(0xf4efe6, 0.32, 0.05, { envMapIntensity: 1.3 })
+  if (/watch|chronograph/.test(pid)) {
+    // Case, bezel, dial with hands and markers, crown, and a bracelet loop behind.
+    const face = new THREE.Group()
+    face.add(mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.011, 40).rotateX(Math.PI / 2), metal, 0, 0, 0))
+    face.add(mesh(new THREE.TorusGeometry(0.0205, 0.0022, 10, 40), metal, 0, 0, 0.0056))
+    const dialC = /onyx|gold|rose/.test(pid) ? 0x14161a : 0xf2efe8
+    face.add(mesh(new THREE.CircleGeometry(0.0185, 40), std(dialC, 0.35, 0.2), 0, 0, 0.0057))
+    const hand = std(dialC === 0x14161a ? 0xe9cf96 : 0x1a1c20, 0.3, 0.8)
+    face.add(mesh(new THREE.BoxGeometry(0.0016, 0.013, 0.0006).translate(0, 0.006, 0), hand, 0, 0, 0.0062).rotateZ(-0.6))
+    face.add(mesh(new THREE.BoxGeometry(0.0013, 0.009, 0.0006).translate(0, 0.0042, 0), hand, 0, 0, 0.0063).rotateZ(1.9))
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; face.add(mesh(new THREE.BoxGeometry(0.0011, i % 3 ? 0.002 : 0.0035, 0.0005), hand, Math.sin(a) * 0.0155, Math.cos(a) * 0.0155, 0.0061).rotateZ(-a)) }
+    if (/chronograph/.test(pid)) for (const [x, y] of [[-0.008, -0.004], [0.008, -0.004], [0, -0.01]]) face.add(mesh(new THREE.TorusGeometry(0.0034, 0.0004, 6, 20), hand, x!, y!, 0.0062))
+    face.add(mesh(new THREE.CylinderGeometry(0.0024, 0.0024, 0.004, 12).rotateZ(Math.PI / 2), metal, 0.0235, 0, 0))
+    const band = mesh(new THREE.TorusGeometry(0.026, 0.0045, 8, 40).scale(1, 1.25, 1.6), metal, 0, -0.004, -0.018)
+    band.rotation.x = Math.PI / 2.4
+    face.position.set(0, 0.035, 0); face.rotation.x = -0.25
+    g.add(band, face)
+    return
+  }
+  if (/ring|band|signet|solitaire/.test(pid)) {
+    const ring = mesh(new THREE.TorusGeometry(0.011, 0.0022, 14, 48), metal, 0, 0.0132, 0)
+    g.add(ring)
+    if (/signet/.test(pid)) g.add(mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.003, 24), metal, 0, 0.0255, 0))
+    else if (/solitaire|emerald/.test(pid)) {
+      g.add(mesh(new THREE.CylinderGeometry(0.0028, 0.002, 0.003, 6), metal, 0, 0.026, 0))
+      g.add(mesh(new THREE.OctahedronGeometry(0.0045, 0).scale(1, 0.75, 1), stone(gemColour), 0, 0.0302, 0))
+    }
+    g.rotation.y = 0.5
+    return
+  }
+  if (/earrings|ear-|studs/.test(pid)) {
+    for (const x of [-0.016, 0.016]) {
+      if (/hoops/.test(pid)) g.add(mesh(new THREE.TorusGeometry(0.009, 0.0013, 10, 36), metal, x, 0.012, 0))
+      else if (/drops/.test(pid)) { g.add(mesh(new THREE.SphereGeometry(0.0022, 12, 10), metal, x, 0.024, 0)); g.add(mesh(new THREE.OctahedronGeometry(0.0055, 0).scale(0.7, 1.3, 0.7), stone(gemColour), x, 0.013, 0)) }
+      else g.add(mesh(new THREE.SphereGeometry(0.0042, 16, 12), /pearl|studs/.test(pid) && !/emerald/.test(pid) ? pearl : stone(gemColour), x, 0.006, 0))
+    }
+    return
+  }
+  // Necklaces: a chain hanging in a U, with pearls or a pendant where named.
+  const pts: THREE.Vector3[] = []
+  for (let i = 0; i <= 32; i++) { const t = i / 32 * Math.PI; pts.push(new THREE.Vector3(Math.cos(t) * 0.045, 0.07 - Math.sin(t) * 0.055, 0)) }
+  const curve = new THREE.CatmullRomCurve3(pts)
+  if (/pearl/.test(pid)) { for (let i = 0; i <= 30; i++) g.add(mesh(new THREE.SphereGeometry(0.0034, 12, 10), pearl, ...(curve.getPoint(i / 30).toArray() as [number, number, number]))) }
+  else g.add(mesh(new THREE.TubeGeometry(curve, 64, 0.0012, 6, false), metal))
+  if (/pendant/.test(pid)) { g.add(mesh(new THREE.TorusGeometry(0.0022, 0.0006, 6, 12), metal, 0, 0.0128, 0)); g.add(mesh(new THREE.OctahedronGeometry(0.0062, 0).scale(0.8, 1.2, 0.5), stone(gemColour), 0, 0.006, 0)) }
+}
+
 
 function plaque(text: string): THREE.Mesh {
   const c = document.createElement('canvas'); c.width = 512; c.height = 128
