@@ -25,6 +25,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/stocks",
+      "destination": "/api/track?op=stocks"
+    },
+    {
       "source": "/api/reward-wallet",
       "destination": "/api/profile?op=reward-wallet"
     },

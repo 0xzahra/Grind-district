@@ -1,4 +1,5 @@
-// The tokenized stocks on Base, for the Stockholders' Club (src/stockClub.ts). Coinbase publishes the list through a
+// The tokenized stocks on Base, for the Stockholders' Club (src/stockClub.ts). Served at /api/stocks through the track
+// function (vercel.json rewrite: the Hobby plan allows 12 functions). Coinbase publishes the list through a
 // public, read-only API with no key, but it sends no CORS header, so the browser reads it through here. The list
 // is trimmed to what the club uses and cached at the edge for ten minutes. Nothing about any player passes
 // through this function.
@@ -19,7 +20,7 @@ type Upstream = {
 
 const SOURCE = 'https://api.coinbase.com/v1/tokenized-stocks'
 
-export default async function handler(req: { method?: string }, res: Res) {
+export async function stocksHandler(req: { method?: string }, res: Res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' })
   try {
     const tokens: Upstream[] = []

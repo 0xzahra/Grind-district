@@ -4,7 +4,7 @@
 // - Join: connect a Base wallet and sign one plain message that proves you control the address. It is a
 //   signature, not a transaction: no gas, nothing moves. The signature is checked against Base (smart wallets
 //   too), then the game reads, for that address only, its balance of each listed stock token (Coinbase's B20
-//   tokens, listed by api/stocks.ts) in a few read-only multicalls. Nothing else in the wallet is read.
+//   tokens, listed by api/_stocks.ts at /api/stocks) in a few read-only multicalls. Nothing else in the wallet is read.
 // - Eligible: at least MIN_SHARES of any one listed stock. Shares = token balance × the token's multiplier, so
 //   splits and reinvested dividends count.
 // - Private: the address and the amounts stay on this device, beside the save (save format unchanged). The game

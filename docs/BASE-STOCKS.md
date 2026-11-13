@@ -19,11 +19,11 @@ Coinbase offers its stock tokens to eligible people outside the United States. A
 
 ## How it works
 
-- **The stock list** comes from Coinbase's public [Tokenized Stocks API](https://docs.base.org/build-on-base/integrate-defi/list-tokenized-stocks): 348 stocks on 13 Nov 2026. That API sends no CORS header, so the game reads it through [`api/stocks.ts`](../api/stocks.ts), which trims it and caches it for ten minutes.
+- **The stock list** comes from Coinbase's public [Tokenized Stocks API](https://docs.base.org/build-on-base/integrate-defi/list-tokenized-stocks): 348 stocks on 13 Nov 2026. That API sends no CORS header, so the game reads it through [`api/_stocks.ts`](../api/_stocks.ts), served at `/api/stocks`, which trims it and caches it for ten minutes.
 - **Proof of the address** is one `personal_sign` message: a signature, not a transaction. It is checked with viem's `verifyMessage` against Base, so smart wallets work too.
 - **The holding check** calls `balanceOf` for that one address on each listed stock token in a few Multicall3 batches on Base mainnet, then multiplies by each token's multiplier to get shares. At least 0.01 share of any one stock makes a member.
 - **Lapse.** Every visit to the club re-checks the wallet without a new signature, and so does opening Profile when the last check is over ten minutes old. Below the minimum, membership ends at once. A wallet proof older than 30 days asks for a new signature.
-- **Code:** [`src/stockClub.ts`](../src/stockClub.ts) (logic and the club card), [`api/stocks.ts`](../api/stocks.ts) (the list), the building in [`src/world.ts`](../src/world.ts) and the pin in [`src/ui.ts`](../src/ui.ts).
+- **Code:** [`src/stockClub.ts`](../src/stockClub.ts) (logic and the club card), [`api/_stocks.ts`](../api/_stocks.ts) (the list), the building in [`src/world.ts`](../src/world.ts) and the pin in [`src/ui.ts`](../src/ui.ts).
 
 ## Privacy
 

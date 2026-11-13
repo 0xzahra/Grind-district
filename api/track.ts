@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { stocksHandler } from './_stocks.js'
 
 // Accepts batched client events and inserts them with the service role. 202 no-op until env vars exist.
 const NAMES = new Set(['first_visit', 'session_start', 'signup', 'course_start', 'course_complete', 'cert_shared', 'cert_minted', 'cv_shared', 'share_click', 'transfer', 'topup_attempt'])
@@ -6,6 +7,8 @@ type Req = { method?: string; query?: Record<string, string | string[] | undefin
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
+  // The tokenized stock list for the Stockholders' Club (/api/stocks rewrites here; see _stocks.ts).
+  if (req.query?.op === 'stocks') return stocksHandler(req, res)
   if (req.method === 'GET' && req.query?.op === 'stats') {
     // Public aggregate stats (no identities): registered players, visitors active today (Lagos day), agents seen.
     const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
