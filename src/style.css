@@ -2311,6 +2311,7 @@ body:not(.rail-shut) .goal-pill { display: none; }
 #online-card[hidden] { display: none; }
 #online-card div { display: flex; justify-content: space-between; gap: 14px; } #online-card b { font-variant-numeric: tabular-nums; }
 body.online-open .goal-pill { visibility: hidden; }
+body.online-open #cam-toggle { visibility: hidden; }
 .goal-pill { max-width: min(260px, calc(100vw - 130px)) !important; padding: 6px 10px 6px 28px !important; border-radius: 12px; transition: max-width .25s, padding .25s; }
 .goal-pill b { font-size: 13px; } .goal-pill small { font-size: 11px; } .goal-pill .goal-kick { font-size: 9px; }
 .goal-pill::before { left: 10px; top: 11px; }
