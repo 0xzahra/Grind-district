@@ -1222,6 +1222,8 @@ const apiAgents = createRemoteAgents(scene)
   let faceYaw = Math.PI
   let stillFor = 0
   let camPitch = 0.42
+  // Zoom range. Close enough to frame the face (was 3.2 m); not below cameraBoom's MIN_BOOM (1.15 m), so the camera never pokes into the head.
+  const CAM_ZMIN = 1.2, CAM_ZMAX = 12
   let camDist = 5.6
   let camDistGoal = camDist
   let sprinting = false
@@ -1740,7 +1742,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1839,7 +1841,7 @@ const apiAgents = createRemoteAgents(scene)
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     // Wheel/pinch moves a goal; the camera eases to it (no jumps, no runaway trackpad zoom).
-    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), 3.2, (ride?.driving && ride.kind === 'boat') || metro?.riding ? 18 : 12)
+    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), CAM_ZMIN, (ride?.driving && ride.kind === 'boat') || metro?.riding ? 18 : CAM_ZMAX)
     camDist += (camDistGoal - camDist) * (1 - Math.exp(-10 * dt))
 
     exitCooldown = Math.max(0, exitCooldown - dt)
@@ -2093,7 +2095,7 @@ const apiAgents = createRemoteAgents(scene)
     // A tall phone screen is so narrow that the same offset pushed the player half off the left edge: centre them.
     // Driving or riding the metro keeps the camera centred.
     const shoulderAmt = THREE.MathUtils.clamp((camera.aspect - 0.8) / 0.6, 0, 1)
-    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving || metro?.riding ? 0 : 0.55) * shoulderAmt * Math.min(1, 6 / camDist))
+    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving || metro?.riding ? 0 : 0.55) * shoulderAmt * Math.min(1, 6 / camDist) * THREE.MathUtils.clamp(camDist / 3.2, 0.3, 1)) // also eases off in a face close-up
     lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, (ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45) + levelY, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const indoors = Boolean(interiors.inside)

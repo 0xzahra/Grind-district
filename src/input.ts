@@ -121,6 +121,9 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   const lift = (event: PointerEvent) => { touches.delete(event.pointerId) }
   canvas.addEventListener('pointerup', lift)
   canvas.addEventListener('pointercancel', lift)
+  // iPhone Safari sends its own gesture events for a two-finger pinch and can zoom the whole page with them
+  // (it ignores user-scalable=no). Cancel them on the city so only the game's own pinch zoom above runs.
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) canvas.addEventListener(type, (e) => e.preventDefault(), { passive: false })
 
   canvas.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 && event.button !== 2) return
