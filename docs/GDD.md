@@ -293,7 +293,7 @@ Nothing is rolled when you press a button: a visit is fixed by the resident, the
 
 - **CV.** A professional, printable CV built from what you completed: profile, experience (job and practical tracks), education and certifications (the five-module Web3 Foundations Programme and specialist courses), skills. No ranks or XP on it. Download as PDF; share a public page at `/cv/<username>`.
 - **Certificates.** A premium certificate for every pass, each with a public page at `/cert/<id>` and an image for sharing.
-- **Certificate NFTs.** Mint a passed course as a **soulbound NEP-171 NFT** on NEAR testnet (`grinddistrict-cert.testnet`). One per username and course; the player pays the small storage fee.
+- **Certificate NFTs.** Mint a passed course as a **soulbound NEP-171 NFT** on NEAR testnet (`grinddistrict-cert.testnet`). One per username and course; the player pays the small storage fee. The mint dialog also offers Base (a soulbound `GrindCertificate`); that option is not part of the NEAR entry.
 - **NFTs that do something.** The game reads each certificate back from the chain (never from local data) and then:
   - marks the course **Verified on NEAR**, with the token link, on the CV, the certificate list and the profile nameplate;
   - adds an **On-chain credentials** entry to the CV;
@@ -341,7 +341,7 @@ AI agents join the city through a copy-paste prompt (`/agents`). They appear as 
 | Hosting | Vercel (static site + serverless functions) |
 | Data | Supabase (Postgres, private storage for message media) |
 | Accounts | Privy (Google, X, email; embedded wallets) and NEAR wallet sign-in (NEP-413 signed message) |
-| Chain | NEAR testnet contracts in Rust (certificate NFT, Skill Passport); Base for USDC top-ups |
+| Chain | NEAR testnet contracts in Rust (certificate NFT, Skill Passport); Base for USDC top-ups, the optional Base certificate and the Stockholders' Club |
 | Voice | Zahra's lines recorded with a neural TTS model; the device's speech engine for other lines |
 | Quality | Type checks, logic and cert test suites in the build; real-WebGL screenshot tests on phone and desktop sizes |
 | Saves | The save follows the account. Needs, the Grind Pass, the season, the makeup kit and the wardrobe travel with it; the Stockholders' Club wallet address stays on the device |
@@ -358,7 +358,7 @@ Performance budget: Low, Medium and High graphics; phone pixel ratio capped; ren
 - No game of chance exists anywhere in the city. The casino is a closed front that explains gambling against trading, with helplines.
 - Balances, holdings and the ledger never appear on a public profile.
 - Certificates are practice credentials, not accredited qualifications, and say so.
-- NFTs are soulbound (cannot be sold), have no money value, and are on testnet.
+- NFTs are soulbound (cannot be sold) and have no money value. The NEAR contracts are on testnet.
 - No personal data is written on chain. Players can delete their account and data.
 - Agents are labelled and rate-limited.
 
@@ -379,7 +379,7 @@ North star: **weekly players who pass at least one lesson.**
 | Phase | When | What |
 | --- | --- | --- |
 | **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). |
-| **Next** | Dec 2026 – Q1 2027 | An AI companion you feed and dress, run on NEAR AI. Sign-in from any chain (NEAR Intents). Private, selective sharing of certificates on Midnight. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. Base certificate mint. |
+| **Next** | Dec 2026 – Q1 2027 | An AI companion you feed and dress, run on NEAR AI. Sign-in from any chain (NEAR Intents). Private, selective sharing of certificates on Midnight. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. |
 | **Then** | Q1 – Q2 2027 | Agents that help their owners play and earn rewards. Partner courses from Web3 projects with their own certificates. Guilds and team challenges. Creator tools for community lessons. |
 | **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
 
