@@ -6,19 +6,28 @@ type Res = { setHeader(k: string, v: string): void; status(n: number): { send(b:
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
 import { getProfile } from './_profile.js'
-import { decodeCertId, certMetadata, certSerial, issuedWat, issuedIso, certPageUrl, CERT_ORIGIN, CERT_WORDING, CERT_W, CERT_H, type CertChain } from './_certArt.js'
+import { certMetadata, issuedWat, issuedIso, certPageUrl, CERT_ORIGIN, CERT_WORDING, CERT_W, CERT_H, type CertChain, type CertData } from './_certArt.js'
+import { findCert, rowData, certDb, type CertRow } from './_certStore.js'
+
+/** A certificate is shown only from its server record; anything else (edited, made-up or unknown) is not valid. */
+async function certFor(key: string): Promise<{ row: CertRow; d: CertData } | null> {
+  const db = certDb()
+  if (!key || key.length > 1024 || !db) return null
+  const row = await findCert(db, key).catch(() => null)
+  return row ? { row, d: rowData(row) } : null
+}
 
 const ORIGIN = CERT_ORIGIN
 
 async function certAsset(req: Req, res: Res, kind: 'certpng' | 'certmeta') {
-  const id = String(req.query.id ?? '')
-  const d = decodeCertId(id)
-  if (!d) { res.setHeader('content-type', 'text/plain'); return res.status(404).send('not a certificate') }
+  const rec = await certFor(String(req.query.id ?? ''))
+  if (!rec) { res.setHeader('content-type', 'text/plain'); res.setHeader('cache-control', 'no-store'); return res.status(404).send('not a valid certificate') }
+  const { d } = rec, id = rec.row.cert_id
   if (kind === 'certmeta') {
     const chain = req.query.chain === 'base' || req.query.chain === 'near' ? (req.query.chain as CertChain) : undefined
     res.setHeader('content-type', 'application/json; charset=utf-8')
     res.setHeader('access-control-allow-origin', '*')
-    res.setHeader('cache-control', 'public, max-age=86400, s-maxage=31536000, immutable')
+    res.setHeader('cache-control', 'public, max-age=3600, s-maxage=86400')
     return res.status(200).send(JSON.stringify(certMetadata(id, d, chain)))
   }
   const w = Math.max(300, Math.min(CERT_W, Number(req.query.w) || CERT_W))
@@ -27,7 +36,7 @@ async function certAsset(req: Req, res: Res, kind: 'certpng' | 'certmeta') {
     const png = await renderCertPng(d, id, w)
     res.setHeader('content-type', 'image/png')
     res.setHeader('access-control-allow-origin', '*')
-    res.setHeader('cache-control', 'public, max-age=86400, s-maxage=31536000, immutable')
+    res.setHeader('cache-control', 'public, max-age=3600, s-maxage=86400')
     return res.status(200).send(png)
   } catch (e) {
     console.error('cert render', e)
@@ -48,10 +57,11 @@ export default async function handler(req: Req, res: Res) {
   let image = `${origin}/og-image-v2.png`
   let imgW = 1200, imgH = 630
   let body = ''
+  let valid = true
   if (kind === 'cert') {
-    const id = String(req.query.id ?? '')
-    const c = decodeCertId(id)
-    if (c) {
+    const rec = await certFor(String(req.query.id ?? ''))
+    const c = rec?.d, id = rec?.row.cert_id ?? ''
+    if (rec && c) {
       heading = `${c.t} certificate`
       title = `${heading} · ${c.n || `@${c.u}`} · Grind District`
       desc = `${c.n || 'A player'} (@${c.u}) passed ${c.t} in Grind District on ${issuedWat(c)}.`
@@ -64,12 +74,15 @@ export default async function handler(req: Req, res: Res) {
       body = `<img class="cert" src="/cert/${esc(id)}/image.png?w=1600" alt="${esc(`${c.t} certificate for ${c.n || c.u}`)}" width="${CERT_W}" height="${CERT_H}">
 <h1>${esc(c.n || `@${c.u}`)}</h1>
 <p class="sub">@${esc(c.u)} · ${esc(c.t)} · ${esc(issuedWat(c))}</p>
-<table>${row('Course', c.t)}${row('Player', c.n || '-')}${row('Username', `@${c.u}`)}${row('Issued (WAT)', issuedWat(c))}${row('Issued (ISO-8601)', issuedIso(c) || '-')}${row('Serial', certSerial(c))}${row('Issuer', 'Grind District')}${chainRows || row('On-chain', 'Not minted yet. The player can mint it as a soulbound NFT on Base or NEAR from the game.')}</table>
+<table>${row('Course', c.t)}${row('Player', c.n || '-')}${row('Username', `@${c.u}`)}${row('Issued (WAT)', issuedWat(c))}${row('Issued (ISO-8601)', issuedIso(c) || '-')}${row('Serial', rec.row.serial)}${row('Issuer', 'Grind District')}${chainRows || row('On-chain', 'Not minted yet. The player can mint it as a soulbound NFT on Base or NEAR from the game.')}</table>
 <p class="small">Certificate ID: <code>${esc(id)}</code> · <a href="/cert/${esc(id)}/meta.json">Metadata JSON</a> · <a href="/cert/${esc(id)}/image.png" download>Download PNG</a></p>
 <p class="foot">${esc(CERT_WORDING)}</p>`
     } else {
-      heading = 'Certificate not found'
-      body = `<h1>${esc(heading)}</h1><p>This link is not a valid Grind District certificate.</p>`
+      heading = 'Invalid certificate'
+      title = 'Invalid certificate · Grind District'
+      desc = 'This link is not a valid Grind District certificate.'
+      body = `<h1>${esc(heading)}</h1><p>This link is not a valid Grind District certificate. It may have been changed, or it was never issued by Grind District. Ask the player for the link from their game, or check the serial printed on the certificate.</p>`
+      valid = false
     }
   } else {
     const u = String(req.query.username ?? '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16)
@@ -103,6 +116,6 @@ section{margin-top:24px;border-top:1px solid #eadfcb;padding-top:16px}</style></
 <a class="btn" href="${game}">Open Grind District</a>
 ${kind === 'cv' ? '<section><h2>Endorsements</h2><p>Reviews and endorsements are coming soon.</p></section>' : ''}</main></body></html>`
   res.setHeader('content-type', 'text/html; charset=utf-8')
-  res.setHeader('cache-control', 'public, max-age=300')
-  res.status(200).send(html)
+  res.setHeader('cache-control', valid ? 'public, max-age=300' : 'no-store')
+  res.status(valid ? 200 : 404).send(html)
 }

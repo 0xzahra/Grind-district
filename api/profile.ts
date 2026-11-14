@@ -5,6 +5,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
 import { certVoucher } from './_certMint.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
+import { issueCert } from './_certStore.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
@@ -63,6 +64,7 @@ export default async function handler(req: Req, res: Res) {
     const username = p.data.username
     await db.from('player_progress').delete().eq('privy_user_id', userId)
     await db.from('player_grants').delete().eq('privy_user_id', userId)
+    try { await db.from('certificates').delete().eq('username', username) } catch { /* */ }
     await db.from('public_profiles').delete().eq('username', username)
     await db.from('reward_wallets').delete().eq('privy_user_id', userId)
     await db.from('wallets').delete().eq('privy_user_id', userId)
@@ -96,6 +98,12 @@ export default async function handler(req: Req, res: Res) {
       }
     }
     return res.status(200).json({ ok: true })
+  }
+  if (req.query?.op === 'cert-issue') {
+    // The player's certificate for a passed course: the server record (issued from the synced save on first ask).
+    const r = await issueCert(db, userId, p.data.username, String(req.body?.course ?? ''), String(req.body?.certId ?? ''))
+    if (!r.ok) return res.status(r.status).json({ error: r.error })
+    return res.status(200).json({ certId: r.row.cert_id, serial: r.row.serial, name: r.row.player_name, at: r.row.issued_ms })
   }
   if (req.query?.op === 'cert-voucher') {
     // Certificate NFT voucher (Base or NEAR). Linked wallets come from Privy, never from the client.

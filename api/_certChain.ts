@@ -12,6 +12,7 @@ export const nearNetwork = () => (nearContract()?.endsWith('.testnet') ? 'testne
 
 export const CERT_ABI = [
   { type: 'function', name: 'tokenOfKey', stateMutability: 'view', inputs: [{ type: 'bytes32' }], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'tokenJSON', stateMutability: 'view', inputs: [{ type: 'uint256' }], outputs: [{ type: 'string' }] },
 ] as const satisfies Abi
 
 export const certKey = (username: string, course: string) => keccak256(encodeAbiParameters([{ type: 'string' }, { type: 'string' }], [username, course]))
@@ -21,7 +22,7 @@ const timed = async (url: string, body: unknown, ms = 2500) => {
   try { return await (await fetch(url, { method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json() } finally { clearTimeout(t) }
 }
 
-export type Minted = { chain: 'base' | 'near'; tokenId: string; contract: string; explorer: string; owner?: string }
+export type Minted = { chain: 'base' | 'near'; tokenId: string; contract: string; explorer: string; owner?: string; certUrls?: string[] }
 
 export async function mintedOnBase(username: string, course: string): Promise<Minted | null> {
   const c = baseContract(); if (!c) return null
@@ -31,7 +32,14 @@ export async function mintedOnBase(username: string, course: string): Promise<Mi
   const id = decodeFunctionResult({ abi: CERT_ABI, functionName: 'tokenOfKey', data: j.result }) as bigint
   if (!id) return null
   const scan = baseChainId() === 84532 ? 'https://sepolia.basescan.org' : 'https://basescan.org'
-  return { chain: 'base', tokenId: id.toString(), contract: c, explorer: `${scan}/nft/${c}/${id}` }
+  // The certificate link written on-chain at mint (lets an already-minted certificate's page keep working).
+  const certUrls: string[] = []
+  try {
+    const q = encodeFunctionData({ abi: CERT_ABI, functionName: 'tokenJSON', args: [id] })
+    const m = (await timed(BASE_RPC, { jsonrpc: '2.0', id: 2, method: 'eth_call', params: [{ to: c, data: q }, 'latest'] })) as { result?: `0x${string}` }
+    if (m.result) { const x = JSON.parse(decodeFunctionResult({ abi: CERT_ABI, functionName: 'tokenJSON', data: m.result }) as string) as { external_url?: unknown }; if (typeof x.external_url === 'string') certUrls.push(x.external_url) }
+  } catch { /* metadata read is best effort */ }
+  return { chain: 'base', tokenId: id.toString(), contract: c, explorer: `${scan}/nft/${c}/${id}`, certUrls }
 }
 
 export async function mintedOnNear(username: string, course: string): Promise<Minted | null> {
@@ -39,8 +47,12 @@ export async function mintedOnNear(username: string, course: string): Promise<Mi
   const args = Buffer.from(JSON.stringify({ username, course_id: course })).toString('base64')
   const j = (await timed(nearRpc(), { jsonrpc: '2.0', id: 'gd', method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: c, method_name: 'cert_for', args_base64: args } }, 6000)) as { result?: { result?: number[] } }
   if (!j.result?.result) return null
-  const t = JSON.parse(Buffer.from(j.result.result).toString('utf8')) as { token_id: string; owner_id: string } | null
+  const t = JSON.parse(Buffer.from(j.result.result).toString('utf8')) as { token_id: string; owner_id: string; metadata?: { media?: string; extra?: string } } | null
   if (!t) return null
   const scan = nearNetwork() === 'testnet' ? 'https://testnet.nearblocks.io' : 'https://nearblocks.io'
-  return { chain: 'near', tokenId: t.token_id, contract: c, owner: t.owner_id, explorer: `${scan}/nft-token/${c}/${t.token_id}` }
+  // The certificate links written on-chain at mint (lets an already-minted certificate's page keep working).
+  const certUrls: string[] = []
+  if (typeof t.metadata?.media === 'string') certUrls.push(t.metadata.media)
+  try { const x = JSON.parse(t.metadata?.extra || '{}') as { external_url?: unknown }; if (typeof x.external_url === 'string') certUrls.push(x.external_url) } catch { /* not JSON */ }
+  return { chain: 'near', tokenId: t.token_id, contract: c, owner: t.owner_id, explorer: `${scan}/nft-token/${c}/${t.token_id}`, certUrls }
 }

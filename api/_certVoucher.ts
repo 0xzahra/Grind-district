@@ -4,27 +4,27 @@
 // The save is written by the player's device, so this is a practice credential, not a verified grade.
 import { createPrivateKey, sign as edSign, createPublicKey } from 'node:crypto'
 import { encodeCertId, decodeCertId, certSerial, issuedWat, certField, type CertData } from './_certArt.js'
-import { CERT_COURSES, CERT_RANKS } from './_certCourses.js'
+import { CERT_COURSES } from './_certCourses.js'
 
 export const VOUCHER_TTL_S = 30 * 60
 const EARLIEST = Date.parse('2025-01-01T00:00:00Z')
 
 type Save = { name?: unknown; xp?: unknown; skills?: Record<string, { passed?: boolean } | undefined>; activities?: Array<{ at?: unknown; label?: unknown }> }
 
-/** Rebuilds the certificate from server-side facts. Returns an error string when it must not be signed. */
-export function canonicalCert(save: Save | null | undefined, username: string, course: string, clientId: string, now = Date.now()): { ok: true; id: string; data: CertData } | { ok: false; error: string } {
+/** Rebuilds the certificate from server-side facts. Returns an error string when it must not be issued or signed.
+ *  `clientId` (optional) is only a hint for the first-issue time when the save has no pass time logged. */
+export function canonicalCert(save: Save | null | undefined, username: string, course: string, clientId = '', now = Date.now()): { ok: true; id: string; data: CertData } | { ok: false; error: string } {
   const title = CERT_COURSES[course]
   if (!title) return { ok: false, error: 'unknown course' }
   if (!save?.skills?.[course]?.passed) return { ok: false, error: 'course not passed in your synced progress' }
-  const client = decodeCertId(clientId)
-  if (!client || client.c !== course || client.u.toLowerCase() !== username.toLowerCase()) return { ok: false, error: 'certificate does not match your account' }
-  const rank = CERT_RANKS.includes(client.r) ? client.r : CERT_RANKS[0]
+  const client = clientId ? decodeCertId(clientId) : null
+  if (clientId && (!client || client.c !== course || client.u.toLowerCase() !== username.toLowerCase())) return { ok: false, error: 'certificate does not match your account' }
   // Prefer the pass time in the save's activity log; else the device's first-issue time (must be sane).
   const logged = (save.activities ?? []).find((a) => a?.label === `Passed ${title}`)
   let at = Number(logged?.at)
-  if (!Number.isFinite(at) || at < EARLIEST || at > now + 300_000) at = Number(client.at)
+  if (!Number.isFinite(at) || at < EARLIEST || at > now + 300_000) at = Number(client?.at)
   if (!Number.isFinite(at) || at < EARLIEST || at > now + 300_000) at = now
-  const data: CertData = { n: certField(save.name, 40) || username, u: username.toLowerCase(), r: rank, c: course, t: title, at: Math.floor(at) }
+  const data: CertData = { n: certField(save.name, 40) || username, u: username.toLowerCase(), c: course, t: title, at: Math.floor(at) }
   const id = encodeCertId(data)
   return { ok: true, id, data: decodeCertId(id)! }
 }
@@ -47,7 +47,7 @@ export const certDomain = (chainId: number, verifyingContract: `0x${string}`) =>
 
 export function baseVoucher(to: `0x${string}`, id: string, d: CertData, now = Date.now()): BaseVoucher {
   return {
-    to, courseId: d.c, courseTitle: d.t, playerName: d.n, username: d.u, rank: d.r,
+    to, courseId: d.c, courseTitle: d.t, playerName: d.n, username: d.u, rank: '', // rank is not part of a certificate (field kept: the contract's voucher type has it)
     issuedAt: BigInt(Math.floor((d.at ?? now) / 1000)), issuedWat: issuedWat(d), serial: certSerial(d), certId: id,
     deadline: BigInt(Math.floor(now / 1000) + VOUCHER_TTL_S),
   }
@@ -63,7 +63,7 @@ export async function signBaseVoucher(key: `0x${string}`, chainId: number, contr
 /** Exact JSON the NEAR contract parses after checking the ed25519 signature over these bytes. */
 export function nearVoucherJson(contract: string, receiver: string, id: string, d: CertData, now = Date.now()): string {
   return JSON.stringify({
-    contract_id: contract, receiver_id: receiver, course_id: d.c, course_title: d.t, player_name: d.n, username: d.u, rank: d.r,
+    contract_id: contract, receiver_id: receiver, course_id: d.c, course_title: d.t, player_name: d.n, username: d.u, rank: '',
     issued_at_ms: d.at ?? now, issued_wat: issuedWat(d), serial: certSerial(d), cert_id: id, deadline_ms: now + VOUCHER_TTL_S * 1000,
   })
 }

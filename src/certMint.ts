@@ -71,6 +71,16 @@ async function authHeaders(): Promise<{ headers: Record<string, string>; near?: 
   return null
 }
 
+/** The server's record of this certificate (issued on first ask from the synced save): its id and printed serial. */
+export async function serverCert(course: SkillId, hintId: string): Promise<{ certId: string; serial: string } | { error: string }> {
+  const auth = await authHeaders()
+  if (!auth) return { error: 'Sign in to your Grind District account to get a share link' }
+  const r = await fetch('/api/profile?op=cert-issue', { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ course, certId: hintId, ...(auth.near ? { near: auth.near } : {}) }) }).catch(() => null)
+  const j = (await r?.json().catch(() => ({}))) as Record<string, unknown> | undefined
+  if (!r?.ok || typeof j?.certId !== 'string') return { error: String(j?.error ?? 'Could not reach Grind District') }
+  return { certId: j.certId, serial: String(j.serial ?? '') }
+}
+
 async function voucher(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const auth = await authHeaders()
   if (!auth) throw new Error('Sign in to your Grind District account first (Menu > Account), then try again.')

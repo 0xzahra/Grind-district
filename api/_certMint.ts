@@ -4,9 +4,10 @@
 // wallet is the player's own (Base: a wallet linked to their Privy account; NEAR: their signed-in
 // NEAR account if they use NEAR sign-in) and this (username, course) is not already minted.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { canonicalCert, baseVoucher, signBaseVoucher, nearVoucherJson, signNearVoucher } from './_certVoucher.js'
+import { baseVoucher, signBaseVoucher, nearVoucherJson, signNearVoucher } from './_certVoucher.js'
 import { baseContract, nearContract, baseChainId, nearNetwork, mintedOnBase, mintedOnNear } from './_certChain.js'
 import { isNearAccount } from './_nearAuth.js'
+import { issueCert, rowData } from './_certStore.js'
 
 type Res = { status(n: number): { json(b: unknown): void } }
 type Body = Record<string, unknown> & { chain?: unknown; course?: unknown; certId?: unknown; to?: unknown; receiver?: unknown }
@@ -15,9 +16,10 @@ export async function certVoucher(body: Body, res: Res, db: SupabaseClient, user
   const chain = body.chain === 'base' || body.chain === 'near' ? body.chain : null
   const course = String(body.course ?? '')
   if (!chain) return res.status(400).json({ error: 'choose Base or NEAR' })
-  const prog = await db.from('player_progress').select('save').eq('privy_user_id', userId).maybeSingle()
-  const c = canonicalCert(prog.data?.save as never, username, course, String(body.certId ?? ''))
-  if (!c.ok) return res.status(403).json({ error: c.error })
+  // The server certificate record (issued now if this is the first time) is what gets minted.
+  const rec = await issueCert(db, userId, username, course, String(body.certId ?? ''))
+  if (!rec.ok) return res.status(rec.status).json({ error: rec.error })
+  const c = { id: rec.row.cert_id, data: rowData(rec.row) }
 
   if (chain === 'base') {
     const contract = baseContract(), key = process.env.CERT_SIGNER_PRIVATE_KEY

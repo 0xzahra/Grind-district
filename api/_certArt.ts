@@ -14,7 +14,7 @@ export type CertData = {
   v?: number
   n: string // display name
   u: string // username (no @)
-  r: string // rank label at issue
+  r?: string // old ids carried a rank label; it is ignored (never shown, stored or minted)
   c: string // course id (SkillId)
   t: string // course title
   d?: string // YYYY-MM-DD (WAT) — kept for old readers
@@ -44,7 +44,8 @@ export const watDate = (ms: number) => new Date(ms + 3_600_000).toISOString().sl
 
 export function encodeCertId(d: CertData): string {
   const at = typeof d.at === 'number' && Number.isFinite(d.at) ? Math.floor(d.at) : undefined
-  const body: CertData = { v: 2, n: clean(d.n, 40), u: clean(d.u, 16).toLowerCase(), r: clean(d.r, 24), c: clean(d.c, 32), t: clean(d.t, 80), d: at ? watDate(at) : clean(d.d, 10) }
+  // Rank is not part of a certificate (new ids carry none; old ids still decode).
+  const body: CertData = { v: 2, n: clean(d.n, 40), u: clean(d.u, 16).toLowerCase(), c: clean(d.c, 32), t: clean(d.t, 80), d: at ? watDate(at) : clean(d.d, 10) }
   if (at) body.at = at
   return b64urlEncode(JSON.stringify(body))
 }
@@ -55,7 +56,7 @@ export function decodeCertId(id: string): CertData | null {
   try {
     const j = JSON.parse(b64urlDecode(id)) as Record<string, unknown>
     if (!j || typeof j !== 'object' || typeof j.t !== 'string') return null
-    const out: CertData = { v: Number(j.v) || 1, n: clean(j.n, 40), u: clean(j.u, 16), r: clean(j.r, 24), c: clean(j.c, 32), t: clean(j.t, 80) }
+    const out: CertData = { v: Number(j.v) || 1, n: clean(j.n, 40), u: clean(j.u, 16), c: clean(j.c, 32), t: clean(j.t, 80) }
     const d = clean(j.d, 10)
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) out.d = d
     const at = Number(j.at)
@@ -116,7 +117,6 @@ export function certMetadata(id: string, d: CertData, chain?: CertChain) {
     { trait_type: 'Course ID', value: d.c },
     { trait_type: 'Player', value: d.n },
     { trait_type: 'Username', value: `@${d.u}` },
-    { trait_type: 'Rank at issue', value: d.r },
     { trait_type: 'Issued (WAT)', value: issuedWat(d) },
     { trait_type: 'Issued (ISO-8601)', value: issuedIso(d) },
     { trait_type: 'Certificate ID', value: id },
@@ -360,7 +360,7 @@ export function drawCertificate(g: Ctx, d: CertData, id: string, a: CertAssets, 
 
   g.fillStyle = C.sand
   g.font = `500 23px ${F.sans}`
-  spaced(g, `@${d.u || 'player'}   ·   ${(d.r || 'Shrimp').toUpperCase()} RANK`, cx, 580, 3.2)
+  spaced(g, `@${d.u || 'player'}`, cx, 580, 3.2)
 
   g.fillStyle = C.muted
   g.font = `italic 400 31px ${F.serif}`

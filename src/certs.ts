@@ -1,4 +1,4 @@
-import { rankFor, SKILL_META, type SkillId } from './logic.ts'
+import { SKILL_META, type SkillId } from './logic.ts'
 import { getSave } from './state.ts'
 import { shareLink, shareOrCopy, profileLink, publishProfile } from './share.ts'
 import { track } from './track.ts'
@@ -10,10 +10,11 @@ import '@fontsource/cormorant-garamond/latin-400-italic.css'
 import '@fontsource/cormorant-garamond/latin-600.css'
 import '@fontsource/cormorant-garamond/latin-600-italic.css'
 
-// Issue snapshot per course (time + rank at first issue) so a certificate id stays stable.
+// Issue snapshot per course (time of first issue) so a certificate stays stable on this device.
+// The real certificate is the server record (see serverCert); this only paints it before that answers.
 // Device-local (localStorage), not part of the save. The pass time comes from the save's activity log when present.
 const SNAP_KEY = 'gd.certs.v1'
-type Snap = { at: number; r: string }
+type Snap = { at: number }
 const readSnaps = (): Record<string, Snap> => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || '{}') as Record<string, Snap> } catch { return {} } }
 const writeSnap = (course: string, s: Snap) => { try { localStorage.setItem(SNAP_KEY, JSON.stringify({ ...readSnaps(), [course]: s })) } catch { /* private mode */ } }
 
@@ -24,19 +25,19 @@ export function certData(course: SkillId): CertData {
   let snap = readSnaps()[course]
   if (!snap || !Number.isFinite(snap.at)) {
     const passed = s.activities.find((a) => a.label === `Passed ${title}`)
-    snap = { at: passed?.at ?? Date.now(), r: rankFor(s.xp).label }
+    snap = { at: passed?.at ?? Date.now() }
     writeSnap(course, snap)
   }
-  return decodeCertId(encodeCertId({ n: s.name || s.username, u: s.username, r: snap.r, c: course, t: title, at: snap.at }))!
+  return decodeCertId(encodeCertId({ n: s.name || s.username, u: s.username, c: course, t: title, at: snap.at }))!
 }
 
-/** Adopt the server's canonical fields after a voucher (keeps the art identical to what was minted). */
+/** Adopt the server's certificate fields (keeps the art identical to the server record and what was minted). */
 export function adoptCertId(course: SkillId, id: string): void {
   const d = decodeCertId(id)
-  if (d?.at && d.c === course) writeSnap(course, { at: d.at, r: d.r })
+  if (d?.at && d.c === course) writeSnap(course, { at: d.at })
 }
 
-/** Self-contained certificate id: the public page decodes it, no database needed. */
+/** This device's certificate id (the public page only accepts the id the server issued). */
 export function certId(course: SkillId): string {
   return encodeCertId(certData(course))
 }
@@ -68,31 +69,56 @@ export async function openCertificate(course: SkillId): Promise<void> {
   dlg.className = 'wallet-dlg cert-dlg'
   dlg.setAttribute('role', 'dialog')
   dlg.setAttribute('aria-label', 'Certificate')
-  const data = certData(course)
-  const id = encodeCertId(data)
+  let data = certData(course)
+  let id = encodeCertId(data)
   const canvas = await paintCertificate(course, data)
   canvas.style.width = '100%'
   canvas.style.height = 'auto'
   canvas.style.borderRadius = '8px'
   canvas.setAttribute('role', 'img')
-  canvas.setAttribute('aria-label', `${data.t} certificate for ${data.n}, issued ${issuedWat(data)}`)
   const meta = document.createElement('p')
   meta.className = 'muted cert-meta'
-  meta.textContent = `Nº ${certSerial(data)} · Issued ${issuedWat(data)}`
-  const link = shareLink(`/cert/${id}`, 'cert', getSave().username)
   const share = document.createElement('button')
   share.className = 'primary'
-  share.textContent = 'Share certificate'
-  share.onclick = async () => {
-    const r = await shareOrCopy(`${SKILL_META[course].title} certificate`, link, 'cert')
-    if (r !== 'failed') track('cert_shared', { course })
-    share.textContent = r === 'copied' ? 'Link copied' : r === 'shared' ? 'Shared' : 'Could not share'
-  }
   const save = document.createElement('a')
   save.className = 'cert-dl'
   save.textContent = 'Download PNG'
   save.download = `grind-district-${course}-certificate.png`
-  save.href = canvas.toDataURL('image/png')
+  const show = () => {
+    canvas.setAttribute('aria-label', `${data.t} certificate for ${data.n}, issued ${issuedWat(data)}`)
+    meta.textContent = `Nº ${certSerial(data)} · Issued ${issuedWat(data)}`
+    save.href = canvas.toDataURL('image/png')
+  }
+  show()
+  // The share link names the server's record of this certificate; it is fetched (issued on first ask) here.
+  let link = ''
+  const fetchServer = async () => {
+    share.disabled = true
+    share.textContent = 'Preparing link…'
+    const r = await import('./certMint.ts').then((m) => m.serverCert(course, id)).catch(() => ({ error: 'Could not reach Grind District' }))
+    if (!dlg.isConnected) return
+    share.disabled = false
+    if ('certId' in r) {
+      if (r.certId !== id) {
+        adoptCertId(course, r.certId)
+        const d = decodeCertId(r.certId)
+        if (d) { data = d; id = r.certId; await paintCertificate(course, data).then((c) => canvas.getContext('2d')!.drawImage(c, 0, 0)).catch(() => null); show() }
+      }
+      link = shareLink(`/cert/${r.serial || id}`, 'cert', getSave().username)
+      share.textContent = 'Share certificate'
+    } else {
+      link = ''
+      share.textContent = 'Retry share link'
+      share.title = r.error
+    }
+    void import('./certMint.ts').then((m) => m.renderMint(mint, course, id)).catch(() => { mint.textContent = '' })
+  }
+  share.onclick = async () => {
+    if (!link) return void fetchServer()
+    const r = await shareOrCopy(`${SKILL_META[course].title} certificate`, link, 'cert')
+    if (r !== 'failed') track('cert_shared', { course })
+    share.textContent = r === 'copied' ? 'Link copied' : r === 'shared' ? 'Shared' : 'Could not share'
+  }
   const mint = document.createElement('div')
   mint.className = 'cert-mint'
   const close = document.createElement('button')
@@ -101,7 +127,7 @@ export async function openCertificate(course: SkillId): Promise<void> {
   close.onclick = () => dlg.remove()
   dlg.append(canvas, meta, share, save, mint, close)
   document.body.append(dlg)
-  void import('./certMint.ts').then((m) => m.renderMint(mint, course, id)).catch(() => { mint.textContent = '' })
+  void fetchServer()
 }
 
 export function passedCount(): number {
