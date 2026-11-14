@@ -1,4 +1,5 @@
 import { applyTopup } from './state.ts'
+import { syncNearTopups } from './topupNear.ts'
 
 const WALLET_KEY = 'gd.topup.wallet'
 const isAddr = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a)
@@ -18,4 +19,5 @@ export async function syncTopups(player: string, onChange: () => void): Promise<
 export async function autoSyncTopups(onChange: () => void): Promise<void> {
   const a = savedFrom()
   if (a) await syncTopups(a.toLowerCase(), onChange)
+  await syncNearTopups(onChange)
 }

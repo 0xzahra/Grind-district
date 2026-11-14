@@ -1,6 +1,7 @@
 // Automatic top-up: pick amount → Pay in wallet → server detects & credits. No copy/paste of address or hash.
 import { GRIND_TREASURY_VAULT, BASE_USDC, breakdown, ethToUsdMicro } from './grindConfig.ts'
 import { applyTopup } from './state.ts'
+import { nearTopupOn, renderNearTopup } from './topupNear.ts'
 import { ethPrice } from './topupPrice.ts'
 import { gameWalletAddress, payUsdcFromGameWallet, checkGameWalletUsdc, WalletNotSent, GAS_SPONSOR } from './privyWallet.ts'
 /** Custom top-up range (mirrors api/_topupAuto.ts MIN_USDC / MAX_USDC). Default stays 5 USDC. */
@@ -8,6 +9,7 @@ const MIN_USDC = 1
 const MAX_USDC = 1000
 export { ethPrice } from './topupPrice.ts'
 export { syncTopups, autoSyncTopups } from './topupSync.ts'
+export { nearTopupOn } from './topupNear.ts'
 
 type Eip1193 = { request(a: { method: string; params?: unknown[] }): Promise<unknown> }
 const provider = (): Eip1193 | undefined => (window as unknown as { ethereum?: Eip1193 }).ethereum
@@ -66,7 +68,7 @@ async function api(path: string, init?: RequestInit): Promise<Response> {
 
 export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { demo?: boolean } = {}): void {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
-  let asset: 'USDC' | 'ETH' = 'USDC'
+  let asset: 'USDC' | 'ETH' | 'NEAR' = 'USDC'
   let dollars = 5
   const usdcOk = () => Number.isFinite(dollars) && dollars >= MIN_USDC && dollars <= MAX_USDC && Math.abs(dollars * 100 - Math.round(dollars * 100)) < 1e-6
   let milliEth = 1
@@ -79,8 +81,10 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const tabs = el('div', '', 'topup-tabs')
   const tUsdc = el('button', 'USDC', 'on') as HTMLButtonElement
   const tEth = el('button', 'ETH') as HTMLButtonElement
-  tUsdc.type = tEth.type = 'button'
+  const tNear = el('button', 'NEAR') as HTMLButtonElement
+  tUsdc.type = tEth.type = tNear.type = 'button'
   tabs.append(tUsdc, tEth)
+  if (nearTopupOn()) tabs.append(tNear)
   const amtLabel = el('label', 'Amount', 'topup-label')
   const presets = el('div', '', 'topup-presets')
   const table = el('dl', '', 'topup-break')
@@ -96,8 +100,13 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   custom.style.cssText = 'width:100%;margin-top:6px'
   const status = el('p', '', 'topup-status')
   const fine = el('p', 'Pays the Grind District treasury on Base automatically. In-game $ is a game balance, not withdrawable. No address or hash to copy.', 'cc-muted')
-  box.append(tabs, amtLabel, presets, custom, table, pay, payGame, status, fine)
+  const baseBox = el('div', '', 'topup-base')
+  baseBox.append(amtLabel, presets, custom, table, pay, payGame, status, fine)
+  box.append(tabs, baseBox)
   root.append(box)
+  // NEAR mainnet panel: built only when the NEAR receiver is configured at build time.
+  const nearPanel = nearTopupOn() ? renderNearTopup(box, () => onCredited(), opts) : null
+  nearPanel?.show(false)
 
   const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
 
@@ -117,6 +126,10 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const paint = () => {
     tUsdc.classList.toggle('on', asset === 'USDC')
     tEth.classList.toggle('on', asset === 'ETH')
+    tNear.classList.toggle('on', asset === 'NEAR')
+    baseBox.hidden = asset === 'NEAR'
+    nearPanel?.show(asset === 'NEAR')
+    if (asset === 'NEAR') return
     paintPresets()
     table.replaceChildren()
     const ex = asset === 'USDC' ? (usdcOk() ? BigInt(Math.round(dollars * 100)) * 10_000n : 0n) : price ? ethToUsdMicro(BigInt(milliEth) * 10n ** 15n, price) : 0n
@@ -256,6 +269,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
 
   tUsdc.onclick = () => { asset = 'USDC'; paint() }
   tEth.onclick = () => { asset = 'ETH'; paint() }
+  tNear.onclick = () => { if (!busy) { asset = 'NEAR'; paint() } }
   pay.onclick = () => { if (!opts.demo) void payNow('external') }
   payGame.onclick = () => { if (!opts.demo) void payNow('game') }
   custom.oninput = () => { const v = Number(custom.value); dollars = Number.isFinite(v) ? v : 0; paint() }

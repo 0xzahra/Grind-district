@@ -910,7 +910,7 @@ export function applyTopup(hash: string, amount: number, asset: string): boolean
   settleBuckets()
   save.ledger = Math.round((save.ledger + amount) * 100) / 100
   save.toppedUp = cents(save.toppedUp + amount)
-  log('money', 'Top-up credited', `$${amount.toFixed(2)} in-game from a ${asset} top-up on Base (after the 2% fee).`)
+  log('money', 'Top-up credited', `$${amount.toFixed(2)} in-game from a ${asset} top-up on ${asset === 'NEAR' ? 'NEAR' : 'Base'} (after the 2% fee).`)
   persist()
   emit()
   return true

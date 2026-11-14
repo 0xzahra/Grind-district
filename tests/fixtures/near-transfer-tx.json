@@ -1,0 +1,110 @@
+{
+ "receipts_outcome": [
+  {
+   "block_hash": "VxcwrWVZweDCtZXhgsC7VLA6btymh3fSVipgiBg1va54",
+   "id": "3DyGf2rWMVevDaFhKY1j6WiJTcv6nHMqFZK25dr7S7wK",
+   "outcome": {
+    "executor_id": "grinddistrict.near",
+    "gas_burnt": 7524947687500,
+    "logs": [],
+    "metadata": {
+     "contracts": [
+      null
+     ],
+     "gas_profile": [],
+     "version": 4
+    },
+    "receipt_ids": [
+     "R52wk1EE4XRnST5dhDrkJN6LN1Tq89Gn714WtYCkcDVZ"
+    ],
+    "status": {
+     "SuccessValue": ""
+    },
+    "tokens_burnt": "7032494768750000000000"
+   },
+   "proof": [
+    {
+     "direction": "Left",
+     "hash": "Dor9TiR8STE1JxteLy2ECSwfid73AEVH1rgNvKR556Ee"
+    }
+   ]
+  },
+  {
+   "block_hash": "hG1fQQgW9eXvd9xRChALFugGoDBphcDkRyXf6T4773ZH",
+   "id": "R52wk1EE4XRnST5dhDrkJN6LN1Tq89Gn714WtYCkcDVZ",
+   "outcome": {
+    "executor_id": "player.near",
+    "gas_burnt": 223182562500,
+    "logs": [],
+    "metadata": {
+     "contracts": [
+      null
+     ],
+     "gas_profile": [],
+     "version": 4
+    },
+    "receipt_ids": [],
+    "status": {
+     "SuccessValue": ""
+    },
+    "tokens_burnt": "0"
+   },
+   "proof": [
+    {
+     "direction": "Right",
+     "hash": "9zVNjomae9e32XPmL32fh5X5oLM955VbQp3zppn9sNP6"
+    },
+    {
+     "direction": "Left",
+     "hash": "kXz5xwTs2xYd1gjRRe1f566h8HyToNRpmeWVWvb6aqZ2"
+    }
+   ]
+  }
+ ],
+ "status": {
+  "SuccessValue": ""
+ },
+ "transaction": {
+  "actions": [
+   {
+    "Transfer": {
+     "deposit": "100000000000000000000000"
+    }
+   }
+  ],
+  "hash": "MASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4F3cw9KTA",
+  "receiver_id": "grinddistrict.near",
+  "signer_id": "player.near"
+ },
+ "transaction_outcome": {
+  "block_hash": "Lf6X2Fm8YrgjYHz1QLAkgDaBqzNjVYzGMSjHDhUttqDy",
+  "id": "MASi45ub7Qe4ZE36UT5G6cU4ud8Fhhe4deS4F3cw9KTA",
+  "outcome": {
+   "executor_id": "player.near",
+   "gas_burnt": 824947687500,
+   "logs": [],
+   "metadata": {
+    "gas_profile": null,
+    "version": 1
+   },
+   "receipt_ids": [
+    "3DyGf2rWMVevDaFhKY1j6WiJTcv6nHMqFZK25dr7S7wK"
+   ],
+   "status": {
+    "SuccessReceiptId": "3DyGf2rWMVevDaFhKY1j6WiJTcv6nHMqFZK25dr7S7wK"
+   },
+   "tokens_burnt": "82494768750000000000"
+  },
+  "proof": [
+   {
+    "direction": "Right",
+    "hash": "1qXbn3CFJrPbmaZgqBSwsmzF6TzoR9VWDhy1RcdiyZsu"
+   },
+   {
+    "direction": "Right",
+    "hash": "NWMiE7oxutin8EGzR6LbsMHnw2PZ63VNcTrJY2Etx5Ut"
+   }
+  ]
+ },
+ "_note": "Shape of a real NEAR mainnet transfer; account names and hashes replaced."
+}

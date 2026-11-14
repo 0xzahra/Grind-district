@@ -5,6 +5,7 @@ import {
   ORDER_TTL_MS, PRESET_MILLI_ETH, encodeUsdcCustom, encodeEthAmount, matchPaymentLogs, pickOrderForPayment, orderPublic,
   TRANSFER_TOPIC, ETH_DEPOSITED, TREASURY, USDC, type ChainLog,
 } from './_topupAuto.js'
+import { nearRoute } from './_nearRoute.js'
 
 // Automatic top-up: exact preset amount (e.g. 5 USDC = 5000000) + connected payer address.
 // Server finds Transfer/EthDeposited from that payer to the treasury, verifies via confirmTopup, credits once.
@@ -65,6 +66,10 @@ export default async function handler(req: Req, res: Res) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return res.status(503).json({ error: 'top-ups are not configured' })
   const db = createClient(url, key, { auth: { persistSession: false } })
+  // NEAR mainnet top-ups (off until NEAR_TOPUP_ACCOUNT is set). Same function: Vercel Hobby caps at 12 functions.
+  if ((req.method === 'GET' && req.query?.near) || (req.method === 'POST' && String(req.body?.op ?? '').startsWith('near-'))) {
+    return nearRoute(req, res, db, await authUserId(req.headers))
+  }
 
   if (req.method === 'GET') {
     const orderId = String(req.query?.order ?? '')
