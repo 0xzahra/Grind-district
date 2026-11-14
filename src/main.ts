@@ -49,7 +49,7 @@ import { mountUi } from './ui.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
-import { createSeating, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
+import { createSeating, kioskSeats, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
@@ -84,6 +84,14 @@ function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
   if (!node) throw new Error(`Missing ${selector}`)
   return node
+}
+
+/** Things the camera boom ignores: people (they walk by) and leaf cards (see-through foliage). */
+function passesCamera(obj: THREE.Object3D): boolean {
+  const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
+  if (mat && !Array.isArray(mat) && mat.userData?.foliage) return true
+  for (let o: THREE.Object3D | null = obj; o; o = o.parent) if (o.userData.camPass) return true
+  return false
 }
 
 function isUnder(root: THREE.Object3D, obj: THREE.Object3D): boolean {
@@ -456,6 +464,9 @@ const apiAgents = createRemoteAgents(scene)
     onBody: applyBody,
     onLook: applyLook,
     onGraphics: applyGraphics,
+    kioskStools: () => freeStools().length,
+    kioskSit: () => { const s = freeStools()[0]; if (s) sitOn(s) },
+    kioskServed: (label: string) => serveCup(label),
     onPrefs: applyPrefs,
     onRank: (label) => world.setRank(label),
     travel: (title, enter) => travelHook(title, enter),
@@ -1200,6 +1211,7 @@ const apiAgents = createRemoteAgents(scene)
   let stillFor = 0
   let camPitch = 0.42
   let camDist = 5.6
+  let camDistGoal = camDist
   let sprinting = false
   let introT = 0
   let introStart = 0
@@ -1256,6 +1268,8 @@ const apiAgents = createRemoteAgents(scene)
   // Sitting: move onto the seat, hold still, pose the rig; any stick, key or tap stands up.
   const seating = createSeating()
   const sitOn = (s: Seat) => {
+    // One person per seat: a resident already sitting there keeps it.
+    if (crowd.occupied(s.x, s.z)) { ui.toast('Someone is sitting there. Try another seat.'); return }
     seating.sit(s, avatar.object)
     if (!seating.sitting) return
     pos.x = s.x
@@ -1269,6 +1283,36 @@ const apiAgents = createRemoteAgents(scene)
   const zahraSpot: Hotspot = { id: 'zahra', x: ada.position.x, z: ada.position.z, r: 1.9, title: 'Zahra', body: 'Campus guide · onboarding', enter: 'Talk to Zahra', use: () => mentor.hello() }
   const streetSpots: Hotspot[] = [zahraSpot, ...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn)),
     ...workoutSpots().map((s, i) => ({ ...seatSpot(`workout-${i}`, 'Workout spot', s, sitOn), body: 'Do a few squats. Move to stop.', enter: 'Exercise' }))]
+  // Grind Ring kiosk: stand at the front of the counter to order tea or coffee, or take a free stool.
+  const freeStools = () => kioskSeats().filter((s) => !crowd.occupied(s.x, s.z))
+  streetSpots.push({ id: 'kiosk', x: 0, z: 3.15, r: 1.5, title: 'Grind Ring kiosk', body: 'Welcome to Grind. Tea or coffee?', enter: 'Order', use: () => {
+    speak(SERVER_LINES[Math.floor(Math.random() * SERVER_LINES.length)]!, { gender: 'm', seed: 7 })
+    ui.open('kiosk')
+  } })
+  // The drink you ordered is set on the counter in front of you (or your stool) for a minute.
+  const cupMat = new THREE.MeshStandardMaterial({ color: 0xf3efe6, roughness: 0.6 })
+  const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x1f5a4c, roughness: 0.8 })
+  const teaMat = new THREE.MeshStandardMaterial({ color: 0xd8efe6, roughness: 0.15, transparent: true, opacity: 0.7 })
+  let servedCup: THREE.Group | null = null
+  let cupTimer = 0
+  const serveCup = (label: string) => {
+    if (servedCup) { scene.remove(servedCup); servedCup = null }
+    const g = new THREE.Group()
+    if (/tea/i.test(label)) {
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.09, 12), teaMat))
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 4), sleeveMat); leaf.position.y = 0.05; g.add(leaf)
+    } else {
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.032, 0.12, 12), cupMat))
+      const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.041, 0.036, 0.04, 12), sleeveMat); sleeve.position.y = -0.005; g.add(sleeve)
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.044, 0.012, 12), sleeveMat); lid.position.y = 0.065; g.add(lid)
+    }
+    g.children[0]!.position.y = 0
+    g.position.set(THREE.MathUtils.clamp(pos.x, -1.3, 1.3), 1.31 + 0.06, 1.12)
+    g.traverse((o) => { o.castShadow = true; o.userData.ghost = true })
+    scene.add(g)
+    servedCup = g
+    cupTimer = 60
+  }
   let streetDoor = { x: 0, z: 0 }
   const enterRoom = (doorSpot: Hotspot) => {
     const room = interiors.roomFor(doorSpot.id)
@@ -1281,7 +1325,7 @@ const apiAgents = createRemoteAgents(scene)
     vel.z = 0
     target = null
     camYaw = at.yaw + Math.PI
-    camDist = Math.min(camDist, 4.2)
+    camDist = camDistGoal = Math.min(camDist, 4.2)
     smoothCam.set(pos.x + Math.sin(camYaw) * 3, 2.6, pos.z + Math.cos(camYaw) * 3)
     camVel.set(0, 0, 0)
     exitCooldown = 1
@@ -1379,6 +1423,8 @@ const apiAgents = createRemoteAgents(scene)
       // camera in at random (seen in the 8 Nov local repro: hits on Points at ~6 m with open street behind).
       if (!(hit.object as THREE.Mesh).isMesh) continue
       if (isUnder(avatar.object, hit.object)) continue
+      // People walking past and leaf cards no longer yank the camera in and out by themselves.
+      if (passesCamera(hit.object)) continue
       const travel = travelBeforeWall(hit.distance)
       if (travel < MIN_BOOM) boomBlocked = true
       if (travel >= MIN_BOOM) return pulledCam.copy(origin).addScaledVector(rayDirection, travel)
@@ -1481,7 +1527,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1528,6 +1574,7 @@ const apiAgents = createRemoteAgents(scene)
 
     }
     agentBot.tick(dt, avatar.object.position)
+    if (servedCup && (cupTimer -= dt) <= 0) { scene.remove(servedCup); servedCup = null }
     if (!interiors.inside && !ui.isOpen()) {
       const d = Math.hypot(avatar.object.position.x - 0.35, avatar.object.position.z - 0.32)
       if (d < 3.8 && elapsed - serverSpoke > 60) { serverSpoke = elapsed; speak(SERVER_LINES[Math.floor(elapsed) % SERVER_LINES.length]!, { gender: 'm', seed: 7 }) }
@@ -1571,7 +1618,9 @@ const apiAgents = createRemoteAgents(scene)
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
-    camDist = THREE.MathUtils.clamp(camDist + frame.zoom * 0.012, 3.2, 12)
+    // Wheel/pinch moves a goal; the camera eases to it (no jumps, no runaway trackpad zoom).
+    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), 3.2, 12)
+    camDist += (camDistGoal - camDist) * (1 - Math.exp(-10 * dt))
 
     exitCooldown = Math.max(0, exitCooldown - dt)
     busyFor = Math.max(0, busyFor - dt)
@@ -1763,12 +1812,8 @@ const apiAgents = createRemoteAgents(scene)
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
       camYaw += delta * (1 - Math.exp(-(coarseCam ? 0.55 : 1.2) * dt))
     }
-    // Idle face-swing: desktop only. On phones it felt like the view “auto-adjusting” on its own.
-    if (!coarseCam && stillFor > 2.5 && lookIdle > 2.5 && !paused && !interiors.inside) {
-      const front = faceYaw + 0.45
-      const delta = Math.atan2(Math.sin(front - camYaw), Math.cos(front - camYaw))
-      camYaw += delta * (1 - Math.exp(-0.55 * dt))
-    }
+    // (The desktop idle face-swing was removed: standing still, the camera turned by itself on PC.)
+    void faceYaw
     if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
     // Over-the-shoulder: frame the player slightly left of centre, GTA style.
     shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar(0.55 * Math.min(1, 6 / camDist))
@@ -1793,7 +1838,7 @@ const apiAgents = createRemoteAgents(scene)
     // Outdoors, backed against a building: turn the view toward the open side (8 flat probes, 4x a second),
     // unless the player is dragging the camera. Indoors, walls are cut away instead.
     steerAcc += dt
-    if (!interiors.inside && boomBlocked && lookIdle > 0.4 && steerAcc > 0.25) {
+    if (!interiors.inside && boomBlocked && lookIdle > 0.4 && steerAcc > 0.25 && stillFor === 0) {
       steerAcc = 0
       const reach = Math.min(6, useDist * Math.cos(camPitch))
       let bestRoom = 0

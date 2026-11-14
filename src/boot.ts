@@ -21,18 +21,27 @@ startI18n()
 // The theme starts with the first tap on the title screen and carries on into the city.
 resumeMusicOnFirstTap()
 
-// Warm the cache from the title screen: the people of the city (and the clips they move with) are fetched
-// quietly while the player reads the opening card, so nobody is missing when the city opens. Plain fetch
-// hints, no 3D code in this first chunk. The folder name is the one in humans.ts (FIGURES).
-window.setTimeout(() => {
+// The title preview comes first. On a slow phone line everything below (the city code, the people, the
+// ground textures, about 1.5 MB) used to download at the same moment as the preview's own code, so the 3D
+// title took ~15 s on slow 4G. Now the warm-up waits until the preview has drawn its first frame (or was
+// skipped or failed), with a cap so the city is still fetched early if the preview never answers.
+let settlePreview: () => void = () => {}
+const previewSettled = new Promise<void>((done) => { settlePreview = done })
+window.addEventListener('gd-preview-ready', () => settlePreview(), { once: true })
+window.setTimeout(() => settlePreview(), 12000)
+
+// Warm the cache from the title screen: the people of the city are fetched quietly while the player reads
+// the opening card, so nobody is missing when the city opens. Plain fetch hints, no 3D code in this first
+// chunk. The folder name is the one in humans.ts (FIGURES). The two motion clips are fetched by prefetchCity.
+void previewSettled.then(() => window.setTimeout(() => {
   if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return
-  for (const f of ['man1', 'man2', 'man3', 'man4', 'woman1', 'woman2', 'woman3', 'woman4', 'abaya', 'motion-m', 'motion-f']) {
+  for (const f of ['man1', 'man2', 'man3', 'man4', 'woman1', 'woman2', 'woman3', 'woman4', 'abaya']) {
     const link = document.createElement('link')
     link.rel = 'prefetch'
     link.href = `/models/figures/r1/${f}.glb`
     document.head.append(link)
   }
-}, 1200)
+}, 1500))
 
 function must<T extends Element>(selector: string): T {
   const node = document.querySelector<T>(selector)
@@ -155,9 +164,10 @@ const bootTitlePreview = () => {
     stopPreview = m.startPreview(canvas)
     // preview.ts hides the canvas + sets menu-fallback when WebGL fails; keep that sky.
     if (!canvas.hidden) document.getElementById('menu')?.classList.remove('menu-fallback')
-    else document.getElementById('menu')?.classList.add('menu-fallback')
+    else { document.getElementById('menu')?.classList.add('menu-fallback'); settlePreview() }
   }).catch(() => {
     document.getElementById('menu')?.classList.add('menu-fallback')
+    settlePreview()
   })
 }
 
@@ -168,7 +178,7 @@ const schedulePreview = () => {
   // The weakest phones (2 GB of memory or less, or data saver on) keep the still sky behind the title card: the
   // 3D preview would make Sign in and Continue slow to answer, and the city itself matters more.
   const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } }
-  if ((nav.deviceMemory ?? 8) <= 2 || nav.connection?.saveData) { document.getElementById('menu')?.classList.add('menu-fallback'); return }
+  if ((nav.deviceMemory ?? 8) <= 2 || nav.connection?.saveData) { document.getElementById('menu')?.classList.add('menu-fallback'); settlePreview(); return }
   const titleCoarse = matchMedia('(pointer: coarse)').matches || innerWidth < 820
   if (titleCoarse) {
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
@@ -189,11 +199,11 @@ const prefetchCity = () => {
     void fetch(u, { priority: 'low' } as RequestInit).catch(() => undefined)
   }
 }
-{
+void previewSettled.then(() => {
   const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
   if (ric) ric(prefetchCity, { timeout: 2500 })
-  else window.setTimeout(prefetchCity, 1200)
-}
+  else window.setTimeout(prefetchCity, 400)
+})
 window.addEventListener('gd-auth-changed', () => {
   // Never restart the title WebGL preview while entering the city — that race was burning the
   // only GL context on phones so Continue after avatar failed with "could not open on this device".

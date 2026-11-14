@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { ARMS, lanePoint, uturnPoint, sidePoint, ringRoute, insideFootprint, ROAD_HALF, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS } from './lanes.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
-import { carLength, createFleet, type CarKind } from './cars.ts'
+import { carColour, carLength, createFleet, type CarKind } from './cars.ts'
 
 /**
  * Ambient traffic. Every car follows a leg (a polyline): out along an arm, U-turn in the bay, back in,
@@ -12,7 +12,10 @@ import { carLength, createFleet, type CarKind } from './cars.ts'
 
 type Lanes = { roadHalf: number; walk: number; inner: number; outer: number }
 const COUNTS: Record<Graphics, number> = { low: 10, medium: 16, high: 22 }
-const ORDER: CarKind[] = ['sedan', 'hatchback', 'suv', 'taxi', 'pickup', 'minibus', 'van', 'sports', 'suv', 'sedan', 'hatchback', 'taxi', 'van', 'sports', 'sedan', 'pickup']
+// Everyday cars with a luxury sports coupe every few cars, so even the phone fleet (10) has two or three of them.
+const ORDER: CarKind[] = ['sedan', 'sports', 'hatchback', 'suv', 'taxi', 'sports', 'van', 'hatchback', 'pickup', 'sports', 'sedan', 'suv', 'minibus', 'sports', 'taxi', 'hatchback', 'van', 'sports', 'sedan', 'suv', 'pickup', 'sports']
+// Sports coupes wear loud luxury paint (rosso, jet, giallo, lime, deep blue, pearl); the rest keep the street palette.
+const LUXURY = [0xc8102e, 0x14161a, 0xf5c400, 0x7cc242, 0x1f3f8f, 0xf4f1ea, 0xe0561b]
 const HIDE = 50 // cars only leave or re-enter the city edge when the player is this far away
 
 type LegKind = 'out' | 'u' | 'in' | 'ring' | 'sideOut' | 'sideU' | 'sideIn'
@@ -60,18 +63,25 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
 
   // --- Fleet ------------------------------------------------------------------------------------------
   const kinds = Array.from({ length: count }, (_, i) => ORDER[i % ORDER.length]!)
-  const fleet = createFleet(scene, kinds, { shadows: graphics !== 'low' })
+  let lux = 0
+  const colours = kinds.map((k, i) => (k === 'sports' ? LUXURY[lux++ % LUXURY.length]! : carColour(k, i)))
+  const fleet = createFleet(scene, kinds, { shadows: graphics !== 'low', colours })
   const cars: Car[] = []
-  const laneFill = new Map<Leg, number>()
+  // Start every car in its own spot: at most as many per leg as fit with a car-length gap, the rest wait off the
+  // map and drive in from the side road one by one (they used to be clamped onto the same spot and overlap).
+  const spawnLegs = [...outLegs.flat(), ...inLegs.flat()]
+  const fill = new Map<Leg, number>()
   kinds.forEach((kind, i) => {
-    const a = i % 4
-    const outbound = i % 2 === 0
-    const legs = outbound ? outLegs[a]! : inLegs[a]!
-    const leg = legs[legs.length - 1]!
-    const used = laneFill.get(leg) ?? 0
-    laneFill.set(leg, used + 1)
-    const s = Math.min(leg.len - 1, 1.5 + used * 10)
-    cars.push({ id: i, kind, len: carLength(kind), leg, s, seg: 0, v: 0, cruise: 6 + (i % 4) * 0.55, x: 0, z: 0, px: 0, pz: 0, h: 0, wait: 0, park: 0, goal: 0, gone: 0, hold: 0, creep: 0 })
+    const len = carLength(kind)
+    let leg: Leg | null = null, s = 0
+    for (let k = 0; k < spawnLegs.length && !leg; k++) {
+      const L = spawnLegs[(i + k) % spawnLegs.length]!
+      const at = fill.get(L) ?? 1.5
+      if (at + len / 2 <= L.len - 2.5) { leg = L; s = at + len / 2; fill.set(L, s + len / 2 + 3.2) }
+    }
+    const car: Car = { id: i, kind, len, leg: leg ?? sideIn, s, seg: 0, v: 0, cruise: 6 + (i % 4) * 0.55, x: 0, z: 0, px: 0, pz: 0, h: 0, wait: 0, park: 0, goal: 0, gone: 0, hold: 0, creep: 0 }
+    if (!leg) car.gone = 2 + cars.filter((c) => c.gone > 0).length * 4
+    cars.push(car)
   })
 
   const pose = (c: Car) => {
@@ -151,6 +161,21 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     }
   }
 
+  /** Would moving `step` forward bring this car's nose within touching distance of another car's body? */
+  const bumps = (c: Car, fx: number, fz: number, step: number) => {
+    const nx = c.px + fx * c.len / 2, nz = c.pz + fz * c.len / 2
+    for (const o of cars) {
+      if (o === c || o.gone > 0) continue
+      const ox = Math.sin(o.h), oz = Math.cos(o.h), half = o.len / 2 - 0.35
+      const gap = (x: number, z: number) => {
+        const t = Math.max(-half, Math.min(half, (x - o.px) * ox + (z - o.pz) * oz))
+        return Math.hypot(x - (o.px + ox * t), z - (o.pz + oz * t))
+      }
+      const after = gap(nx + fx * step, nz + fz * step)
+      if (after < 1.25 && after < gap(nx, nz)) return true
+    }
+    return false
+  }
   const obstacles: Obstacle[] = []
   const blockers: number[][] = cars.map(() => [])
   let first = true
@@ -172,7 +197,8 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           const ahead = rx * fx + rz * fz
           if (ahead <= 0 || ahead > 16) continue
           const lat = Math.abs(rx * fz - rz * fx)
-          if (lat < 1.75) list.push(o.id)
+          // Wider when close, so a car crossing or merging at a junction counts too, not only one dead ahead.
+          if (lat < (ahead < 7 ? 2.4 : 1.75)) list.push(o.id)
         }
       }
       for (const c of cars) {
@@ -180,7 +206,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           c.gone -= dt
           if (c.gone <= 0) {
             const edge = sidePoint(SIDE_LEN, false)
-            const clear = cars.every((o) => o === c || o.leg !== sideIn || o.s > 9)
+            const clear = cars.every((o) => o === c || o.gone > 0 || o.leg !== sideIn || o.s > 9)
             if (Math.hypot(edge.x - focus.x, edge.z - focus.z) < HIDE || !clear) c.gone = 1
             else { setLeg(c, sideIn, 0); c.v = c.cruise * 0.6; c.goal = 0; pose(c) }
           }
@@ -195,12 +221,16 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         }
         let target = c.wait > 0 ? 0 : c.leg.kind === 'u' || c.leg.kind === 'sideU' ? 2.8 : c.leg.kind === 'ring' ? 4.8 : c.cruise
         const fx = Math.sin(c.h), fz = Math.cos(c.h)
-        // Keep distance: brake for any car in the lane ahead (mutual stand-offs: the lower id goes first).
+        // Keep distance: brake for any car in the lane ahead. When two cars each see the other (merging or crossing
+        // at a junction), the one further back yields and the one already in front carries on.
         if (c.creep > 0) c.creep -= dt
         else for (const id of blockers[c.id]!) {
           const o = cars[id]!
-          if (blockers[id]!.includes(c.id) && c.id < id) continue
           const ahead = (o.px - c.px) * fx + (o.pz - c.pz) * fz
+          if (blockers[id]!.includes(c.id)) {
+            const back = (c.px - o.px) * Math.sin(o.h) + (c.pz - o.pz) * Math.cos(o.h)
+            if (back > ahead + 0.3 || (Math.abs(back - ahead) <= 0.3 && c.id < id)) continue
+          }
           const need = (c.len + o.len) / 2 + 1.4
           target = Math.min(target, Math.max(0, (ahead - need) * 1.3))
         }
@@ -219,8 +249,12 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         // Stuck behind something that is itself stopped for a long time: creep past (gridlock breaker).
         c.hold = c.v < 0.05 && c.wait <= 0 ? c.hold + dt : 0
         if (c.hold > 9 && blockers[c.id]!.length) { c.creep = 1.6; c.hold = 0 }
+        // Truly wedged (two noses at a merge) and out of the player's sight: lift it out; it drives back in later.
+        if (c.hold > 14 && Math.hypot(c.px - focus.x, c.pz - focus.z) > 30) { c.hold = 0; c.gone = 4 + Math.random() * 6; fleet.set(c.id, 0, 0, 0, 0, false); continue }
         if (target < c.v) c.v = Math.max(target, c.v - 8 * dt)
         else c.v = Math.min(target, c.v + 2.6 * dt)
+        // Last check, whatever the rules above decided (gridlock creep included): never nose into another car's body.
+        if (c.v > 0 && c.wait <= 0 && bumps(c, fx, fz, c.v * dt)) c.v = 0
         const before = c.s
         if (c.wait <= 0) {
           c.s += c.v * dt

@@ -6,7 +6,7 @@
 import { slotKey, spendInGame, getSave } from './state.ts'
 import { adjust, needs, type Need } from './needs.ts'
 
-export type PlaceId = 'hospital' | 'grocer' | 'pharmacy' | 'bakery' | 'laundromat' | 'salon' | 'therapy' | 'clinic' | 'sweets'
+export type PlaceId = 'hospital' | 'grocer' | 'pharmacy' | 'bakery' | 'laundromat' | 'salon' | 'therapy' | 'clinic' | 'sweets' | 'kiosk'
 type Item = { label: string; usd: number; d: Partial<Record<Need, number>>; note: string; once?: boolean; when?: () => string | null }
 type Place = { title: string; intro: string; items: Item[]; foot?: string }
 
@@ -40,6 +40,16 @@ export const PLACES: Record<PlaceId, Place> = {
     items: [
       { label: 'Vitamins', usd: 6, d: { energy: 20 }, note: 'A daily multivitamin.' },
       { label: 'Toiletries', usd: 5, d: { hygiene: 30 }, note: 'Soap, toothpaste and deodorant.' },
+    ],
+  },
+  // The Grind Ring kiosk in the plaza ("Welcome to Grind. Tea or coffee?").
+  kiosk: {
+    title: 'Grind Ring kiosk',
+    intro: 'Tea or coffee? Order at the counter, then take a stool if one is free.',
+    items: [
+      { label: 'Mint tea', usd: 1, d: { energy: 8, social: 4 }, note: 'Fresh mint, a little sugar.' },
+      { label: 'Coffee', usd: 2, d: { energy: 15 }, note: 'A short black from the espresso machine.' },
+      { label: 'Cold brew', usd: 3, d: { energy: 20, social: 4 }, note: 'On ice. Good for a long study session.' },
     ],
   },
   bakery: {

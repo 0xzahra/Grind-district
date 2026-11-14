@@ -2,10 +2,10 @@ import { speak } from './speech.ts'
 import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
-import { CITIZENS, stepCitizens, type CitizenSim } from './citizens.ts'
+import { CITIZENS, stepCitizens, type CitizenSim, type Solid } from './citizens.ts'
 import { createDrone, spinDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
-import { createSeating, plazaSeats, workoutSpots, type Seat } from './seating.ts'
+import { createSeating, kioskSeats, plazaSeats, workoutSpots, type Seat } from './seating.ts'
 
 type Person = {
   avatar: Avatar
@@ -158,7 +158,7 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
   return along > 0 ? along : null
 }
 
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
   // Each resident gets a name that fits the figure: women's names on women, men's names on men.
   const personas = new Map<Person, Persona>()
@@ -187,6 +187,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       drone.position.set(0.55, 2.15, 0.2)
       avatar.object.add(drone)
     }
+    avatar.object.userData.camPass = true // the player's camera never zooms in for a passer-by
     scene.add(avatar.object)
     people.push({
       avatar,
@@ -199,14 +200,17 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
 
   // A few residents sit on the plaza benches or work out in the park; they rotate every ~40 s.
   const posed: Array<{ p: Person; seat: Seat; seating: ReturnType<typeof createSeating> }> = []
-  const poseSeats: Seat[] = [plazaSeats()[0]!, plazaSeats()[2]!, workoutSpots()[1]!]
+  // ...and one sits at the Grind Ring kiosk with a drink. A seat the player is on is never given to anyone else.
+  const poseSeats: Seat[] = [plazaSeats()[0]!, plazaSeats()[2]!, workoutSpots()[1]!, kioskSeats()[2]!]
   let poseClock = 0
+  let lastPlayer: { x: number; z: number } | null = null
   const assignPoses = () => {
     for (const q of posed) q.seating.stand()
     posed.length = 0
     const walkers = people.filter((p) => p.sim.spec.points.length > 1)
     const women = walkers.filter((p) => p.sim.spec.body === 'zuri')
     poseSeats.forEach((seat, k) => {
+      if (lastPlayer && Math.hypot(lastPlayer.x - seat.x, lastPlayer.z - seat.z) < 0.45) return
       // Plaza benches (k 0,1): prefer a woman so the plaza is not all standing men.
       const pool = (k < 2 && women.length) ? women : walkers
       const p = pool[(k * 5 + Math.floor(poseClock / 40)) % pool.length]
@@ -218,20 +222,17 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
   assignPoses()
   const unit = robot()
   unit.object.position.set(unit.x, 0, unit.z)
+  unit.object.userData.camPass = true
   scene.add(unit.object)
   let robotLeg = 0
-  // Unit 4 tends its corner: a few stops around its post with a pause at each (no more endless pacing).
-  const robotEnds = [
-    { x: 10, z: 6 },
-    { x: 10, z: 9.2 },
-    { x: 11.6, z: 7.6 },
-    { x: 8.6, z: 7.4 },
-  ]
+  // Unit 4 tends its corner of the east street (the spots it used to pace between, widened a little).
+  const ROBOT_HOME = { x: 10.1, z: 7.6 }
+  let robotGoal = { x: 10, z: 9.2 }
+  let robotPace = 0.7
   let robotWait = 0
   let robotHops = 0
-  let robotIndex = 1
-  let robotX = robotEnds[0]?.x ?? 10
-  let robotZ = robotEnds[0]?.z ?? 6
+  let robotX = 10
+  let robotZ = 6
 
   let chatClock = 3, chatLine = 0
   const live: Array<{ sp: THREE.Sprite; host: THREE.Object3D; ttl: number }> = []
@@ -276,9 +277,11 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       return best
     },
     setFreeWill(on) { freeWill = on },
+    occupied(x, z) { return posed.some((q) => Math.hypot(q.seat.x - x, q.seat.z - z) < 0.3) },
     nearest(x, z, r) { return people.some((p) => Math.hypot(p.sim.x - x, p.sim.z - z) < r) },
     debug() { return people.map((p, i) => ({ x: +p.sim.x.toFixed(2), z: +p.sim.z.toFixed(2), state: posed.some((q) => q.p === p) ? 'seated' : still.has(i) ? 'idle' : 'walking', body: p.sim.spec.body })) },
     tick(dt, player) {
+      lastPlayer = player ?? null
       const obstacles: Obstacle[] = []
       // Pair chat: two standing people near each other trade a line (one bubble at a time, cheap canvas sprite).
       chatClock -= dt
@@ -309,7 +312,10 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       const before = people.map((person) => ({ x: person.sim.x, z: person.sim.z }))
       poseClock += dt
       if (Math.floor(poseClock / 40) !== Math.floor((poseClock - dt) / 40)) assignPoses()
-      stepCitizens(people.filter((person) => !posed.some((q) => q.p === person)).map((person) => person.sim), dt)
+      // Walk round the player, the robot and anyone seated, never through them.
+      const solids: Solid[] = [{ x: robotX, z: robotZ, r: 0.45 }, ...posed.map((q) => ({ x: q.seat.x, z: q.seat.z, r: 0.35 }))]
+      if (player) solids.push({ x: player.x, z: player.z, r: 0.38 })
+      stepCitizens(people.filter((person) => !posed.some((q) => q.p === person)).map((person) => person.sim), dt, solids, player)
       for (const q of posed) { q.p.sim.x = q.seat.x; q.p.sim.z = q.seat.z }
       people.forEach((person, index) => {
         const prior = before[index]
@@ -339,25 +345,39 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const q = posed.find((o) => o.p === person)
         if (q) q.seating.apply(person.avatar.object, dt)
         if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)
-        obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })
+        // Gone into a building for a while: out of sight and out of the way.
+        const away = (person.sim.inside ?? 0) > 0
+        person.avatar.object.visible = !away
+        if (!away) obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })
       })
 
-      const goal = robotEnds[robotIndex]
-      if (goal) {
-        const dx = goal.x - robotX
-        const dz = goal.z - robotZ
-        const dist = Math.hypot(dx, dz)
-        if (robotWait > 0) robotWait -= dt
-        else if (dist < 0.2) {
+      // Unit 4 wanders its corner: a fresh random spot each time, a varied pause, a varied pace, and it waits
+      // or steps round anyone in its way instead of walking through them.
+      if (robotWait > 0) robotWait -= dt
+      else {
+        const dx = robotGoal.x - robotX, dz = robotGoal.z - robotZ, dist = Math.hypot(dx, dz)
+        if (dist < 0.2) {
           robotHops += 1
-          const r = Math.abs(Math.sin(robotHops * 91.7) * 1000) % 1
-          robotWait = 3 + r * 7
-          robotIndex = (robotIndex + 1 + Math.floor(r * (robotEnds.length - 1))) % robotEnds.length
+          robotWait = Math.random() < 0.7 ? 2 + Math.random() * 8 : 0.3
+          const a = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 1.4
+          robotGoal = { x: ROBOT_HOME.x + Math.cos(a) * r, z: ROBOT_HOME.z + Math.sin(a) * r * 0.8 }
+          robotPace = 0.5 + Math.random() * 0.35
         } else {
-          const step = Math.min(dist, 0.7 * dt)
-          robotX += (dx / dist) * step
-          robotZ += (dz / dist) * step
-          unit.object.rotation.y = Math.atan2(dx, dz)
+          let ux = dx / dist, uz = dz / dist
+          let blocked = false
+          const near = [...people.filter((p) => p.avatar.object.visible).map((p) => ({ x: p.sim.x, z: p.sim.z })), ...(player ? [player] : [])]
+          for (const o of near) {
+            const rx = o.x - robotX, rz = o.z - robotZ, ahead = rx * ux + rz * uz
+            if (ahead <= 0 || ahead > 1.4) continue
+            const lat = rx * uz - rz * ux
+            if (Math.abs(lat) < 0.75) { if (ahead < 0.8) blocked = true; const sgn = lat >= 0 ? 1 : -1; const nx = ux - uz * sgn, nz = uz + ux * sgn, l = Math.hypot(nx, nz) || 1; ux = nx / l; uz = nz / l }
+          }
+          if (!blocked) {
+            const step = Math.min(dist, robotPace * dt)
+            robotX += ux * step
+            robotZ += uz * step
+            unit.object.rotation.y = Math.atan2(ux, uz)
+          }
         }
       }
       robotLeg += dt

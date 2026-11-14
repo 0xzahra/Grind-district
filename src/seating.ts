@@ -161,6 +161,11 @@ export function plazaSeats(): Seat[] {
   return out
 }
 
+/** The three bar stools at the Grind Ring kiosk (drinkStand.ts), facing the counter. */
+export function kioskSeats(): Seat[] {
+  return [-0.9, 0, 0.9].map((x) => ({ x, z: 1.8, yaw: Math.PI, y: 0.96 }))
+}
+
 /** Outdoor workout spots: park lawn by the basin and the forecourt beside the gym. */
 export function workoutSpots(): Seat[] {
   return [{ x: -32.5, z: 47.5, yaw: Math.PI, y: 0, pose: 'workout' }, { x: -33.8, z: 46.2, yaw: Math.PI, y: 0, pose: 'workout' }, { x: -15.4, z: -18.6, yaw: Math.PI / 2, y: 0, pose: 'workout' }]

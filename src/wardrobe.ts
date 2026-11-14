@@ -108,6 +108,11 @@ const save = () => localStorage.setItem(KEY, JSON.stringify(store))
 export const owns = (id: string) => store.owned.includes(id) || !PIECES.find((p) => p.id === id)?.usd
 export const worn = (): Worn => store.worn
 export const piece = (id?: string) => PIECES.find((p) => p.id === id)
+/** The complete look the Colour swatches now recolour (device-local, outside the save: the swatch colour itself is
+ *  the save's own tint). Wearing a different look shows that look in its own colours until a swatch is tapped. */
+const LOOK_TINT = 'gd.lookTint'
+export const lookTinted = (): string | null => { try { return localStorage.getItem(LOOK_TINT) } catch { return null } }
+export function tintLook(id: string | undefined): void { try { if (id) localStorage.setItem(LOOK_TINT, id); else localStorage.removeItem(LOOK_TINT) } catch { /* private mode */ } }
 export function own(id: string): void { if (!store.owned.includes(id)) { store.owned.push(id); save() } }
 export function wear(p: Piece): void {
   if (p.slot === 'acc') {

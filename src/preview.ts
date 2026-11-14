@@ -10,7 +10,7 @@ import { createTraffic } from './traffic.ts'
 import { createSkyline } from './skyline.ts'
 import { createAmbient } from './ambient.ts'
 import { createPhysicalSky } from './sky.ts'
-import { applyEnvironment } from './quality.ts'
+import { applyEnvironment, keepFoliageOutOfAO } from './quality.ts'
 
 // Title-screen preview: the REAL city (same world, townspeople, traffic, skyline, ambient life) at golden hour
 // with a physical sky and a slow cinematic drone orbit. Desktop: soft shadows, AO, depth of field, bloom.
@@ -91,6 +91,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     try {
       const ao = new GTAOPass(scene, camera, 1, 1)
       ao.blendIntensity = 0.8
+      keepFoliageOutOfAO(ao, scene) // no pale squares round the leaves or a disc in each crown
       composer.addPass(ao)
     } catch { /* AO optional */ }
   }
@@ -125,6 +126,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   // Compile every shader before the first frame, without blocking: drawing first made the browser wait for each
   // shader to finish (seconds on a slow phone, with the title card frozen). Until then the card shows its sky.
   let ready = false
+  let told = false
   void Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((r) => window.setTimeout(r, 6000))]).then(() => { ready = true })
   const loop = (now: number) => {
     raf = requestAnimationFrame(loop)
@@ -149,6 +151,8 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     relabel += dt
     if (relabel > 2) { relabel = 0; hideLabels() }
     composer.render(dt)
+    // boot.ts holds back the city warm-up until the title has drawn once (slow phone lines).
+    if (!told) { told = true; window.dispatchEvent(new Event('gd-preview-ready')) }
     cost = cost ? cost * 0.85 + (performance.now() - began) * 0.15 : performance.now() - began
     frameGap = coarse ? (cost > 30 ? 100 : cost > 18 ? 66 : cost > 10 ? 50 : 33) : (cost > 20 ? 33 : 16)
   }

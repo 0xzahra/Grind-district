@@ -138,6 +138,10 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
 
   canvas.addEventListener('pointermove', (event) => {
     if (event.pointerId !== lookId) return
+    // A mouse or trackpad only turns the camera while a button is actually held. If the release was lost
+    // (let go outside the window, a dialog opened, focus moved), the old code kept turning the camera on
+    // every hover over the trackpad: the "camera moves by itself" bug on PC.
+    if (event.pointerType !== 'touch' && event.buttons === 0) { lookId = null; return }
     const dx = event.clientX - lastX
     const dy = event.clientY - lastY
     lastX = event.clientX
@@ -163,6 +167,9 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
   canvas.addEventListener('pointercancel', (event) => {
     if (event.pointerId === lookId) lookId = null
   })
+  canvas.addEventListener('lostpointercapture', (event) => {
+    if (event.pointerId === lookId) lookId = null
+  })
 
   canvas.addEventListener('contextmenu', (event) => event.preventDefault())
 
@@ -170,7 +177,13 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
     'wheel',
     (event) => {
       event.preventDefault()
-      zoom += event.deltaY
+      // Trackpads send long trails of small "momentum" wheel events after the fingers lift, and a pinch arrives
+      // as ctrl+wheel. Normalise line/page steps to pixels, scale pinches, drop the faint momentum tail and cap
+      // each event, so one scroll is one modest zoom step and the view does not drift on afterwards.
+      let dy = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1)
+      if (event.ctrlKey) dy *= 3
+      if (Math.abs(dy) < 1.5) return
+      zoom += clamp(dy, -80, 80)
     },
     { passive: false },
   )
@@ -186,12 +199,20 @@ export function createInput(canvas: HTMLCanvasElement, stick: HTMLElement, nub: 
     down.delete(event.code)
   })
 
-  window.addEventListener('blur', () => {
+  const releaseAll = () => {
     down.clear()
     joyX = 0
     joyY = 0
     placeNub(0, 0)
-  })
+    lookId = null
+    stickId = null
+    touches.clear()
+    lookX = 0
+    lookY = 0
+    zoom = 0
+  }
+  window.addEventListener('blur', releaseAll)
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll() })
 
   return {
     nudgeZoom(amount: number) {

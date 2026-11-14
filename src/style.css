@@ -3398,3 +3398,59 @@ html[data-ui='light'] .sheet-card .soc-wrong { color: #a1303b; }
 .pcard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .pcard-img { display: block; width: min(100%, 300px); height: auto; margin: 0 auto; border-radius: 16px; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35); }
 .pcard-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+/* --- Campus in the same raised-key style as the HUD (12 Nov keys) ---
+   Panels sit up off the sheet with a lit top edge and a lip; Continue is the gold key of the screen; lesson cards
+   are dark keys that press down onto their lip; bars are grooves with a lit gold fill. Shadows and gradients
+   only (no blur, no images), so phones stay fast. The light theme keeps its own flat panels. */
+html:not([data-ui='light']) body .lx-head, html:not([data-ui='light']) body .lx-unit {
+  background: linear-gradient(180deg, #303338 0%, #24262a 60%, #1e2023 100%);
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #08090a, 0 8px 18px rgba(0, 0, 0, 0.38);
+}
+html body .lx-unit + .lx-unit, html body .lx-unit { margin-top: 4px; }
+html body .lx-continue {
+  position: relative;
+  border: 1px solid #8a6a2c !important;
+  background: var(--key-gold) !important;
+  box-shadow: var(--key-gold-sh) !important;
+  color: #1c1508 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  padding: 14px 44px 14px 16px !important;
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 120ms ease;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer;
+}
+html body .lx-continue b { font-size: 16px; font-weight: 750; }
+html body .lx-continue small, html body .lx-continue span { opacity: 0.82 !important; color: #3a2c10; }
+html body .lx-continue::after { content: '›'; position: absolute; right: 16px; top: 50%; transform: translateY(-52%); font-size: 30px; font-weight: 700; color: #4a3712; }
+html body .lx-continue:hover { filter: brightness(1.05); }
+html:not([data-ui='light']) body .lx-card {
+  background: var(--key-dark) !important;
+  border: 1px solid rgba(0, 0, 0, 0.7) !important;
+  box-shadow: var(--key-dark-sh) !important;
+}
+html body .lx-card { transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 120ms ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+html body .lx-card .lx-art { box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45); }
+html body .lx-card:not(.locked):hover { filter: brightness(1.08); }
+html body .lx-card.next { border-color: #c29546 !important; box-shadow: 0 0 0 2px rgba(229, 192, 120, 0.55), var(--key-dark-sh) !important; }
+html body .lx-card.boss { border-color: #8a6a2c !important; }
+html body .lx-card:not(.locked):active, html body .lx-continue:active, html body .lx-cert:active {
+  transform: translateY(2px);
+  box-shadow: var(--key-down) !important;
+  filter: brightness(0.96);
+}
+/* Grooves and fills, the same gold as the HUD keys. */
+html body .lx-bar { background: rgba(0, 0, 0, 0.38) !important; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08); }
+html body .lx-head .lx-bar { height: 8px; border-radius: 4px; }
+html body .lx-bar i { background: var(--key-gold) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6); border-radius: inherit; }
+html body .lx-card.done .lx-bar i { background: var(--key-green) !important; }
+/* Rings sit in a small domed socket. */
+html body .lx-ring { border-radius: 50%; background: radial-gradient(circle at 50% 35%, #3a3d43 0%, #1f2124 70%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 0 #08090a, 0 4px 10px rgba(0, 0, 0, 0.4); }
+html body .lx-ring span { color: #f6f1e6; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.6); font-weight: 700; }
+html body .lx-streak { padding: 6px 10px; border-radius: 12px; background: var(--key-dark); box-shadow: var(--key-dark-sh); border: 1px solid rgba(0, 0, 0, 0.7); }
+html body .lx-sub { color: #e8c98f; opacity: 0.9; font-weight: 650; margin-top: 10px !important; }
+html body .lx-cert { background: var(--key-ivory) !important; box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 2px 0 #a99f88, 0 6px 14px rgba(0, 0, 0, 0.3); transition: transform 70ms ease-out, box-shadow 70ms ease-out; }
+html[data-ui='light'] body .lx-ring { background: radial-gradient(circle at 50% 35%, #fff 0%, #ece6d8 70%); }
+html[data-ui='light'] body .lx-ring span { color: #2a2418; text-shadow: none; }
+html[data-ui='light'] body .lx-streak { background: var(--key-ivory); border-color: rgba(40, 32, 20, 0.15); }
+html[data-ui='light'] body .lx-sub { color: #8a6a2c; }

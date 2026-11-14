@@ -131,6 +131,24 @@ class DepthBlurPass extends Pass {
 }
 
 /**
+ * Leaves stay out of an ambient-occlusion pass. GTAO redraws the scene with one plain material that ignores the
+ * leaf cut-outs, so every leaf card would land in it as a solid square (pale square patches round each crown)
+ * and the leafy heart inside as a round disc. Trees, shrubs and planters simply skip it.
+ */
+export function keepFoliageOutOfAO(ao: GTAOPass, scene: THREE.Scene): void {
+  const aoPass = ao as unknown as { _overrideVisibility: () => void; _visibilityCache: THREE.Object3D[] }
+  const hideBase = aoPass._overrideVisibility.bind(ao)
+  aoPass._overrideVisibility = () => {
+    hideBase()
+    scene.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
+      const leafy = o.userData.noAO || (m && !Array.isArray(m) && m.userData?.foliage)
+      if (leafy && o.visible) { o.visible = false; aoPass._visibilityCache.push(o) }
+    })
+  }
+}
+
+/**
  * Visual-only post stack. Low: none. Medium: colour grade and edge smoothing. High: also glow on lamps, lit
  * windows and signs, the depth effect, and ambient occlusion on desktop. Phones default to Low or Medium.
  */
@@ -178,17 +196,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       try {
         const ao = new GTAOPass(scene, camera, 1, 1)
         ao.blendIntensity = 0.75
-        // Foliage stays out of the AO normal pass (one material for everything there ignores the leaf cut-outs).
-        const aoPass = ao as unknown as { _overrideVisibility: () => void; _visibilityCache: THREE.Object3D[] }
-        const hideBase = aoPass._overrideVisibility.bind(ao)
-        aoPass._overrideVisibility = () => {
-          hideBase()
-          scene.traverse((o) => {
-            const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
-            const leafy = o.userData.noAO || (m && !Array.isArray(m) && m.userData?.foliage)
-            if (leafy && o.visible) { o.visible = false; aoPass._visibilityCache.push(o) }
-          })
-        }
+        keepFoliageOutOfAO(ao, scene)
         ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.2, thickness: 1.0, scale: 1.0, samples: 12 })
         composer.addPass(ao)
       } catch (error) {

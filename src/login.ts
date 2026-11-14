@@ -1,7 +1,7 @@
 import { trackFunnelOnce } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
-import { needsAvatarCreator, mountAvatarCreator } from './creator.ts'
+import { needsAvatarCreator, mountAvatarCreator, markAvatarCreated } from './creator.ts'
 import { ensureEmbeddedWallet, GAME_WALLET_KEY } from './privyWallet.ts'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,20}$/
@@ -178,6 +178,9 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
     // The account's needs, Grind Pass, season, makeup kit and wardrobe come back with its save (extras.ts).
     try { (await import('./extras.ts')).applyExtras(j.save, j.userId) } catch { /* the save itself is loaded */ }
+    // A returning account already has its look in its save: the join-time creator is only for brand-new accounts
+    // (the device flag alone missed returning players on a new phone or after clearing the browser).
+    if (how === 'server' || how === 'kept') markAvatarCreated()
     const st = await import('./state.ts')
     // Sign-up bonus on a first username claim. NEAR accounts also check on login: their starter grant used to
     // need a Privy token and never landed. The server pays it once per account (fresh only the first time).

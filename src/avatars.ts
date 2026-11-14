@@ -9,7 +9,7 @@ import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
 import { MEN, WOMEN, upgradeToHuman, type Extras, type HumanModel, type Look } from './humans.ts'
-import { worn, piece } from './wardrobe.ts'
+import { worn, piece, lookTinted } from './wardrobe.ts'
 
 export type Avatar = ShrimpAvatar
 
@@ -190,11 +190,13 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     const ownModel = female ? (topPiece?.model === 'casual' ? 'woman3' : 'woman4') : (topPiece?.model === 'suit' ? 'man4' : 'man1')
     const pick = variant === undefined ? 0 : (variant >> 1) % 4
     const model = own ? ownModel : female ? WOMEN[pick]! : MEN[pick]!
-    const outfit = (): Look => {
+    const outfit = (tintNow = tint): Look => {
       const v = worn(), t = piece(v.top), id = String(v.top ?? '')
       // A complete look from the boutique: its own figure, in its own colours (or the figure's own clothes).
+      // Once a Colour swatch is tapped while this look is on, the swatch recolours the look's top too (the
+      // swatches used to do nothing on a complete look: its palette always won). See lookTinted in wardrobe.ts.
       const lk = piece(v.look)
-      if (lk?.figure && (!lk.for || lk.for === (female ? 'lady' : 'gent'))) return { figure: lk.figure as HumanModel, top: lk.palette?.top, bottom: lk.palette?.bottom, shoes: lk.palette?.shoes }
+      if (lk?.figure && (!lk.for || lk.for === (female ? 'lady' : 'gent'))) return { figure: lk.figure as HumanModel, top: lookTinted() === lk.id ? tintNow : lk.palette?.top, bottom: lk.palette?.bottom, shoes: lk.palette?.shoes }
       // A suit is one cloth: the trousers match the jacket unless other trousers are worn.
       return { top: t?.hex, bottom: piece(v.bottom)?.hex ?? (!female && t?.model === 'suit' ? t.hex : undefined), shoes: piece(v.shoes)?.hex, sleeves: female && /^abaya/.test(id), robe: female && /^abaya/.test(id), kaftan: !female && /kaftan|agbada/.test(id), gown: female && /ankara/.test(id) }
     }
@@ -232,7 +234,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         const now = getMorph(); avatar.object.scale.set(now.b, now.h, now.b)
         avatar.object.userData.face = now.f ?? 1
         ;(avatar.object.userData.setFace as ((f: number) => void) | undefined)?.(now.f ?? 1)
-        const o = outfit()
+        const o = outfit(t)
         const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.figure ? o.top : o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown, figure: o.figure, makeup: makeup(), sharp: true }
         avatar.object.userData.extras = extras(lux)
         ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))

@@ -131,6 +131,7 @@ export type PanelId =
   | 'therapy'
   | 'clinic'
   | 'sweets'
+  | 'kiosk'
   | 'society'
   | 'race'
   | 'cards'

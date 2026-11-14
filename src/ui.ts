@@ -25,10 +25,10 @@ import { courseVisual } from './courseArt.ts'
 import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
-import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
+import { PIECES, owns, own, wear, worn, tintLook, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { renderLedger } from './ledger.ts'
-import { PLACES, placeNodes, casinoNodes, wellnessNodes } from './places.ts'
+import { PLACES, placeNodes, casinoNodes, wellnessNodes, buyAt } from './places.ts'
 import { marketNodes, hostNodes } from './town.ts'
 import { societyNodes } from './society.ts'
 import { raceNodes } from './race.ts'
@@ -115,6 +115,10 @@ type PeerView = { shot: string | null; partial: boolean; onMessage: () => void }
 type OpenExtra = { shared?: SharedProfile; tab?: Tab; house?: HouseId; peer?: PeerView; course?: SkillId }
 
 type Hooks = {
+  /** Grind Ring kiosk: free stools, take one, and show the drink that was just served. */
+  kioskStools?: () => number
+  kioskSit?: () => void
+  kioskServed?: (label: string) => void
   onStyle: () => void
   onBody: () => void
   onLook: () => void
@@ -723,7 +727,9 @@ export function mountUi(
     for (const tint of TINTS) {
       const node = button('', save.tint === tint.hex ? 'primary' : 'ghost', () => {
         setTint(tint.hex)
-        { const w = worn(); if (w.top) { const cur = PIECES.find((x) => x.id === w.top); if (cur) wear(cur) } } // colour wins over a worn top so the change is visible
+        // Colour wins so the change is visible: on a complete look it recolours the look's top; otherwise a worn top
+        // comes off and the everyday top takes the colour.
+        { const w = worn(); if (w.look) tintLook(w.look); else if (w.top) { const cur = PIECES.find((x) => x.id === w.top); if (cur) wear(cur) } }
         hooks.onBody()
         hooks.onStyle()
         open('boutique')
@@ -1312,6 +1318,25 @@ export function mountUi(
       case 'clinic':
       case 'sweets':
         return renderSimple(PLACES[panel].title, placeNodes(panel, { para, button, finish: (m) => finish(m), reopen: () => open(panel) }))
+      case 'kiosk': {
+        // Order at the counter (in-game dollars, a small needs lift) or take a free stool.
+        const k = PLACES.kiosk
+        const nodes: HTMLElement[] = [para(k.intro)]
+        k.items.forEach((it, i) => {
+          nodes.push(button(`${it.label} · $${it.usd}`, 'primary', () => {
+            const r = buyAt('kiosk', i)
+            if (!r.ok) { finish(r.message); return }
+            close()
+            hooks.kioskServed?.(it.label)
+            finish(`Barista: "One ${it.label.toLowerCase()}, here you go." ${r.message}`)
+          }))
+          nodes.push(para(it.note, 'muted'))
+        })
+        const free = hooks.kioskStools?.() ?? 0
+        if (free > 0) nodes.push(button(`Take a stool (${free} free)`, 'ghost', () => { close(); hooks.kioskSit?.() }))
+        else nodes.push(para('All three stools are taken. Stand at the counter, or try again in a minute.', 'muted'))
+        return renderSimple(k.title, nodes)
+      }
       case 'wellness':
         return renderSimple('Wellness house', wellnessNodes({ para, button, go: (p) => open(p) }))
       case 'market':

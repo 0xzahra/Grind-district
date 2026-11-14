@@ -100,7 +100,10 @@ function load(name: HumanModel): Promise<Template> {
       body.name = 'Person'
       const src = body.material as THREE.MeshStandardMaterial
       // Matte cloth and skin: the baked texture already carries the folds, so only a little sky light is added.
-      const material = new THREE.MeshStandardMaterial({ map: src.map, roughness: 0.82, metalness: 0, envMapIntensity: 0.5, alphaTest: src.alphaTest || 0, side: src.side })
+      // Front faces only. The figures come double-sided, and the back of every layered hair card showed through
+      // the gaps between cards as dark slashes (hair that looked cracked on top). Every surface is closed or
+      // layered outward, so nothing else needs its back drawn.
+      const material = new THREE.MeshStandardMaterial({ map: src.map, roughness: 0.82, metalness: 0, envMapIntensity: 0.5, alphaTest: src.alphaTest || 0, side: THREE.FrontSide })
       if (material.map) material.map.anisotropy = 4
       body.material = material
       const m = await motion(info.sex === 'f' ? 'f' : 'm')
