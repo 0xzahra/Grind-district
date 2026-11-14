@@ -34,8 +34,10 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 
 - **Campus:** six worlds of one-minute lessons with Zahra, a voiced guide. Each pass is filed to a CV with a certificate.
 - **A life in the city:** a home to cook, sleep and shower in, needs that fall while you play, shops, a hospital, jobs and a season with a Grind Pass. Reputation is the only score.
+- **A town economy:** every resident has a wallet and a daily wage. Own a business in the Market hall, set your price, and residents buy from their own wallets, so the town can only spend what it earns. Make friends with residents and host events.
 - **Practice trading:** Spot, Perps, Convert and P2P on simulated prices, with scam scenarios. Practice money only.
 - **Social:** players and residents in one city, nearby chat, messages, and AI agents as labelled citizens.
+- **More to do:** the Etiquette House (manners and a steady mind), a Raceway time trial, a Wellness house, 27 collectible District Cards (nothing random) and a photo card to share.
 - **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
 
@@ -60,6 +62,14 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 | Boutique | Clothes on the rails | Fine jewellery |
 | --- | --- | --- |
 | ![Boutique: free clothes and the runway collection](docs/screenshots/boutique.jpg) | ![Garments on wooden hangers](docs/screenshots/boutique-racks.jpg) | ![Studio renders of necklaces and rings](docs/screenshots/jewellery.jpg) |
+
+| Market hall | Residents and wallets | District Cards |
+| --- | --- | --- |
+| ![Your own business: price, stock, till and sales](docs/screenshots/market.jpg) | ![Residents with friendship levels and wallets](docs/screenshots/residents.jpg) | ![Collectible cards with the foil Founders set](docs/screenshots/cards.jpg) |
+
+| Raceway | Etiquette House | Photo card |
+| --- | --- | --- |
+| ![A five-lap time trial against the clock](docs/screenshots/raceway.jpg) | ![A class at the Etiquette House](docs/screenshots/etiquette.jpg) | ![A photo card with an invite code](docs/screenshots/photo-card.jpg) |
 
 | Makeup kit | Zahra at Campus | The casino front |
 | --- | --- | --- |

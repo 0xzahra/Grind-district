@@ -2,7 +2,7 @@
 
 <h1 align="center">Grind District: Game Design Document</h1>
 
-<p align="center"><b>Version 2.2 · 13 November 2026</b><br>
+<p align="center"><b>Version 2.3 · 14 November 2026</b><br>
 City · Career · Skills · CV<br>
 <a href="https://www.grinddistrict.app">www.grinddistrict.app</a> · free, in the browser, phone or desktop</p>
 
@@ -111,7 +111,7 @@ flowchart LR
 | Look around | Drag the screen | Drag |
 | Zoom | Pinch, or the camera keys | Scroll wheel |
 | Use / enter / talk | The gold action button | E |
-| Walk to a place | Tap the ground, or Map → a place | Click the ground |
+| Walk to a place | Tap the ground (a walk, never a run), or Map → a place | Click the ground |
 | Map / go home | Map and Home in the menu | M / H |
 | Chat | Chat button | Enter |
 | Menu and panels | ☰ (top right) | Esc closes a panel |
@@ -139,8 +139,14 @@ A walkable district built around a central plaza, with interiors you enter throu
 | **Influencer row (studio)** | Content work: backdrop, softbox set, podcast table. |
 | **Conference centre** | Stage, lectern, schedule screen and five rows of seats. Events and speaker jobs. |
 | **Members' lounge** | Walnut, leather and brass. Stations unlock by rank. At the back is the **Holders' room**, behind a glass door that opens only for certificate NFT holders. |
-| **Boutique** | Free everyday clothes on real hangers, the premium runway collection, fine jewellery with studio renders, two Featured bundles a day at 20% off, and a makeup kit. |
+| **Boutique** | Free everyday clothes on real hangers, the premium runway collection, fine jewellery with studio renders, two Featured bundles a day at 20% off, and a makeup kit. Your figure stands on a light studio backdrop and turns as you drag. |
 | **Homes** | A house you live in: gas cooker, fridge with food, utensils, bathroom, laundry, garden, a tiled pool with a teak deck, a bed to sleep in, work from home. |
+| **Market hall** | Own a business: buy a licence, name it, stock it and set your price. Residents pay from their own wallets. |
+| **Wellness house** | A salon, a counselling room and a skin and aesthetics clinic. They restore needs. |
+| **Etiquette House** | Seven short classes in manners, presence and a steady mind. |
+| **Collectors' Gallery** | Your album of 27 District Cards. |
+| **Raceway** | A five-lap time trial against the clock. No bets, no prize money. |
+| **Sweet Tooth** | A confectionery: chin chin, chocolates and cake. |
 | **Your street** | Corner store, pharmacy, bakery and laundromat by your home: food, care and clean clothes for in-game dollars. |
 | **Hospital** | A daily check-up, a free ward bed when you are exhausted, physio. |
 | **The Velvet Room** | A casino front, closed for good. Its door opens a card on how gambling and trading differ, with helplines. No game of chance exists in the city. |
@@ -209,6 +215,17 @@ Needs give players a reason to come back each day; the season gives them a goal 
 
 <p align="center"><img src="screenshots/needs.jpg" alt="Needs and mood" width="240"> <img src="screenshots/grind-pass.jpg" alt="Grind Pass: free and premium tracks" width="240"></p>
 
+### More to do
+
+| Activity | How it works |
+| --- | --- |
+| **Etiquette House** | Seven classes of three cards and one question: introductions, the table, dress codes, conversation, thank-you notes, a steady mind, and how pressure tactics work so you can refuse them. +3 reputation each, +10 for all seven. Life skills, so no certificate. |
+| **Raceway** | Hold to accelerate, lift for the red bends; take a bend too fast and the car slides wide. Five laps against par for a bronze, silver or gold medal. A clean run gives +2 reputation once a day. Cars you own are quicker than the club kart. No bets and no prize money. |
+| **District Cards** | 27 collectible cards in five sets: Landmarks (visit places), Scholar (pass courses), Society (friends, classes, your business, hosting), Raceway (medals) and Founders. The Founders pack is $250 in-game and its four foil cards are shown before you buy. Nothing is random: no blind packs, no odds. A complete set gives +5 reputation. |
+| **Photo card** | A picture of your character with your name, reputation and an invite code to scan, shared from Profile. It shows no balance or wallet. |
+
+<p align="center"><img src="screenshots/etiquette.jpg" alt="A class at the Etiquette House" width="220"> <img src="screenshots/raceway.jpg" alt="Raceway time trial" width="220"> <img src="screenshots/cards.jpg" alt="District Cards" width="220"> <img src="screenshots/photo-card.jpg" alt="Photo card" width="220"></p>
+
 ---
 
 ## 9. Practice trading
@@ -238,7 +255,24 @@ Assets are grouped as **Coins** (District Coin, BTC, ETH, SOL…) and **Tokens**
 | Job duties and weekly challenges | Homes and furniture |
 | Grind Pass cash back, $1,000 across the season | Cars and status items (with upkeep) |
 | Practice trading gains | Paid ranks (only after a real top-up above $5) |
+| Takings from your business; tickets to events you host | Business licence, stock and rent; hall hire; gifts; the Founders card pack |
 | Optional top-up: USDC or ETH on Base (default $5, 1 to 1,000) | Practice trading losses and perps liquidations |
+
+### The town economy
+
+Residents are part of the economy, not scenery. Each of the 16 named residents has a wallet, is paid a wage of $22 to $60 a day, and spends it. What the town can spend in a day is bounded by what it earns, so player income from residents has a real ceiling.
+
+| Part | How it works |
+| --- | --- |
+| **Your business** | One licence at a time: juice bar ($300), confectionery ($380), bookshop ($520), salon chair ($650) or print and merch studio ($800). You name it (brands welcome), buy stock wholesale in lots of ten and set the price. |
+| **Sales** | Every five minutes each resident decides whether to pass by. They buy if your price is at or under what the item is worth to them that visit and they can afford it. Too dear and the stock sits; too cheap and you sell out for little. Up to two hours are caught up after time away. |
+| **Costs** | Stock at wholesale, rent once a day from the till. Closing returns half the licence, the till and half the stock value. |
+| **Friendships** | Say hello to a resident once a day, or bring a $10 gift: Stranger, Acquaintance, Friend, Close friend. Friends pass by more often, pay a little more and come to your events. |
+| **Your events** | Book the Conference centre for $120: an AMA, a meetup, a launch. Residents who are free and can afford a $6 ticket come, friends first. Once a day, for reputation. |
+
+Nothing is rolled when you press a button: a visit is fixed by the resident, the business and the time slot. The market settles from what players and residents do, with no step a developer has to patch.
+
+<p align="center"><img src="screenshots/market.jpg" alt="Your business in the Market hall" width="240"> <img src="screenshots/residents.jpg" alt="Residents and their wallets" width="240"></p>
 
 **Books.** A private ledger in Profile: a balance sheet (cash, investments at market, total assets, items that cost upkeep, net worth), a holdings table with average cost and profit or loss, the things you own, and a dated journal of every money move in and out. It teaches assets against liabilities.
 
@@ -272,7 +306,8 @@ Assets are grouped as **Coins** (District Coin, BTC, ETH, SOL…) and **Tokens**
 - **Nearby chat** with players within 12 m (lines are not saved).
 - **Messages** to anyone by username or name, even when they are offline: text, photos and voice notes. Open their public profile from search.
 - **Friends and party** (up to 4), "join me" to meet up.
-- **Greet** people you pass. **Invites** with a referral link. **Share on 𝕏** for CV and certificates.
+- **Greet** people you pass. **Invites** with a referral link or a **photo card** with a code to scan. **Share on 𝕏** for CV and certificates.
+- **Friendships with residents:** four levels, built by showing up (see the town economy).
 - **Online pill** shows who is in the city.
 
 ---
@@ -306,6 +341,8 @@ AI agents join the city through a copy-paste prompt (`/agents`). They appear as 
 | Chain | NEAR testnet contracts in Rust (certificate NFT, Skill Passport); Base for USDC top-ups |
 | Voice | Zahra's lines recorded with a neural TTS model; the device's speech engine for other lines |
 | Quality | Type checks, logic and cert test suites in the build; real-WebGL screenshot tests on phone and desktop sizes |
+| Saves | The save follows the account. Needs, the Grind Pass, the season, the makeup kit and the wardrobe travel with it; the Stockholders' Club wallet address stays on the device |
+| Licence | MIT for all code. Third-party art keeps its own licences; the name, logo, music and voices are not covered |
 
 Performance budget: Low, Medium and High graphics; phone pixel ratio capped; rendering pauses behind full-screen panels; assets cached with long-lived immutable URLs.
 
@@ -338,8 +375,8 @@ North star: **weekly players who pass at least one lesson.**
 
 | Phase | When | What |
 | --- | --- | --- |
-| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). |
-| **Next** | Dec 2026 – Q1 2027 | Needs, pass and makeup kit saved to the account. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. Base certificate mint. |
+| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). |
+| **Next** | Dec 2026 – Q1 2027 | An AI companion you feed and dress, run on NEAR AI. Sign-in from any chain (NEAR Intents). Private, selective sharing of certificates on Midnight. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. Base certificate mint. |
 | **Then** | Q1 – Q2 2027 | Agents that help their owners play and earn rewards. Partner courses from Web3 projects with their own certificates. Guilds and team challenges. Creator tools for community lessons. |
 | **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
 
@@ -393,7 +430,9 @@ North star: **weekly players who pass at least one lesson.**
 | Regulation of tokens | No token today; legal review before any launch |
 | Gambling harm | No game of chance; the casino is a closed front with a gambling vs trading card and helplines |
 | Pay to win | The Grind Pass and bundles are cosmetics and cash back, nothing random; learning, the CV and certificates stay free; a bought rank never skips a lesson |
-| Progress on a new device | Needs, pass and makeup kit live beside the save on the device for now; moving them to the account is next |
+| Progress on a new device | Needs, pass, season, makeup kit and wardrobe now travel with the account's save |
+| A runaway economy | Residents can only spend their wages; one business at a time; catch-up after time away is capped at two hours |
+| Collecting as gambling | Every card is earned or bought with its contents shown; no blind packs and no odds |
 
 ---
 
@@ -403,7 +442,7 @@ Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in three t
 
 | Track | What a judge can open |
 | --- | --- |
-| Games With Real Economies | The daily loop: needs fall, players earn by learning and jobs, spend at the shops, the boutique and the Grind Pass, and climb in reputation (sources and sinks in section 10) |
+| Games With Real Economies | Residents with wallets and wages buy from a business the player owns and prices; needs fall, players earn by learning and jobs and spend at the shops, the boutique and the Grind Pass (section 10) |
 | NFTs That Do Something | A soulbound certificate on `grinddistrict-cert.testnet` marks the course Verified on NEAR and opens the Holders' room |
 | Agent Economy | Agents join through a prompt as labelled robots that move, chat and earn under rate limits |
 

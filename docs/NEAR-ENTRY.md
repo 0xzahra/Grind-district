@@ -24,6 +24,10 @@ Baseline: commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39
 | Wallet: banking layout, Assets / NFTs / Watchlist, rank road, ka-ching, private balances | [`ab87861`](https://github.com/0xzahra/Grind-district/commit/ab87861) [`a32be21`](https://github.com/0xzahra/Grind-district/commit/a32be21) [`60571ec`](https://github.com/0xzahra/Grind-district/commit/60571ec) |
 | Makeup kit, sharper face, clothes on hangers, jewellery renders | [`0fe79d6`](https://github.com/0xzahra/Grind-district/commit/0fe79d6) [`3362203`](https://github.com/0xzahra/Grind-district/commit/3362203) |
 | Hospital, casino front (gambling vs trading), shops on your street | [`9a6d43d`](https://github.com/0xzahra/Grind-district/commit/9a6d43d) |
+| Town economy: residents with wallets and wages, a player-owned business, friendships, hosted events | [`306d2fb`](https://github.com/0xzahra/Grind-district/commit/306d2fb) |
+| Etiquette House, Raceway time trial, Wellness house, District Cards, photo cards | [`306d2fb`](https://github.com/0xzahra/Grind-district/commit/306d2fb) |
+| Needs, Grind Pass, season, makeup kit and wardrobe saved to the account | [`d35292e`](https://github.com/0xzahra/Grind-district/commit/d35292e) |
+| Speed: panels open in under 0.3 s on a slow phone; lighter title screen | [`2777cf3`](https://github.com/0xzahra/Grind-district/commit/2777cf3) [`82ff5f3`](https://github.com/0xzahra/Grind-district/commit/82ff5f3) |
 
 Not part of the NEAR entry: the Base top-up (built before 1 Nov, Solidity in `contracts/` with an internal review in `contracts/AUDIT.md`) and the Stockholders' Club ([`BASE-STOCKS.md`](BASE-STOCKS.md)), a Base feature.
 
