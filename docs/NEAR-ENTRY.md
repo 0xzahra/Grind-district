@@ -4,7 +4,7 @@ The short version is in the [README](../README.md). This page has the full list 
 
 ## Built since 1 Nov 2026
 
-Baseline: commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39a1707838b957b8542f9df282e8488a8cee575c), the last before 1 Nov 2026 00:00 UTC (116 commits). Everything after it, as one diff: [`39a1707...main`](https://github.com/0xzahra/Grind-district/compare/39a1707838b957b8542f9df282e8488a8cee575c...main). The submission is the last commit on `main` before 14 Nov 2026 23:59 UTC.
+Baseline: commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39a1707838b957b8542f9df282e8488a8cee575c), the last before 1 Nov 2026 00:00 UTC (116 commits). Everything after it, as one diff: [`pre-hackathon...hackathon-submission`](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...hackathon-submission). The submission is the last commit on `main` before 14 Nov 2026 23:59 UTC.
 
 | Built since 1 Nov | Commits |
 | --- | --- |
@@ -39,7 +39,7 @@ A soulbound (non-transferable) NEP-171 NFT for a course a signed-in player has p
 - **Deploy tx (11 Nov 2026):** [`71go32v1…`](https://testnet.nearblocks.io/txns/71go32v12mZtUs5mZMmvyrd1oRL8Zg3f5ZG2fgX6bZVS). Code hash `5paEq75bis1rXiNAJaivSHDzGjvgxo8dipLB8M5ucE5y`. Owner `grinddistrict-passport.testnet`.
 - **Collection:** Grind District Certificate (`GDCERT`).
 - **Metadata:** course name, player name and username, full timestamp, certificate id, issuer, chain, and a link to the public page at `https://www.grinddistrict.app/cert/<id>`.
-- **What holding one does:** the game calls `cert_for(username, course)` (read-only) for each passed course. Tokens it finds mark that course *Verified on NEAR* with the token link on the CV, the certificate list and the profile nameplate, add an *On-chain credentials* entry to the CV, and open the Holders' room in the Members' lounge (`src/nftAccess.ts`).
+- **What holding one does:** the game calls `cert_for({ username, course_id })` (read-only) for each passed course. Tokens it finds mark that course *Verified on NEAR* with the token link on the CV, the certificate list and the profile nameplate, add an *On-chain credentials* entry to the CV, and open the Holders' room in the Members' lounge (`src/nftAccess.ts`).
 - **Flag (public, build time):** `VITE_CERT_NFT_NEAR=grinddistrict-cert.testnet`.
 
 ## Skill Passport
@@ -59,6 +59,6 @@ A soulbound (non-transferable) NEP-171 NFT for a course a signed-in player has p
 - **Certificate NFT read-back:** checked in a browser against the live testnet contract. For a username holding tokens #1 and #2 (minted 11 Nov 2026 to `grinddistrict.testnet`), the CV, profile and Holders' room door all showed them.
 - **Skill Passport:** Career → Spot checked in a desktop browser. Not verified end to end: wallet connect → save a passed course → read back → quest unlock.
 - **Messages:** photos and voice notes not yet tested against the live database (text messages are in use).
-- **Needs, Grind Pass, bundles, wallet, makeup kit and the new places:** checked in headless Chromium on a 390 × 844 phone screen. They keep their state on the device beside the save, so they do not follow an account to a new device yet.
+- **Needs, Grind Pass, bundles, wallet, makeup kit and the new places:** checked in headless Chromium on a 390 × 844 phone screen. Since `d35292e` they are saved to the account as well.
 
 Research on past NEAR winners and how this entry lines up: [`NEAR-HACKATHON-RESEARCH.md`](NEAR-HACKATHON-RESEARCH.md).

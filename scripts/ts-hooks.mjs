@@ -10,4 +10,13 @@ export async function resolve(spec, ctx, next) {
     if (existsSync(fileURLToPath(ts))) return next(ts.href, ctx)
   }
   return next(spec, ctx)
+}
+// Vite fills import.meta.env at build time; under plain Node give src/*.ts an empty one so flags read as unset.
+export async function load(url, ctx, next) {
+  const r = await next(url, ctx)
+  if (url.includes('/src/') && url.endsWith('.ts') && r.source) {
+    const src = String(r.source)
+    if (src.includes('import.meta.env')) return { ...r, source: 'import.meta.env ??= {};\\n' + src }
+  }
+  return r
 }`))
