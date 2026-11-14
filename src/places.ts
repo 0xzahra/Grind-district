@@ -6,7 +6,7 @@
 import { slotKey, spendInGame, getSave } from './state.ts'
 import { adjust, needs, type Need } from './needs.ts'
 
-export type PlaceId = 'hospital' | 'grocer' | 'pharmacy' | 'bakery' | 'laundromat'
+export type PlaceId = 'hospital' | 'grocer' | 'pharmacy' | 'bakery' | 'laundromat' | 'salon' | 'therapy' | 'clinic' | 'sweets'
 type Item = { label: string; usd: number; d: Partial<Record<Need, number>>; note: string; once?: boolean; when?: () => string | null }
 type Place = { title: string; intro: string; items: Item[]; foot?: string }
 
@@ -57,6 +57,56 @@ export const PLACES: Record<PlaceId, Place> = {
       { label: 'Wash and fold', usd: 6, d: { hygiene: 35 }, note: 'Fresh clothes, folded and bagged.' },
     ],
   },
+  // The Wellness house (one building, three rooms) and the sweet shop.
+  salon: {
+    title: 'Salon',
+    intro: 'Cuts, braids, a shave or a wash and style. You leave looking like you mean it.',
+    items: [
+      { label: 'Wash and style', usd: 18, d: { hygiene: 35, social: 10 }, note: 'Washed, conditioned and styled.' },
+      { label: 'Cut, braids or a clean shave', usd: 25, d: { hygiene: 25, social: 20 }, note: 'Sharp for the week ahead.', once: true },
+      { label: 'Manicure', usd: 12, d: { hygiene: 15, social: 5 }, note: 'Clean, neat hands.' },
+    ],
+    foot: 'People do notice. So do you.',
+  },
+  therapy: {
+    title: 'Counselling room',
+    intro: 'A quiet room and someone trained to listen. Markets are loud; your head does not have to be.',
+    items: [
+      { label: 'Talk session', usd: 30, d: { social: 35, energy: 15 }, note: 'Fifty minutes with a counsellor. Once a day.', once: true },
+      { label: 'Guided breathing', usd: 0, d: { energy: 12 }, note: 'Four counts in, six out, for five minutes. Free, once a day.', once: true },
+      { label: 'Write it down', usd: 0, d: { social: 8 }, note: 'One line: what is in my control today? Free, once a day.', once: true },
+    ],
+    foot: 'A game is not therapy. If things are heavy, talk to someone you trust or a professional near you.',
+  },
+  clinic: {
+    title: 'Skin and aesthetics clinic',
+    intro: 'Skin, teeth and care with a licensed team. No promises of a new face: just looking after the one you have.',
+    items: [
+      { label: 'Skin consultation', usd: 25, d: { hygiene: 20 }, note: 'A plan for your skin, not a sales pitch.', once: true },
+      { label: 'Facial', usd: 40, d: { hygiene: 45, social: 10 }, note: 'Cleanse, steam and mask.' },
+      { label: 'Dental polish', usd: 35, d: { hygiene: 30, social: 10 }, note: 'A clean and a brighter smile.', once: true },
+    ],
+    foot: 'Real procedures carry real risks. Take your time and ask a licensed doctor.',
+  },
+  sweets: {
+    title: 'Sweet Tooth confectionery',
+    intro: 'Chin chin, chocolates and cake by the slice.',
+    items: [
+      { label: 'Chin chin and a soda', usd: 5, d: { hunger: 25, social: 5 }, note: 'Crunchy, sweet and cold.' },
+      { label: 'Slice of cake', usd: 7, d: { hunger: 35 }, note: 'Red velvet today.' },
+      { label: 'Box of chocolates to share', usd: 12, d: { hunger: 15, social: 20 }, note: 'Better shared.' },
+    ],
+  },
+}
+
+/** The Wellness house lobby: three rooms. */
+export function wellnessNodes(h: { para: (t: string, c?: string) => HTMLElement; button: (t: string, c: string, f: () => void) => HTMLElement; go: (p: 'salon' | 'therapy' | 'clinic') => void }): HTMLElement[] {
+  return [
+    h.para('Three rooms under one roof. Looking after yourself is part of the grind.'),
+    h.button('Salon', 'primary', () => h.go('salon')), h.para(PLACES.salon.intro, 'muted'),
+    h.button('Counselling room', 'primary', () => h.go('therapy')), h.para(PLACES.therapy.intro, 'muted'),
+    h.button('Skin and aesthetics clinic', 'primary', () => h.go('clinic')), h.para(PLACES.clinic.intro, 'muted'),
+  ]
 }
 
 export function buyAt(place: PlaceId, i: number): { ok: boolean; message: string } {

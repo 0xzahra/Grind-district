@@ -28,7 +28,12 @@ import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { renderLedger } from './ledger.ts'
-import { PLACES, placeNodes, casinoNodes } from './places.ts'
+import { PLACES, placeNodes, casinoNodes, wellnessNodes } from './places.ts'
+import { marketNodes, hostNodes } from './town.ts'
+import { societyNodes } from './society.ts'
+import { raceNodes } from './race.ts'
+import { cardNodes, checkCards } from './cards.ts'
+import { photoCardNodes } from './photoCard.ts'
 import { clubNodes, markPlate } from './stockClub.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
@@ -382,6 +387,7 @@ export function mountUi(
     const joined = para('', 'muted')
     share.append(
       head('Invite and share'),
+      photoCardNodes({ para, button }, () => hooks.portrait?.() ?? null, (m) => toast(m)),
       // Two actions only: post to X, or copy the one invite link.
       strip(
       button('Share on 𝕏', 'ghost', () => shareToX(save.username, rankFor(getSave().xp).label)),
@@ -1301,7 +1307,21 @@ export function mountUi(
       case 'pharmacy':
       case 'bakery':
       case 'laundromat':
+      case 'salon':
+      case 'therapy':
+      case 'clinic':
+      case 'sweets':
         return renderSimple(PLACES[panel].title, placeNodes(panel, { para, button, finish: (m) => finish(m), reopen: () => open(panel) }))
+      case 'wellness':
+        return renderSimple('Wellness house', wellnessNodes({ para, button, go: (p) => open(p) }))
+      case 'market':
+        return renderSimple('Market hall', marketNodes({ para, button, finish: (m) => finish(m), reopen: () => open('market') }))
+      case 'society':
+        return renderSimple('Etiquette House', societyNodes({ para, button, finish: (m) => finish(m) }))
+      case 'race':
+        return renderSimple('Raceway', raceNodes({ para, button, finish: (m) => finish(m) }))
+      case 'cards':
+        return renderSimple("Collectors' Gallery", cardNodes({ para, button, finish: (m) => finish(m), reopen: () => open('cards') }))
       case 'casino':
         return renderSimple('The Velvet Room', casinoNodes({ para, button, learn: () => open('learn'), trade: () => open('trade') }))
       case 'club':
@@ -1486,6 +1506,7 @@ export function mountUi(
             open('conference')
           }),
           para('The note is the last line: a course, a bounty, or a pledge. A balance is not the proof.', 'muted'),
+          ...hostNodes({ para, button, finish: (m) => finish(m), reopen: () => open('conference') }),
         ])
       case 'robot':
         return renderSimple('Unit 4', [
@@ -1588,6 +1609,8 @@ export function mountUi(
     sheet.setAttribute('aria-labelledby', 'sheet-title')
     document.body.classList.add('sheet-open')
     sheet.replaceChildren(render(panel))
+    // Visiting a place can earn its collectible card (cards.ts).
+    if (previous !== panel) window.setTimeout(() => { try { checkCards(panel) } catch { /* cards are optional */ } }, 300)
     if (previous !== panel) {
       const closeButton = sheet.querySelector('button')
       // preventScroll: focusing must not force a scroll-into-view layout while the panel is still settling.

@@ -616,6 +616,21 @@ export function createWorld(options: {
   // on Base, proved with one signature and re-checked on every visit.
   const club = addBuilding({ x: -37, z: -26, w: 9, d: 7, h: 4.4, door: 'px', title: "Stockholders' Club", subtitle: 'members · Base', seed: 89, style: 'arch', facade: 'stone' })
   spot('club', club.x, club.z, 2.3, "Stockholders' Club", 'A members\' club for people who hold tokenized stocks on Base. Prove a holding to join; research sessions inside.', 'club', 'Go in')
+  // The west row, between the trading floor and the hospital: the Wellness house (salon, counselling, skin clinic),
+  // the Market hall where players run a business (town.ts), the Etiquette House (society.ts) and the Collectors'
+  // Gallery (cards.ts). On the south edge: the sweet shop and the Raceway clubhouse (race.ts).
+  const wellness = addBuilding({ x: -54, z: 13.5, w: 6, d: 5, h: 3.8, door: 'nz', title: 'Wellness house', subtitle: 'salon · counselling · skin', seed: 97, style: 'arch', facade: 'render' })
+  spot('wellness', wellness.x, wellness.z, 2.1, 'Wellness house', 'A salon, a counselling room and a skin clinic under one roof.', 'wellness', 'Go in')
+  const market = addBuilding({ x: -46.5, z: 13.5, w: 6.4, d: 5, h: 4, door: 'nz', title: 'Market hall', subtitle: 'run your own business', seed: 101, style: 'brick' })
+  spot('market', market.x, market.z, 2.1, 'Market hall', 'Own a business: buy a licence, stock it and set your price. Residents pay from their own wallets.', 'market', 'Go in')
+  const etiquette = addBuilding({ x: -39, z: 13.5, w: 6, d: 5, h: 4, door: 'nz', title: 'Etiquette House', subtitle: 'manners · presence · mindset', seed: 103, style: 'civic' })
+  spot('society', etiquette.x, etiquette.z, 2.1, 'Etiquette House', 'Short classes in manners, presence and a steady mind.', 'society', 'Take a class')
+  const gallery = addBuilding({ x: -39, z: 21, w: 6, d: 5, h: 3.8, door: 'px', title: "Collectors' Gallery", subtitle: 'district cards', seed: 107, style: 'glass', facade: 'charcoal' })
+  spot('cards', gallery.x, gallery.z, 2.1, "Collectors' Gallery", 'Your album of District Cards, earned around the city. Nothing random.', 'cards', 'See the album')
+  const sweets = addBuilding({ x: -28, z: 56.6, w: 6, d: 4.6, h: 3.4, door: 'nz', title: 'Sweet Tooth', subtitle: 'confectionery', seed: 109, style: 'kiosk' })
+  spot('sweets', sweets.x, sweets.z, 2.1, 'Sweet Tooth confectionery', 'Chin chin, chocolates and cake by the slice.', 'sweets', 'Go in')
+  const raceway = addBuilding({ x: -12, z: 56.6, w: 6, d: 4.6, h: 3.6, door: 'nz', title: 'Raceway', subtitle: 'time trials', seed: 113, style: 'pavilion' })
+  spot('race', raceway.x, raceway.z, 2.1, 'Raceway', 'A five-lap time trial against the clock. No bets, no prize money.', 'race', 'Race')
   architecture.flush(scene)
   buildShowroom(scene, { obstacles, pavilion: { x: -20, z: 15.8, w: 5.4, d: 4.2 }, dealer: dealerAt })
 

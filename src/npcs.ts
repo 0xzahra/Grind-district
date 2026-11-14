@@ -123,6 +123,8 @@ const MEN_PERSONAS: Persona[] = [
   { name: 'Diego', trait: 'Game designer', routine: 'Arcade testing, campus talks', lines: ['Fun first, tokens later.', 'Playtesting the new level.', 'Guilds need good tools.'] },
   { name: 'Femi', trait: 'Student', routine: 'Campus lectures, library evenings', lines: ['World 3 is hard but good.', 'Passed my wallet course!', 'Group study at seven.'] },
 ]
+/** The named residents (for friendships, wallets and the market: town.ts). */
+export const RESIDENTS: ReadonlyArray<{ name: string; trait: string }> = [...WOMEN_PERSONAS, ...MEN_PERSONAS].map(({ name, trait }) => ({ name, trait }))
 
 const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Campus.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
 function bubble(text: string): THREE.Sprite {

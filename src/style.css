@@ -3321,3 +3321,80 @@ html[data-ui='light'] .sheet-card .club-card strong { color: #8a6a1c; }
   .xch-row, .xch-list, .xch-book, .xch-pos, .xch-box, .xch-learn, .xch-steps, .xch-actions) {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Resident card: friendship line and its two actions (town.ts). */
+#npc-card .npc-friend { margin-top: 6px; font-size: 12px; font-weight: 600; color: #9fd8b6; }
+#npc-card .npc-acts { display: flex; gap: 8px; margin-top: 8px; }
+#npc-card .npc-acts button { flex: 1; min-height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.08); color: inherit; font: inherit; font-size: 13px; font-weight: 600; }
+html[data-ui='light'] body #npc-card .npc-friend { color: #1f6b45 !important; }
+html[data-ui='light'] body #npc-card .npc-acts button { border-color: rgba(20, 24, 30, 0.2); background: rgba(20, 24, 30, 0.05); }
+
+/* Market hall, residents and events (town.ts). */
+.sheet-card .town-h, .sheet-card .gc-h, .sheet-card .soc-h { margin: 12px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.sheet-card .town-note { padding: 10px 12px; border-radius: 12px; background: rgba(47, 196, 141, 0.12); border: 1px solid rgba(47, 196, 141, 0.35); }
+.sheet-card .town-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 14px; border-radius: 16px; background: linear-gradient(135deg, rgba(214, 178, 94, 0.2), rgba(214, 178, 94, 0.05)); border: 1px solid rgba(214, 178, 94, 0.45); }
+.sheet-card .town-card strong { font-size: 19px; color: #e9cf8e; overflow-wrap: anywhere; }
+.sheet-card .town-card span { font-size: 13px; opacity: 0.8; }
+.sheet-card .town-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sheet-card .town-tile { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.045); border: 1px solid rgba(255, 255, 255, 0.1); font-variant-numeric: tabular-nums; }
+.sheet-card .town-tile span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.sheet-card .town-tile b { font-size: 17px; }
+.sheet-card .town-price { display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px; align-items: center; gap: 10px; }
+.sheet-card .town-price b { text-align: center; font-size: 26px; font-variant-numeric: tabular-nums; }
+.sheet-card .town-price button { width: 56px !important; min-height: 48px; padding: 0 !important; font-size: 22px; }
+.sheet-card .town-name { min-height: 46px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.05); color: var(--ink); font: inherit; font-size: 15px; min-width: 0; width: 100%; box-sizing: border-box; }
+.sheet-card .town-people, .sheet-card .town-sales { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.sheet-card .town-person { display: grid; grid-template-columns: 68px minmax(0, 1fr) auto 52px; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sheet-card .town-person span { opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-card .town-person em { font-style: normal; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.sheet-card .town-person em.lv2, .sheet-card .town-person em.lv3 { background: rgba(47, 196, 141, 0.2); color: #9fe3c2; }
+.sheet-card .town-person i, .sheet-card .town-sale i { font-style: normal; text-align: right; font-weight: 600; }
+.sheet-card .town-sale { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sheet-card .town-sale span { opacity: 0.65; }
+html[data-ui='light'] .sheet-card .town-card strong { color: #8a6a1c; }
+html[data-ui='light'] .sheet-card .town-tile, html[data-ui='light'] .sheet-card .town-person, html[data-ui='light'] .sheet-card .town-sale { background: rgba(20, 24, 30, 0.04); border-color: rgba(20, 24, 30, 0.1); }
+html[data-ui='light'] .sheet-card .town-name { border-color: rgba(20, 24, 30, 0.18); background: #fff; }
+html[data-ui='light'] .sheet-card .town-person em.lv2, html[data-ui='light'] .sheet-card .town-person em.lv3 { color: #1f6b45; }
+
+/* Etiquette House classes (society.ts). */
+.sheet-card .soc { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.sheet-card .soc-count { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; }
+.sheet-card .soc-card { margin: 0; padding: 18px 16px; border-radius: 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 17px; line-height: 1.5; }
+.sheet-card .soc-wrong { color: #f0a0a8; }
+html[data-ui='light'] .sheet-card .soc-card { background: #fff; border-color: rgba(20, 24, 30, 0.12); }
+html[data-ui='light'] .sheet-card .soc-wrong { color: #a1303b; }
+
+/* Raceway time trial (race.ts). */
+.sheet-card .race { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.sheet-card .race-cv { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; border-radius: 16px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sheet-card .race-hud { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.sheet-card .race-hud b { font-size: 16px; }
+.sheet-card .race-hud span { font-size: 22px; font-weight: 700; }
+.sheet-card .race em { font-style: normal; font-size: 14px; min-height: 2.6em; }
+.sheet-card .race-pedal { min-height: 72px; border-radius: 18px !important; border: 0 !important; background: linear-gradient(180deg, #37d39a, #1f9f72) !important; color: #06281b !important; font-size: 18px; font-weight: 800; touch-action: none; user-select: none; -webkit-user-select: none; box-shadow: 0 6px 0 #14694b, 0 12px 22px rgba(0, 0, 0, 0.3); }
+.sheet-card .race-pedal:active { transform: translateY(4px); box-shadow: 0 2px 0 #14694b, 0 6px 12px rgba(0, 0, 0, 0.3); }
+
+/* District Cards (cards.ts): a 5:7 card with a set colour; Founders cards carry a moving foil. */
+.sheet-card .gc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sheet-card .gcard { --c1: #2a3a52; --c2: #101a2a; --edge: rgba(150, 190, 255, 0.5); position: relative; display: grid; grid-template-rows: auto 1fr auto auto auto; align-content: start; justify-items: center; gap: 3px; aspect-ratio: 5 / 7; padding: 8px 6px; border-radius: 12px; overflow: hidden; text-align: center; background: linear-gradient(160deg, var(--c1), var(--c2)); border: 1px solid var(--edge); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.05), 0 6px 14px rgba(0, 0, 0, 0.3); color: #f5f2ea; }
+.sheet-card .gcard.set-scholar { --c1: #3b2c5a; --c2: #17102a; --edge: rgba(190, 160, 255, 0.5); }
+.sheet-card .gcard.set-society { --c1: #5a2c3d; --c2: #2a1018; --edge: rgba(255, 160, 190, 0.5); }
+.sheet-card .gcard.set-raceway { --c1: #24503a; --c2: #0d2117; --edge: rgba(140, 230, 180, 0.5); }
+.sheet-card .gcard.set-founders { --c1: #6b5320; --c2: #2a1f08; --edge: rgba(240, 210, 130, 0.8); }
+.sheet-card .gcard .gc-no { justify-self: start; font-size: 10px; font-weight: 700; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.sheet-card .gcard .gc-art { display: grid; place-items: center; width: 100%; }
+.sheet-card .gcard svg { width: 54%; max-width: 64px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); }
+.sheet-card .gcard strong { font-size: 12px; line-height: 1.15; }
+.sheet-card .gcard em { font-style: normal; font-size: 10px; line-height: 1.25; opacity: 0.8; }
+.sheet-card .gcard small { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; }
+.sheet-card .gcard.back { --c1: #20242a; --c2: #121418; --edge: rgba(255, 255, 255, 0.12); color: rgba(245, 242, 234, 0.55); grid-template-rows: 1fr auto auto; }
+.sheet-card .gcard.back svg { opacity: 0.25; }
+.sheet-card .gcard.back strong { font-size: 20px; }
+.sheet-card .gcard.foil:not(.back)::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 20%, rgba(255, 240, 190, 0.45) 38%, rgba(160, 230, 255, 0.35) 46%, rgba(255, 180, 230, 0.35) 54%, transparent 72%); background-size: 260% 100%; mix-blend-mode: screen; animation: gc-foil 3.6s linear infinite; pointer-events: none; }
+@keyframes gc-foil { from { background-position: 130% 0; } to { background-position: -130% 0; } }
+@media (prefers-reduced-motion: reduce) { .sheet-card .gcard.foil::after { animation: none; background-position: 40% 0; } }
+
+/* Photo card (photoCard.ts). */
+.pcard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.pcard-img { display: block; width: min(100%, 300px); height: auto; margin: 0 auto; border-radius: 16px; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35); }
+.pcard-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }

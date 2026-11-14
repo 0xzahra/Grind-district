@@ -125,6 +125,15 @@ export type PanelId =
   | 'laundromat'
   | 'casino'
   | 'club'
+  | 'market'
+  | 'wellness'
+  | 'salon'
+  | 'therapy'
+  | 'clinic'
+  | 'sweets'
+  | 'society'
+  | 'race'
+  | 'cards'
 
 export const RANKS: { id: RankId; label: string; xp: number }[] = [
   { id: 'shrimp', label: 'Shrimp', xp: 0 },
@@ -186,19 +195,22 @@ export const DRONES: { id: DroneId; label: string; price: number; blurb: string 
 ]
 
 export type VehicleKind = 'car' | 'jet' | 'drone' | 'phone' | 'laptop' | 'accessory'
-export type VehicleId = 'saloon' | 'tourer' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'laptop' | 'desktop' | 'earbuds' | 'watch'
+export type VehicleId = 'saloon' | 'tourer' | 'evcoupe' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset'
 /** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
 export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
   { id: 'saloon', kind: 'car', label: 'City saloon', price: 600, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
   { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 900, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
+  { id: 'evcoupe', kind: 'car', label: 'Electric coupé', price: 1100, blurb: 'Instant torque, a glass roof and 500 km on a charge. Quickest off the line.' },
   { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 1200, blurb: 'Six seats, regional range. Hangar fees every month.' },
   { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 1500, blurb: 'Intercontinental range. Crew, hangar and fuel on you.' },
   { id: 'phone', kind: 'phone', label: 'Smartphone', price: 40, blurb: 'A clean everyday phone. Good camera, all-day battery.' },
   { id: 'phonepro', kind: 'phone', label: 'Pro phone', price: 90, blurb: 'Titanium frame, triple camera, the one everyone films on.' },
+  { id: 'foldphone', kind: 'phone', label: 'Folding phone', price: 140, blurb: 'Opens into a small tablet: charts on one half, notes on the other.' },
   { id: 'laptop', kind: 'laptop', label: 'Laptop', price: 120, blurb: 'Thin, light, enough power to code and edit.' },
   { id: 'desktop', kind: 'laptop', label: 'Desktop PC', price: 160, blurb: 'Tower and monitor for heavy work and games.' },
   { id: 'earbuds', kind: 'accessory', label: 'Wireless earbuds', price: 15, blurb: 'Noise cancelling. Study anywhere.' },
   { id: 'watch', kind: 'accessory', label: 'Smartwatch', price: 30, blurb: 'Steps, sleep, and a nudge to keep grinding.' },
+  { id: 'vrset', kind: 'accessory', label: 'Mixed-reality headset', price: 110, blurb: 'A visor for lessons and events in the round. Light enough to forget.' },
   { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
 ]
 const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))

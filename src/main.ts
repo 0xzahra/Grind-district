@@ -684,6 +684,7 @@ const apiAgents = createRemoteAgents(scene)
   startPass((m) => ui.toast(m))
   startCashAlert()
   startReputation()
+  void import('./cards.ts').then((m) => m.startCards((t) => ui.toast(t)))
   // startMoments ticks immediately when a moment is live; interiors is declared further down, so guard the TDZ.
   startMoments(() => { try { return interiors.inside ? { x: 1e4, z: 1e4 } : { x: pos.x, z: pos.z } } catch { return { x: pos.x, z: pos.z } } })
   subscribe((rankedUp) => { if (rankedUp) feedRankUp(rankFor(getSave().xp).label) })
@@ -1111,9 +1112,22 @@ const apiAgents = createRemoteAgents(scene)
     const d = document.createElement('div'); d.className = 'npc-doing'; d.textContent = n.doing
     const r = document.createElement('div'); r.className = 'npc-routine'; r.textContent = n.routine
     c.append(h, d, r); c.onclick = () => { c.remove(); if (npcCard === c) npcCard = null }
+    // Friendship and the resident's own wallet (town.ts): say hello once a day, or bring a small gift.
+    let hide = window.setTimeout(() => { c.remove(); if (npcCard === c) npcCard = null }, 6000)
+    void import('./town.ts').then((town) => {
+      if (!c.isConnected) return
+      const f = document.createElement('div'); f.className = 'npc-friend'; f.textContent = town.friendLine(n.name)
+      const row = document.createElement('div'); row.className = 'npc-acts'
+      const act = (label: string, run: () => { ok: boolean; message: string }) => {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = label
+        b.onclick = (e) => { e.stopPropagation(); const out = run(); ui.toast(out.message); f.textContent = town.friendLine(n.name); window.clearTimeout(hide); hide = window.setTimeout(() => { c.remove(); if (npcCard === c) npcCard = null }, 4000) }
+        return b
+      }
+      row.append(act('Say hello', () => town.hello(n.name)), act('Gift · $10', () => town.gift(n.name)))
+      c.append(f, row)
+    })
     document.body.append(c)
     npcCard = c
-    window.setTimeout(() => { c.remove(); if (npcCard === c) npcCard = null }, 3500)
   }
   // Guests: after the first reward or purchase, offer to save progress to an account (once per session);
   // on leaving with progress, the browser asks to confirm. Signed-in players sync their save every minute.

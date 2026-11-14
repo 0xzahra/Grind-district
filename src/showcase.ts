@@ -128,13 +128,42 @@ export function itemModel(id: string): THREE.Group {
       for (const x of [-0.05, 0.05]) g.add(mesh(new THREE.BoxGeometry(0.006, 0.05, 0.1), M.graphite, x, 0.04, 0))
       break
     }
+    case 'foldphone': {
+      // A folding phone, open like a book at a slight angle: two slim halves, one screen across both, a hinge.
+      for (const sx of [-1, 1]) {
+        const half = new THREE.Group(); half.position.set(sx * 0.001, 0.085, 0); half.rotation.y = sx * -0.22
+        half.add(mesh(rounded(0.078, 0.165, 0.007, 0.004, 0.002), M.titanium, sx * 0.039, 0, 0), mesh(new THREE.PlaneGeometry(0.074, 0.158), lit(screenTex.phone), sx * 0.039, 0, 0.0044))
+        g.add(half)
+      }
+      g.add(mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.166, 10), M.graphite, 0, 0.085, -0.002))
+      g.rotation.x = -0.2
+      break
+    }
+    case 'vrset': {
+      // A mixed-reality headset: a curved visor with a dark glass front, a soft face pad and a head strap.
+      g.add(mesh(rounded(0.19, 0.085, 0.03, 0.05), M.white, 0, 0.09, 0.02))
+      g.add(mesh(rounded(0.176, 0.07, 0.026, 0.004, 0.002), std(0x0b0d10, 0.04, 0.8), 0, 0.09, 0.052))
+      g.add(mesh(rounded(0.16, 0.06, 0.02, 0.02), M.graphite, 0, 0.09, -0.02))
+      g.add(mesh(new THREE.TorusGeometry(0.098, 0.011, 8, 36, Math.PI).rotateX(-Math.PI / 2), M.graphite, 0, 0.09, -0.004))
+      for (const sx of [-1, 1]) g.add(mesh(new THREE.SphereGeometry(0.006, 10, 8), M.mint, sx * 0.066, 0.108, 0.057))
+      g.rotation.y = 0.35
+      break
+    }
     case 'saloon':
     case 'tourer':
+    case 'evcoupe':
     case 'car': {
       const kind: CarKind = id === 'saloon' ? 'sedan' : 'sports'
       const geo = carGeometry(kind)
-      const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.25, metalness: 0.6, envMapIntensity: 1.3, color: id === 'saloon' ? 0x3a3e44 : 0x8e1b22 })
+      const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: id === 'evcoupe' ? 0.18 : 0.25, metalness: id === 'evcoupe' ? 0.75 : 0.6, envMapIntensity: 1.3, color: id === 'saloon' ? 0x3a3e44 : id === 'evcoupe' ? 0xdfe6ea : 0x8e1b22 })
       g.add(mesh(geo.body, paint), mesh(geo.glass, std(0x18222a, 0.06, 0.7)), mesh(geo.lamps, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false })))
+      if (id === 'evcoupe') {
+        // Electric: a full-width light bar front and rear, and a charge port that glows.
+        const bar = new THREE.MeshBasicMaterial({ color: 0x9ff3e0, toneMapped: false })
+        const box = new THREE.Box3().setFromBufferAttribute(geo.body.getAttribute('position') as THREE.BufferAttribute)
+        g.add(mesh(new THREE.BoxGeometry((box.max.x - box.min.x) * 0.82, 0.012, 0.012), bar, 0, box.min.y + (box.max.y - box.min.y) * 0.46, box.max.z + 0.004))
+        g.add(mesh(new THREE.BoxGeometry((box.max.x - box.min.x) * 0.82, 0.012, 0.012), new THREE.MeshBasicMaterial({ color: 0xff4a4a, toneMapped: false }), 0, box.min.y + (box.max.y - box.min.y) * 0.5, box.min.z - 0.004))
+      }
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
         const w = new THREE.Group(); w.position.set(sx * geo.wheel.track, geo.wheel.r, sz * geo.wheel.base); w.scale.set(1, geo.wheel.r, geo.wheel.r)
         w.add(mesh(new THREE.CylinderGeometry(1, 1, 0.22, 16).rotateZ(Math.PI / 2), M.rubber), mesh(new THREE.CylinderGeometry(0.64, 0.64, 0.235, 10).rotateZ(Math.PI / 2), M.alu))
