@@ -150,14 +150,19 @@ export function ringRoute(from: number, to: number): { x: number; z: number }[] 
   const t0 = Math.atan2(a.z, a.x)
   let t1 = Math.atan2(b.z, b.x)
   while (t1 > t0) t1 -= Math.PI * 2
-  const ease = (e0: number, e1: number, u: number) => { const k = Math.min(1, Math.max(0, (u - e0) / (e1 - e0))); return k * k * (3 - 2 * k) }
   const n = Math.max(12, Math.ceil(((t0 - t1) * RING_R) / 0.5))
   const out: { x: number; z: number }[] = []
   const blend = Math.min(0.24, 5.5 / ((t0 - t1) * RING_R))
+  // Turn in and out along the arm, not across it: the angle starts and stops gently (zero rate at both ends) while
+  // the radius moves first, so the route leaves the inbound lane heading in and joins the outbound lane heading out.
+  // (A tangential start/end left a sharp corner where cars swung their nose into the next lane.)
+  const k = 1 / (1 - blend)
+  const sweep = (u: number) => u < blend ? (k * u * u) / (2 * blend) : u > 1 - blend ? 1 - (k * (1 - u) * (1 - u)) / (2 * blend) : k * (u - blend / 2)
+  const radial = (u: number) => { const q = Math.min(1, Math.max(0, u)); return 1 - (1 - q) * (1 - q) } // fast start, settles at the ring
   for (let i = 0; i <= n; i++) {
     const u = i / n
-    const th = t0 + (t1 - t0) * u
-    const r = RING_R + (r0 - RING_R) * (1 - ease(0, blend, u)) + (r1 - RING_R) * ease(1 - blend, 1, u)
+    const th = t0 + (t1 - t0) * sweep(u)
+    const r = RING_R + (r0 - RING_R) * (1 - radial(u / blend)) + (r1 - RING_R) * (1 - radial((1 - u) / blend))
     out.push({ x: Math.cos(th) * r, z: Math.sin(th) * r })
   }
   return out

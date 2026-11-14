@@ -32,8 +32,17 @@ function makeLeg(kind: LegKind, pts: { x: number; z: number }[], arm = 0, to = 0
   return { kind, arm, to, xs, zs, cum, len: cum[n - 1]!, part }
 }
 
+// Houses with room to pull fully onto the kerb (2.3 m) without the car clipping the building;
+// where the house sits too close to the road a parked car would stick out into the lane.
+const PARK_STOPS = SIDE_STOPS.filter((st) => {
+  const p = sidePoint(st.s, true)
+  return !insideFootprint(p.x - Math.cos(p.heading) * 2.3, p.z + Math.sin(p.heading) * 2.3, 1.3)
+})
+
 export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphics): {
   tick: (dt: number, time: number, focus: { x: number; z: number }, people?: Obstacle[]) => Obstacle[]
+  /** Read-only snapshot for local traffic checks. */
+  debug: () => Array<{ blk: number[]; fol: number[]; hold: number; wait: number; id: number; leg: string; s: number; v: number; x: number; z: number; h: number; len: number; on: boolean }>
 } {
   void lanes
   const coarse = window.matchMedia('(pointer: coarse)').matches
@@ -49,6 +58,11 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   const ringLegs = ARMS.map((_, a) => ARMS.map((__, b) => (a === b ? null : makeLeg('ring', ringRoute(a, b), a, b))))
   const sideOut = makeLeg('sideOut', sample((u) => sidePoint(u * SIDE_LEN, true), Math.ceil(SIDE_LEN / 0.5)))
   const sideIn = makeLeg('sideIn', sample((u) => sidePoint((1 - u) * SIDE_LEN, false), Math.ceil(SIDE_LEN / 0.5)))
+  /** Distance along the outbound lane to side-road position p (the lane is shorter than the centre line round the bends). */
+  const outS = (p: number) => {
+    const f = Math.max(0, Math.min(1, p / SIDE_LEN)) * (sideOut.cum.length - 1), i = Math.min(sideOut.cum.length - 2, Math.floor(f))
+    return sideOut.cum[i]! + (sideOut.cum[i + 1]! - sideOut.cum[i]!) * (f - i)
+  }
   const sideU = (s: number) => {
     // U-turn across the side road at distance s, from the outbound lane to the inbound lane.
     const p = sidePoint(s, true)
@@ -107,6 +121,97 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }
   const setLeg = (c: Car, leg: Leg, s = 0) => { c.leg = leg; c.s = s; c.seg = 0 }
 
+  /** Legs a car can drive onto next (only the fixed ones; the ring and side-road U-turns are decided on arrival). */
+  const next = (L: Leg): Leg[] => {
+    switch (L.kind) {
+      case 'u': return [firstIn(L.arm)]
+      case 'in': return L.arm === 0 && L.part === 0 ? [inLegs[0]![1]!] : []
+      case 'sideIn': return [inLegs[0]![1]!]
+      case 'sideU': return [sideIn]
+      case 'ring': return [firstOut(L.to)]
+      case 'out': return L.arm === 0 && L.part === 0 ? [outLegs[0]![1]!, sideOut] : [uLegs[L.arm]!]
+      default: return []
+    }
+  }
+  /** Distance along the road from c's centre to o's centre when o is ahead on c's route, else -1.
+   *  Covers a queue round a bend (where "straight ahead" misses the car in front) and two lanes merging into one. */
+  const pathAhead = (c: Car, o: Car): number => {
+    if (o.leg === c.leg) return o.s > c.s ? o.s - c.s : -1
+    // A car pulling in to (or out of) a house is still in the outbound lane until it is fully on the kerb.
+    if (c.leg === sideOut && o.leg.kind === 'sideU' && o.park < 0.9 && o.s < 1.5) { const d = outS(o.goal) - c.s; return d > 0 ? d : -1 }
+    const nc = next(c.leg)
+    if (nc.includes(o.leg)) return c.leg.len - c.s + o.s
+    // Two legs ahead (e.g. the car just out of the U-turn while this one is still approaching it).
+    for (const L of nc) if (next(L).includes(o.leg)) return c.leg.len - c.s + L.len + o.s
+    if (c.leg.kind === 'ring' && o.leg.kind === 'ring') {
+      // Both on the roundabout: follow whoever is just ahead round the ring (it flows with angle decreasing),
+      // whichever arm they came from or are leaving by, as long as they share the same circle.
+      // (Not while this car is already turning off: the one "ahead" may be joining from the arm it is leaving by.)
+      if (c.leg.len - c.s < 6) return -1
+      const rc = Math.hypot(c.px, c.pz), ro = Math.hypot(o.px, o.pz)
+      if (Math.abs(rc - ro) > 2.2) return -1
+      let d = Math.atan2(c.pz, c.px) - Math.atan2(o.pz, o.px)
+      while (d < 0) d += Math.PI * 2
+      while (d >= Math.PI * 2) d -= Math.PI * 2
+      const along = d * (rc + ro) / 2
+      return along < 14 ? along : -1
+    }
+    if (nc.length && next(o.leg).some((L) => nc.includes(L))) {
+      // Merging: whoever is nearer the merge goes first; the other follows it.
+      const dc = c.leg.len - c.s, dO = o.leg.len - o.s
+      if (dO < dc - 0.05 || (Math.abs(dO - dc) <= 0.05 && o.id < c.id)) return dc - dO
+    }
+    return -1
+  }
+  /** Road distance to the ring's give-way line, or Infinity when not heading for it. */
+  const toRing = (c: Car): number => {
+    const L = c.leg
+    if (L.kind === 'in' && L.part === 1) return L.len - c.s
+    if ((L.kind === 'in' && L.arm === 0) || L.kind === 'sideIn') return L.len - c.s + inLegs[0]![1]!.len
+    return Infinity
+  }
+  /** Can a car U-turn across the side road at distance `goal` without cutting up someone in the other lane? */
+  const uturnClear = (self: Car, goal: number) => {
+    const at = SIDE_LEN - goal // where the U-turn joins the inbound lane
+    return cars.every((o) => o === self || o.gone > 0 ||
+      !((o.leg === sideIn && o.s > at - 28 && o.s < at + 5) || (o.leg === sideOut && o.s > outS(goal) - 16 && o.s < outS(goal) + 4) ||
+        (o.leg.kind === 'sideU' && Math.hypot(o.px - self.px, o.pz - self.pz) < 9)))
+  }
+  // The side road meets the east arm at a T: inbound side-road cars cross the arm's outbound lane to join the
+  // inbound lane. Their stop line keeps the bonnet out of that lane until it is clear.
+  const SIDE_STOP = (() => {
+    let s = 0
+    for (; s < sideIn.len; s += 0.25) { const p = sidePoint(SIDE_LEN - s, false); if (p.z < ROAD_HALF + 0.5 && p.x > 26) break }
+    return s // sideIn distance where the outbound lane's kerb is reached
+  })()
+  // Cars on the arm stop short of where a side-road car sweeps round the corner (out lane at x≈29.4, in lane at x≈30.6).
+  const OUT_LINE = 29.4, IN_LINE = 30.6
+  const sideJoinClear = (self: Car) => cars.every((o) => {
+    if (o === self || o.gone > 0) return true
+    const L = o.leg
+    if (L === outLegs[0]![0]! || L === outLegs[0]![1]!) return o.px + o.len / 2 < OUT_LINE - 10 || o.px - o.len / 2 > 31.6 + 1.0
+    if (L.kind === 'ring' && L.to === 0) return L.len - o.s > 14
+    if (L === inLegs[0]![0]!) return o.px + o.len / 2 < 24.5
+    if (L === inLegs[0]![1]!) return false // no room to merge yet; never stop across the arm
+    if (L === uLegs[0]!) return L.len - o.s > 4
+    return true
+  })
+  /** A side-road car has passed its stop line and is crossing the arm: arm traffic waits for it. */
+  // (A car merely waiting at its stop line is not crossing: counting it made it and the arm wait for each other.)
+  const sideCrossing = (self: Car) => cars.some((o) => {
+    if (o === self || o.gone > 0 || o.leg !== sideIn) return false
+    const nose = o.s + o.len / 2
+    return nose >= SIDE_STOP - 0.12 || (nose >= SIDE_STOP - 0.5 && o.v > 0.5)
+  })
+  const armGap = (c: Car): number => {
+    const L = c.leg
+    if (L === outLegs[0]![0]! || L === outLegs[0]![1]!) { const nose = c.px + c.len / 2; return nose < OUT_LINE + 0.2 ? OUT_LINE - nose : Infinity }
+    // Wait on the ring before the mouth (not in it, where entering cars swing past, and not half out of it).
+    if (L.kind === 'ring' && L.to === 0) { const g = L.len - c.s - 6.5; return g > -0.3 ? g : Infinity }
+    if (L === inLegs[0]![0]!) { const nose = c.px - c.len / 2; return nose > IN_LINE - 0.2 ? nose - IN_LINE : Infinity }
+    if (L === uLegs[0]!) return L.len - c.s + (33 - IN_LINE) - c.len / 2
+    return Infinity
+  }
   /** Is the ring busy just upstream of where arm `a` enters it? (ring traffic flows with angle decreasing) */
   const ringBusy = (self: Car, a: number) => {
     const entry = ringLegs[a]![(a + 1) % 4]!
@@ -114,16 +219,30 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
     const ta = Math.atan2(ez, ex)
     for (const o of cars) {
       if (o === self || o.gone > 0) continue
+      // A car leaving by this same arm turns off before it reaches the entry, so it never crosses an entering car.
+      // (Waiting for it could lock the arm: it may itself be queued behind this arm's traffic.)
+      // Exception: one about to swing out through the mouth (or stopped in it), where its body sweeps past the entry.
+      if (o.leg.kind === 'ring' && o.leg.to === a) { const left = o.leg.len - o.s; if ((left < 6 && o.hold < 4) || (left < 12 && o.v > 0.3)) return true; continue }
+      // Only cars on the ring itself: one that has already turned off onto an arm (even one queued just
+      // outside the ring) is not coming round, and counting it made the entry wait for nothing.
+      if (o.leg.kind !== 'ring') continue
       const r = Math.hypot(o.px, o.pz)
       if (r > 21.5) continue
       let d = Math.atan2(o.pz, o.px) - ta
       while (d < 0) d += Math.PI * 2
       while (d > Math.PI * 2) d -= Math.PI * 2
-      if (d < 0.95 || (Math.hypot(o.px - ex, o.pz - ez) < 5.5 && o.leg.kind === 'ring')) return true
+      // Upstream and about to pass, or just past the entry (still in the merge): either way, not yet.
+      if (d < 0.95 || d > Math.PI * 2 - 0.42 || (Math.hypot(o.px - ex, o.pz - ez) < 5.5 && o.leg.kind === 'ring')) return true
     }
     return false
   }
 
+  /** A ring car right at arm `a`'s entry point (used once a car is already over the give-way line). */
+  const ringAt = (self: Car, a: number) => {
+    const entry = ringLegs[a]![(a + 1) % 4]!
+    const ex = entry.xs[0]!, ez = entry.zs[0]!
+    return cars.some((o) => o !== self && o.gone <= 0 && o.leg.kind === 'ring' && o.leg.to !== a && Math.hypot(o.px - ex, o.pz - ez) < 4.5)
+  }
   const arrive = (c: Car, focus: { x: number; z: number }) => {
     const L = c.leg
     switch (L.kind) {
@@ -131,7 +250,9 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         if (L.arm === 0 && L.part === 0) {
           const sideClear = cars.every((o) => o === c || o.leg !== sideOut || o.s > 9)
           if (Math.random() < 0.5 && sideClear) {
-            c.goal = Math.random() < 0.5 ? SIDE_LEN : SIDE_STOPS[Math.floor(Math.random() * SIDE_STOPS.length)]!.s
+            // Park only where nobody else is parked or heading to park (some houses are just 4 m apart).
+            const free = PARK_STOPS.filter((st) => cars.every((o) => o === c || o.gone > 0 || !(o.leg === sideOut || o.leg.kind === 'sideU') || Math.abs(o.goal - st.s) > 7.5))
+            c.goal = Math.random() < 0.5 || !free.length ? SIDE_LEN : free[Math.floor(Math.random() * free.length)]!.s
             setLeg(c, sideOut)
           } else setLeg(c, outLegs[0]![1]!)
         } else {
@@ -142,7 +263,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       case 'u': setLeg(c, firstIn(L.arm)); return
       case 'in':
         if (L.arm === 0 && L.part === 0) { setLeg(c, inLegs[0]![1]!); return }
-        if (ringBusy(c, L.arm)) { c.s = L.len; c.v = 0; return }
+        if (ringAt(c, L.arm)) { c.s = L.len; c.v = 0; return }
         {
           const pick = [1, 2, 3].map((k) => (L.arm + k) % 4)
           const to = pick[Math.floor(Math.random() * pick.length)]!
@@ -153,6 +274,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       case 'sideOut':
         if (c.goal < SIDE_LEN - 1) { c.wait = 8 + Math.random() * 12; setLeg(c, sideU(c.goal)); return }
         if (Math.hypot(c.x - focus.x, c.z - focus.z) > HIDE) { c.gone = 6 + Math.random() * 14; return }
+        if (!uturnClear(c, SIDE_LEN - 4)) { c.s = L.len; c.v = 0; return }
         setLeg(c, sideU(SIDE_LEN - 4))
         c.goal = SIDE_LEN - 4
         return
@@ -178,6 +300,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   }
   const obstacles: Obstacle[] = []
   const blockers: number[][] = cars.map(() => [])
+  const followers: Array<Array<[number, number]>> = cars.map(() => []) // [car id, road distance] ahead on the same route
   let first = true
   return {
     tick(dt, time, focus, people = []) {
@@ -188,15 +311,24 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       // Pass 1: who is in front of whom (from last frame's poses).
       for (const c of cars) {
         const list = blockers[c.id]!
+        const road = followers[c.id]!
         list.length = 0
+        road.length = 0
         if (c.gone > 0) continue
         const fx = Math.sin(c.h), fz = Math.cos(c.h)
         for (const o of cars) {
           if (o === c || o.gone > 0) continue
+          if (o.wait > 0 && o.park > 0.9) continue // parked on the kerb, out of the lane (still a car in the lane while pulling in)
+          const along = pathAhead(c, o)
+          if (along >= 0 && along < 22) { road.push([o.id, along]); continue }
           const rx = o.px - c.px, rz = o.pz - c.pz
           const ahead = rx * fx + rz * fz
           if (ahead <= 0 || ahead > 16) continue
           const lat = Math.abs(rx * fz - rz * fx)
+          // Oncoming car passing in the other lane: braking can't help and only causes stand-offs at junctions.
+          if (Math.sin(o.h) * fx + Math.cos(o.h) * fz < -0.3 && lat > 1.9) continue
+          // Leaving the ring: a car waiting to enter from the same arm is in the other lane and gives way to us.
+          if (c.leg.kind === 'ring' && (o.leg === inLegs[c.leg.to]![0]! || o.leg === inLegs[c.leg.to]![1]!) && o.v < 0.5) continue
           // Wider when close, so a car crossing or merging at a junction counts too, not only one dead ahead.
           if (lat < (ahead < 7 ? 2.4 : 1.75)) list.push(o.id)
         }
@@ -208,7 +340,7 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
             const edge = sidePoint(SIDE_LEN, false)
             const clear = cars.every((o) => o === c || o.gone > 0 || o.leg !== sideIn || o.s > 9)
             if (Math.hypot(edge.x - focus.x, edge.z - focus.z) < HIDE || !clear) c.gone = 1
-            else { setLeg(c, sideIn, 0); c.v = c.cruise * 0.6; c.goal = 0; pose(c) }
+            else { setLeg(c, sideIn, 0); c.v = c.cruise * 0.6; c.goal = 0; pose(c); c.px = c.x; c.pz = c.z }
           }
           fleet.set(c.id, 0, 0, 0, 0, false)
           continue
@@ -216,6 +348,8 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         if (c.wait > 0) {
           // Parked by the kerb: ease onto the shoulder, rest, ease back out.
           c.wait -= dt
+          // About to pull out across the road: wait for a gap in the other lane.
+          if (c.wait <= 0 && c.leg.kind === 'sideU' && !uturnClear(c, c.goal)) c.wait = 0.5
           c.park = Math.min(1, c.park + dt / 1.5)
           c.v = 0
         }
@@ -234,6 +368,17 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
           const need = (c.len + o.len) / 2 + 1.4
           target = Math.min(target, Math.max(0, (ahead - need) * 1.3))
         }
+        // Same route (queue round a bend, merge): keep a car-length-plus gap measured along the road.
+        for (const [id, along] of followers[c.id]!) {
+          const o = cars[id]!
+          // Extra room on the tight U-turns, where bodies swing wider than the centre line suggests.
+          const bend = c.leg.kind === 'u' || o.leg.kind === 'u' || c.leg.kind === 'sideU' || o.leg.kind === 'sideU' ? 1.2
+            // Leaving the ring: wait on the circle until there is room to drive right out, not half-way through the mouth.
+            : c.leg.kind === 'ring' && o.leg.kind === 'out' ? 5.5 : 0.4
+          target = Math.min(target, Math.max(0, (along - (c.len + o.len) / 2 - 1.4 - bend) * 1.3))
+        }
+        // Pulling over at a house: brake to the stop instead of halting from full speed.
+        if (c.leg === sideOut && c.goal < SIDE_LEN - 1) target = Math.min(target, 1.2 + Math.max(0, outS(c.goal) - c.s) * 0.9)
         // People and the player: slow when close in front, stop short of them.
         const yieldTo = (x: number, z: number) => {
           const rx = x - c.px, rz = z - c.pz
@@ -245,10 +390,26 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         yieldTo(focus.x, focus.z)
         for (const p of people) if (p.kind === 'circle') yieldTo(p.x, p.z)
         // Give way before the ring.
-        if (c.leg.kind === 'in' && c.leg.part === 1 && c.leg.len - c.s < 9 && ringBusy(c, c.leg.arm)) target = Math.min(target, Math.max(0, (c.leg.len - c.s - 0.4) * 1.2))
+        // The stop line sits so the bonnet stays out of the ring lane (it used to poke into passing ring cars).
+        {
+          const d = toRing(c), line = Math.max(0.4, c.len / 2 - 0.4)
+          // Approach the give-way line like a yield sign (slow enough to stop on it), and once past it, go.
+          if (d < 12 && d > line - 0.3) {
+            target = Math.min(target, 2.6 + Math.max(0, d - line) * 1.1)
+            if (ringBusy(c, c.leg.arm)) target = Math.min(target, Math.max(0, (d - line) * 1.2))
+          }
+          // Side road → arm: give way to the outbound lane before nosing across it.
+          if (c.leg === sideIn) {
+            const nose = c.s + c.len / 2, line = SIDE_STOP - 0.6
+            if (nose < line + 0.2 && line - nose < 10 && !sideJoinClear(c)) target = Math.min(target, Math.max(0, (line - nose) * 1.2))
+          } else {
+            const g = armGap(c)
+            if (g < 12 && sideCrossing(c)) target = Math.min(target, Math.max(0, g * 1.2))
+          }
+        }
         // Stuck behind something that is itself stopped for a long time: creep past (gridlock breaker).
         c.hold = c.v < 0.05 && c.wait <= 0 ? c.hold + dt : 0
-        if (c.hold > 9 && blockers[c.id]!.length) { c.creep = 1.6; c.hold = 0 }
+        if (c.hold > 9 && (blockers[c.id]!.length || followers[c.id]!.length)) { c.creep = 1.6; c.hold = 0 }
         // Truly wedged (two noses at a merge) and out of the player's sight: lift it out; it drives back in later.
         if (c.hold > 14 && Math.hypot(c.px - focus.x, c.pz - focus.z) > 30) { c.hold = 0; c.gone = 4 + Math.random() * 6; fleet.set(c.id, 0, 0, 0, 0, false); continue }
         if (target < c.v) c.v = Math.max(target, c.v - 8 * dt)
@@ -258,14 +419,24 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         const before = c.s
         if (c.wait <= 0) {
           c.s += c.v * dt
-          if (c.s >= c.leg.len) { const over = c.s - c.leg.len; const was = c.leg; arrive(c, focus); if (c.leg !== was) c.s = Math.min(c.leg.len, c.s + over) }
+          // A car heading to park stops at its house (it used to drive on to the end of the road and reappear at the house).
+          if (c.leg === sideOut && c.goal < SIDE_LEN - 1 && c.s >= outS(c.goal)) { arrive(c, focus); c.s = 0 }
+          else if (c.s >= c.leg.len) { const over = c.s - c.leg.len; const was = c.leg; arrive(c, focus); if (c.leg !== was) c.s = Math.min(c.leg.len, c.s + over) }
         }
         if (c.gone > 0) { fleet.set(c.id, 0, 0, 0, 0, false); continue }
         pose(c)
+        if ((c.park > 0 || c.wait > 0) && c.leg.kind === 'sideU') {
+          // Parked: sit square to the kerb; only start turning as the car pulls back out.
+          const lh = sidePoint(c.goal, true).heading
+          let dh = c.h - lh
+          while (dh > Math.PI) dh -= Math.PI * 2
+          while (dh < -Math.PI) dh += Math.PI * 2
+          c.h = lh + dh * (1 - c.park)
+        }
         let x = c.x, z = c.z
         if (c.wait <= 0 && c.park > 0) c.park = Math.max(0, c.park - dt / 1.5)
         if (c.park > 0) {
-          const off = 2.0 * (c.park * c.park * (3 - 2 * c.park))
+          const off = 2.3 * (c.park * c.park * (3 - 2 * c.park)) // well onto the kerb, clear of passing cars
           x += -Math.cos(c.h) * off
           z += Math.sin(c.h) * off
         }
@@ -284,5 +455,6 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
       fleet.commit()
       return obstacles
     },
+    debug: () => cars.map((c) => ({ blk: blockers[c.id]!.slice(), fol: followers[c.id]!.map((f) => f[0]), hold: +c.hold.toFixed(1), wait: +c.wait.toFixed(1), id: c.id, leg: `${c.leg.kind}${c.leg.arm}${c.leg.kind === 'ring' ? '>' + c.leg.to : ''}${c.leg.part ? 'b' : ''}`, s: +c.s.toFixed(2), v: +c.v.toFixed(2), x: c.px, z: c.pz, h: c.h, len: c.len, on: c.gone <= 0 })),
   }
 }
