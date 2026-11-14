@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
 import { speak } from './speech.ts'
-import { setAmbientPlace, ensureAmbientOnGesture } from './ambient-audio.ts'
+import { setAmbientPlace, setAmbientEnv, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
 import { setMixerViewer, posedHuman } from './humans.ts'
 import { createMentorCard, tourSeen } from './mentor.ts'
@@ -279,6 +279,7 @@ const apiAgents = createRemoteAgents(scene)
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
   let nightLevel = 0
+  const earDir = new THREE.Vector3()
   const skyline = createSkyline(scene, getSave().graphics)
   // Residents walk fixed waypoint lines with no runtime obstacle avoidance (citizens.ts), so keep
   // instanced street furniture off those lines at generation time instead (e.g. the bench-clipping report near Influencer row).
@@ -1734,7 +1735,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1820,7 +1821,11 @@ const apiAgents = createRemoteAgents(scene)
     ambient.tick(elapsed, focus, nightLevel)
     if (homes?.inside) ui.setPlace(homes.title)
     else if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
-    try { setAmbientPlace(Boolean(interiors.inside), Math.hypot(pos.x, pos.z)) } catch { /* */ }
+    try {
+      camera.getWorldDirection(earDir)
+      setAmbientEnv(nightLevel, weather.rain(), camera.position.x, camera.position.z, earDir.x, earDir.z)
+      setAmbientPlace(Boolean(interiors.inside), Math.hypot(pos.x, pos.z))
+    } catch { /* */ }
 
     const frame = input.read()
     const paused = ui.isOpen() || mentor.isOpen()

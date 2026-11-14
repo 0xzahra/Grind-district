@@ -1,6 +1,9 @@
-// Layered city / indoor ambient — procedural Web Audio only (no asset downloads).
-// Outside: soft wind, passing traffic, horns, footsteps, faint voices.
-// Inside: quiet room tone, floor footsteps, occasional kitchen clinks. Street muted.
+// Layered city / indoor ambient. A procedural Web Audio bed starts instantly (no downloads);
+// once the city is open, recorded CC0 layers (soundscape.ts, /audio/*.mp3) load lazily on top of it.
+// Outside: traffic, birds or crickets, chatter, wind in leaves, footsteps, horns, a rare dog or siren, rain.
+// Inside: café room tone, AC hum, footsteps, kitchen clinks, and the street faintly through the walls.
+import type { Soundscape } from './soundscape.ts'
+
 const PREF = 'grind-district-ambient', LEVEL = 'grind-district-ambient-volume'
 
 let context: AudioContext | null = null
@@ -23,6 +26,10 @@ let timers: number[] = []
 let indoors = false
 let plazaNear = 1
 let crossGen = 0
+let scape: Soundscape | null = null
+let scapeAsked = false
+let meter: AnalyserNode | null = null
+const env = { night: 0, rain: 0, x: 0, z: 0, fx: 0, fz: -1 }
 
 function read(key: string): string | null { try { return localStorage.getItem(key) } catch { return null } }
 function write(key: string, value: string): void { try { localStorage.setItem(key, value) } catch { /* */ } }
@@ -83,19 +90,21 @@ function applyCrossfade(seconds = 1.1): void {
     ramp(voiceG, 0.0001, seconds)
     ramp(hornG, 0.0001, seconds)
     ramp(stepOutG, 0.0001, seconds)
-    ramp(roomG, 0.55, seconds)
+    ramp(roomG, scape ? 0.3 : 0.55, seconds)
     ramp(stepInG, 0.7, seconds)
     ramp(kitchenG, 0.85, seconds)
   } else {
+    // When the recordings are in, the synthetic hiss steps back (that was the "shuuu"); pass-bys stay as movement.
+    const k = scape ? 0.18 : 1
     ramp(roomG, 0.0001, seconds)
     ramp(stepInG, 0.0001, seconds)
     ramp(kitchenG, 0.0001, seconds)
-    ramp(windG, 0.35, seconds)
-    ramp(trafficG, 0.45 + 0.2 * plazaNear, seconds)
-    ramp(passG, 0.55, seconds)
-    ramp(voiceG, 0.28 + 0.2 * plazaNear, seconds)
-    ramp(hornG, 0.4, seconds)
-    ramp(stepOutG, 0.5, seconds)
+    ramp(windG, 0.35 * k, seconds)
+    ramp(trafficG, (0.45 + 0.2 * plazaNear) * k, seconds)
+    ramp(passG, scape ? 0.3 : 0.55, seconds)
+    ramp(voiceG, (0.28 + 0.2 * plazaNear) * k, seconds)
+    ramp(hornG, scape ? 0.0001 : 0.4, seconds)
+    ramp(stepOutG, scape ? 0.25 : 0.5, seconds)
   }
 }
 
@@ -123,6 +132,28 @@ export function setAmbientPlace(inside: boolean, distFromPlaza = 20): void {
   } else if (nearChanged && !indoors) {
     applyCrossfade(0.35)
   }
+  // The city is open (main loop is running): bring in the recorded layers once City sound is actually on.
+  if (!scapeAsked && active && wanted && context && master && outBus && inBus) startScape(context, outBus, inBus)
+  scape?.update({ indoors, plazaNear, ...env })
+}
+
+/** Day/night, rain and the listener (camera) position/facing, from the main loop. */
+export function setAmbientEnv(night: number, rain: number, x: number, z: number, fx: number, fz: number): void {
+  env.night = Math.max(0, Math.min(1, night)); env.rain = Math.max(0, Math.min(1, rain))
+  const l = Math.hypot(fx, fz) || 1
+  env.x = x; env.z = z; env.fx = fx / l; env.fz = fz / l
+}
+
+function startScape(ctx: AudioContext, out: GainNode, inside: GainNode): void {
+  scapeAsked = true
+  // Respect Data Saver: keep the zero-download procedural bed only.
+  const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData
+  if (saver) return
+  void import('./soundscape.ts').then(({ createSoundscape }) => {
+    scape = createSoundscape(ctx, out, inside)
+    scape.update({ indoors, plazaNear, ...env })
+    applyCrossfade(2.5)
+  }).catch(() => { scapeAsked = false })
 }
 
 function noiseBuffer(ctx: AudioContext, seconds: number, color: 'white' | 'pink' | 'brown'): AudioBuffer {
@@ -333,6 +364,7 @@ function buildGraph(ctx: AudioContext): void {
   const limiter = ctx.createDynamicsCompressor()
   limiter.threshold.value = -10; limiter.knee.value = 8; limiter.ratio.value = 6; limiter.attack.value = 0.004; limiter.release.value = 0.25
   master.connect(limiter); limiter.connect(ctx.destination)
+  meter = ctx.createAnalyser(); meter.fftSize = 2048; limiter.connect(meter)
 
   outBus = ctx.createGain(); outBus.gain.value = 0.0001
   inBus = ctx.createGain(); inBus.gain.value = 0.0001
@@ -469,5 +501,12 @@ export function ambientDebug(): Record<string, unknown> {
       kitchen: kitchenG?.gain.value ?? null,
     },
     message,
+    level: (() => {
+      if (!meter) return null
+      const d = new Float32Array(meter.fftSize); meter.getFloatTimeDomainData(d)
+      let s = 0; for (const v of d) s += v * v
+      return Number((20 * Math.log10(Math.sqrt(s / d.length) + 1e-9)).toFixed(1))
+    })(),
+    recorded: scape?.debug() ?? null,
   }
 }
