@@ -4,6 +4,7 @@ import rewardWallet from './_rewardWallet.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
 import { certVoucher } from './_certMint.js'
+import { BUCKET as DM_BUCKET } from './_dmMedia.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
@@ -65,7 +66,23 @@ export default async function handler(req: Req, res: Res) {
     await db.from('public_profiles').delete().eq('username', username)
     await db.from('reward_wallets').delete().eq('privy_user_id', userId)
     await db.from('wallets').delete().eq('privy_user_id', userId)
-    try { await db.from('messages').delete().or(`from_username.eq.${username},to_username.eq.${username}`) } catch { /* */ }
+    if (/^[a-z0-9_]{3,16}$/.test(String(username ?? ''))) {
+      // Direct messages both ways. The columns are sender / recipient: the old filter named columns that do not
+      // exist, so the delete failed quietly and a deleted player's messages stayed behind.
+      await db.from('messages').delete().or(`sender.eq.${username},recipient.eq.${username}`)
+      // Their block list both ways, so a new player who later takes the name starts clean.
+      await db.from('message_blocks').delete().or(`blocker.eq.${username},blocked.eq.${username}`)
+      // The photos and voice notes they sent (dm-media/<username>/...).
+      try {
+        for (let page = 0; page < 20; page++) {
+          const list = await db.storage.from(DM_BUCKET).list(username, { limit: 1000 })
+          const paths = (list.data ?? []).filter((f) => f.name && f.id).map((f) => `${username}/${f.name}`)
+          if (!paths.length) break
+          const gone = await db.storage.from(DM_BUCKET).remove(paths)
+          if (gone.error) break
+        }
+      } catch { /* no attachments bucket yet */ }
+    }
     try { await db.from('referrals').delete().or(`invitee_username.eq.${username},inviter_username.eq.${username}`) } catch { /* */ }
     const del = await db.from('players').delete().eq('privy_user_id', userId)
     if (del.error) return res.status(503).json({ error: 'could not delete player row' })
