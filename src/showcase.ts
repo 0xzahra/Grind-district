@@ -2,7 +2,7 @@
 // watches, earbuds, drones, cars, jets and an air taxi, shown on stone pedestals in glass vitrines with
 // LED-lit edges and name plaques. The same models feed the shop pictures (tools/shop-renders.mjs).
 import * as THREE from 'three'
-import { carGeometry, type CarKind } from './cars.ts'
+import { fineCar } from './finecars.ts'
 import type { Obstacle } from './physics.ts'
 import { PIECES } from './wardrobe.ts'
 
@@ -128,6 +128,34 @@ export function itemModel(id: string): THREE.Group {
       for (const x of [-0.05, 0.05]) g.add(mesh(new THREE.BoxGeometry(0.006, 0.05, 0.1), M.graphite, x, 0.04, 0))
       break
     }
+    case 'ultrabook': {
+      // A thin pro laptop in dark aluminium: a wedge base, a wide trackpad, a bright edge-to-edge screen.
+      g.add(mesh(rounded(0.312, 0.221, 0.014, 0.006, 0.002).rotateX(-Math.PI / 2), M.titanium, 0, 0.005, 0))
+      g.add(mesh(new THREE.BoxGeometry(0.276, 0.001, 0.105), M.black, 0, 0.0105, -0.034))
+      g.add(mesh(new THREE.BoxGeometry(0.12, 0.001, 0.075), M.graphite, 0, 0.0105, 0.066))
+      const lid = new THREE.Group(); lid.position.set(0, 0.01, -0.108); lid.rotation.x = -0.26
+      lid.add(mesh(rounded(0.312, 0.212, 0.014, 0.004, 0.002), M.titanium, 0, 0.106, -0.003), mesh(new THREE.PlaneGeometry(0.302, 0.196), lit(screenTex.laptop), 0, 0.107, 0.0012))
+      g.add(lid)
+      break
+    }
+    case 'minipc': {
+      // A small aluminium block of a computer beside a slim 27-inch display, keyboard in front.
+      g.add(mesh(rounded(0.2, 0.2, 0.03, 0.05, 0.004).rotateX(-Math.PI / 2), M.alu, 0.3, 0.03, 0.02))
+      g.add(mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.002, 12).rotateX(Math.PI / 2), M.mint, 0.37, 0.03, 0.123))
+      g.add(mesh(rounded(0.62, 0.36, 0.012, 0.012, 0.003), M.alu, -0.08, 0.3, -0.04), mesh(new THREE.PlaneGeometry(0.604, 0.344), lit(screenTex.laptop), -0.08, 0.3, -0.0305))
+      g.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.012), M.alu, -0.08, 0.075, -0.06), mesh(rounded(0.2, 0.16, 0.02, 0.006, 0.002).rotateX(-Math.PI / 2), M.alu, -0.08, 0.004, -0.04))
+      g.add(mesh(rounded(0.3, 0.1, 0.01, 0.006, 0.002).rotateX(-Math.PI / 2), M.white, -0.08, 0.004, 0.14))
+      break
+    }
+    case 'tablet': {
+      // A thin slate leaning back on its cover, a pencil beside it.
+      const slab = new THREE.Group(); slab.position.set(0, 0.004, -0.03); slab.rotation.x = -0.42
+      slab.add(mesh(rounded(0.25, 0.18, 0.012, 0.004, 0.0015), M.titanium, 0, 0.09, 0), mesh(new THREE.PlaneGeometry(0.238, 0.168), lit(screenTex.laptop), 0, 0.09, 0.0038))
+      g.add(slab)
+      g.add(mesh(new THREE.BoxGeometry(0.25, 0.003, 0.11), M.graphite, 0, 0.0015, -0.07))
+      g.add(mesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.16, 10).rotateZ(Math.PI / 2), M.white, 0, 0.0045, 0.09))
+      break
+    }
     case 'foldphone': {
       // A folding phone, open like a book at a slight angle: two slim halves, one screen across both, a hinge.
       for (const sx of [-1, 1]) {
@@ -152,23 +180,13 @@ export function itemModel(id: string): THREE.Group {
     case 'saloon':
     case 'tourer':
     case 'evcoupe':
+    case 'executive':
+    case 'sportsaloon':
+    case 'supercar':
+    case 'hypercar':
     case 'car': {
-      const kind: CarKind = id === 'saloon' ? 'sedan' : 'sports'
-      const geo = carGeometry(kind)
-      const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: id === 'evcoupe' ? 0.18 : 0.25, metalness: id === 'evcoupe' ? 0.75 : 0.6, envMapIntensity: 1.3, color: id === 'saloon' ? 0x3a3e44 : id === 'evcoupe' ? 0xdfe6ea : 0x8e1b22 })
-      g.add(mesh(geo.body, paint), mesh(geo.glass, std(0x18222a, 0.06, 0.7)), mesh(geo.lamps, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false })))
-      if (id === 'evcoupe') {
-        // Electric: a full-width light bar front and rear, and a charge port that glows.
-        const bar = new THREE.MeshBasicMaterial({ color: 0x9ff3e0, toneMapped: false })
-        const box = new THREE.Box3().setFromBufferAttribute(geo.body.getAttribute('position') as THREE.BufferAttribute)
-        g.add(mesh(new THREE.BoxGeometry((box.max.x - box.min.x) * 0.82, 0.012, 0.012), bar, 0, box.min.y + (box.max.y - box.min.y) * 0.46, box.max.z + 0.004))
-        g.add(mesh(new THREE.BoxGeometry((box.max.x - box.min.x) * 0.82, 0.012, 0.012), new THREE.MeshBasicMaterial({ color: 0xff4a4a, toneMapped: false }), 0, box.min.y + (box.max.y - box.min.y) * 0.5, box.min.z - 0.004))
-      }
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-        const w = new THREE.Group(); w.position.set(sx * geo.wheel.track, geo.wheel.r, sz * geo.wheel.base); w.scale.set(1, geo.wheel.r, geo.wheel.r)
-        w.add(mesh(new THREE.CylinderGeometry(1, 1, 0.22, 16).rotateZ(Math.PI / 2), M.rubber), mesh(new THREE.CylinderGeometry(0.64, 0.64, 0.235, 10).rotateZ(Math.PI / 2), M.alu))
-        g.add(w)
-      }
+      // Dealership cars are lofted, clear-coated models (finecars.ts).
+      g.add(fineCar(id === 'car' ? 'tourer' : id))
       break
     }
     case 'lightjet':

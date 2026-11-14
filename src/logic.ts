@@ -196,12 +196,16 @@ export const DRONES: { id: DroneId; label: string; price: number; blurb: string 
 ]
 
 export type VehicleKind = 'car' | 'jet' | 'drone' | 'phone' | 'laptop' | 'accessory'
-export type VehicleId = 'saloon' | 'tourer' | 'evcoupe' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset'
+export type VehicleId = 'saloon' | 'tourer' | 'evcoupe' | 'sportsaloon' | 'executive' | 'supercar' | 'hypercar' | 'ultrabook' | 'minipc' | 'tablet' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset'
 /** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
 export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
   { id: 'saloon', kind: 'car', label: 'City saloon', price: 600, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
   { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 900, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
   { id: 'evcoupe', kind: 'car', label: 'Electric coupé', price: 1100, blurb: 'Instant torque, a glass roof and 500 km on a charge. Quickest off the line.' },
+  { id: 'sportsaloon', kind: 'car', label: 'Sport saloon', price: 1250, blurb: 'Four doors, a straight six and a boot spoiler. The driver\'s saloon, in the Bavarian manner.' },
+  { id: 'executive', kind: 'car', label: 'Executive saloon', price: 1400, blurb: 'Long, quiet and upright, with a chrome grille. The back seat is the best seat.' },
+  { id: 'supercar', kind: 'car', label: 'V8 supercar', price: 2200, blurb: 'Mid-engined and knee-high, in racing red. In the Italian manner.' },
+  { id: 'hypercar', kind: 'car', label: 'Hypercar', price: 3500, blurb: 'Carbon body, a wing and a single centre exhaust. The fastest thing on the Raceway.' },
   { id: 'lightjet', kind: 'jet', label: 'Light jet', price: 1200, blurb: 'Six seats, regional range. Hangar fees every month.' },
   { id: 'longjet', kind: 'jet', label: 'Long-range jet', price: 1500, blurb: 'Intercontinental range. Crew, hangar and fuel on you.' },
   { id: 'phone', kind: 'phone', label: 'Smartphone', price: 40, blurb: 'A clean everyday phone. Good camera, all-day battery.' },
@@ -209,10 +213,13 @@ export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price:
   { id: 'foldphone', kind: 'phone', label: 'Folding phone', price: 140, blurb: 'Opens into a small tablet: charts on one half, notes on the other.' },
   { id: 'laptop', kind: 'laptop', label: 'Laptop', price: 120, blurb: 'Thin, light, enough power to code and edit.' },
   { id: 'desktop', kind: 'laptop', label: 'Desktop PC', price: 160, blurb: 'Tower and monitor for heavy work and games.' },
+  { id: 'ultrabook', kind: 'laptop', label: 'Pro laptop, 14 inch', price: 240, blurb: 'A 12-core ARM chip that sips power: 18 hours of battery and no fan noise.' },
+  { id: 'minipc', kind: 'laptop', label: 'Studio mini desktop', price: 280, blurb: 'A small aluminium block with a workstation ARM chip, and a 27-inch display.' },
+  { id: 'tablet', kind: 'laptop', label: 'Pro tablet', price: 130, blurb: 'A thin slate with a phone-class chip and a pencil. Read, sketch, sign.' },
   { id: 'earbuds', kind: 'accessory', label: 'Wireless earbuds', price: 15, blurb: 'Noise cancelling. Study anywhere.' },
   { id: 'watch', kind: 'accessory', label: 'Smartwatch', price: 30, blurb: 'Steps, sleep, and a nudge to keep grinding.' },
   { id: 'vrset', kind: 'accessory', label: 'Mixed-reality headset', price: 110, blurb: 'A visor for lessons and events in the round. Light enough to forget.' },
-  { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. The priciest thing in the hangar.' },
+  { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. It needs no road.' },
 ]
 const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))
 export function cleanOwnedVehicles(value: unknown): VehicleId[] {

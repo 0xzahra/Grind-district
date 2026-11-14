@@ -3454,3 +3454,10 @@ html[data-ui='light'] body .lx-ring { background: radial-gradient(circle at 50% 
 html[data-ui='light'] body .lx-ring span { color: #2a2418; text-shadow: none; }
 html[data-ui='light'] body .lx-streak { background: var(--key-ivory); border-color: rgba(40, 32, 20, 0.15); }
 html[data-ui='light'] body .lx-sub { color: #8a6a2c; }
+
+/* Language pill on the title card: just a globe and a two-letter code, small, in the corner clear of the logo.
+   The real list sits invisibly over the pill, so a tap still opens the phone's own picker. */
+html body .lang-pick .lang-code { display: none; }
+html body .lang-pick.lang-title { position: absolute; top: 10px; right: 10px; z-index: 3; gap: 4px; min-height: 28px; padding: 4px 9px; font-size: 12px; line-height: 1; letter-spacing: 0.04em; overflow: hidden; }
+html body .lang-pick.lang-title .lang-code { display: inline; font-weight: 700; }
+html body .lang-pick.lang-title select { position: absolute; inset: 0; width: 100% !important; max-width: none !important; height: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0; opacity: 0; background-image: none !important; font-size: 16px; }

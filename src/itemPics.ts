@@ -3,6 +3,7 @@
 // instant fallback (flat mode, or before the city's renderer exists).
 import * as THREE from 'three'
 import { itemModel } from './showcase.ts'
+import { isFineCar } from './finecars.ts'
 
 let shoot: ((id: string) => string | null) | null = null
 const shots = new Map<string, string | null>()
@@ -38,11 +39,12 @@ export function setShopRenderer(renderer: THREE.WebGLRenderer, environment: () =
     if (!model.children.length) return null
     // Fit every item to the plinth: longest side about 1.25 units, standing on the top, turned three-quarters.
     box.setFromObject(model); box.getSize(size); box.getCenter(centre)
-    const k = 1.3 / Math.max(size.x, size.z, size.y * 1.3, 0.001)
+    // Cars fill the turntable (they overhang it a little, as on a real one); small things keep to the plinth.
+    const k = (isFineCar(id) ? 1.78 : 1.3) / Math.max(size.x, size.z, size.y * 1.3, 0.001)
     model.scale.setScalar(k)
     model.position.set(-centre.x * k, -box.min.y * k, -centre.z * k)
     // Vehicles show their side in a three-quarter view; screens face the camera.
-    const turn = new THREE.Group(); turn.rotation.y = /saloon|tourer|jet|skydrone/.test(id) ? -0.75 : 0.2; turn.add(model)
+    const turn = new THREE.Group(); turn.rotation.y = /saloon|tourer|coupe|executive|car|jet|skydrone/.test(id) ? -0.75 : 0.2; turn.add(model)
     scene.add(turn)
     scene.environment = environment()
     const prev = renderer.getRenderTarget()
@@ -121,6 +123,13 @@ const PICS: Record<string, string> = {
   foldphone: G('<rect x="58" y="10" width="40" height="78" rx="6" fill="url(#mt)"/><rect x="102" y="10" width="40" height="78" rx="6" fill="url(#mt)"/><rect x="61" y="13" width="34" height="72" rx="4" fill="url(#gl)"/><rect x="105" y="13" width="34" height="72" rx="4" fill="url(#gl)"/><rect x="98" y="10" width="4" height="78" fill="#444"/>'),
   vrset: G('<rect x="46" y="30" width="108" height="44" rx="20" fill="#f2f2ee"/><rect x="52" y="35" width="96" height="34" rx="16" fill="#0b0d10"/><path d="M46 52c-14 0-14 20 0 20M154 52c14 0 14 20 0 20" fill="none" stroke="#2a2d31" stroke-width="6"/><circle cx="62" cy="40" r="2" fill="#6dffc8"/><circle cx="138" cy="40" r="2" fill="#6dffc8"/>'),
   evcoupe: S('<path d="M22 70h156v-10l-26-6-22-16H92L72 54 22 58z" fill="#dfe6ea"/><rect x="96" y="42" width="36" height="11" fill="#9cc"/><rect x="24" y="60" width="150" height="2.5" fill="#9ff3e0"/><circle cx="52" cy="72" r="10" fill="#111"/><circle cx="148" cy="72" r="10" fill="#111"/>'),
+  ultrabook: G('<path d="M58 12h84a3 3 0 0 1 3 3v56H55V15a3 3 0 0 1 3-3z" fill="#5c5f63"/><rect x="58" y="15" width="84" height="53" rx="1" fill="url(#gl)"/><path d="M42 71h116l-6 9H48z" fill="#7a7d81"/>'),
+  minipc: G('<rect x="30" y="12" width="96" height="56" rx="3" fill="url(#mt)"/><rect x="33" y="15" width="90" height="50" rx="1" fill="url(#gl)"/><rect x="74" y="68" width="8" height="14" fill="url(#mt)"/><rect x="134" y="62" width="34" height="22" rx="5" fill="url(#mt)"/>'),
+  tablet: G('<rect x="54" y="14" width="92" height="66" rx="6" fill="#5c5f63"/><rect x="58" y="18" width="84" height="58" rx="3" fill="url(#gl)"/><rect x="60" y="84" width="70" height="3" rx="1.5" fill="#f2f2ee"/>'),
+  executive: S('<path d="M16 70h168V56l-10-6-34-4-16-14H74L54 46l-30 4-8 6z" fill="#c9ced3"/><rect x="78" y="36" width="44" height="11" fill="#9cc"/><rect x="176" y="50" width="6" height="14" fill="#eee"/><circle cx="52" cy="72" r="10" fill="#111"/><circle cx="150" cy="72" r="10" fill="#111"/>'),
+  sportsaloon: S('<path d="M22 70h156V58l-24-6-18-16H80L60 50l-36 6z" fill="#1c3f96"/><rect x="84" y="40" width="42" height="11" fill="#9cc"/><circle cx="56" cy="72" r="10" fill="#111"/><circle cx="146" cy="72" r="10" fill="#111"/>'),
+  supercar: S('<path d="M14 72h172v-8l-30-10-22-14H96L70 52 14 62z" fill="#c4161c"/><path d="M98 42h30l12 10H84z" fill="#9cc"/><circle cx="48" cy="72" r="10" fill="#111"/><circle cx="152" cy="72" r="10" fill="#111"/>'),
+  hypercar: S('<path d="M12 72h176v-7l-34-10-20-13H98L72 53 12 63z" fill="#2a2d32"/><path d="M100 44h28l12 9H88z" fill="#9cc"/><rect x="12" y="46" width="34" height="3" fill="#ff7a1a"/><rect x="26" y="48" width="3" height="12" fill="#111"/><circle cx="48" cy="72" r="10" fill="#111"/><circle cx="152" cy="72" r="10" fill="#111"/>'),
   saloon: S('<path d="M30 70h140v-14l-22-4-18-16H72L52 52 30 56z" fill="#55595e"/><rect x="76" y="40" width="44" height="12" fill="#9cc"/><circle cx="62" cy="72" r="10" fill="#111"/><circle cx="142" cy="72" r="10" fill="#111"/>'),
   tourer: S('<path d="M20 70h160v-10l-30-6-20-14H96L80 54 20 58z" fill="#7a2626"/><rect x="100" y="44" width="34" height="10" fill="#9cc"/><circle cx="50" cy="72" r="10" fill="#111"/><circle cx="150" cy="72" r="10" fill="#111"/>'),
   lightjet: S('<path d="M20 52l150-6c10 0 14 4 14 6s-4 6-14 6L20 56z" fill="#e8e8e8"/><path d="M90 52l-20-26h12l30 26zM90 54l-20 26h12l30-26zM24 52l-8-18h8l12 18z" fill="#c7c7c7"/>'),

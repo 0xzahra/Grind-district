@@ -222,7 +222,10 @@ Needs give players a reason to come back each day; the season gives them a goal 
 | **Etiquette House** | Seven classes of three cards and one question: introductions, the table, dress codes, conversation, thank-you notes, a steady mind, and how pressure tactics work so you can refuse them. +3 reputation each, +10 for all seven. Life skills, so no certificate. |
 | **Raceway** | Hold to accelerate, lift for the red bends; take a bend too fast and the car slides wide. Five laps against par for a bronze, silver or gold medal. A clean run gives +2 reputation once a day. Cars you own are quicker than the club kart. No bets and no prize money. |
 | **District Cards** | 27 collectible cards in five sets: Landmarks (visit places), Scholar (pass courses), Society (friends, classes, your business, hosting), Raceway (medals) and Founders. The Founders pack is $250 in-game and its four foil cards are shown before you buy. Nothing is random: no blind packs, no odds. A complete set gives +5 reputation. |
+| **Dealership and gadgets** | Seven cars with smooth bodies, real wheel arches and alloy wheels: city saloon, executive saloon, sport saloon, grand tourer, electric coupé, V8 supercar and hypercar. Original designs, with no real badges. New computers: a pro laptop with an ARM chip, a mini desktop with a display, a pro tablet, a folding phone and a mixed-reality headset. Cars you own are quicker at the Raceway. |
 | **Photo card** | A picture of your character with your name, reputation and an invite code to scan, shared from Profile. It shows no balance or wallet. |
+
+<p align="center"><img src="screenshots/cars.jpg" alt="The seven dealership cars" width="720"></p>
 
 <p align="center"><img src="screenshots/etiquette.jpg" alt="A class at the Etiquette House" width="220"> <img src="screenshots/raceway.jpg" alt="Raceway time trial" width="220"> <img src="screenshots/cards.jpg" alt="District Cards" width="220"> <img src="screenshots/photo-card.jpg" alt="Photo card" width="220"></p>
 
@@ -438,13 +441,14 @@ North star: **weekly players who pass at least one lesson.**
 
 ## 22. Hackathon fit
 
-Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in three tracks. Submissions close on 14 November 2026 at 23:59 UTC, and the judged work is what was built since 1 November (see the README's disclosure and diff).
+Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in four tracks. Submissions close on 14 November 2026 at 23:59 UTC, and the judged work is what was built since 1 November (see the README's disclosure and diff).
 
 | Track | What a judge can open |
 | --- | --- |
 | Games With Real Economies | Residents with wallets and wages buy from a business the player owns and prices; needs fall, players earn by learning and jobs and spend at the shops, the boutique and the Grind Pass (section 10) |
 | NFTs That Do Something | A soulbound certificate on `grinddistrict-cert.testnet` marks the course Verified on NEAR and opens the Holders' room |
 | Agent Economy | Agents join through a prompt as labelled robots that move, chat and earn under rate limits |
+| Open Innovation | A free 3D city that teaches Web3 by living it, in 14 languages on a phone, where a passed lesson becomes a credential on NEAR that the world reads back |
 
 | Criterion | Evidence |
 | --- | --- |

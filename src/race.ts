@@ -11,6 +11,10 @@ const OWNED: Record<string, Car> = {
   saloon: { id: 'saloon', label: 'City saloon', top: 165, acc: 100, grip: 1.02, tint: '#8d99ae' },
   tourer: { id: 'tourer', label: 'Grand tourer', top: 178, acc: 108, grip: 1.05, tint: '#9d2f2f' },
   evcoupe: { id: 'evcoupe', label: 'Electric coupé', top: 172, acc: 130, grip: 1.06, tint: '#3fb8af' },
+  sportsaloon: { id: 'sportsaloon', label: 'Sport saloon', top: 176, acc: 112, grip: 1.06, tint: '#1c3f96' },
+  executive: { id: 'executive', label: 'Executive saloon', top: 170, acc: 102, grip: 1.03, tint: '#c9ced3' },
+  supercar: { id: 'supercar', label: 'V8 supercar', top: 192, acc: 128, grip: 1.1, tint: '#c4161c' },
+  hypercar: { id: 'hypercar', label: 'Hypercar', top: 205, acc: 140, grip: 1.14, tint: '#ff7a1a' },
 }
 const LAPS = 5
 const BRAKE = 170, COAST = 38, SLIDE_AT = 1.1

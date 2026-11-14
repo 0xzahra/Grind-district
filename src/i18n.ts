@@ -295,8 +295,13 @@ export function languagePicker(cls = 'lang-pick'): HTMLLabelElement {
   sel.setAttribute('aria-label', 'Language')
   for (const l of LANGS) { const o = document.createElement('option'); o.value = l.id; o.textContent = l.name; sel.append(o) }
   sel.value = current
-  sel.onchange = () => setLang(sel.value as LangId)
-  window.addEventListener('gd:lang', () => { sel.value = current })
-  label.append(globe, sel)
+  // A two-letter code beside the globe: the title card shows only the globe and this code (the full list opens
+  // on tap), so the pill stays small and clear of the logo.
+  const code = document.createElement('span'); code.className = 'lang-code'; code.setAttribute('aria-hidden', 'true')
+  const short = () => { code.textContent = current === 'en-US' ? 'EN' : current === 'en-GB' ? 'UK' : current.slice(0, 2).toUpperCase() }
+  short()
+  sel.onchange = () => { setLang(sel.value as LangId); short() }
+  window.addEventListener('gd:lang', () => { sel.value = current; short() })
+  label.append(globe, code, sel)
   return label
 }

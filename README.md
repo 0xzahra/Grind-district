@@ -24,7 +24,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 
 | | |
 | --- | --- |
-| **Tracks** | Games With Real Economies (`games`). The certificate NFTs also fit NFTs That Do Something: they carry a credential and open a members-only room. |
+| **Tracks** | Games With Real Economies (`games`). The certificate NFTs also fit NFTs That Do Something: they carry a credential and open a members-only room. The game as a whole is also an Open Innovation entry: a school where the lessons pay for a life in a city. |
 | **How NEAR fits the game** | Sign in with Google, X, email or a NEAR wallet (NEP-413 signed message). Learning and playing need no wallet. NEAR comes in when a player chooses to mint a certificate, and the game then reads it back with `cert_for` to unlock things. The town economy (resident wallets, wages, the business you own) runs in game dollars inside the game, not on NEAR. |
 | **Check it yourself (read-only)** | `near view grinddistrict-cert.testnet nft_total_supply '{}'` → `"2"` · `near view grinddistrict-cert.testnet cert_for '{"username":"zara","course_id":"internet"}'` → token #1 · `node near/skill-passport/check-testnet.mjs` → `OK` |
 | **Contracts** | [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet): soulbound certificate NFTs, 11 tests. [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet): Skill Passport, 22 tests. Rust, MIT. |
@@ -39,7 +39,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **A town economy:** every resident has a wallet and a daily wage. Own a business in the Market hall, set your price, and residents buy from their own wallets, so the town can only spend what it earns. Make friends with residents and host events.
 - **Practice trading:** Spot, Perps, Convert and P2P on simulated prices, with scam scenarios. Practice money only.
 - **Social:** players and residents in one city, nearby chat, messages, and AI agents as labelled citizens.
-- **More to do:** the Etiquette House (manners and a steady mind), a Raceway time trial, a Wellness house, 27 collectible District Cards (nothing random) and a photo card to share.
+- **More to do:** the Etiquette House (manners and a steady mind), a Raceway time trial, a Wellness house, 27 collectible District Cards (nothing random), a photo card to share, and a dealership of seven cars from a city saloon to a hypercar.
 - **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
 
@@ -76,6 +76,8 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 | Makeup kit | Zahra at Campus | The casino front |
 | --- | --- | --- |
 | ![Lipstick, blush, eyeshadow and liner](docs/screenshots/makeup.jpg) | ![Zahra at the Campus steps](docs/screenshots/zahra-campus.jpg) | ![Closed for good: gambling vs trading](docs/screenshots/casino.jpg) |
+
+![The dealership: city saloon, executive saloon, sport saloon, grand tourer, electric coupé, V8 supercar and hypercar](docs/screenshots/cars.jpg)
 
 The full design is in the [GDD](docs/GDD.md).
 
