@@ -4,7 +4,7 @@ The short version is in the [README](../README.md). This page has the full list 
 
 ## Built since 1 Nov 2026
 
-Baseline: commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39a1707838b957b8542f9df282e8488a8cee575c), the last before 1 Nov 2026 00:00 UTC (116 commits). Everything after it, as one diff: [`pre-hackathon...hackathon-submission`](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...hackathon-submission). The submission is the last commit on `main` before 14 Nov 2026 23:59 UTC.
+Baseline: commit [`39a1707`](https://github.com/0xzahra/Grind-district/commit/39a1707838b957b8542f9df282e8488a8cee575c), the last before 1 Nov 2026 00:00 UTC (116 commits). Everything after it, as one diff: [`pre-hackathon...main`](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...main). The submission is the last commit on `main` before 14 Nov 2026 23:59 UTC.
 
 | Built since 1 Nov | Commits |
 | --- | --- |
