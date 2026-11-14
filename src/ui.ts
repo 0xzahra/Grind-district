@@ -316,7 +316,13 @@ export function mountUi(
   let houseId: HouseId = 'yours'
   let courseHold: SkillId | null = null
 
-  sheet.addEventListener('pointerdown', (event) => { if (event.target === sheet) close() })
+  sheet.addEventListener('pointerdown', (event) => {
+    if (event.target !== sheet) return
+    close()
+    // The dimmed backdrop must not swallow the HUD: a tap that lands over a HUD button closes the panel and presses it.
+    const under = document.elementFromPoint(event.clientX, event.clientY)?.closest('button')
+    if (under instanceof HTMLButtonElement && !sheet.contains(under) && !under.disabled) { event.preventDefault(); under.click() }
+  })
   const close = () => {
     const was = current
     stop()

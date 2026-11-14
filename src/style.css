@@ -1685,7 +1685,10 @@ body.cc-sheet-on #cc-readout,
 body.in-menu #cc-readout,
 body.sheet-open #greet,
 body.cc-sheet-on #greet,
-body.in-menu #greet { display: none !important; }
+body.in-menu #greet,
+body.sheet-open #family-chip,
+body.cc-sheet-on #family-chip,
+body.in-menu #family-chip { display: none !important; }
 
 /* ===== Opening + auth polish (9 Nov): smaller floating card, muted glass, no white slab ===== */
 #menu-panel {
@@ -3522,3 +3525,8 @@ html[data-ui='light'] .ref-tile { background: rgba(0, 0, 0, 0.04); }
 .ref-row span { opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ref-row em { font-style: normal; font-size: 11px; color: #d9b45a; }
 
+/* Family request: a non-blocking chip above the Greet button (never a modal mid-walk). */
+html body .family-fab { bottom: calc(200px + env(safe-area-inset-bottom)); }
+
+/* Rewards and notices read above every panel and pop-up (the pass and rank-up moment was hidden behind Campus). */
+html body #toast { z-index: 70 !important; }

@@ -69,6 +69,7 @@ import './style.css'
 import './glass.css'
 import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
+import { installLayers } from './layers.ts'
 watchUpdates()
 
 // Faster to get around (owner request, 8 Nov): walk 2.7 -> 3.0, run 5.5 -> 7.2 m/s. Both stay inside the
@@ -479,10 +480,8 @@ const apiAgents = createRemoteAgents(scene)
     travel: (title, enter) => travelHook(title, enter),
     satMap: () => { try {
       if (!satelliteUrl()) { try { bake() } catch { /* vector list only */ } }
-      const alias: Record<string, string> = { Plaza: 'The Grind Ring', 'The Plaza': 'The Grind Ring' }
       const pins = GUIDE.flatMap((g) => {
-        const want = alias[g.title] ?? g.title
-        const h = world.hotspots.find((s) => s.title === want) ?? world.hotspots.find((s) => want.startsWith(s.title) || s.title.startsWith(want))
+        const h = findSpot(g.title)
         return h && Math.abs(h.x) < MAP_LIMIT && Math.abs(h.z) < MAP_LIMIT ? [{ title: g.title, x: h.x, z: h.z }] : []
       })
       return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
@@ -520,6 +519,13 @@ const apiAgents = createRemoteAgents(scene)
       cameraReady = false
   }
 
+  // Map rows, pins and feed links name places loosely ("Plaza", "The Grind Ring"); the 3D spot is "Grind Ring".
+  function findSpot(title: string): Hotspot | undefined {
+    const bare = (t: string) => t.replace(/^the\s+/i, '').trim().toLowerCase()
+    const alias: Record<string, string> = { plaza: 'grind ring' }
+    const want = alias[bare(title)] ?? bare(title)
+    return world.hotspots.find((h) => bare(h.title) === want) ?? world.hotspots.find((h) => want.startsWith(bare(h.title)) || bare(h.title).startsWith(want))
+  }
   must('#nav-profile').addEventListener('click', () => ui.open('profile'))
   must('#nav-boutique').addEventListener('click', () => ui.open('boutique'))
   document.getElementById('nav-trade')?.addEventListener('click', () => ui.open('trade'))
@@ -536,10 +542,8 @@ const apiAgents = createRemoteAgents(scene)
     ui.toast(`Travelled to ${spot.title}.`)
   }
   travelHook = (title, enter) => {
-    const alias: Record<string, string> = { Plaza: 'The Grind Ring', 'The Plaza': 'The Grind Ring' }
-    const want = alias[title] ?? title
-    const spot = world.hotspots.find((h) => h.title === want) ?? world.hotspots.find((h) => want.startsWith(h.title) || h.title.startsWith(want))
-    if (!spot) return
+    const spot = findSpot(title)
+    if (!spot) { ui.toast(`Couldn't find ${title} on the map.`); return }
     travelTo(spot)
     if (!enter) return
     if (interiors.roomFor(spot.id)) enterRoom(spot)
@@ -677,6 +681,7 @@ const apiAgents = createRemoteAgents(scene)
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
   mountNotifications()
+  installLayers()
   if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Everyone starts at the bottom of the ladder. Learn on Campus, show up daily, climb toward whale — your CV keeps the proof.', 'welcome', 'place:The Grind Ring')
   localStorage.setItem('gd.welcomed', '1')
   // Good surprise: one soft dawn greeting per local day (streak-aware, no network).
@@ -1735,7 +1740,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -2053,7 +2058,14 @@ const apiAgents = createRemoteAgents(scene)
 
     if (!taxLatch && elapsed > 18 && !ui.isOpen() && getSave().taxOpen && Math.hypot(pos.x, pos.z) < 14) {
       taxLatch = true
-      ui.open('tax')
+      // A small chip, not a panel: it must never stop the player mid-walk. Tap it to answer; it fades on its own.
+      const chip = document.createElement('button')
+      chip.type = 'button'; chip.id = 'family-chip'; chip.className = 'glass-fab greet-fab family-fab'
+      chip.textContent = 'Family request · Reply'
+      chip.onclick = () => { chip.remove(); ui.open('tax') }
+      document.getElementById('family-chip')?.remove()
+      document.body.append(chip)
+      window.setTimeout(() => chip.remove(), 20000)
     }
 
     // After a longer pause without manual look, ease the camera behind the walking direction (phones: less auto-swing).
@@ -2077,8 +2089,11 @@ const apiAgents = createRemoteAgents(scene)
     // (The desktop idle face-swing was removed: standing still, the camera turned by itself on PC.)
     void faceYaw
     if (!cameraReady) lookSmooth.set(pos.x, 1.15 + levelY, pos.z)
-    // Over-the-shoulder: frame the player slightly left of centre, GTA style.
-    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving || metro?.riding ? 0 : 0.55) * Math.min(1, 6 / camDist))
+    // Over-the-shoulder: frame the player slightly left of centre, GTA style, on wide screens only.
+    // A tall phone screen is so narrow that the same offset pushed the player half off the left edge: centre them.
+    // Driving or riding the metro keeps the camera centred.
+    const shoulderAmt = THREE.MathUtils.clamp((camera.aspect - 0.8) / 0.6, 0, 1)
+    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving || metro?.riding ? 0 : 0.55) * shoulderAmt * Math.min(1, 6 / camDist))
     lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, (ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45) + levelY, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const indoors = Boolean(interiors.inside)

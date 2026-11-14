@@ -398,6 +398,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
             else reject(new Error('NEAR sign-in returned no account'))
           })
         })
+        signedAcc.catch(() => { /* picker closed: nothing is waiting on it */ })
         const wallet = await connector.connect({ signMessageParams: { message, recipient: NEAR_RECIPIENT, nonce } })
         let accountId = ''
         let publicKey = ''
@@ -425,9 +426,10 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
         b.disabled = false
         b.textContent = 'Continue with NEAR'
         const err = (e as Error).message || 'unknown error'
-        // Popup blocked / user cancelled should land as a soft error with buttons re-enabled.
-        msg.textContent = /cancel|denied|closed|block|popup/i.test(err)
-          ? 'Sign-in cancelled. You can try again or pick another option.'
+        // Closing the wallet picker or saying no in the wallet is not an error: return quietly, buttons re-enabled.
+        if (/reject|cancel|denied|closed|dismiss|abort|no wallet selected/i.test(err)) msg.textContent = ''
+        else msg.textContent = /block|popup/i.test(err)
+          ? 'The wallet window was blocked. Allow pop-ups and try again, or pick another option.'
           : `NEAR sign-in failed: ${err}. No funds were requested.`
       }
     }

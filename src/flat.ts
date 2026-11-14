@@ -12,6 +12,8 @@ import { initCareer, renderCareer, getCareer } from './career.ts'
 import { JOBS } from './careerData.ts'
 import { publishProfile } from './share.ts'
 import { districtName } from './world.ts'
+import { GUIDE } from './guide.ts'
+import { installLayers } from './layers.ts'
 
 const WALK = 2.7
 const RUN = 5.5
@@ -183,6 +185,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
   let taxLatch = false
   const mapCtx = map.getContext('2d')
 
+  installLayers()
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
@@ -196,7 +199,56 @@ export async function startFlat(onReady: () => void): Promise<void> {
     onGraphics: () => undefined,
     onPrefs: applyPrefs,
     onRank: () => undefined,
+    travel: (title, enter) => travelFlat(title, enter),
+    satMap: () => flatMap(),
   })
+
+  // Map rows, pins, feed links and "Walk to Campus" all travel by place name, as in the 3D city.
+  function findFlatSpot(title: string): Spot | undefined {
+    const bare = (t: string) => t.replace(/^the\s+/i, '').trim().toLowerCase()
+    const alias: Record<string, string> = { plaza: 'grind ring', houses: 'your house', 'carbon desk': 'carbon' }
+    const want = alias[bare(title)] ?? bare(title)
+    return spots.find((h) => bare(h.title) === want) ?? spots.find((h) => want.startsWith(bare(h.title)) || bare(h.title).startsWith(want))
+  }
+  function travelFlat(title: string, enter?: boolean): void {
+    const spot = findFlatSpot(title)
+    if (!spot) { ui.toast(`Couldn't find ${title} on the map.`); return }
+    ui.close()
+    pos.x = spot.x; pos.z = spot.z; vel.x = 0; vel.z = 0; target = null
+    ui.toast(`Travelled to ${spot.title}.`)
+    if (enter && spot.action) ui.open(spot.action)
+  }
+  // A readable top-down map for the Map panel (the 3D city bakes a satellite picture; here we draw the plan).
+  const MAP_L = 62
+  let flatMapUrl = ''
+  function flatMap(): { url: string; limit: number; pins: Array<{ title: string; x: number; z: number }>; me?: { x: number; z: number } } {
+    if (!flatMapUrl) {
+      const size = 1024, k = size / (2 * MAP_L)
+      const c = document.createElement('canvas'); c.width = size; c.height = size
+      const g = c.getContext('2d')
+      if (g) {
+        const P = (x: number, z: number) => [(x + MAP_L) * k, (z + MAP_L) * k] as const
+        const col = palette('day')
+        g.fillStyle = col.ground; g.fillRect(0, 0, size, size)
+        g.fillStyle = col.road
+        const [ox, oy] = P(0, 0)
+        g.fillRect(0, oy - 3.2 * k, size, 6.4 * k); g.fillRect(ox - 3.2 * k, 0, 6.4 * k, size)
+        g.fillStyle = '#1a6a5c'; const [bx, by] = P(-40, 40); g.beginPath(); g.arc(bx, by, 6 * k, 0, Math.PI * 2); g.fill()
+        g.textAlign = 'center'; g.textBaseline = 'middle'
+        for (const b of blocks) {
+          const [x, y] = P(b.x - b.w / 2, b.z - b.d / 2)
+          g.fillStyle = col.block; g.strokeStyle = '#17f790'; g.lineWidth = 3
+          g.fillRect(x, y, b.w * k, b.d * k); g.strokeRect(x, y, b.w * k, b.d * k)
+          g.fillStyle = col.label; g.font = `600 ${Math.max(12, Math.min(22, b.w * k * 0.16))}px -apple-system, system-ui, sans-serif`
+          g.fillText(b.label, x + (b.w * k) / 2, y + (b.d * k) / 2, b.w * k - 6)
+        }
+        g.strokeStyle = '#17f790'; g.lineWidth = 4; g.beginPath(); g.arc(ox, oy, 2.9 * k, 0, Math.PI * 2); g.stroke()
+        flatMapUrl = c.toDataURL('image/png')
+      }
+    }
+    const pins = GUIDE.flatMap((g) => { const h = findFlatSpot(g.title); return h && Math.abs(h.x) < MAP_L && Math.abs(h.z) < MAP_L ? [{ title: g.title, x: h.x, z: h.z }] : [] })
+    return { url: flatMapUrl, limit: MAP_L, pins, me: { x: pos.x, z: pos.z } }
+  }
 
   // Soft-bind: #nav-wallet was removed from HTML (wallet lives on #cc-status). Never hard-must removed nodes.
   const on = (sel: string, fn: () => void) => document.querySelector(sel)?.addEventListener('click', fn)
@@ -228,19 +280,26 @@ export async function startFlat(onReady: () => void): Promise<void> {
     document.body.classList.remove('rail-shut')
     sheetTitle.textContent = 'Career'
     sheetBody.replaceChildren()
-    renderCareer(sheetBody, () => undefined, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses')
+    renderCareer(sheetBody, (to) => { closeCareer(); if (to.startsWith('place:')) travelFlat(to.slice(6), true) }, () => { void publishProfile() }, typeof tab === 'string' ? tab : 'courses')
     ccSheet.hidden = false
     document.body.classList.add('cc-sheet-on')
     paintStatus()
   }
   on('#cc-career', () => openCareer())
-  document.querySelector('#cc-sheet-back')?.addEventListener('click', () => {
+  function closeCareer(): void {
     if (!ccSheet || !sheetBody) return
     ccSheet.hidden = true
     document.body.classList.remove('cc-sheet-on')
     sheetBody.replaceChildren()
-  })
+  }
+  document.querySelector('#cc-sheet-back')?.addEventListener('click', closeCareer)
   window.addEventListener('gd:career', (e) => openCareer((e as CustomEvent).detail))
+  // Career > a lesson: close Career, then open that course in the lesson panel (same as the 3D city).
+  window.addEventListener('gd:course', (e) => {
+    const course = (e as CustomEvent).detail
+    closeCareer()
+    window.setTimeout(() => ui.open('learn', { course }), 0)
+  })
   on('#cc-status', () => { void import('./wallet.ts').then((m) => m.openWallet()) })
   map.addEventListener('click', () => ui.open('city'))
   applyPrefs()
