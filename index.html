@@ -9,6 +9,8 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="preload" as="image" href="/brand/logo-new.webp" type="image/webp" />
+    <link rel="preload" as="image" href="/brand/title-p.jpg" media="(max-width: 820px), (orientation: portrait)" />
+    <link rel="preload" as="image" href="/brand/title-l.jpg" media="(min-width: 821px) and (orientation: landscape)" />
     <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -141,6 +143,7 @@
       <div id="sheet" hidden></div>
       <div id="menu">
         <canvas id="menu-preview" aria-hidden="true"></canvas>
+        <div id="menu-poster" aria-hidden="true"></div>
         <button id="menu-profile" type="button" class="menu-profile" hidden aria-label="Profile" title="Profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg><span id="menu-profile-name"></span></button>
         <div id="menu-panel">
         <div id="menu-home">

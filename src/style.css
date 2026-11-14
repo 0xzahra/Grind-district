@@ -3461,3 +3461,10 @@ html body .lang-pick .lang-code { display: none; }
 html body .lang-pick.lang-title { position: absolute; top: 10px; right: 10px; z-index: 3; gap: 4px; min-height: 28px; padding: 4px 9px; font-size: 12px; line-height: 1; letter-spacing: 0.04em; overflow: hidden; }
 html body .lang-pick.lang-title .lang-code { display: inline; font-weight: 700; }
 html body .lang-pick.lang-title select { position: absolute; inset: 0; width: 100% !important; max-width: none !important; height: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0; opacity: 0; background-image: none !important; font-size: 16px; }
+
+/* Title poster: a still of the live 3D preview's first frame, on screen at once. The live view fades in over
+   it when its first frame is drawn (boot.ts adds .preview-live); phones that skip the 3D preview keep it. */
+#menu > #menu-poster { position: fixed; inset: 0; z-index: 1; pointer-events: none !important; background: #cfc6b4 url('/brand/title-p.jpg') center / cover no-repeat; opacity: 1; transition: opacity 0.7s ease; }
+@media (min-width: 821px) and (orientation: landscape) { #menu > #menu-poster { background-image: url('/brand/title-l.jpg'); } }
+#menu.preview-live > #menu-poster { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { #menu > #menu-poster { transition: none; } }

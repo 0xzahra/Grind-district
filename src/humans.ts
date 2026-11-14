@@ -241,11 +241,26 @@ function sharpenFace(data: Uint8ClampedArray, w: number, h: number, amount: numb
 }
 
 /** The figure's texture with each region shifted to the look's colour. `detail` 1 = full size, 0.5 = half (crowd). */
+// Residents' outfits are recoloured after the city is on screen, one figure at a time between frames: the
+// work (about a second on a slow phone) used to run while the district was still opening, and in one burst.
+let crowdLine: Promise<void> | null = null
+function crowdTurn(): Promise<void> {
+  if (!crowdLine) {
+    crowdLine = new Promise<void>((go) => {
+      if (performance.getEntriesByName('gd:revealed').length || !document.getElementById('view')) { go(); return }
+      window.addEventListener('gd:revealed', () => go(), { once: true })
+      window.setTimeout(go, 6000) // the title preview, or a city that is slow to open
+    })
+  }
+  const mine = crowdLine.then(() => new Promise<void>((next) => window.setTimeout(next, 40)))
+  crowdLine = mine
+  return mine
+}
 function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
   const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}|${look.sharp && detail >= 1 ? 's' : ''}|${hasMakeup(look.makeup) ? JSON.stringify(look.makeup) : ''}`
   let p = skins.get(key)
   if (!p) {
-    p = pixelsAt(t, detail).then((px) => {
+    p = (detail < 1 ? crowdTurn() : Promise.resolve()).then(() => pixelsAt(t, detail)).then((px) => {
       if (!px) return null
       const { base, mask } = px
       const w = base.width, h = base.height

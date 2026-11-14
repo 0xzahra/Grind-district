@@ -28,6 +28,8 @@ resumeMusicOnFirstTap()
 let settlePreview: () => void = () => {}
 const previewSettled = new Promise<void>((done) => { settlePreview = done })
 window.addEventListener('gd-preview-ready', () => settlePreview(), { once: true })
+// The title shows a still of the preview at once (#menu-poster); the live 3D fades in over it when it has drawn.
+window.addEventListener('gd-preview-ready', () => document.getElementById('menu')?.classList.add('preview-live'))
 window.setTimeout(() => settlePreview(), 12000)
 
 // Warm the cache from the title screen: the people of the city are fetched quietly while the player reads
@@ -161,6 +163,7 @@ const bootTitlePreview = () => {
       document.getElementById('menu')?.prepend(canvas)
     }
     canvas.hidden = false
+    document.getElementById('menu')?.classList.remove('preview-live')
     stopPreview = m.startPreview(canvas)
     // preview.ts hides the canvas + sets menu-fallback when WebGL fails; keep that sky.
     if (!canvas.hidden) document.getElementById('menu')?.classList.remove('menu-fallback')
