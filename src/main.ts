@@ -70,6 +70,7 @@ import './glass.css'
 import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
 import { installLayers } from './layers.ts'
+import { formatStatsRows, isPublicStats, type PublicStats } from './statsPanel.ts'
 watchUpdates()
 
 // Faster to get around (owner request, 8 Nov): walk 2.7 -> 3.0, run 5.5 -> 7.2 m/s. Both stay inside the
@@ -1063,19 +1064,54 @@ const apiAgents = createRemoteAgents(scene)
   const onlineChip = document.createElement('button')
   onlineChip.type = 'button'; onlineChip.id = 'online-chip'; onlineChip.className = 'pill'; onlineChip.hidden = true
   let onlineNow = 1
-  // Tap: a small card right under the dot (not a toast), so it never lands on the Next step pill.
+  // Tap: city stats under the pill. Stays open and refreshes on its own until you close it.
   const onlineCard = document.createElement('div'); onlineCard.id = 'online-card'; onlineCard.hidden = true
+  onlineCard.setAttribute('role', 'dialog'); onlineCard.setAttribute('aria-label', 'City stats')
   let onlineCardTimer = 0
-  const closeOnlineCard = () => { onlineCard.hidden = true; document.body.classList.remove('online-open') }
-  onlineChip.onclick = async () => {
-    if (!onlineCard.hidden) { closeOnlineCard(); return }
-    // Public stats: online now (live presence) + registered and active today (/api/track?op=stats).
-    const st = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null) as { registered?: number; activeToday?: number; agentsOnline?: number } | null
-    const row = (k: string, v: string | number) => { const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = String(v); d.append(a, b); return d }
-    onlineCard.replaceChildren(row('Online now', onlineNow), ...(st ? [row('Active today', st.activeToday ?? 0), row('Registered', st.registered ?? 0), ...(st.agentsOnline ? [row('Agents', st.agentsOnline)] : [])] : []))
-    onlineCard.hidden = false; document.body.classList.add('online-open')
-    window.clearTimeout(onlineCardTimer); onlineCardTimer = window.setTimeout(closeOnlineCard, 5000)
+  let lastStats: PublicStats | null = null
+  const closeOnlineCard = () => {
+    onlineCard.hidden = true
+    document.body.classList.remove('online-open')
+    window.clearInterval(onlineCardTimer)
+    onlineCardTimer = 0
   }
+  const paintOnlineCard = (st: PublicStats | null) => {
+    const row = (k: string, v: string) => { const d = document.createElement('div'); d.className = 'stat'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, b); return d }
+    const nodes: HTMLElement[] = []
+    for (const item of formatStatsRows(st, onlineNow)) {
+      if (item.kind === 'title') { const h = document.createElement('p'); h.className = 'stat-title'; h.textContent = item.label; nodes.push(h) }
+      else if (item.kind === 'note') { const n = document.createElement('p'); n.className = 'stat-note'; n.textContent = item.label; nodes.push(n) }
+      else nodes.push(row(item.label, item.value ?? '0'))
+    }
+    onlineCard.replaceChildren(...nodes)
+  }
+  const loadOnlineStats = async () => {
+    const raw = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null)
+    const st = isPublicStats(raw) ? raw : lastStats
+    if (st) lastStats = st
+    if (!onlineCard.hidden) paintOnlineCard(st)
+  }
+  const openOnlineCard = () => {
+    paintOnlineCard(lastStats)
+    onlineCard.hidden = false
+    document.body.classList.add('online-open')
+    void loadOnlineStats()
+    window.clearInterval(onlineCardTimer)
+    onlineCardTimer = window.setInterval(() => {
+      if (onlineCard.hidden || !document.body.classList.contains('rail-shut')) { closeOnlineCard(); return }
+      void loadOnlineStats()
+    }, 45_000)
+  }
+  onlineChip.onclick = () => { if (!onlineCard.hidden) closeOnlineCard(); else openOnlineCard() }
+  document.addEventListener('pointerdown', (event) => {
+    if (onlineCard.hidden) return
+    const t = event.target as Node | null
+    if (!t || onlineCard.contains(t) || onlineChip.contains(t)) return
+    closeOnlineCard()
+  })
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !onlineCard.hidden) { event.preventDefault(); closeOnlineCard() }
+  })
   document.querySelector('#hud header')?.append(onlineChip)
   document.body.append(onlineCard)
   performance.mark('gd:pre-net')
@@ -1119,6 +1155,7 @@ const apiAgents = createRemoteAgents(scene)
       onlineNow = n
       onlineChip.textContent = String(n); onlineChip.setAttribute('aria-label', `${n} online`)
       onlineChip.title = n > 1 ? `${n - 1} other player${n > 2 ? 's' : ''} in the city. Real players have a gold ring and a name tag.` : 'Only you right now.'
+      if (!onlineCard.hidden) paintOnlineCard(lastStats)
     },
   })
   void import('./voice.ts').then((m) => m.mountVoice(chat, net, (t) => ui.toast(t), () => {

@@ -1,7 +1,7 @@
 import { getSave, balanceSplit } from './state'
 import { COINS, money, formatQty } from './logic.ts'
 import { TOPUP, TRANSFER_FEE_BPS, topupReady } from './economy'
-import { track } from './track'
+import { track, flushTracking } from './track'
 import { gameWalletChip } from './privyWallet.ts'
 // Optional real wallet on Base (8453). Injected EIP-1193 only; the city never holds keys.
 // WalletConnect is not wired (needs a project ID). Lazy-loaded from Settings.
@@ -176,7 +176,11 @@ export function openWallet(): void {
         const accs = (await p.request({ method: 'eth_requestAccounts' })) as string[]
         await ensureBase(p)
         account = accs[0] ?? ''
-        if (account) localStorage.setItem('gd.wallet.addr', account)
+        if (account) {
+          localStorage.setItem('gd.wallet.addr', account)
+          track('wallet_connected', { source: 'browser' })
+          void flushTracking()
+        }
         void renderConnected()
       } catch (e) {
         status.textContent = `Not connected: ${(e as Error).message}`

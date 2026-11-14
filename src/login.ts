@@ -1,4 +1,4 @@
-import { trackFunnelOnce } from './track.ts'
+import { track, flushTracking } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
 import { needsAvatarCreator, mountAvatarCreator, markAvatarCreated } from './creator.ts'
@@ -172,7 +172,11 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     localStorage.setItem(CLAIMED_KEY, j.username)
     localStorage.setItem('gd.privy.userId', j.userId)
     if (j.userId.startsWith('near:')) localStorage.setItem(NEAR_KEY, j.userId.slice(5))
-    trackFunnelOnce('account_created', { userIdPrefix: j.userId.startsWith('near:') ? 'near' : 'privy' })
+    const via = j.userId.startsWith('near:') ? 'near' : 'privy'
+    // Counts only: via is "near" or "privy", never an id, email or name.
+    if (opts?.firstClaim) track('account_created', { via })
+    track('sign_in', { via })
+    void flushTracking()
     const { adoptAccount, holdNearProof } = await import('./state.ts')
     if (nearProof) holdNearProof(nearProof)
     const how = adoptAccount(j.userId, j.username, j.save ?? undefined)
@@ -612,6 +616,8 @@ async function syncProgressNear(near: unknown): Promise<boolean> {
 export async function signOut(): Promise<void> {
   const saved = await syncProgress().catch(() => false)
   if (!saved && localStorage.getItem(CLAIMED_KEY) && !confirm('Could not save your progress to your account just now. It stays on this device under your account. Sign out anyway?')) return
+  track('logout')
+  await flushTracking()
   if (APP_ID) { try { await (await client()).auth.logout() } catch { /* already signed out */ } }
   try {
     const { NearConnector } = await import('@hot-labs/near-connect')

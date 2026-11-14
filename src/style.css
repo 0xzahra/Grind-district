@@ -2686,6 +2686,44 @@ html body #online-chip { top: max(14px, env(safe-area-inset-top)) !important; le
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 html body #online-chip::before { width: 10px; height: 10px; background: radial-gradient(circle at 35% 30%, #a8ffcf, #2fd67d 55%, #128a4a); box-shadow: 0 0 0 2px rgba(52, 210, 122, 0.22), 0 0 8px #34d27a; }
 html body #online-chip:active { translate: 0 2px; box-shadow: var(--key-down) !important; }
+
+/* City stats card under the Online pill: same key look, scrollable on a mid-range phone. */
+html body #online-card {
+  z-index: 12;
+  top: calc(max(14px, env(safe-area-inset-top)) + 50px) !important;
+  left: auto !important;
+  right: max(12px, env(safe-area-inset-right)) !important;
+  transform: none !important;
+  width: min(280px, calc(100vw - 24px));
+  min-width: 0;
+  max-height: min(70dvh, calc(100dvh - 70px - env(safe-area-inset-bottom)));
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 12px 12px !important;
+  border-radius: 16px !important;
+  color: #f6f1e6 !important;
+  background: linear-gradient(180deg, #474a50 0%, #2c2e32 46%, #1b1c1f 100%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.75) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 2px 0 #08090a, 0 8px 20px rgba(0, 0, 0, 0.45) !important;
+}
+html body #online-card .stat-title { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55); }
+html body #online-card .stat { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; padding: 3px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+html body #online-card .stat span { color: rgba(246, 241, 230, 0.82); }
+html body #online-card .stat b { font-variant-numeric: tabular-nums; font-weight: 700; }
+html body #online-card .stat-note { display: block; margin: 8px 0 0; font-size: 10px; line-height: 1.4; font-weight: 500; color: rgba(246, 241, 230, 0.62); }
+html body:not(.rail-shut) #online-card { display: none !important; }
+html[data-ui='light'] body #online-card {
+  color: #1d1b17 !important;
+  background: linear-gradient(180deg, #fff 0%, #f3efe6 55%, #e8e2d4 100%) !important;
+  border-color: rgba(40, 32, 20, 0.2) !important;
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 #b2aa99, 0 8px 18px rgba(30, 24, 14, 0.22) !important;
+}
+html[data-ui='light'] body #online-card .stat-title { text-shadow: none; }
+html[data-ui='light'] body #online-card .stat { border-bottom-color: rgba(40, 32, 20, 0.08); }
+html[data-ui='light'] body #online-card .stat span { color: rgba(29, 27, 23, 0.72); }
+html[data-ui='light'] body #online-card .stat-note { color: rgba(29, 27, 23, 0.55); }
+
 /* The nearby box opens under the logo, clear of the control keys, so its close button is always reachable. */
 html body #chat { left: max(12px, env(safe-area-inset-left)) !important; right: auto !important; top: calc(max(14px, env(safe-area-inset-top)) + 52px) !important; bottom: auto !important; max-width: min(300px, calc(100vw - 124px)); }
 /* An unused action button fades out (main.ts) rather than sitting on screen. */

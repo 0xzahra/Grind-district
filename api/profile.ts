@@ -6,6 +6,7 @@ import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
 import { certVoucher } from './_certMint.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
 import { issueCert } from './_certStore.js'
+import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
@@ -62,6 +63,9 @@ export default async function handler(req: Req, res: Res) {
   }
   if (req.query?.op === 'delete-account') {
     const username = p.data.username
+    // Count the deletion first, with no identity in the event, then remove the account rows.
+    try { await insertAnalyticsEvent(db, 'account_deleted') } catch { /* still delete */ }
+    bustStatsCache()
     await db.from('player_progress').delete().eq('privy_user_id', userId)
     await db.from('player_grants').delete().eq('privy_user_id', userId)
     try { await db.from('certificates').delete().eq('username', username) } catch { /* */ }

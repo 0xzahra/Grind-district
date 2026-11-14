@@ -4,6 +4,7 @@ import { applyTopup } from './state.ts'
 import { nearTopupOn, renderNearTopup } from './topupNear.ts'
 import { ethPrice } from './topupPrice.ts'
 import { gameWalletAddress, payUsdcFromGameWallet, checkGameWalletUsdc, WalletNotSent, GAS_SPONSOR } from './privyWallet.ts'
+import { track, flushTracking } from './track.ts'
 /** Custom top-up range (mirrors api/_topupAuto.ts MIN_USDC / MAX_USDC). Default stays 5 USDC. */
 const MIN_USDC = 1
 const MAX_USDC = 1000
@@ -39,6 +40,8 @@ async function connectWallet(): Promise<string> {
   const a = (accounts[0] ?? '').toLowerCase()
   if (!isAddr(a)) throw new Error('No wallet account')
   try { localStorage.setItem(WALLET_KEY, a) } catch { /* private */ }
+  track('wallet_connected', { source: 'browser' })
+  void flushTracking()
   await ensureBase(p)
   return a
 }

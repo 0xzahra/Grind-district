@@ -5,6 +5,7 @@ export type EventName =
   | 'cv_shared' | 'share_click' | 'transfer' | 'topup_attempt'
   // Dated funnel steps (Build App & Earn, 9 Nov): opened page → guest play → account → first lesson.
   | 'opened_page' | 'guest_play' | 'account_created' | 'first_lesson'
+  | 'sign_in' | 'logout' | 'account_deleted' | 'wallet_connected'
 
 const ON = import.meta.env.VITE_TRACKING === '1'
 const BUF = 'gd.events.buffer'
@@ -57,6 +58,8 @@ export function trackFunnelOnce(name: 'opened_page' | 'guest_play' | 'account_cr
     track(name, { ...props, ...attribution() })
   } catch { track(name, props) }
 }
+
+export async function flushTracking(): Promise<void> { return flush() }
 
 async function flush(): Promise<void> {
   if (!ON) return

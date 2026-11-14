@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { stocksHandler } from './_stocks.js'
+import { STATS_EVENT_NAMES, collectPublicStats, publicEventProps } from './_stats.js'
 
 // Accepts batched client events and inserts them with the service role. 202 no-op until env vars exist.
-const NAMES = new Set(['first_visit', 'session_start', 'signup', 'course_start', 'course_complete', 'cert_shared', 'cert_minted', 'cv_shared', 'share_click', 'transfer', 'topup_attempt'])
+const NAMES = new Set<string>(STATS_EVENT_NAMES)
 type Req = { method?: string; query?: Record<string, string | string[] | undefined>; body?: { events?: Array<Record<string, unknown>> } }
 type Res = { status(n: number): { json(b: unknown): void } }
 
@@ -10,20 +11,11 @@ export default async function handler(req: Req, res: Res) {
   // The tokenized stock list for the Stockholders' Club (/api/stocks rewrites here; see _stocks.ts).
   if (req.query?.op === 'stocks') return stocksHandler(req, res)
   if (req.method === 'GET' && req.query?.op === 'stats') {
-    // Public aggregate stats (no identities): registered players, visitors active today (Lagos day), agents seen.
-    const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!url || !key) return res.status(503).json({ error: 'not configured' })
-    const db = createClient(url, key, { auth: { persistSession: false } })
-    const now = new Date(Date.now() + 3600_000) // Africa/Lagos
-    const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 3600_000).toISOString()
-    const [players, today, agents] = await Promise.all([
-      db.from('players').select('id', { count: 'exact', head: true }),
-      db.from('events').select('anon_id').gte('created_at', since).in('name', ['session_start', 'first_visit']).limit(5000),
-      db.from('agents').select('id', { count: 'exact', head: true }).gte('last_seen', new Date(Date.now() - 5 * 60_000).toISOString()),
-    ])
-    const active = new Set((today.data ?? []).map((r) => r.anon_id as string).filter(Boolean)).size
-    ;(res as unknown as { setHeader?: (k: string, v: string) => void }).setHeader?.('cache-control', 'public, max-age=60')
-    return res.status(200).json({ registered: players.count ?? 0, activeToday: active, agentsOnline: agents.count ?? 0 })
+    // Public aggregate stats only (no identities). Cached briefly; mint and Privy reads are cached longer.
+    const out = await collectPublicStats()
+    if ('error' in out) return res.status(out.status).json({ error: out.error })
+    ;(res as unknown as { setHeader?: (k: string, v: string) => void }).setHeader?.('cache-control', 'public, max-age=30')
+    return res.status(200).json(out)
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const url = process.env.SUPABASE_URL
@@ -34,7 +26,7 @@ export default async function handler(req: Req, res: Res) {
     name: String(e.name),
     anon_id: String(e.anon_id ?? '').slice(0, 64),
     session_id: String(e.session_id ?? '').slice(0, 64),
-    props: typeof e.props === 'object' && e.props ? e.props : {},
+    props: publicEventProps(String(e.name), (typeof e.props === 'object' && e.props ? e.props : {}) as Record<string, unknown>),
     client_at: typeof e.at === 'string' ? e.at : null,
   }))
   if (!rows.length) return res.status(200).json({ stored: 0 })
