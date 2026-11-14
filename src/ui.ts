@@ -949,6 +949,7 @@ export function mountUi(
     return frame('Boutique', wrap)
   }
 
+  const DRIVABLE_CARS: string[] = ['saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
   const shopItem = (v: (typeof VEHICLES)[number], panel: 'gadgets' | 'dealer'): HTMLElement[] => {
     const owned = (getSave().ownedVehicles ?? []).includes(v.id)
     return [itemPic(v.id, v.label), para(`${v.label} · ${v.blurb}`, 'muted'), button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
@@ -956,7 +957,10 @@ export function mountUi(
       hooks.onStyle()
       finish(outcome.message)
       open(panel)
-    })]
+    }), ...(panel === 'dealer' && DRIVABLE_CARS.includes(v.id) ? [button(owned ? `Drive the ${v.label.toLowerCase()}` : `Test drive · free`, 'ghost', () => {
+      close()
+      window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'car', model: v.id, label: v.label, mode: 'free', temp: !owned } }))
+    })] : [])]
   }
   const renderDealer = (): HTMLElement => {
     const wrap = stack(para('Cars, jets and air taxis. In-game cash only. Each one lands in Books under liabilities.', 'muted'))

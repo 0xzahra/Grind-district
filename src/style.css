@@ -3468,3 +3468,24 @@ html body .lang-pick.lang-title select { position: absolute; inset: 0; width: 10
 @media (min-width: 821px) and (orientation: landscape) { #menu > #menu-poster { background-image: url('/brand/title-l.jpg'); } }
 #menu.preview-live > #menu-poster { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { #menu > #menu-poster { transition: none; } }
+
+/* Driving and boating (ride.ts): one chip at the top with the speed and the race or cruise line, and the
+   countdown in the middle. The joystick and the gold action button are the only controls. */
+#ride-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 60px); left: 16px; z-index: 6;
+  display: flex; align-items: baseline; gap: 6px; padding: 7px 14px; border-radius: 999px; pointer-events: none; max-width: calc(100vw - 124px);
+  background: rgba(14, 16, 20, 0.62); color: #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+#ride-hud[hidden] { display: none; }
+#ride-hud .rh-speed { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; min-width: 2ch; text-align: right; }
+#ride-hud small { font-size: 11px; opacity: 0.75; font-weight: 600; }
+#ride-hud .rh-line { font-size: 13px; font-weight: 600; color: #ffd36b; overflow: hidden; text-overflow: ellipsis; }
+#ride-hud .rh-line:not(:empty)::before { content: '·'; margin: 0 6px 0 4px; color: rgba(255, 255, 255, 0.5); }
+#ride-count { position: fixed; inset: 0; z-index: 7; display: grid; place-items: center; pointer-events: none;
+  font-size: min(28vw, 180px); font-weight: 900; color: #ffd36b; text-shadow: 0 6px 30px rgba(0, 0, 0, 0.45); letter-spacing: -0.04em; }
+#ride-count[hidden] { display: none; }
+html[data-ui='light'] #ride-hud { background: rgba(255, 255, 255, 0.86); color: #1d1b16; }
+html[data-ui='light'] #ride-hud .rh-line { color: #8a5a00; }
+.race-city { display: grid; gap: 8px; margin-bottom: 6px; }
+.ride-fade { position: fixed; inset: 0; z-index: 9; background: #0b0a08; pointer-events: none; animation: ride-fade 0.85s ease-out forwards; }
+@keyframes ride-fade { 0%, 25% { opacity: 1; } 100% { opacity: 0; } }
+

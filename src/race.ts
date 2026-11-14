@@ -6,8 +6,8 @@
 import { slotKey, getSave, addReputation } from './state.ts'
 
 type Car = { id: string; label: string; top: number; acc: number; grip: number; tint: string }
-const KART: Car = { id: 'kart', label: 'Club kart', top: 150, acc: 95, grip: 1, tint: '#e9c46a' }
-const OWNED: Record<string, Car> = {
+export const KART: Car = { id: 'kart', label: 'Club kart', top: 150, acc: 95, grip: 1, tint: '#e9c46a' }
+export const OWNED: Record<string, Car> = {
   saloon: { id: 'saloon', label: 'City saloon', top: 165, acc: 100, grip: 1.02, tint: '#8d99ae' },
   tourer: { id: 'tourer', label: 'Grand tourer', top: 178, acc: 108, grip: 1.05, tint: '#9d2f2f' },
   evcoupe: { id: 'evcoupe', label: 'Electric coupé', top: 172, acc: 130, grip: 1.06, tint: '#3fb8af' },
@@ -185,7 +185,17 @@ export function raceNodes(h: H): HTMLElement[] {
   const keyDown = (e: KeyboardEvent) => { if (!root.isConnected) { window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp); return } if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); if (!e.repeat) press(true) } }
   const keyUp = (e: KeyboardEvent) => { if (e.code === 'Space' || e.code === 'ArrowUp') press(false) }
   window.addEventListener('keydown', keyDown); window.addEventListener('keyup', keyUp)
-  root.append(h.para('A five-lap time trial. Hold to accelerate, let go to brake. No bets and no prize money: you race the clock.'), picks, hud, cv, noteEl, pedal, info)
+  // The city circuit: two laps in 3D, out along every street and round the ring, in the car picked above.
+  const city = el('div', 'race-city')
+  const cityBest = Number((() => { try { return (JSON.parse(localStorage.getItem(`${slotKey()}.cityrace`) ?? '{}') as { best?: number }).best ?? 0 } catch { return 0 } })())
+  city.append(
+    h.para('Grind Raceway circuit', 'kicker'),
+    h.para(`Two laps against three rival drivers on the circuit south of the city. The stick drives, gates and a gold arrow show the way, and your best run comes back as a ghost.${cityBest ? ` Your best: ${Math.floor(cityBest / 60)}:${(cityBest % 60).toFixed(1).padStart(4, '0')}.` : ''}`, 'muted'),
+    h.button('Race on the circuit', 'primary', () => {
+      window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'car', model: car.id, label: car.label, mode: 'race', temp: true } }))
+    }),
+  )
+  root.append(city, h.para('Time trial', 'kicker'), h.para('A five-lap time trial. Hold to accelerate, let go to brake. No bets and no prize money: you race the clock.'), picks, hud, cv, noteEl, pedal, info)
   if (cars.length === 1) root.append(h.para('Cars from the dealership are quicker than the club kart.', 'muted'))
   // Start drawing once the panel is in the page.
   requestAnimationFrame(() => { last = 0; raf = requestAnimationFrame(tick) })

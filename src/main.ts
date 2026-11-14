@@ -30,7 +30,8 @@ import { money, decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type G
 import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
 import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
-import { encodeShare } from './logic.ts'
+import { encodeShare, VEHICLES } from './logic.ts'
+import type { Ride, RideOpts } from './ride.ts'
 import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPresence } from './messages.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
@@ -1347,6 +1348,103 @@ const apiAgents = createRemoteAgents(scene)
   let prevDist = Infinity
   let traveled = 0
   let activeSpot: string | null = null
+  // --- Driving and boating (ride.ts, loaded on the first ride). The stick drives; the action button gets out.
+  let rideMod: typeof import('./ride.ts') | null = null
+  let ride: Ride | null = null
+  let rideBusy = false
+  let rideCam = { dist: 0, pitch: 0 }
+  const rideBlockers: Obstacle[] = []
+  const loadRide = () => (rideMod ? Promise.resolve(rideMod) : import('./ride.ts').then((m) => (rideMod = m)))
+  const HOME_CAR = { x: 40.4, z: 30.6, heading: Math.PI }
+  const DEALER_ROAD = { x: -26, z: 1.6, heading: Math.PI / 2 }
+  const HARBOUR = { x: 36, z: -44.6 }
+  const RACEWAY_DOOR = { x: -12, z: 53.4 }
+  const DRIVABLE = ['saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
+  const rideSpot: Hotspot = { id: '__ride__', x: 0, z: 0, r: 99, title: '', body: 'Stick up to go, back to brake, left and right to steer.', enter: 'Get out', use: () => endRide() }
+  const parkedSpot: Hotspot = { id: '__parked__', x: 0, z: 0, r: 3.4, title: 'Your car', body: 'Parked. Take the wheel any time.', enter: 'Drive', use: () => takeWheel() }
+  const bestOwnedCar = () => {
+    const own = (getSave().ownedVehicles ?? []) as string[]
+    return VEHICLES.filter((v) => DRIVABLE.includes(v.id) && own.includes(v.id)).sort((a, b) => b.price - a.price)[0] ?? null
+  }
+  const takeWheel = () => {
+    if (!ride || interiors.inside) return
+    if (seating.sitting) seating.stand()
+    ride.resume()
+    avatar.object.visible = false
+    target = null; vel.x = 0; vel.z = 0
+    rideCam = { dist: camDistGoal, pitch: camPitch }
+    camDistGoal = ride.kind === 'boat' ? 14.5 : 7.4
+    camPitch = ride.kind === 'boat' ? 0.34 : 0.28
+    camYaw = ride.heading + Math.PI
+    // A ride can start somewhere else (the circuit, the bay): the camera jumps there instead of gliding.
+    if (Math.hypot(ride.x - pos.x, ride.z - pos.z) > 12) cameraReady = false
+    pos.x = ride.x; pos.z = ride.z
+  }
+  /** Your own car waits by your house (the most valuable one you own). */
+  const parkHomeCar = async () => {
+    if (ride || rideBusy) return
+    const v = bestOwnedCar()
+    if (!v) return
+    const m = await loadRide()
+    if (ride || rideBusy) return
+    ride = m.createRide(scene, { kind: 'car', model: v.id, label: v.label, mode: 'free', at: HOME_CAR }, { toast: (t) => ui.toast(t) })
+    ride.park()
+  }
+  const beginRide = async (o: RideOpts) => {
+    if (rideBusy) return
+    if (interiors.inside) { ui.toast('Step outside first.'); return }
+    rideBusy = true
+    try {
+      const m = await loadRide()
+      if (ride) { ride.dispose(); ride = null }
+      if (ui.isOpen()) ui.close()
+      const at = o.at ?? (o.mode === 'free' && o.kind === 'car' ? DEALER_ROAD : undefined)
+      const r = m.createRide(scene, { ...o, at }, { toast: (t) => ui.toast(t) })
+      // Compile the car's materials before the first frame with it, so taking the wheel never stalls.
+      await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 3000))])
+      ride = r
+      takeWheel()
+    } finally { rideBusy = false }
+  }
+  const endRide = () => {
+    if (!ride) return
+    const r = ride
+    let out: { x: number; z: number }
+    if (r.kind === 'boat') {
+      r.dispose(); ride = null
+      out = HARBOUR
+      ui.toast('Back at the harbour.')
+    } else {
+      out = r.mode === 'race' ? RACEWAY_DOOR : r.exitSpot(world.obstacles)
+      if (r.temp) { r.dispose(); ride = null; ui.toast(r.mode === 'race' ? 'Back at the Raceway.' : `${r.label} handed back.`) }
+      else r.park()
+    }
+    if (r.mode !== 'free') { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
+    if (Math.hypot(out.x - pos.x, out.z - pos.z) > 12) cameraReady = false
+    pos.x = out.x; pos.z = out.z
+    avatar.object.visible = true
+    avatar.object.position.set(pos.x, 0, pos.z)
+    camDistGoal = rideCam.dist || 5.6
+    camPitch = rideCam.pitch || 0.42
+    vel.x = 0; vel.z = 0; target = null
+    exitCooldown = 0.8
+    if (!ride) window.setTimeout(() => void parkHomeCar(), 600)
+  }
+  window.addEventListener('gd:ride', (e) => void beginRide((e as CustomEvent<RideOpts>).detail))
+  window.addEventListener('gd:revealed', () => window.setTimeout(() => void parkHomeCar(), 3500), { once: true })
+  {
+    // A car bought at the dealership is waiting at home the moment you leave the showroom.
+    let owned = (getSave().ownedVehicles ?? []).length
+    subscribe(() => {
+      const n = (getSave().ownedVehicles ?? []).length
+      if (n === owned) return
+      owned = n
+      if (ride && ride.driving) return
+      if (ride) { ride.dispose(); ride = null }
+      void parkHomeCar()
+    })
+  }
+  ;(window as unknown as { __ride?: () => Ride | null }).__ride = import.meta.env.DEV ? () => ride : undefined
   let spot: Hotspot | null = null
   let cameraReady = false
   let revealed = false
@@ -1527,7 +1625,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -1580,7 +1678,8 @@ const apiAgents = createRemoteAgents(scene)
       if (d < 3.8 && elapsed - serverSpoke > 60) { serverSpoke = elapsed; speak(SERVER_LINES[Math.floor(elapsed) % SERVER_LINES.length]!, { gender: 'm', seed: 7 }) }
     }
   apiAgents.tick(dt)
-    crowdObstacles.push(...traffic.tick(dt, elapsed, pos, crowdObstacles))
+    // Traffic gives way to the car you drive as it does to people.
+    crowdObstacles.push(...traffic.tick(dt, elapsed, pos, ride && ride.driving && ride.kind === 'car' ? crowdObstacles.concat(ride.shape()) : crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
     // The city is mostly in daylight: the clock runs slowly while the sun is up, briskly through dusk and dawn,
     // and quickly through the night (about 8 minutes of day to 2 of night).
@@ -1619,7 +1718,7 @@ const apiAgents = createRemoteAgents(scene)
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     // Wheel/pinch moves a goal; the camera eases to it (no jumps, no runaway trackpad zoom).
-    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), 3.2, 12)
+    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), 3.2, ride?.driving && ride.kind === 'boat' ? 18 : 12)
     camDist += (camDistGoal - camDist) * (1 - Math.exp(-10 * dt))
 
     exitCooldown = Math.max(0, exitCooldown - dt)
@@ -1633,6 +1732,19 @@ const apiAgents = createRemoteAgents(scene)
       }
     }
 
+    let directed = false
+    let moving = false
+    if (ride && ride.driving) {
+      // At the wheel: the stick drives, taps on the ground do nothing, the body stays in the car.
+      rideBlockers.length = 0
+      rideBlockers.push(...world.obstacles, ...crowdObstacles)
+      ride.step(dt, paused || busyFor > 0 ? null : { x: frame.x, y: frame.y }, rideBlockers, world.obstacles)
+      pos.x = ride.x; pos.z = ride.z
+      vel.x = 0; vel.z = 0
+      moving = Math.abs(ride.speed) > 0.5
+      stillFor = Math.abs(ride.speed) > 0.2 ? 0 : stillFor + dt
+      avatar.object.position.set(pos.x, 0, pos.z)
+    } else {
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
@@ -1668,7 +1780,7 @@ const apiAgents = createRemoteAgents(scene)
     const forwardZ = -Math.cos(camYaw)
     const rightX = Math.cos(camYaw)
     const rightZ = -Math.sin(camYaw)
-    const directed = !paused && Math.hypot(frame.x, frame.y) > 0.06
+    directed = !paused && Math.hypot(frame.x, frame.y) > 0.06
     // A person's card goes as soon as you walk on.
     if (npcCard && directed) { npcCard.remove(); npcCard = null }
     let wishX = 0
@@ -1718,6 +1830,7 @@ const apiAgents = createRemoteAgents(scene)
     blockers.length = 0
     if (interiors.inside) blockers.push(...interiors.obstacles())
     else blockers.push(...world.obstacles, ...crowdObstacles)
+    if (ride && !ride.driving && !interiors.inside) blockers.push(...ride.shape())
     // Sub-step so a fast frame on a slow phone can never tunnel through a wall; boxes slide.
     const steps = Math.max(1, Math.ceil((Math.hypot(vel.x, vel.z) * dt) / 0.2))
     for (let i = 0; i < steps && !seating.sitting; i += 1) {
@@ -1735,7 +1848,7 @@ const apiAgents = createRemoteAgents(scene)
     }
     avatar.object.position.set(pos.x, 0, pos.z)
     const groundSpeed = Math.hypot(vel.x, vel.z)
-    const moving = groundSpeed > 0.22
+    moving = groundSpeed > 0.22
     // Face where the body actually goes (after collision), falling back to the input while starting.
     const faceX = groundSpeed > 0.3 ? vel.x / groundSpeed : dirX
     const faceZ = groundSpeed > 0.3 ? vel.z / groundSpeed : dirZ
@@ -1744,6 +1857,7 @@ const apiAgents = createRemoteAgents(scene)
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     seating.apply(avatar.object, dt)
+    }
     if (firstMarker.parent) {
       // Slow spin + tiny bob so it reads as a Campus waypoint, not a clipping toy.
       firstMarker.children[0]!.position.y = Math.sin(performance.now() / 900) * 0.08
@@ -1777,7 +1891,8 @@ const apiAgents = createRemoteAgents(scene)
 
     let best: Hotspot | null = null
     let bestScore = Infinity
-    const candidates: Hotspot[] = interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots
+    if (ride && !ride.driving) { parkedSpot.x = ride.x; parkedSpot.z = ride.z; parkedSpot.title = ride.label }
+    const candidates: Hotspot[] = ride?.driving ? [] : interiors.inside ? (interiors.uses() as Hotspot[]) : ride ? [...streetSpots, parkedSpot] : streetSpots
     for (const candidate of candidates) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
       // Walking through a door enters or leaves the 3D room.
@@ -1792,6 +1907,7 @@ const apiAgents = createRemoteAgents(scene)
         if (score < bestScore) { best = candidate; bestScore = score }
       }
     }
+    if (ride?.driving) { rideSpot.enter = ride.kind === 'boat' ? 'Back to harbour' : 'Get out'; rideSpot.title = ride.label; best = rideSpot }
     showSpot(best)
     // An action button nobody used fades after a few seconds of standing still; it is back the moment the
     // player moves or reaches something else.
@@ -1807,6 +1923,12 @@ const apiAgents = createRemoteAgents(scene)
 
     // After a longer pause without manual look, ease the camera behind the walking direction (phones: less auto-swing).
     const coarseCam = matchMedia('(pointer: coarse)').matches
+    if (ride?.driving && lookIdle > 0.9) {
+      // Chase camera: settle behind the car (or boat), quicker at speed.
+      const behind = ride.heading + Math.PI
+      const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
+      camYaw += delta * (1 - Math.exp(-(Math.abs(ride.speed) > 1 ? 3.2 : 1.2) * dt))
+    }
     if (lookIdle > (coarseCam ? 2.8 : 1.6) && directed === false && Math.hypot(vel.x, vel.z) > 1 && !paused) {
       const behind = Math.atan2(-vel.x, -vel.z)
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
@@ -1816,8 +1938,8 @@ const apiAgents = createRemoteAgents(scene)
     void faceYaw
     if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
     // Over-the-shoulder: frame the player slightly left of centre, GTA style.
-    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar(0.55 * Math.min(1, 6 / camDist))
-    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, 1.45, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
+    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving ? 0 : 0.55) * Math.min(1, 6 / camDist))
+    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const indoors = Boolean(interiors.inside)
     if (!indoors && cutHidden.size) restoreCut()
@@ -1838,7 +1960,7 @@ const apiAgents = createRemoteAgents(scene)
     // Outdoors, backed against a building: turn the view toward the open side (8 flat probes, 4x a second),
     // unless the player is dragging the camera. Indoors, walls are cut away instead.
     steerAcc += dt
-    if (!interiors.inside && boomBlocked && lookIdle > 0.4 && steerAcc > 0.25 && stillFor === 0) {
+    if (!interiors.inside && !ride?.driving && boomBlocked && lookIdle > 0.4 && steerAcc > 0.25 && stillFor === 0) {
       steerAcc = 0
       const reach = Math.min(6, useDist * Math.cos(camPitch))
       let bestRoom = 0
@@ -1855,7 +1977,7 @@ const apiAgents = createRemoteAgents(scene)
       if (bestRoom < 2) steerYaw = null
     }
     if (!boomBlocked && steerAcc > 1) steerYaw = null
-    if (steerYaw !== null && lookIdle > 0.7 && !interiors.inside) {
+    if (steerYaw !== null && lookIdle > 0.7 && !interiors.inside && !ride?.driving) {
       const delta = Math.atan2(Math.sin(steerYaw - camYaw), Math.cos(steerYaw - camYaw))
       camYaw += delta * (1 - Math.exp(-1.6 * dt))
     }

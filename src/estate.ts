@@ -80,6 +80,9 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   box(M.glass, 5.1, 0.35, 2.56, yx - 1.6, 2.95, yz)
   if (hi) { box(M.brass, 14, 0.05, 0.05, yx, 2.2, yz + 1.85); box(M.brass, 14, 0.05, 0.05, yx, 2.2, yz - 1.85); cyl(M.dark, 0.06, 1.6, yx - 2, 3.5, yz, 6) }
   statusSpot('yacht-deck', 'yacht', 44, -47.2, 'Yacht deck', 'Welcome aboard. The yacht deck is yours to enjoy.')
+  // The harbour launch: a day cruiser out on the bay, free for everyone (ride.ts).
+  o.hotspots.push({ id: 'cruise', x: 36, z: -45.2, r: 2.4, title: 'Harbour launch', body: 'Take the day cruiser out on the bay, round the buoys and the lighthouse. Free.', enter: 'Cast off',
+    use: () => window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'boat', model: 'cruiser', label: 'Day cruiser', mode: 'cruise', temp: true } })) })
   // Members' lounge pavilion: glass box under a floating timber roof.
   box(M.stone, 7, 0.3, 5, 28.5, 0, -39.5)
   box(M.glass, 6, 2.8, 4, 28.5, 0.3, -39.5)
