@@ -12,7 +12,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 
 1. **Learn.** Open [grinddistrict.app](https://www.grinddistrict.app), sign in (NEAR wallet, Google, X or email), walk to Campus and pass a one-minute lesson with Zahra.
 2. **Prove.** The pass goes on your CV with a certificate (Profile > Certificates), each with a public page.
-3. **Mint on NEAR.** Open the certificate and tap *Mint as NFT* > NEAR. A soulbound NEP-171 token is minted on [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) to your NEAR testnet account (0.05 NEAR attached for storage). You need a NEAR testnet wallet such as [Meteor](https://meteorwallet.app) with a little free testnet NEAR from [near-faucet.io](https://near-faucet.io).
+3. **Mint on NEAR.** Open the certificate and tap *Mint as NFT* > NEAR. A soulbound NEP-171 token is minted on [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) to your NEAR testnet account (0.05 NEAR attached for storage). You need a NEAR testnet wallet such as [Meteor](https://meteorwallet.app) with a little free testnet NEAR from [near-faucet.io](https://near-faucet.io). No testnet wallet? Tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1) and [#2](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/2) show the same mint already done, and step 5 works without signing in.
 4. **See it do something.** The game calls the view method `cert_for({ username, course_id })` and marks that course *Verified on NEAR* on your CV and profile, and the members-only **Holders' room** in the Members' lounge opens.
 5. **Check it anywhere.** The certificate's public page reads the chain too: [this certificate](https://www.grinddistrict.app/cert/eyJ2IjoyLCJuIjoiMHh6YXJhIiwidSI6InphcmEiLCJyIjoiQ3JhYiIsImMiOiJpbnRlcm5ldCIsInQiOiJXaGF0IHRoZSBpbnRlcm5ldCBpcyIsImQiOiIyMDI2LTExLTEwIiwiYXQiOjE3OTQzMzc0MjE1NDJ9) shows *Minted on NEAR · [Token #1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1)*.
 
@@ -42,6 +42,25 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **More to do:** the Etiquette House (manners and a steady mind), a Raceway time trial, a Wellness house, 27 collectible District Cards (nothing random), a photo card to share, and a dealership of seven cars from a city saloon to a hypercar.
 - **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
+
+## Why onchain
+
+- **Proof you keep.** A certificate kept only on our server proves something only while we exist and say so. The NEAR token sits under your own account on a public chain. Anyone can check it with one read (`cert_for`) without asking us, and it stays if the site goes away.
+- **Earned, not bought.** The token is soulbound: it cannot be sold or moved, so it shows what you passed, not what you paid for.
+- **The game trusts the chain.** The game reads the token back from NEAR, not from local data, before it marks a course *Verified on NEAR* on your CV and profile and opens the Holders' room.
+- **Honest limits.** It is on testnet for now. Certificates are practice credentials, not accredited qualifications, and they have no money value.
+
+## How it makes money without a token
+
+- **Today.** The game is free to play. The only real money that comes in is an optional top-up (USDC or ETH on Base, $1 to $1,000) that adds in-game dollars for looks, the Grind Pass and paid ranks. A top-up never buys a lesson or a certificate, and in-game dollars cannot be withdrawn. Players pay their own network fees, including the small NEAR storage fee for a mint.
+- **Planned, not built yet.** Partner courses from Web3 projects, with their own certificates. A job board that links CVs to real Web3 roles.
+- **No token.** There is no Grind District token. The draft in the [GDD](docs/GDD.md) is for discussion only, and any token would need legal review first.
+
+## Who keeps playing and what's next
+
+- **Who it is for.** People who are curious about Web3 and want to learn it without getting scammed, and people looking for Web3 work who need proof of what they know.
+- **Reasons to come back today.** A daily streak, needs that drop while you are away, a business that keeps selling to residents while you are gone (up to two hours are caught up), the Grind Pass season, friendships and events with residents, and messages with push and email alerts.
+- **Next (plans).** Dec 2026 to Q1 2027: an AI companion run on NEAR AI, sign-in from any chain with NEAR Intents, gas-sponsored certificate mints and alerts for streaks and events. Q1 to Q2 2027: partner courses, guilds and team challenges, and tools for community lessons. H2 2027: mainnet credentials that employers can check, and the job board. The full roadmap is in the [GDD](docs/GDD.md#18-roadmap).
 
 ## Screenshots
 
