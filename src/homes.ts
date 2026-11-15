@@ -23,14 +23,14 @@ export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht', 'hotel', 'mal
 const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
 /** Outside pieces that hide while you're in that place (so the camera isn't boxed in). */
 const SHELLS = ['shell-penthouse', 'shell-skyhouse', 'shell-hotel', 'shell-mall']
-type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
+type Kind = 'lamppost' | 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
 export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; hide?: boolean; hidden?: () => boolean; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
-  bench: [1.8, 0.7], tree: [1.0, 1.0], swings: [3.2, 1.6], slide: [1.2, 4.2], kiosk: [2.6, 2.0],
+  lamppost: [0.5, 0.5], bench: [1.8, 0.7], tree: [1.0, 1.0], swings: [3.2, 1.6], slide: [1.2, 4.2], kiosk: [2.6, 2.0],
   sofaL: [3.0, 2.2], sofa: [2.5, 0.95], arm: [0.9, 0.9], coffee: [1.3, 0.7], rug: [0, 0], lamp: [0.4, 0.4], dining: [2.4, 1.9], island: [2.6, 1.0], kitchen: [4.0, 0.7],
   bed: [3.0, 2.3], tv: [3.0, 0.5], plant: [0.6, 0.6], art: [0, 0], lounger: [0.7, 1.9], tub: [1.7, 0.8], desk: [1.5, 1.2], recliners: [2.0, 1.0], screen: [3.6, 0.3], heli: [2.6, 8.5],
   piano: [1.6, 2.2], chandelier: [0, 0], lounge: [0.9, 1.6], sculpture: [0.7, 0.7], painting: [0, 0], aquarium: [2.6, 0.6], winewall: [2.6, 0.5], cinema: [3.4, 1.6], fireplace: [1.8, 0.5], telescope: [0.8, 0.8], palms: [1.6, 0.8], barcart: [0.9, 0.5],
@@ -150,6 +150,7 @@ function piece(kind: Kind, M: Mats): THREE.Group {
     case 'arm': soft(g, 0.86, 0.4, 0.86, M.sofa, 0, 0.12, 0); soft(g, 0.86, 0.48, 0.2, M.sofa, 0, 0.45, -0.33); for (const s of [-1, 1]) soft(g, 0.16, 0.28, 0.86, M.sofa, s * 0.35, 0.45, 0); soft(g, 0.45, 0.32, 0.12, M.accent, 0, 0.6, -0.16); for (const [x, z] of [[-0.36, -0.36], [0.36, -0.36], [-0.36, 0.36], [0.36, 0.36]] as const) box(g, 0.04, 0.12, 0.04, M.metal, x, 0, z); break
     case 'coffee': box(g, 1.3, 0.05, 0.7, M.marble, 0, 0.4, 0); for (const [x, z] of [[-0.58, -0.28], [0.58, -0.28], [-0.58, 0.28], [0.58, 0.28]] as const) box(g, 0.04, 0.4, 0.04, M.metal, x, 0, z); box(g, 0.32, 0.06, 0.24, M.accent, -0.2, 0.45, 0.05); cyl(g, 0.07, 0.06, 0.16, M.white, 0.3, 0.45, -0.05); break
     case 'rug': { const r = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.3), M.rug); r.rotation.x = -Math.PI / 2; r.position.y = 0.012; r.receiveShadow = true; g.add(r); const b = new THREE.Mesh(new THREE.RingGeometry(1, 1.06, 4, 1), M.accent); b.rotation.set(-Math.PI / 2, 0, Math.PI / 4); b.scale.set(1.55, 1.12, 1); b.position.y = 0.016; g.add(b); break }
+    case 'lamppost': cyl(g, 0.22, 0.26, 0.25, M.metal); cyl(g, 0.06, 0.08, 3.4, M.metal, 0, 0.25); box(g, 0.34, 0.42, 0.34, M.glass, 0, 3.6, 0); cyl(g, 0.12, 0.12, 0.3, M.shade, 0, 3.66); cyl(g, 0.26, 0.05, 0.16, M.metal, 0, 4.02); break
     case 'lamp': cyl(g, 0.16, 0.18, 0.03, M.metal); cyl(g, 0.015, 0.015, 1.45, M.metal, 0, 0.03); cyl(g, 0.2, 0.26, 0.32, M.shade, 0, 1.4); break
     case 'dining': {
       box(g, 2.4, 0.05, 1.0, M.wood, 0, 0.73, 0); for (const s of [-1, 1]) box(g, 0.08, 0.73, 0.7, M.metal, s * 0.95, 0, 0)
@@ -293,7 +294,7 @@ function plans(): Record<AreaId, Plan> {
         ['t1', 'tree', -112, 110, 0, 0], ['t2', 'tree', -125, 108, 0, 0], ['t3', 'tree', -165, 108, 0, 0], ['t4', 'tree', -166, 132, 0, 0], ['t5', 'tree', -166, 160, 0, 0],
         ['t6', 'tree', -112, 162, 0, 0], ['t7', 'tree', -124, 166, 0, 0], ['t8', 'tree', -112, 140, 0, 0], ['t9', 'tree', -146, 108, 0, 0], ['t10', 'tree', -160, 145, 0, 0], ['t11', 'tree', -140, 166, 0, 0],
         ['swings', 'swings', -116, 150, 0, 0], ['slide', 'slide', -116, 158, Math.PI / 2, 0], ['kiosk', 'kiosk', -128, 116, 0, 0],
-        ['l1', 'lamp', -132, 128, 0, 0], ['l2', 'lamp', -144, 152, 0, 0], ['l3', 'lamp', -124, 152, 0, 0],
+        ['l1', 'lamppost', -132, 128, 0, 0], ['l2', 'lamppost', -144, 152, 0, 0], ['l3', 'lamppost', -124, 152, 0, 0],
       ],
       build: (A) => {
         const lawn = new THREE.Mesh(new THREE.PlaneGeometry(176, 152), std(0x5f8f45, 1)); lawn.rotation.x = -Math.PI / 2; lawn.position.set(-125, -0.012, 138); lawn.receiveShadow = true; A.add(0, lawn)
@@ -309,7 +310,7 @@ function plans(): Record<AreaId, Plan> {
         A.block(0, R(-160.5, 112, -143.5, 128))
         // Flower beds.
         const bedCols = [0xe0457b, 0xf2c230, 0xffffff, 0x8e5bd1]
-        for (let k = 0; k < 4; k++) { const b = new THREE.Group(); cyl(b, 1.6, 1.7, 0.35, A.M.stone); for (let f = 0; f < 14; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), std(bedCols[(f + k) % 4]!, 0.7)); const a = f * 2.4; fl.position.set(Math.cos(a) * (0.3 + (f % 4) * 0.3), 0.45, Math.sin(a) * (0.3 + (f % 4) * 0.3)); b.add(fl) } b.position.set(-138 + [-10, 10, -10, 10][k]!, 0, 140 + [-10, -10, 10, 10][k]!); A.add(0, b); A.block(0, R(b.position.x - 1.7, b.position.z - 1.7, b.position.x + 1.7, b.position.z + 1.7)) }
+        for (let k = 0; k < 4; k++) { const b = new THREE.Group(); cyl(b, 1.6, 1.7, 0.35, A.M.stone); cyl(b, 1.45, 1.45, 0.05, std(0x4a3426, 1), 0, 0.35); const leafy = new THREE.Mesh(new THREE.SphereGeometry(1.35, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), std(0x3f7a35, 0.9)); leafy.scale.y = 0.32; leafy.position.y = 0.38; b.add(leafy); for (let f = 0; f < 22; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), std(bedCols[(f + k) % 4]!, 0.7)); fl.scale.y = 0.6; const a = f * 2.4; const rr = 0.2 + (f % 5) * 0.24; fl.position.set(Math.cos(a) * rr, 0.38 + 0.43 * Math.sqrt(Math.max(0, 1 - (rr / 1.35) ** 2)) * 1.0 * 0.32 / 0.32 * 0.95, Math.sin(a) * rr); b.add(fl) } b.position.set(-138 + [-10, 10, -10, 10][k]!, 0, 140 + [-10, -10, 10, 10][k]!); A.add(0, b); A.block(0, R(b.position.x - 1.7, b.position.z - 1.7, b.position.x + 1.7, b.position.z + 1.7)) }
       },
     },
     // Grind International Airport, east of the city at the end of the metro's airport branch (travel.ts builds it).
@@ -1047,9 +1048,10 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     const cabins: THREE.Group[] = []
     for (let k = 0; k < W.n; k++) {
       const c = new THREE.Group()
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 1.6, 12), std(cabinCols[k % 4]!, 0.4, 0.2)); body.position.y = -1.5; c.add(body)
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 0.62, 12), std(cabinCols[k % 4]!, 0.4, 0.2)); body.position.y = -1.99; c.add(body)
       const top = new THREE.Mesh(new THREE.ConeGeometry(1.1, 0.6, 12), std(0xf2f2ee, 0.4)); top.position.y = -0.4; c.add(top)
-      const glassBand = new THREE.Mesh(new THREE.CylinderGeometry(1.01, 1.01, 0.6, 12, 1, true), M.glass); glassBand.position.y = -1.2; c.add(glassBand)
+      const glassBand = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.98, 12, 1, true), M.glass); glassBand.position.y = -1.19; c.add(glassBand)
+      for (let q = 0; q < 4; q++) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 6), M.metal); post.position.set(Math.cos(q * Math.PI / 2 + 0.4) * 0.98, -1.19, Math.sin(q * Math.PI / 2 + 0.4) * 0.98); c.add(post) }
       c.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
       root!.add(c); cabins.push(c)
     }
@@ -1085,7 +1087,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.2), bodyH.material); head.position.set(0.8, 0.6, 0); h.add(head)
       for (const lx of [-0.35, 0.35]) for (const lz of [-0.12, 0.12]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6), bodyH.material); leg.position.set(lx, -0.45, lz); h.add(leg) }
       const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.6, 6), std(0xd4af37, 0.3, 0.8)); p.position.y = 0.6; h.add(p)
-      h.position.set(Math.cos(a) * C.r, 1.6, Math.sin(a) * C.r); h.rotation.y = -a
+      h.position.set(Math.cos(a) * C.r, 1.6, Math.sin(a) * C.r); h.rotation.y = -a - Math.PI / 2 // nose along the turn
       spin.add(h); horses.push(h)
     }
     caro.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
@@ -1097,7 +1099,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       const paid = charge(2, 'Carousel ride')
       if (!paid.ok) { deps.toast(paid.message); return }
       const k = 3
-      startMove({ cam: 8.5, seat: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { yaw: Math.atan2(-Math.sin(a), -Math.cos(a)), y: 0.45 } }, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z - Math.sin(a) * C.r, y: 1.33 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
+      startMove({ cam: 3.8, seat: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { yaw: -a, y: 0.45 } }, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z + Math.sin(a) * C.r, y: 1.33 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
     } })
     // Back to the city by train, an ice cream, a go on the swings.
     levels[0]!.uses.push({ id: 'park-train', x: -118.5, z: 121.5, r: 1.8, title: 'Grind Metro', body: 'Grind Park station. Trains round the city to the Beach, the Marina, the Raceway and the Sky Tower.', enter: 'Take the train · $2', use: () => deps.train('park') })

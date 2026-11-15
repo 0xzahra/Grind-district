@@ -527,6 +527,12 @@ const apiAgents = createRemoteAgents(scene)
       travelTo(h)
     },
     goFar: (area, at, title) => {
+      // The map is a shortcut for the train, not a free pass: it costs the same $2 metro fare (free if you are
+      // already there). Rides inside still charge their fare or need the day pass.
+      if (homes?.inside !== area) {
+        const paid = spendInGame(2, 'Grind Metro fare', `Map: straight to ${title ?? area}`)
+        if (!paid.ok) { ui.toast(paid.message); return }
+      }
       ui.close()
       window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: area, viewing: true, at } }))
       if (title) window.setTimeout(() => ui.toast(`You are at ${title}.`), 3200)
