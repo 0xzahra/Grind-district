@@ -89,10 +89,12 @@ export default async function handler(req: Req, res: Res) {
     const p = await getProfile(u).catch(() => null)
     heading = p?.name ? `${p.name} (@${u})` : `@${u} · Grind District`
     title = `${p?.name || `@${u}`} is grinding in Grind District`
-    desc = p ? `${p.rank} · reputation ${p.reputation}. Join @${u} in a shared 3D city.` : `Join @${u} in a shared 3D city. Learn, trade and climb from shrimp to whale.`
+    desc = p ? `${p.rank} · reputation ${p.reputation}. Scan the card or tap to join @${u} in a shared 3D city.` : `Join @${u} in a shared 3D city. Learn, trade and climb from shrimp to whale.`
     if (p?.pinned?.length) sub = `${desc} Pinned: ${p.pinned.join(', ')}`
     else if (p?.skills.length) sub = `${desc} Skills: ${p.skills.slice(0, 4).join(', ')}`
-    image = `${origin}/api/og?u=${u}`
+    // ?v= is the card version from the game, so X fetches a fresh preview after the player remakes their card.
+    const v = String(req.query.v ?? '').replace(/[^a-z0-9]/g, '').slice(0, 12)
+    image = `${origin}/api/og?u=${u}${v ? `&v=${v}` : ''}`
   }
   const ref = kind === 'cv' ? String(req.query.username ?? '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16) : ''
   const game = `${origin}/?src=${ref ? 'invite' : kind}${ref ? `&ref=${ref}` : ''}`

@@ -12,7 +12,7 @@ import { equippedFrame } from './career.ts'
 // Signed-in players: the look saves to the account through the existing profile upsert (debounced).
 let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
-import { shareLink, profileLink, shareToX, publishProfile } from './share.ts'
+import { shareLink, profileLink, publishProfile } from './share.ts'
 import { publicDoc, type BookRow } from './logic.ts'
 import { renderExchange } from './exchange.ts'
 import { watchPerps } from './perps.ts'
@@ -38,7 +38,7 @@ import { societyNodes } from './society.ts'
 import { masterclassNodes } from './masterclass.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
-import { photoCardNodes } from './photoCard.ts'
+import { photoCardNodes, shareCardToX } from './photoCard.ts'
 import { clubNodes, markPlate } from './stockClub.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
@@ -404,7 +404,8 @@ export function mountUi(
       photoCardNodes({ para, button }, () => hooks.portrait?.() ?? null, (m) => toast(m)),
       // Two actions only: post to X, or copy the one invite link.
       strip(
-      button('Share on 𝕏', 'ghost', () => shareToX(save.username, rankFor(getSave().xp).label)),
+      // X shows the photo card (avatar, rank, reputation, invite code) under the link, never the balance.
+      button('Share on 𝕏', 'ghost', () => shareCardToX(() => hooks.portrait?.() ?? null, (t) => toast(t))),
       button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
       ),
       status,

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 
-type Req = { method?: string; query?: Record<string, string | string[] | undefined>; body?: Record<string, unknown> }
+type Req = { method?: string; query?: Record<string, string | string[] | undefined>; headers?: Record<string, string | undefined>; body?: Record<string, unknown> }
 type Res = { status(n: number): { json(b: unknown): void }; setHeader(k: string, v: string): void }
 
 // Invite links and referral tracking. Usernames and counts only: no emails, wallets or balances.
@@ -10,13 +10,48 @@ type Res = { status(n: number): { json(b: unknown): void }; setHeader(k: string,
 // GET  ?by=<name>       who invited @name (to give the new player their welcome gift once).
 // GET  ?op=top          the top inviters of the last 30 days.
 // POST ?op=open {ref, anon}  an invite link was opened (one count per visitor per inviter per day).
+// POST ?op=card {data, near?}   the caller's invite photo card (a 1200x630 JPEG drawn in the game) for their /cv link
+//                       preview on X and other apps. Signed in only; the username comes from the players row. The
+//                       card shows the avatar, name, rank, reputation and the invite code: never a balance or wallet.
 // Opens are stored in the existing events table (name 'invite_open'), so no new table is needed.
+export const CARD_BUCKET = 'invite-cards'
+async function storeCard(db: ReturnType<typeof createClient>, req: Req, res: Res) {
+  let userId: string
+  const near = req.body?.near as Parameters<typeof import('./_nearAuth.js').verifyNearLogin>[0] | undefined
+  if (near) {
+    const { verifyNearLogin, nearUserId } = await import('./_nearAuth.js')
+    const v = verifyNearLogin(near)
+    if (!v.ok) return res.status(401).json({ error: v.error })
+    userId = nearUserId(v.accountId)
+  } else {
+    const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID, secret = process.env.PRIVY_APP_SECRET
+    if (!appId || !secret) return res.status(503).json({ error: 'not configured' })
+    try {
+      const { PrivyClient } = await import('@privy-io/server-auth')
+      userId = (await new PrivyClient(appId, secret).verifyAuthToken((req.headers?.authorization ?? '').replace(/^Bearer\s+/i, ''))).userId
+    } catch { return res.status(401).json({ error: 'sign in' }) }
+  }
+  const p = await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()
+  const name = (p.data as { username?: string } | null)?.username?.toLowerCase()
+  if (!name) return res.status(404).json({ error: 'claim a username first' })
+  const data = String(req.body?.data ?? '')
+  if (!/^[A-Za-z0-9+/=]+$/.test(data)) return res.status(400).json({ error: 'not an image' })
+  const bytes = Buffer.from(data, 'base64')
+  if (bytes.length < 2000 || bytes.length > 600_000 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return res.status(400).json({ error: 'JPEG card only' })
+  const put = () => db.storage.from(CARD_BUCKET).upload(`${name}.jpg`, bytes, { contentType: 'image/jpeg', upsert: true, cacheControl: '300' })
+  let up = await put()
+  if (up.error && /bucket|not found/i.test(up.error.message)) { await db.storage.createBucket(CARD_BUCKET, { public: true }).catch(() => undefined); up = await put() }
+  if (up.error) return res.status(500).json({ error: 'could not store the card' })
+  return res.status(200).json({ ok: true, v: Date.now().toString(36) })
+}
+
 export default async function handler(req: Req, res: Res) {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return res.status(503).json({ joined: [] })
   const db = createClient(url, key, { auth: { persistSession: false } })
   const op = String(req.query?.op ?? '')
+  if (req.method === 'POST' && op === 'card') return storeCard(db, req, res)
 
   if (req.method === 'POST' && op === 'open') {
     const c = cleanUsername(req.body?.ref)
