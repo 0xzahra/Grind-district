@@ -1162,6 +1162,14 @@ export function mountUi(
     support.rel = 'noopener noreferrer'
     support.className = 'help-link'
     support.textContent = 'Suggestions & feedback'
+    // Backing the game on NEAR Hunt (the NEAR hackathon's community board): an upvote is signed with a NEAR
+    // mainnet account on their site. A plain link; nothing about the player is sent.
+    const hunt = document.createElement('a')
+    hunt.href = 'https://nearhunt.xyz/p/c1c7b574-850a-4f47-9af9-22a49339df07'
+    hunt.target = '_blank'
+    hunt.rel = 'noopener noreferrer'
+    hunt.className = 'help-link hunt-link'
+    hunt.textContent = 'Upvote Grind District on NEAR Hunt'
     const soundRow = document.createElement('div')
     soundRow.className = 'tabs'
     const slider = (value: number, label: string, set: (v: number) => void) => { const r = document.createElement('input'); r.type = 'range'; r.min = '0'; r.max = '100'; r.value = String(value); r.setAttribute('aria-label', label); r.oninput = () => set(Number(r.value)); return r }
@@ -1260,6 +1268,8 @@ export function mountUi(
       para('Grind is in-game currency only. Nothing on-chain moves here.', 'muted'),
       para('Support', 'kicker'),
       support,
+      hunt,
+      para('NEAR Hunt is the NEAR hackathon\'s community board. Upvotes and comments need a NEAR mainnet account.', 'muted'),
       button('About this city', 'ghost', () => open('about')),
     ))
   }

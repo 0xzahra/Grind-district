@@ -3755,3 +3755,5 @@ html body #nav.cc #cc-learn strong { white-space: nowrap; overflow: hidden; text
 /* Accent keys in the control centre (balance, keys switched on): the Sign up green, like every main key. */
 html body .cc-item .cc-circle.cc-accent, html body .cc-circle.cc-accent, html body .cc-btn.on, html body .cc-item.on .cc-circle { background: var(--key-gold) !important; border-color: #04803f !important; box-shadow: var(--key-gold-sh) !important; color: #032612 !important; }
 html body .cc-circle.cc-accent svg, html body .cc-btn.on svg, html body .cc-item.on .cc-circle svg { stroke: #032612 !important; }
+html body #sheet .hunt-link { display: inline-block; margin-top: 4px; color: #06c763 !important; font-weight: 600; }
+html[data-ui='light'] body #sheet .hunt-link { color: #04803f !important; }

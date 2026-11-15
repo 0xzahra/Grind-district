@@ -13,6 +13,8 @@ import { takeExam, heldTicket } from './certExam.ts'
 const BASE_NFT = String(import.meta.env.VITE_CERT_NFT_BASE ?? '')
 const BASE_CHAIN = Number(import.meta.env.VITE_CERT_NFT_BASE_CHAIN || 8453)
 const NEAR_NFT = String(import.meta.env.VITE_CERT_NFT_NEAR ?? '')
+/** Grind District on NEAR Hunt, the NEAR hackathon's community board (upvotes need a NEAR mainnet account). */
+const HUNT = 'https://nearhunt.xyz/p/c1c7b574-850a-4f47-9af9-22a49339df07'
 export const baseMintOn = () => /^0x[0-9a-fA-F]{40}$/.test(BASE_NFT)
 export const nearMintOn = () => /^[a-z0-9._-]{2,64}$/.test(NEAR_NFT)
 const NEAR_NET: 'testnet' | 'mainnet' = NEAR_NFT.endsWith('.testnet') ? 'testnet' : 'mainnet'
@@ -127,7 +129,7 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
   pick.append(chip('base', 'Base', baseMintOn()), chip('near', NEAR_NET === 'testnet' ? 'NEAR (testnet)' : 'NEAR', nearMintOn()))
   const set = (msg: string, ...nodes: HTMLElement[]) => { status.textContent = msg; act.replaceChildren(...nodes) }
   const btn = (label: string, fn: () => void) => { const b = el('button', label, 'primary'); b.onclick = fn; return b }
-  const showMinted = (m: Minted) => set(`Minted on ${m.chain === 'base' ? 'Base' : 'NEAR'} · token #${m.tokenId}. The certificate fields are stored on-chain with it.`, linkTo(m.explorer, 'View on explorer'), ...(m.tx ? [linkTo(m.chain === 'base' ? `${BASESCAN}/tx/${m.tx}` : `${NEARBLOCKS}/txns/${m.tx}`, 'View transaction')] : []), linkTo(`/cert/${certId}`, 'Public certificate page'))
+  const showMinted = (m: Minted) => set(`Minted on ${m.chain === 'base' ? 'Base' : 'NEAR'} · token #${m.tokenId}. The certificate fields are stored on-chain with it.`, linkTo(m.explorer, 'View on explorer'), ...(m.tx ? [linkTo(m.chain === 'base' ? `${BASESCAN}/tx/${m.tx}` : `${NEARBLOCKS}/txns/${m.tx}`, 'View transaction')] : []), linkTo(`/cert/${certId}`, 'Public certificate page'), linkTo(HUNT, 'Enjoyed it? Upvote Grind District on NEAR Hunt'))
   const username = getSave().username
 
   const show = async () => {
