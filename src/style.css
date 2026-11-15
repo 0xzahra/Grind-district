@@ -3671,3 +3671,6 @@ html body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn) svg { stroke: #f6f1e6 
 .region-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
 .region-row small { opacity: .75; font-size: 12px; padding: 0 4px; }
 .region-cap { display: block; margin: 6px 4px 0; font-size: 12px; opacity: .75; line-height: 1.4; }
+
+/* The welcome tour points at the Next step button: show it (open) above the tour card's dimming. */
+body.mentor-on .goal-pill.tour-spot { display: flex !important; visibility: visible !important; z-index: 70; box-shadow: 0 0 0 3px rgba(232,194,122,.65), 0 8px 24px rgba(0,0,0,.45); }

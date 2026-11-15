@@ -47,15 +47,13 @@ export function biteCards(paragraphs: string[]): string[] {
 
 /** Welcome tour: Web3 in two lines, then how to play. `spot` is the control that glows while she says it. */
 export const TOUR: Array<{ say: string; spot?: string }> = [
-  { say: 'Welcome to Grind District! I\u2019m Zahra. Give me one minute and I\u2019ll show you around.' },
-  { say: 'Web3 is the internet where you can own things yourself: money, art, even your certificates. Here you learn it by living it, with practice money only.' },
-  { say: 'Move with the joystick at the bottom left, or W A S D on a computer. Drag the screen to look around.', spot: '#stick' },
-  { say: 'Everything lives in the menu: your profile and CV, Trade, Career, the Boutique, the map and Messages.', spot: '#rail-toggle' },
-  { say: 'At Campus, short courses teach you Web3. Every course you pass goes on your CV with a certificate, and you can mint it as an NFT on NEAR.' },
-  { say: 'Take a job in Career and do its task once a day to earn in-game money. Spend it on clothes, a car or a bigger home.' },
-  { say: 'Practise Spot, Perps, Convert and P2P on the trading floor. Prices move like the real market, but it is practice money.' },
-  { say: 'One rule above all: never share your seed phrase. Not with me, not with anyone.' },
-  { say: 'That\u2019s the tour. Come and find me at Campus, north of the plaza, and I\u2019ll place you as a Normie or a Homie.' },
+  { say: 'Welcome to Grind District! I\u2019m Zahra. One minute, and I\u2019ll show you the one thing to do first.' },
+  { say: 'Here you learn Web3 by doing it. Pass a short lesson at Campus and it goes on your CV with a certificate you keep. Practice money only: nothing real is at risk.' },
+  { say: 'Move with the joystick, or W A S D on a computer. Drag to look around, pinch or scroll to zoom, or tap the ground to walk there.', spot: '#stick' },
+  { say: 'Your next step always waits in this gold Next step button. Tap it and it takes you straight there.', spot: '#goal' },
+  { say: 'Step one is Campus, just north of the plaza. I\u2019ll ask three quick questions, then teach your first lesson. It only takes a few minutes.' },
+  { say: 'Pass it, and the course appears on your CV with a certificate. Open them any time from Profile in the menu. Minting the certificate on NEAR is optional.', spot: '#rail-toggle' },
+  { say: 'The rest of the city, from jobs and trading to shops and the park, is there whenever you want it. One rule: never share your seed phrase. Ready?' },
 ]
 
 /** Lines Zahra says outside the lessons. */

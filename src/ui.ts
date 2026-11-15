@@ -1379,6 +1379,7 @@ export function mountUi(
           button("Let's go", 'primary', close),
         ])
       case 'profile':
+        try { if (Object.values(getSave().skills).some((k) => k?.passed)) localStorage.setItem('gd.cvSeen', '1') } catch { /* private mode */ }
         return renderProfile()
       case 'learn':
         return renderLearn()

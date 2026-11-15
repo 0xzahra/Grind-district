@@ -169,10 +169,10 @@ export function createMentorCard(hooks: MentorHooks) {
     hooks.face?.()
     root.hidden = false
     document.body.classList.add('mentor-on')
-    try { localStorage.setItem(TOUR_KEY, '1') } catch { /* private mode */ }
     let lit: Element | null = null
-    const light = (sel?: string) => { lit?.classList.remove('tour-spot'); lit = sel ? document.querySelector(sel) : null; lit?.classList.add('tour-spot') }
-    const end = (_done: boolean) => { light(); root.classList.remove('tour-up'); close() }
+    const light = (sel?: string) => { lit?.classList.remove('tour-spot'); lit = sel ? document.querySelector(sel) : null; lit?.classList.add('tour-spot'); if (sel === '#goal') lit?.classList.remove('folded') }
+    // Seen only once the player finishes or skips it (a tour cut short by a reload shows again next time).
+    const end = (_done: boolean) => { try { localStorage.setItem(TOUR_KEY, '1') } catch { /* private mode */ } light(); root.classList.remove('tour-up'); close() }
     const show = (i: number) => {
       const step = TOUR[i]!
       const [head, dots] = shell(`Welcome tour \u00b7 ${i + 1} of ${TOUR.length}`, TOUR.length, i)

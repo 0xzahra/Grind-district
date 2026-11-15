@@ -63,6 +63,7 @@ export async function paintCertificate(course: SkillId, data = certData(course))
 }
 
 export async function openCertificate(course: SkillId): Promise<void> {
+  try { localStorage.setItem('gd.certSeen', '1') } catch { /* private mode */ }
   document.getElementById('cert-dlg')?.remove()
   const dlg = document.createElement('div')
   dlg.id = 'cert-dlg'

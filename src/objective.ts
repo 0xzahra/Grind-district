@@ -10,7 +10,11 @@ export type Step = { text: string; sub: string; go: string }
 export function nextStep(): Step {
   const s = getSave()
   const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
-    if (!passed.length) return { text: 'Walk to the gold marker at Campus', sub: `Zahra's 1-minute first lesson · +$${COURSE_CASH} + $25 practice funds`, go: 'mentor' }
+  // The core loop first: Campus → a short lesson → your CV and certificate → (optional) mint on NEAR.
+  if (!passed.length) return { text: 'Go to Campus for your first lesson', sub: 'Zahra teaches it in a few minutes · it goes on your CV', go: 'mentor' }
+  const seen = (k: string) => { try { return !!localStorage.getItem(k) } catch { return true } }
+  if (!seen('gd.cvSeen')) return { text: 'See your course on your CV', sub: 'Profile · your first certificate is there too', go: 'panel:profile' }
+  if (!seen('gd.certSeen')) return { text: 'Open your certificate', sub: 'Download or share it · minting on NEAR is optional', go: `cert:${passed[0]}` }
   const c = getCareer()
   const job = JOBS.find((j) => j.id === c.job)
   const mission = nextMission()

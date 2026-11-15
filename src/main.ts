@@ -543,11 +543,21 @@ const apiAgents = createRemoteAgents(scene)
     face3d: (() => { const shot = createPortrait(renderer!, () => ada, { w: 256, h: 256, head: true, headY: 1.5 }); return () => shot() })(),
   })
   // Zahra's welcome tour: once per device, after the first-run intro card closes; Settings can replay it.
+  // It waits, however long sign-up takes, until the player is actually standing in the city: title screen gone,
+  // no sign-in dialog, card or panel open, not inside a room. Then it starts after two calm seconds.
+  let tourWaiting = false
   const startTour = (force = false) => {
-    if ((!force && tourSeen()) || mentor.isOpen()) return
-    let waited = 0
+    if ((!force && tourSeen()) || mentor.isOpen() || tourWaiting) return
+    tourWaiting = true
+    let calm = 0
+    const busy = () => document.documentElement.classList.contains('title-on') || !(document.getElementById('menu')?.hidden ?? true)
+      || ui.isOpen() || document.body.classList.contains('sheet-open') || !!document.getElementById('login-dlg')
+      || !!document.querySelector('.gdesk, #cert-dlg, .login-dlg') || !!interiors.inside || !!homes?.inside || mentor.isOpen()
     const tryNow = () => {
-      if (ui.isOpen() || document.body.classList.contains('sheet-open') || document.getElementById('login-dlg')) { if ((waited += 1) < 180) window.setTimeout(tryNow, 1000); return }
+      if (!force && tourSeen()) { tourWaiting = false; return }
+      calm = busy() ? 0 : calm + 1
+      if (calm < 2) { window.setTimeout(tryNow, 1000); return }
+      tourWaiting = false
       mentor.tour()
     }
     tryNow()
@@ -739,10 +749,13 @@ const apiAgents = createRemoteAgents(scene)
       ['u1115b-enso', 'New: El Niño and La Niña', 'Every few in-game years the Pacific warms or cools and the weather shifts. See either one now in Seasons.', 'panel:seasons'],
       ['u1115b-adventure', 'New: cliff climbing and skydiving', 'At the airport: a guided 34 m sea-cliff climb past the spaceport, and a tandem skydive from the Grind Skydive desk by the hangar. Every step explained.', undefined],
     ]
-    for (const [k, t, b, go] of UPDATES) notify(t, b, k, go)
+    // Extras wait: a new player hears about them only after passing a first lesson (the core loop comes first).
+    const send = () => { for (const [k, t, b, go] of UPDATES) notify(t, b, k, go) }
+    if (!needsFirstCourse()) send()
+    else { const wait = window.setInterval(() => { if (!needsFirstCourse()) { window.clearInterval(wait); window.setTimeout(send, 20_000) } }, 5000) }
   }, 4000)
   installLayers()
-  if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Everyone starts at the bottom of the ladder. Learn on Campus, show up daily, climb toward whale — your CV keeps the proof.', 'welcome', 'place:The Grind Ring')
+  if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Start at Campus: Zahra teaches a five-minute lesson, and it goes on your CV with a certificate you keep. Tap the gold Next step button any time.', 'welcome', 'place:Campus')
   localStorage.setItem('gd.welcomed', '1')
   // Good surprise: one soft dawn greeting per local day (streak-aware, no network).
   try {
@@ -1039,12 +1052,15 @@ const apiAgents = createRemoteAgents(scene)
     }
     if (go.startsWith('career:')) { window.dispatchEvent(new CustomEvent('gd:career', { detail: go.slice(7) })); return }
     if (go.startsWith('course:')) { window.dispatchEvent(new CustomEvent('gd:course', { detail: go.slice(7) })); return }
+    if (go.startsWith('cert:')) { void import('./certs.ts').then((m) => m.openCertificate(go.slice(5) as SkillId)); return }
     follow(go)
   }
   // Compact Next step: shows for a few seconds, then folds to a small diamond. Tap the diamond to open it,
   // tap the open pill to go. A new step opens it again briefly.
   let goalTimer = 0, goalArmed = false
-  const foldGoal = (ms = 5000) => { window.clearTimeout(goalTimer); goalTimer = window.setTimeout(() => goal.classList.add('folded'), ms) }
+  // Until the first lesson is passed (and its CV and certificate seen) the pill stays open: it is the guide.
+  const coreDone = () => { try { return !needsFirstCourse() && !!localStorage.getItem('gd.cvSeen') && !!localStorage.getItem('gd.certSeen') } catch { return true } }
+  const foldGoal = (ms = 5000) => { window.clearTimeout(goalTimer); goalTimer = window.setTimeout(() => { if (coreDone()) goal.classList.add('folded') }, ms) }
   goal.addEventListener('click', () => {
     if (goal.classList.contains('folded')) { goal.classList.remove('folded'); foldGoal(6000); return }
     runStep(goalGo); foldGoal(2500)
@@ -2422,7 +2438,7 @@ const apiAgents = createRemoteAgents(scene)
         } else if (!getSave().seenIntro && !localStorage.getItem('gd.introSeen') && !localStorage.getItem('gd.privy.username')) {
           ui.open('intro')
         }
-        if (!tourSeen() && !new URLSearchParams(location.search).has('debugmap')) window.setTimeout(() => startTour(), 2500)
+        if (!tourSeen() && !new URLSearchParams(location.search).has('debugmap')) window.setTimeout(() => startTour(), 1500)
         // Birthday and holiday greetings (each once a day), after the city has settled.
         window.setTimeout(() => void Promise.all([import('./calendar.ts'), import('./notify.ts')]).then(([c, n]) => c.celebrateToday((m) => ui.toast(m), (title, body, key) => n.notify(title, body, key))), tourSeen() ? 5000 : 60000)
       }
