@@ -3745,3 +3745,13 @@ html[data-ui='light'] #cert-exam .cx-kick { color: #04803f; }
 html[data-ui='light'] #cert-exam .cx-dots i { background: rgba(0, 0, 0, 0.12); }
 html[data-ui='light'] #cert-exam .cx-key:not(.cx-go):not([aria-pressed='true']) { background: var(--key-ivory); color: #1d1b17; border-color: rgba(70, 56, 34, 0.45); box-shadow: inset 0 1px 0 #fff, 0 2px 0 #b9b09e, 0 6px 14px rgba(20, 16, 10, 0.18); }
 #cert-exam .cx-title { text-transform: none !important; letter-spacing: -0.01em !important; font-size: 20px !important; color: inherit !important; margin: 2px 0 0 !important; }
+
+/* Learn leads the control centre (main.ts paintLearn): the first or next lesson, above everything else. */
+html body #nav.cc #cc-learn { order: -1 !important; cursor: pointer; text-align: left; font: inherit; border-color: rgba(6, 238, 116, 0.45) !important; box-shadow: inset 0 0 0 1px rgba(6, 238, 116, 0.18), 0 6px 16px rgba(0, 0, 0, 0.3); }
+html body #nav.cc #cc-learn .cc-circle { background: var(--key-gold) !important; color: #032612 !important; box-shadow: var(--key-gold-sh) !important; border-color: #04803f !important; }
+html body #nav.cc #cc-learn .cc-circle svg { stroke: #032612; }
+html body #nav.cc #cc-learn .cc-learn-text { min-width: 0; }
+html body #nav.cc #cc-learn strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Accent keys in the control centre (balance, keys switched on): the Sign up green, like every main key. */
+html body .cc-item .cc-circle.cc-accent, html body .cc-circle.cc-accent, html body .cc-btn.on, html body .cc-item.on .cc-circle { background: var(--key-gold) !important; border-color: #04803f !important; box-shadow: var(--key-gold-sh) !important; color: #032612 !important; }
+html body .cc-circle.cc-accent svg, html body .cc-btn.on svg, html body .cc-item.on .cc-circle svg { stroke: #032612 !important; }

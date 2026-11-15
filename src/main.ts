@@ -1,5 +1,5 @@
 import { nextMission } from './worlds.ts'
-import { RANKS, RANK_START } from './logic.ts'
+import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
@@ -1117,6 +1117,24 @@ const apiAgents = createRemoteAgents(scene)
   })
   setStepSource(() => { const st = nextStep(); return { ...st, run: () => runStep(st.go) } })
   runStepRef = runStep
+  // Learn leads the menu: the next lesson (or the first one, with Zahra), with the CV and certificates behind it.
+  // Until the first lesson is passed, the Boutique, Trade and Seasons keys wait, so a new player sees the
+  // learning path first. They come back on their own with the first pass; nothing is taken away.
+  const learnKey = document.getElementById('cc-learn')
+  let learnGo = 'mentor'
+  const paintLearn = () => {
+    const s = getSave(), passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
+    const t = document.getElementById('cc-learn-title'), sub = document.getElementById('cc-learn-sub')
+    const nextId = nextMission()
+    if (!passed.length) { learnGo = 'mentor'; if (t) t.textContent = 'Learn at Campus'; if (sub) sub.textContent = 'Your first lesson · about a minute · it goes on your CV' }
+    else if (nextId) { learnGo = `course:${nextId}`; if (t) t.textContent = `Next lesson: ${SKILL_META[nextId].title}`; if (sub) sub.textContent = `${passed.length} passed · each one adds a certificate to your CV` }
+    else { learnGo = 'panel:profile'; if (t) t.textContent = 'Every course passed'; if (sub) sub.textContent = 'Your CV and certificates' }
+    const fresh = !passed.length
+    for (const id of ['nav-boutique', 'nav-trade', 'nav-seasons']) { const b = document.getElementById(id); if (b) b.hidden = fresh }
+  }
+  learnKey?.addEventListener('click', () => runStep(learnGo))
+  paintLearn()
+  window.setInterval(() => { try { paintLearn() } catch { /* booting */ } }, 2000)
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
   onCareer(() => { paintStatus(); if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
