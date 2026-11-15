@@ -708,7 +708,7 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): 
  * chest; `kneel` sits back on the heels with the hands on the thighs. `mono` paints skin and hair one colour
  * (a shop mannequin). Returns at once and fills in when the model has loaded.
  */
-export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel' | 'cheer'; look?: Look; height?: number; cap?: number; mono?: number; detail?: number; extras?: Extras; onReady?: () => void }): THREE.Group {
+export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel' | 'cheer' | 'sit'; seatY?: number; look?: Look; height?: number; cap?: number; mono?: number; detail?: number; extras?: Extras; onReady?: () => void }): THREE.Group {
   const root = new THREE.Group()
   const look: Look | undefined = o.mono !== undefined ? { skin: o.mono, hair: o.mono, ...o.look } : o.look
   void load(figure(model, look)).then((t) => {
@@ -747,8 +747,23 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
       person.position.y += (0.085 - (knee.y - base.y)) / (root.scale.y || 1)
       root.updateMatrixWorld(true)
     }
+    if (o.pose === 'sit') {
+      // Seated: thighs forward along the seat, shins down to the floor; then the hips go to the seat height.
+      for (const s of rig.sides) {
+        aim(s.thigh, s.knee, dir(s.side * 0.06, -0.1, 0.99))
+        aim(s.knee, s.foot, dir(s.side * 0.02, -0.98, 0.14))
+      }
+      root.updateMatrixWorld(true)
+      const hp = person.getObjectByName(B.hips)?.getWorldPosition(new THREE.Vector3())
+      const base = root.getWorldPosition(new THREE.Vector3())
+      if (hp) person.position.y += ((o.seatY ?? 0.48) + 0.1 - (hp.y - base.y)) / (root.scale.y || 1)
+      root.updateMatrixWorld(true)
+    }
     for (const s of rig.sides) {
-      if (o.pose === 'pray') {
+      if (o.pose === 'sit') {
+        aim(s.upper, s.fore, dir(s.side * 0.14, -0.86, 0.48))
+        aim(s.fore, s.hand, dir(-s.side * 0.16, -0.32, 0.93))
+      } else if (o.pose === 'pray') {
         aim(s.upper, s.fore, dir(s.side * 0.22, -0.93, 0.28))
         aim(s.fore, s.hand, dir(-s.side * 0.86, 0.22, 0.46))
       } else if (o.pose === 'kneel') {

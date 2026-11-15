@@ -31,6 +31,13 @@ export type TravelCtx = {
 }
 
 const FLIGHT_USD = 40
+/** Grind Air cabins: price, name, and what you get. */
+export type Cabin = 'eco' | 'biz' | 'first'
+const CABINS: Record<Cabin, { usd: number; name: string; service: string }> = {
+  eco: { usd: 40, name: 'Economy', service: 'The trolley comes round: tea, a sandwich and a window seat with the sea below.' },
+  biz: { usd: 140, name: 'Business', service: 'Your pod reclines flat. A hot towel, a three-course meal and noise-cancelling headphones.' },
+  first: { usd: 380, name: 'First', service: 'Your own suite with a door, a proper bed, a chef\'s tasting menu and the whole window to yourself.' },
+}
 const JET_USD = 250
 
 // ---------------------------------------------------------------- small helpers
@@ -263,10 +270,87 @@ function wingGeo(side: 1 | -1, rx: number, rle: number, rte: number, tx: number,
   s.moveTo(side * rx, rle); s.lineTo(side * tx, tle); s.lineTo(side * tx, tte); s.lineTo(side * rx, rte); s.closePath()
   return new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: true, bevelThickness: thick * 0.35, bevelSize: Math.min(0.12, thick * 0.4), bevelSegments: 1 }).rotateX(Math.PI / 2)
 }
-type Jet = { group: THREE.Group; gear: THREE.Group; floorY: number; cabin: THREE.Group | null; tick: (t: number, airborne: boolean) => void }
-function jet(kind: 'liner' | 'vip'): Jet {
+/** Inside the long-haul airliner: First suites up front, Business pods, then Economy rows, under a lit ceiling,
+ * with real windows cut in the cabin walls (the fuselage skin is invisible from inside, so the sky shows through). */
+function linerCabin(floorY: number): { group: THREE.Group; seats: Record<Cabin, THREE.Vector3> } {
+  const g = new THREE.Group()
+  const Z0 = -11.4, Z1 = 10.8, W = 2.2
+  const carpet = std(0x34404f, 0.95), cream = std(0xefe9df, 0.7), grey = std(0xd9dcdf, 0.6)
+  cube(g, W * 2, 0.06, Z1 - Z0, carpet, 0, floorY - 0.03, (Z0 + Z1) / 2, false)
+  const wallTex = tex(1024, 96, (c) => {
+    c.fillStyle = '#efe9df'; c.fillRect(0, 0, 1024, 96)
+    c.globalCompositeOperation = 'destination-out'
+    const n = Math.round((Z1 - Z0) / 0.95)
+    for (let k = 0; k < n; k++) { c.beginPath(); c.roundRect(((k + 0.5) / n) * 1024 - 11, 26, 22, 40, 10); c.fill() }
+  })
+  for (const s of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(Z1 - Z0, 1.25), new THREE.MeshStandardMaterial({ map: wallTex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.7 }))
+    wall.position.set(s * W, floorY + 1.05, (Z0 + Z1) / 2); wall.rotation.y = -s * Math.PI / 2; g.add(wall)
+    const low = new THREE.Mesh(new THREE.PlaneGeometry(Z1 - Z0, 0.45), cream); low.position.set(s * W, floorY + 0.22, (Z0 + Z1) / 2); low.rotation.y = -s * Math.PI / 2; low.material.side = THREE.DoubleSide; g.add(low)
+    // Overhead bins over Business and Economy.
+    cube(g, 0.62, 0.42, 16, grey, s * (W - 0.33), floorY + 2.08, -3.4, false)
+  }
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, Z1 - Z0), std(0xf4f2ee, 0.8)); ceil.rotation.x = Math.PI / 2; ceil.position.set(0, floorY + 2.42, (Z0 + Z1) / 2); g.add(ceil)
+  for (const s of [-1, 1]) cube(g, 0.08, 0.02, Z1 - Z0, glow(0xfff2d8), s * 0.9, floorY + 2.4, (Z0 + Z1) / 2, false)
+  cube(g, W * 2, 2.4, 0.08, cream, 0, floorY + 1.2, Z1, false)
+  cube(g, W * 2, 2.4, 0.08, cream, 0, floorY + 1.2, Z0, false)
+  // Class dividers with a gap for the aisle.
+  for (const z of [-1.7, 5.4]) for (const s of [-1, 1]) cube(g, W - 0.55, 2.0, 0.06, std(0x223040, 0.6), s * (W + 0.55) / 2, floorY + 1.0, z, false)
+  // Economy: rows of 3 + 3 (instanced), a trolley in the aisle.
+  const ecoX = [-1.85, -1.37, -0.89, 0.89, 1.37, 1.85], rows: number[] = []
+  for (let z = -2.9; z > Z0 + 0.6; z -= 0.92) rows.push(z)
+  const fabric = std(0x1f4f63, 0.9), head = std(0xf4f4f2, 0.8)
+  const n = ecoX.length * rows.length
+  const base = new THREE.InstancedMesh(new THREE.BoxGeometry(0.44, 0.12, 0.46), fabric, n)
+  const back = new THREE.InstancedMesh(new THREE.BoxGeometry(0.44, 0.66, 0.09), fabric, n)
+  const rest = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.16, 0.1), head, n)
+  const mm = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.12), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3()
+  let i = 0
+  for (const z of rows) for (const x of ecoX) {
+    base.setMatrixAt(i, mm.makeTranslation(x, floorY + 0.42, z))
+    back.setMatrixAt(i, mm.compose(v.set(x, floorY + 0.8, z - 0.24), q, one))
+    rest.setMatrixAt(i, mm.compose(v.set(x, floorY + 1.08, z - 0.26), q, one))
+    i++
+  }
+  for (const im of [base, back, rest]) g.add(im)
+  cube(g, 0.38, 1.0, 0.75, std(0xc9ced4, 0.4, 0.6), 0, floorY + 0.5, -2.4)
+  // Business: four pods with shells, screens and ottomans.
+  const shell = std(0xe8e6e1, 0.4), dark = std(0x2b2f36, 0.7), screenM = std(0x0b1220, 0.25, 0, { emissive: 0x2a5c8a, emissiveIntensity: 0.8 })
+  for (const z of [0.2, 2.9]) for (const s of [-1, 1]) {
+    const x = s * 1.42
+    cube(g, 0.66, 0.14, 0.72, dark, x, floorY + 0.42, z)
+    const bk = cube(g, 0.66, 0.85, 0.12, dark, x, floorY + 0.88, z - 0.38); bk.rotation.x = -0.18
+    cube(g, 0.08, 1.15, 2.1, shell, x - s * 0.42, floorY + 0.58, z + 0.45)
+    cube(g, 0.95, 1.15, 0.08, shell, x, floorY + 0.58, z - 0.6)
+    cube(g, 0.5, 0.38, 0.42, dark, x, floorY + 0.19, z + 1.05)
+    cube(g, 0.52, 0.32, 0.03, screenM, x, floorY + 0.95, z + 1.36, false)
+  }
+  // First: two suites with walnut walls, a wide seat, a bed, a big screen and a lamp.
+  const walnut = std(0x5a3a22, 0.45), gold = std(0xd8b25a, 0.3, 0.85), leather = std(0xe9e1d2, 0.6)
+  for (const s of [-1, 1]) {
+    const x = s * 1.32
+    cube(g, 0.08, 1.3, 4.2, walnut, s * 0.42, floorY + 0.65, 8.0)
+    cube(g, 0.09, 0.04, 4.2, gold, s * 0.42, floorY + 1.32, 8.0, false)
+    cube(g, 1.7, 1.3, 0.08, walnut, x, floorY + 0.65, 10.1)
+    cube(g, 0.82, 0.16, 0.8, leather, x, floorY + 0.42, 7.0)
+    const sb = cube(g, 0.82, 0.95, 0.16, leather, x, floorY + 0.95, 6.55); sb.rotation.x = -0.15
+    cube(g, 0.82, 0.42, 1.4, leather, x, floorY + 0.21, 8.9)
+    cube(g, 0.3, 0.62, 0.7, walnut, x + s * 0.55, floorY + 0.31, 7.0)
+    put(g, new THREE.SphereGeometry(0.08, 10, 8), glow(0xffd9a0), x + s * 0.55, floorY + 0.95, 7.2, false)
+    put(g, new THREE.CylinderGeometry(0.012, 0.012, 0.3, 6), gold, x + s * 0.55, floorY + 0.77, 7.2)
+    cube(g, 1.0, 0.56, 0.03, screenM, x, floorY + 1.0, 10.05, false)
+  }
+  g.traverse((o) => { o.castShadow = false })
+  // A few fellow passengers and the crew.
+  const pax: Array<[number, number, 'woman1' | 'man2' | 'woman3' | 'man4' | 'woman2' | 'man1']> = [[-1.85, rows[2]!, 'woman1'], [0.89, rows[1]!, 'man2'], [1.37, rows[3]!, 'woman3'], [-0.89, rows[4]!, 'man4'], [1.42, 0.2, 'woman2'], [1.32, 7.0, 'man1']]
+  for (const [x, z, m] of pax) { const p = person(m, { pose: 'sit', seatY: 0.48, height: m.startsWith('w') ? 1.66 : 1.78 }); p.position.set(x, floorY, z); g.add(p) }
+  const crew = person('woman4', { pose: 'stand', height: 1.7, look: { top: 0x14a058, bottom: 0x1c1f26, shoes: 0x111111 } }); crew.position.set(0, floorY, -1.0); crew.rotation.y = Math.PI; g.add(crew)
+  return { group: g, seats: { eco: new THREE.Vector3(-1.37, floorY, rows[2]!), biz: new THREE.Vector3(-1.42, floorY, 2.9), first: new THREE.Vector3(-1.32, floorY, 7.0) } }
+}
+type Jet = { group: THREE.Group; gear: THREE.Group; floorY: number; cabin: THREE.Group | null; seats: Record<Cabin, THREE.Vector3> | null; tick: (t: number, airborne: boolean) => void }
+function jet(kind: 'liner' | 'vip', interior = false): Jet {
   const vip = kind === 'vip'
-  const len = vip ? 34 : 30, r = vip ? 2.7 : 2.0, axis = vip ? 3.7 : 3.0
+  const len = 34, r = vip ? 2.7 : 2.5, axis = vip ? 3.7 : 3.4
   const group = new THREE.Group()
   const body = std(0xffffff, 0.32, 0.25, { map: livery(kind, len, r) })
   const paint = vip ? std(0x15171b, 0.28, 0.4) : std(0xf2f3f1, 0.34, 0.25)
@@ -277,7 +361,7 @@ function jet(kind: 'liner' | 'vip'): Jet {
   fus.castShadow = true
   // Wings, low on the fuselage, swept, with winglets.
   const wingY = axis - r * 0.62
-  const span = vip ? 17 : 14.5, root = vip ? 7.2 : 6, sweep = 0.58
+  const span = vip ? 17 : 16, root = vip ? 7.2 : 6.8, sweep = 0.58
   const rle = vip ? 3.0 : 2.4
   for (const side of [1, -1] as const) {
     const w = new THREE.Group(); w.position.set(0, wingY, 0); w.rotation.z = side * 0.07
@@ -290,8 +374,8 @@ function jet(kind: 'liner' | 'vip'): Jet {
     put(w, new THREE.SphereGeometry(0.12, 8, 6), glow(side > 0 ? 0xff2a2a : 0x2aff6a), side * (span + 0.1), 0.05, tipZ - 0.4, false)
     group.add(w)
     // Engine: nacelle, intake lip, fan and spinner, exhaust cone, pylon.
-    const ex = side * (vip ? 6.4 : 5.6)
-    const nr = vip ? 1.15 : 0.95, nl = vip ? 4.2 : 3.6
+    const ex = side * (vip ? 6.4 : 6.1)
+    const nr = vip ? 1.15 : 1.08, nl = vip ? 4.2 : 4.0
     const ez = rle - (Math.abs(ex) - r * 0.7) * sweep + nl * 0.45
     const eng = new THREE.Group(); eng.position.set(ex, wingY - nr - 0.25, ez)
     put(eng, new THREE.CylinderGeometry(nr, nr * 0.86, nl, 24, 1, true).rotateX(Math.PI / 2), vip ? paint : std(0xdde1e5, 0.3, 0.5))
@@ -335,6 +419,8 @@ function jet(kind: 'liner' | 'vip'): Jet {
   group.add(gear)
   const floorY = axis - (vip ? 1.3 : 1.0)
   let cabin: THREE.Group | null = null
+  let seats: Record<Cabin, THREE.Vector3> | null = null
+  if (!vip && interior) { const c = linerCabin(floorY); cabin = c.group; seats = c.seats; group.add(cabin) }
   if (vip) {
     // The lounge: dark floor, cream leather lower walls, a panoramic window band, a lit ceiling, a bar.
     cabin = new THREE.Group()
@@ -379,12 +465,12 @@ function jet(kind: 'liner' | 'vip'): Jet {
     group.add(cabin)
   }
   return {
-    group, gear, floorY, cabin,
+    group, gear, floorY, cabin, seats,
     tick(t, airborne) {
       const flash = (t * 1.1) % 1 < 0.08
       for (const b of beacons) b.visible = flash
       strobe.visible = airborne && (t * 1.3) % 1 < 0.05
-      if (cabin) {
+      if (cabin && cabin.userData.ball) {
         const ball = cabin.userData.ball as THREE.Mesh; ball.rotation.y = t * 0.8
         // Beams sweep forward over the crowd, never back at the camera.
         ;(cabin.userData.beams as THREE.Mesh[]).forEach((b, k) => { b.rotation.set(-0.55 - Math.sin(t * 1.3 + k) * 0.3, 0, Math.sin(t * 0.9 + k * 1.7) * 0.7) })
@@ -455,8 +541,11 @@ function flightLegs(kind: 'liner' | 'vip'): Leg[] {
   const push = leg([[st.x, 0, st.z, 0.8], [st.x + 7, 0, st.z, 2.6], [st.x + 14, 0, st.z - 2.5, 2.6], [st.x + 19, 0, st.z - 8, 0.8]], true)
   const roll: number[][] = [
     [st.x + 19, 0, st.z - 8, 1], [st.x + 23, 0, st.z + 4, 8], [272, 0, st.z + 18, 10], [272, 0, 92, 10], [276, 0, 104, 7], [288, 0, 110, 6], [298, 0, 104, 6], [300, 0, 92, 7],
-    [300, 0, 70, 20], [300, 0, 32, 42], [300, 0.5, -6, 54], [300, 9, -40, 58], [300, 28, -90, 62], [296, 52, -150, 64], [276, 82, -205, 64], [226, 108, -240, 64], [150, 130, -256, 64], [60, 146, -250, 64],
-    [-20, 150, -235, 64], [-85, 150, -210, 64], [-135, 150, -160, 64], [-152, 150, -90, 64],
+    [300, 0, 70, 20], [300, 0, 32, 42], [300, 0.5, -6, 54], [300, 9, -40, 58], [300, 28, -90, 62], [296, 52, -150, 64], [276, 82, -205, 64],
+    ...(kind === 'vip'
+      ? [[226, 108, -240, 64], [150, 130, -256, 64], [60, 146, -250, 64], [-20, 150, -235, 64], [-85, 150, -210, 64], [-135, 150, -160, 64], [-152, 150, -90, 64]]
+      // GA 101 cruises far out over the sea first: time in your cabin, with the coast on the horizon.
+      : [[240, 112, -290, 60], [170, 138, -430, 50], [40, 152, -540, 46], [-90, 156, -520, 46], [-170, 154, -420, 48], [-170, 152, -300, 54], [-128, 150, -200, 62], [-152, 150, -90, 64]]),
   ]
   const city: number[][] = kind === 'vip'
     ? [[-122, 155, 0, 42], [-62, 156, 72, 40], [30, 156, 102, 40], [104, 156, 62, 40], [118, 156, -28, 40], [64, 156, -100, 40], [-30, 156, -118, 40], [-106, 156, -72, 40], [-128, 156, 18, 40], [-82, 155, 96, 42], [10, 153, 128, 50], [100, 150, 140, 58]]
@@ -696,7 +785,7 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
     }
   }
   // --- The planes on their stands.
-  const liner = jet('liner'), spare = jet('liner'), vip = jet('vip')
+  const liner = jet('liner', true), spare = jet('liner'), vip = jet('vip')
   const park = (j: Jet, st: { x: number; z: number }) => { j.group.position.set(st.x, 0, st.z); j.group.rotation.set(0, -Math.PI / 2, 0, 'YXZ'); add(j.group) }
   park(liner, STAND_A1); park(spare, STAND_A2); park(vip, STAND_VIP)
   const party = partyKit(vip.cabin!, X, {
@@ -711,9 +800,9 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
   // --- Flying.
   let flying: Jet | null = null
   const seatW = new THREE.Vector3()
-  const fly = (j: Jet, kind: 'liner' | 'vip') => {
-    const usd = kind === 'vip' ? JET_USD : FLIGHT_USD
-    const paid = spendInGame(usd, kind === 'vip' ? 'Grind One party jet charter' : 'Flight GA 101, Skyline Tour', kind === 'vip' ? 'DJ, dance floor and a city flypast' : 'Round trip over Grind District')
+  const fly = (j: Jet, kind: 'liner' | 'vip', cls: Cabin = 'eco') => {
+    const usd = kind === 'vip' ? JET_USD : CABINS[cls].usd
+    const paid = spendInGame(usd, kind === 'vip' ? 'Grind One party jet charter' : `Flight GA 101, ${CABINS[cls].name}`, kind === 'vip' ? 'DJ, dance floor and a city flypast' : 'Round trip over the sea and Grind District')
     if (!paid.ok) { X.toast(paid.message); return }
     const R = route(flightLegs(kind))
     flying = j
@@ -721,12 +810,12 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
     X.fade()
     const said = new Set<string>()
     const say = (k: string, m: string) => { if (!said.has(k)) { said.add(k); X.toast(m) } }
-    const seatLocal = kind === 'vip' ? new THREE.Vector3(-1.0, j.floorY, -6.4) : new THREE.Vector3(-0.85, j.floorY, 4)
+    const seatLocal = kind === 'vip' ? new THREE.Vector3(-1.0, j.floorY, -6.4) : (j.seats?.[cls] ?? new THREE.Vector3(-0.85, j.floorY, 4)).clone()
     const danceLocal = new THREE.Vector3(0, j.floorY, -2.7)
     let inside = false
     let heading = -Math.PI / 2, pitch = 0, bank = 0, alt = 0
     const high = () => THREE.MathUtils.smoothstep(alt, 60, 130)
-    say('board', kind === 'vip' ? 'Welcome aboard Grind One. The party starts once we\'re up over the city.' : 'Welcome aboard GA 101. Pushing back now. Sit back and enjoy the view.')
+    say('board', kind === 'vip' ? 'Welcome aboard Grind One. The party starts once we\'re up over the city.' : `Welcome aboard GA 101, ${CABINS[cls].name}. Pushing back now.`)
     X.startMove({
       from: { x: j.group.position.x, z: j.group.position.z, y: j.floorY }, to: { x: j.group.position.x, z: j.group.position.z, y: j.floorY },
       t: 0, dur: R.T, toLv: 0,
@@ -752,6 +841,16 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
         if (f.p.x > 360 && f.p.z < -150) say('land', 'Seats upright. We\'re lining up for runway 18 over the sea.')
         if (alt < 0.6 && f.p.z > -62 && f.p.z < 10 && said.has('up')) say('touch', 'Touchdown. Welcome back to Grind International.')
         // The party jet: once at height, you're inside on the dance floor; back in your seat for the landing.
+        // GA 101: once at cruise over the open sea you're in your seat in the cabin; out again for the city.
+        if (kind === 'liner') {
+          const want2 = alt > 120 && f.p.z < -185 && said.has('up')
+          if (want2 !== inside) {
+            inside = want2
+            X.fade()
+            if (inside) X.toast(`${CABINS[cls].name}: ${CABINS[cls].service}`)
+            else { X.toast('Back over the coast: the lighthouse, then the whole city below.'); adjust(cls === 'first' ? { hunger: 40, energy: 40, hygiene: 10, social: 10 } : cls === 'biz' ? { hunger: 30, energy: 20, social: 6 } : { hunger: 10, social: 4 }, 'quiet') }
+          }
+        }
         if (kind === 'vip') {
           const want2 = alt > 128 && said.has('up')
           if (want2 !== inside) {
@@ -761,16 +860,17 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
           }
         }
         j.group.updateMatrixWorld(true)
-        seatW.copy(inside ? danceLocal : seatLocal)
-        if (inside) seatW.y += Math.abs(Math.sin((X.now() * 122 / 60) * Math.PI)) * 0.05
+        const dancing = inside && kind === 'vip'
+        seatW.copy(dancing ? danceLocal : seatLocal)
+        if (dancing) seatW.y += Math.abs(Math.sin((X.now() * 122 / 60) * Math.PI)) * 0.05
         seatW.applyMatrix4(j.group.matrixWorld)
         return { x: seatW.x, z: seatW.z, y: seatW.y }
       },
-      seat: () => (inside ? null : { yaw: heading, y: 0.45 }),
-      face: () => (inside ? heading : null),
+      seat: () => (inside && kind === 'vip' ? null : { yaw: heading, y: 0.45 }),
+      face: () => (inside && kind === 'vip' ? heading : null),
       // Up high the camera stands further back and looks down, so the city fills the frame below the plane.
-      camFn: () => (inside ? 4.3 : (kind === 'vip' ? 30 : 34) + high() * 18),
-      view: () => (inside ? { heading, pitch: 0.12 } : { heading, pitch: 0.22 + Math.min(1, alt / 20) * 0.08 + high() * 0.2 }),
+      camFn: () => (inside ? (kind === 'vip' ? 4.3 : 2.9) : (kind === 'vip' ? 30 : 36) + high() * 18),
+      view: () => (inside ? { heading, pitch: kind === 'vip' ? 0.12 : 0.3 } : { heading, pitch: 0.22 + Math.min(1, alt / 20) * 0.08 + high() * 0.2 }),
       done: () => {
         X.wind(0)
         party.stop()
@@ -780,7 +880,7 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
         j.group.position.set(kind === 'vip' ? STAND_VIP.x : STAND_A1.x, 0, kind === 'vip' ? STAND_VIP.z : STAND_A1.z)
         j.group.rotation.set(0, -Math.PI / 2, 0, 'YXZ')
         j.gear.visible = true
-        X.toast(adjust(kind === 'vip' ? { social: 45 } : { social: 12 }, 'quiet') || (kind === 'vip' ? 'What a party. Same again some time?' : 'Thanks for flying Grind Air.'))
+        X.toast(adjust(kind === 'vip' ? { social: 45 } : { social: 12 }, 'quiet') || (kind === 'vip' ? 'What a party. Same again some time?' : `Thanks for flying Grind Air ${CABINS[cls].name}.`))
       },
       exit: kind === 'vip' ? { x: 212.4, z: 48.4 } : { x: 219, z: -1 },
     })
@@ -789,8 +889,15 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
   // --- What you can do here.
   const use = (u: Hotspot) => A.use(0, u)
   use({ id: 'air-train', x: 143, z: 16, r: 1.8, title: 'Grind Metro · Airport', body: 'Trains back round the city: the Marina, the Raceway, Grind Park, the Sky Tower and the Beach.', enter: 'Take the train · $2', use: () => X.train() })
-  use({ id: 'air-checkin', x: 207.3, z: 8, r: 2.4, title: 'Grind Air check-in', body: 'Flight GA 101, the Skyline Tour: push back, take off over the sea, sweep round the lighthouse, cross the whole city at 150 m and land back here. You sit by the window the whole way.', enter: `Board flight GA 101 · $${FLIGHT_USD}`, use: () => fly(liner, 'liner') })
-  use({ id: 'air-gate', x: 219.6, z: -3, r: 1.6, title: 'Gate A1', body: 'GA 101, the Skyline Tour, boarding now.', enter: `Board flight GA 101 · $${FLIGHT_USD}`, use: () => fly(liner, 'liner') })
+  // Check-in by cabin: Economy, Business and First, each with its own desk on the counter.
+  const route101 = 'Flight GA 101: push back, take off over the bay, cruise far out over the sea in your cabin, back past the lighthouse, across the whole city at 150 m, and land here.'
+  for (const [cls, z] of [['eco', 13], ['biz', 8], ['first', 3]] as const) {
+    const c = CABINS[cls]
+    const tag = sign(c.name.toUpperCase(), 1.6, 0.34, { bg: cls === 'first' ? '#0b0c0e' : cls === 'biz' ? '#1d2b45' : '#123524', fg: cls === 'first' ? '#d8b25a' : '#ffffff', glowing: true })
+    tag.position.set(208.07, 0.82, z); tag.rotation.y = -Math.PI / 2; g.add(tag)
+    use({ id: `air-checkin-${cls}`, x: 207.3, z, r: 1.9, title: `Grind Air · ${c.name}`, body: `${route101} ${c.service}`, enter: `Board GA 101 ${c.name} · $${c.usd}`, use: () => fly(liner, 'liner', cls) })
+  }
+  use({ id: 'air-gate', x: 219.6, z: -3, r: 1.6, title: 'Gate A1', body: 'GA 101, boarding now. Economy seats left at the gate; Business and First at check-in.', enter: `Board GA 101 Economy · $${FLIGHT_USD}`, use: () => fly(liner, 'liner', 'eco') })
   use({ id: 'air-vip', x: 213, z: 49, r: 1.8, title: 'Grind One Lounge', body: 'Charter Grind One, the party jet: a DJ, an LED dance floor, a bar and a crowd, in a cabin with panoramic windows, circling the city at 155 m.', enter: `Charter the party jet · $${JET_USD}`, use: () => fly(vip, 'vip') })
   use({ id: 'air-cafe', x: 204.5, z: 28.6, r: 1.6, title: 'Café', body: 'Coffee before your flight.', enter: 'Flat white · $4', use: () => { const p = spendInGame(4, 'Flat white', 'Grind International'); X.toast(p.ok ? adjust({ energy: 12, hunger: 4 }, 'quiet') || 'Lovely coffee.' : p.message) } })
 }
