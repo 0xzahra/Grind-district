@@ -3510,3 +3510,15 @@ html[data-ui='light'] .home-card, html[data-ui='light'] .style-card, html[data-u
 .style-swatch i { display: block; }
 .homes-tabs { justify-content: flex-start; }
 
+/* Referrals (referrals.ts) in Profile: four count tiles, friends who joined, rewards to collect, top inviters. */
+.ref-box { display: grid; gap: 10px; }
+.ref-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ref-tile { display: grid; gap: 2px; padding: 10px 8px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); text-align: center; }
+html[data-ui='light'] .ref-tile { background: rgba(0, 0, 0, 0.04); }
+.ref-tile b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.ref-tile span { font-size: 11px; opacity: 0.7; }
+.ref-list, .ref-top { display: grid; gap: 6px; }
+.ref-row { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: 13px; }
+.ref-row span { opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-row em { font-style: normal; font-size: 11px; color: #d9b45a; }
+

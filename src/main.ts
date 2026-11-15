@@ -209,6 +209,8 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   ])
 
   { const q = new URLSearchParams(location.search); const r = q.get('ref'); if (q.get('src') === 'invite' && r && /^[a-z0-9_]{3,20}$/.test(r)) localStorage.setItem('gd.invitedBy', r) }
+  // Count the opened invite link for the friend who shared it, and give an invited player their welcome gift.
+  void import('./referrals.ts').then((m) => { m.recordInviteOpen(); window.addEventListener('gd:revealed', () => window.setTimeout(() => void m.checkInviteGift((t) => ui.toast(t)), 5000), { once: true }) })
   performance.mark('gd:city-start')
   const renderer = createRenderer(canvas)
   if (!renderer) {

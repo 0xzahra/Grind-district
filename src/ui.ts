@@ -31,6 +31,7 @@ import { renderLedger } from './ledger.ts'
 import { PLACES, placeNodes, casinoNodes, wellnessNodes, buyAt } from './places.ts'
 import { marketNodes, hostNodes } from './town.ts'
 import { homesNodes } from './homesShop.ts'
+import { referralNodes } from './referrals.ts'
 import { societyNodes } from './society.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
@@ -389,7 +390,6 @@ export function mountUi(
     share.className = 'glass'
     const link = (src: 'profile' | 'invite') => src === 'profile' ? profileLink(save.username) : shareLink('/', 'invite', save.username)
     const status = para('', 'muted')
-    const joined = para('', 'muted')
     share.append(
       head('Invite and share'),
       photoCardNodes({ para, button }, () => hooks.portrait?.() ?? null, (m) => toast(m)),
@@ -398,11 +398,10 @@ export function mountUi(
       button('Share on 𝕏', 'ghost', () => shareToX(save.username, rankFor(getSave().xp).label)),
       button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
       ),
-      status, joined,
+      status,
+      // Referrals: link opens, friends who joined and how far they got, rewards to collect, top inviters.
+      referralNodes({ para, button }, (m) => toast(m)),
     )
-    if (save.username) void fetch(`/api/referrals?u=${encodeURIComponent(save.username)}`).then((r) => r.json()).then((j: { joined?: string[] }) => {
-      joined.textContent = j.joined?.length ? j.joined.map((p) => `@${p} joined via your invite link.`).join(' ') : 'No one has joined via your link yet.'
-    }).catch(() => {})
     const card = frame(save.name, stack(hero, renderToday(save), glass, share, renderRewardWallet(), advice()))
     card.classList.add('glass-sheet')
     return card

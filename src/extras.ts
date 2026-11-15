@@ -16,7 +16,7 @@ const MAKEUP = 'gd.makeup.v1'
 const WARDROBE = 'gd.wardrobe.v1'
 const OWNER = 'gd.extras.owner'
 type Obj = Record<string, unknown>
-export type Extras = { v: 1; at: number; needs?: Obj; pass?: Obj; career?: Obj; makeup?: Obj; wardrobe?: Obj; homes?: Obj }
+export type Extras = { v: 1; at: number; needs?: Obj; pass?: Obj; career?: Obj; makeup?: Obj; wardrobe?: Obj; homes?: Obj; ref?: Obj }
 
 const get = (k: string): Obj | undefined => { try { const v = JSON.parse(localStorage.getItem(k) ?? 'null') as unknown; return v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : undefined } catch { return undefined } }
 const put = (k: string, v: Obj) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* private mode */ } }
@@ -35,6 +35,7 @@ export function collectExtras(): Extras {
   const makeup = get(MAKEUP); if (makeup) out.makeup = makeup
   const wardrobe = get(WARDROBE); if (wardrobe) out.wardrobe = wardrobe
   const homes = get(`${slot}.homes`); if (homes) out.homes = homes
+  const ref = get(`${slot}.ref`); if (ref) out.ref = ref
   return out
 }
 
@@ -81,6 +82,15 @@ export function applyExtras(serverSave: unknown, userId: string): boolean {
         style: { ...(obj(sHomes.style) ?? {}), ...(obj(lHomes?.style) ?? {}) }, luxe,
         layout: { ...(obj(sHomes.layout) ?? {}), ...(obj(lHomes?.layout) ?? {}) },
       })
+    }
+
+    // Referral rewards already collected (referrals.ts): never paid twice across devices.
+    const sRef = obj(x.ref), lRef = get(`${slot}.ref`)
+    if (sRef) {
+      const sc = obj(sRef.claimed) ?? {}, lc = obj(lRef?.claimed) ?? {}
+      const claimed: Obj = {}
+      for (const k of new Set([...Object.keys(sc), ...Object.keys(lc)])) claimed[k] = Math.max(num(sc[k]), num(lc[k]))
+      set(`${slot}.ref`, { gift: sRef.gift === true || lRef?.gift === true, claimed })
     }
   }
 
