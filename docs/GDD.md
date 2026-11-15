@@ -151,12 +151,19 @@ A walkable district built around a central plaza, with interiors you enter throu
 | **Hospital** | A daily check-up, a free ward bed when you are exhausted, physio. |
 | **The Velvet Room** | A casino front, closed for good. Its door opens a card on how gambling and trading differ, with helplines. No game of chance exists in the city. |
 | **Gym, Masjid, Church, Café, Dealership, Marina, Beach** | Daily life: workouts, prayer, rest, coffee, cars, the waterfront and the sea. |
+| **Grind International Airport** *(after the deadline)* | By metro, east of the city: a glass terminal, check-in by cabin, gate lounges, the Grind One Lounge, airliners on their stands, a runway over the sea, and the Grind Orbital spaceport past the runway. |
+| **The Grind Grand** *(after the deadline)* | A hotel tower west of the city: a marble lobby, a suite for the night, and a lift to a rooftop infinity pool and sky bar. |
+| **Grind Mall** *(after the deadline)* | East of the city: two floors round an atrium with an escalator and a glass lift, the Grind Fresh supermarket, fashion, tech, a pharmacy, a food court and a cinema. |
 
 <p align="center"><img src="screenshots/plaza.jpg" alt="Plaza" width="240"> <img src="screenshots/trading-floor.jpg" alt="Trading floor" width="240"> <img src="screenshots/home.jpg" alt="Home" width="240"> <img src="screenshots/boutique.jpg" alt="Boutique" width="240"></p>
 
 <p align="center"><img src="screenshots/street.jpg" alt="Corner store and pharmacy on your street" width="240"> <img src="screenshots/casino.jpg" alt="The casino front: gambling vs trading" width="240"> <img src="screenshots/boutique-racks.jpg" alt="Clothes on the rails" width="240"> <img src="screenshots/makeup.jpg" alt="Makeup kit" width="240"></p>
 
 **Time and weather.** Day, dusk and night with matching light, street lamps and city sound (wind, traffic, footsteps, cups, passing cars).
+
+**Seasons and climate** *(after the deadline).* Seasons turn every two in-game days from the real season: spring blossom, summer light, autumn's orange trees and falling leaves, winter snow on the trees and streets. **Seasons & climate** in the menu shows any season now and previews 2050 and 2100 under low and high emissions (IPCC AR6 global figures): the waterline climbs the beach with sea-level rise (the 2100 high path floods it to the promenade), heat haze thickens, parks dry out, storms come more often, with what each future means and what helps.
+
+<p align="center"><img src="shots-2026-11-15/season-winter.jpg" alt="Winter" width="200"> <img src="shots-2026-11-15/season-autumn.jpg" alt="Autumn" width="200"> <img src="shots-2026-11-15/climate-today.jpg" alt="The beach today" width="200"> <img src="shots-2026-11-15/climate-2100-high.jpg" alt="The beach in 2100 on the high-emission path" width="200"></p>
 
 ---
 
@@ -227,10 +234,18 @@ Needs give players a reason to come back each day; the season gives them a goal 
 | **Driving** | Your most valuable car waits by your house; every dealership car has a free test drive. One stick (up to go, back to brake or reverse, sideways to steer) and one button (Get out). Chase camera, rolling and steering wheels, an engine note; traffic gives way. |
 | **Grind Raceway circuit** | A circuit south of the city with kerbs, barriers, a start gantry and a grandstand. Two laps against three rival drivers, a 3-2-1 start, gates and a gold arrow, your place live, a ghost of your best run, medals against par. |
 | **Bay cruise** | A day cruiser from the harbour launch: seven pairs of buoys round a lighthouse rock, a wake, the bow lifting at speed. |
-| **Grind Metro and Grind Park** | A three-car train on a raised line round the city, five stations, $2 a ride, "Get off at the next stop" on the gold button. It runs out to Grind Park: lawns, a lake, a fountain, a playground, an ice-cream kiosk, and rides: a roller coaster (chain lift to 22 m, a big drop, a tight turn, gravity-driven speed, the camera in the front car), a speed slide and a winding tube slide from a 14 m tower into a splash pool, a Ferris wheel and a carousel. A $12 day pass at the gate covers every ride; without it each ride has its fare ($2 to $5). |
+| **Grind Metro and Grind Park** | A three-car train on a raised line round the city, six stations, $2 a ride, "Get off at the next stop" on the gold button. It runs out to Grind Park and the airport. Grind Park: lawns, a lake, a fountain, a playground, an ice-cream kiosk, and seated rides: a roller coaster (chain lift to 22 m, a big drop, a tight turn, gravity-driven speed), a speed slide and a tube slide from a 14 m tower into a splash pool, a Ferris wheel and a carousel. A $100 day pass at the gate covers every ride and the zoo's safari tram; without it each ride has its fare. |
+| **Grind Park west** *(after the deadline)* | A picnic lawn (sit down to a hamper, $12); **Grind Zoo**, four enclosures with giraffes, zebras, elephants, lions and flamingos that walk about, and an open-top safari tram between them ($15); **Grind Golf**, three par-3 holes ($25) with a swing meter: aim is automatic, stop the marker in the gold zone, follow the ball, putt it in. |
+| **Flights** *(after the deadline)* | Flight GA 101 from Grind International in **Economy ($40), Business ($140) or First ($380)**: pushback, taxi, take-off over the bay, a cruise far out over the sea in your own cabin with its service, back past the lighthouse, across the city at 150 m and a landing. **Grind One**, the party jet ($250): a DJ, an LED dance floor, a bar and a crowd in a lounge with panoramic windows while it circles the city. |
+| **Party yacht** *(after the deadline)* | From the harbour ($150): a 30 m yacht with a DJ and guests dancing on the aft deck, string lights and live party music, out past the lighthouse and back. |
+| **Grind Orbital** *(after the deadline)* | A rocket trip ($2,500), seated in the capsule: countdown, liftoff, stage separation, orbit 400 km up over a curved Earth with a thin blue atmosphere and stars, re-entry in a plasma glow, three parachutes and a splashdown off the city. Original rocket and company. |
 | **Luxury homes** | Grind Realty sells a garden duplex ($9,500), a hillside mansion with an escalator, a glass lift, a roof infinity pool and a helipad ($32,000), the crown penthouse on the marina tower ($48,000) and the sky house on the 110 m Sky Tower ($90,000), each with a free viewing. Ten whole-room looks (try first, buy once), twelve premium pieces, and Arrange (tap a piece, tap where it goes). |
 
 <p align="center"><img src="screenshots/cars.jpg" alt="The seven dealership cars" width="720"></p>
+
+<p align="center"><img src="shots-2026-11-15/flypast.jpg" alt="GA 101 over the city" width="200"> <img src="shots-2026-11-15/first-class.jpg" alt="A First suite" width="200"> <img src="shots-2026-11-15/party-jet.jpg" alt="The party jet" width="200"> <img src="shots-2026-11-15/yacht-party.jpg" alt="The party yacht" width="200"></p>
+
+<p align="center"><img src="shots-2026-11-15/rocket-liftoff.jpg" alt="Liftoff" width="200"> <img src="shots-2026-11-15/orbit.jpg" alt="In orbit" width="200"> <img src="shots-2026-11-15/zoo.jpg" alt="Grind Zoo" width="200"> <img src="shots-2026-11-15/hotel-rooftop.jpg" alt="The Grind Grand's rooftop pool" width="200"></p>
 
 <p align="center"><img src="screenshots/etiquette.jpg" alt="A class at the Etiquette House" width="220"> <img src="screenshots/raceway.jpg" alt="Raceway time trial" width="220"> <img src="screenshots/cards.jpg" alt="District Cards" width="220"> <img src="screenshots/photo-card.jpg" alt="Photo card" width="220"></p>
 
@@ -383,7 +398,7 @@ North star: **weekly players who pass at least one lesson.**
 
 | Phase | When | What |
 | --- | --- | --- |
-| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). |
+| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). Since 15 Nov (after the hackathon): luxury homes, the metro, Grind Park with its rides, zoo and golf, the airport with three cabins, the party jet and yacht, a trip to orbit, the four seasons and climate previews, the hotel and the mall. |
 | **Next** | Dec 2026 – Q1 2027 | An AI companion you feed and dress, run on NEAR AI. Sign-in from any chain (NEAR Intents). Private, selective sharing of certificates on Midnight. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. |
 | **Then** | Q1 – Q2 2027 | Agents that help their owners play and earn rewards. Partner courses from Web3 projects with their own certificates. Guilds and team challenges. Creator tools for community lessons. |
 | **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
