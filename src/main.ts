@@ -1523,7 +1523,7 @@ const apiAgents = createRemoteAgents(scene)
       if (ui.isOpen()) ui.close()
       if (seating.sitting) seating.stand()
       const s = h.enter(id, viewing)
-      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' ? null : id)
+      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
       pos.x = s.x; pos.z = s.z; levelY = s.y
@@ -1533,7 +1533,7 @@ const apiAgents = createRemoteAgents(scene)
       camYaw = s.heading + Math.PI
       cameraReady = false
       avatar.object.position.set(pos.x, levelY, pos.z)
-      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
     } finally { homeBusy = false }
   }
   const leaveHome = () => {
@@ -1610,6 +1610,7 @@ const apiAgents = createRemoteAgents(scene)
   window.addEventListener('gd:revealed', () => window.setTimeout(() => {
     void import('./metro.ts').then((m) => {
       metro = m.createMetro(scene, { onArrive: (id) => metroArrive(id) })
+      void import('./venues.ts').then((v) => { streetSpots.push(...v.cityVenues(scene, (id) => void enterHome(id, true))) })
       for (const st of m.STATIONS) if (st.id !== 'park' && st.id !== 'airport') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
       parkPillars()
     })

@@ -11,13 +11,16 @@ import { adjust } from './needs.ts'
 import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type Palette, type StyleId } from './homesShop.ts'
 import { buildAirport, buildYacht, type TravelCtx } from './travel.ts'
 import { buildParkPlus } from './parkPlus.ts'
+import { buildHotel, buildMall, HOTEL, MALL } from './venues.ts'
 
 export type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
-export type AreaId = HomeId | 'park' | 'airport' | 'yacht'
+export type AreaId = HomeId | 'park' | 'airport' | 'yacht' | 'hotel' | 'mall'
 /** Places anyone can visit (not homes you own): no styles, no arranging, nothing saved. */
-export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht']
+export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht', 'hotel', 'mall']
 const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
+/** Outside pieces that hide while you're in that place (so the camera isn't boxed in). */
+const SHELLS = ['shell-penthouse', 'shell-skyhouse', 'shell-hotel', 'shell-mall']
 type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
@@ -313,6 +316,26 @@ function plans(): Record<AreaId, Plan> {
       levels: [{ y: 0, walk: R(134, -78, 430, 128), pools: [] }],
       spawn: { x: 143, z: 12, heading: Math.PI / 2, lv: 0 },
       exitTo: { x: 59, z: 8 },
+      house: null,
+      pieces: [],
+      build: () => {},
+    },
+    // The Grind Grand hotel west of the city (venues.ts): the lobby, and the rooftop pool and sky bar 48 m up.
+    hotel: {
+      id: 'hotel',
+      levels: [{ y: 0, walk: R(HOTEL.x0 + 0.5, HOTEL.z0 + 0.5, HOTEL.x1 - 0.5, HOTEL.z1 - 0.5), pools: [] }, { y: HOTEL.roof, walk: R(HOTEL.x0 + 0.5, HOTEL.z0 + 0.5, HOTEL.x1 - 0.5, HOTEL.z1 - 0.5), pools: [R(HOTEL.x0 + 2, HOTEL.z1 - 7, HOTEL.x1 - 2, HOTEL.z1 - 1)] }],
+      spawn: { x: (HOTEL.x0 + HOTEL.x1) / 2, z: HOTEL.z1 - 2.4, heading: Math.PI, lv: 0 },
+      exitTo: { x: -57.6, z: -34 },
+      house: null,
+      pieces: [],
+      build: () => {},
+    },
+    // Grind Mall east of the city (venues.ts): two floors round an atrium, with the Grind Fresh supermarket.
+    mall: {
+      id: 'mall',
+      levels: [{ y: 0, walk: R(MALL.x0 + 0.5, MALL.z0 + 0.5, MALL.x1 - 0.5, MALL.z1 - 0.5), pools: [] }, { y: MALL.up, walk: R(MALL.x0 + 0.5, MALL.z0 + 0.5, MALL.x1 - 0.5, MALL.z1 - 0.5), pools: [] }],
+      spawn: { x: MALL.x0 + 2.4, z: -26, heading: Math.PI / 2, lv: 0 },
+      exitTo: { x: 57.6, z: -18 },
       house: null,
       pieces: [],
       build: () => {},
@@ -642,7 +665,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
         for (const l of lvls) {
           const i = lvls.indexOf(l)
           const to = i < lvls.length - 1 ? lvls[i + 1]! : lvls[0]!
-          levels[l]!.uses.push({ id: `home-lift-${l}`, x, z: z + 1.6, r: 1.0, title: 'Glass lift', body: 'Ride between the floors.', enter: label(l, to), use: () => startMove({ from: { x, z: z + 0.15, y: levels[l]!.y }, to: { x, z: z + 0.15, y: levels[to]!.y }, t: 0, dur: 1.2 + Math.abs(levels[to]!.y - levels[l]!.y) * 0.25, toLv: to, car, carY0: levels[l]!.y, carY1: levels[to]!.y }) })
+          levels[l]!.uses.push({ id: `home-lift-${l}`, x, z: z + 1.6, r: 1.0, title: 'Glass lift', body: 'Ride between the floors.', enter: label(l, to), use: () => startMove({ from: { x, z: z + 0.15, y: levels[l]!.y }, to: { x, z: z + 0.15, y: levels[to]!.y }, t: 0, dur: 1.2 + Math.min(6, Math.abs(levels[to]!.y - levels[l]!.y) * 0.25), toLv: to, car, carY0: levels[l]!.y, carY1: levels[to]!.y }) })
           staticObs[l]!.push({ kind: 'box', x, z: z - 0.95, hx: 1, hz: 0.1 }, { kind: 'box', x: x - 0.95, z, hx: 0.1, hz: 1 }, { kind: 'box', x: x + 0.95, z, hx: 0.1, hz: 1 })
         }
       },
@@ -675,6 +698,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (plan.id === 'park') { parkRides(A); parkThrills(A); buildParkPlus(A, { ...travel, fare, charge, onRelabel: (f) => { relabelHooks.push(f) } }) }
     if (plan.id === 'airport') buildAirport(A, travel)
     if (plan.id === 'yacht') buildYacht(A, travel)
+    if (plan.id === 'hotel') buildHotel(A, travel)
+    if (plan.id === 'mall') buildMall(A, travel)
     // Everything in an area is scenery to the camera (people load in later and mark themselves).
     root!.traverse((c) => { c.userData.ghost = true })
     // Everyday uses on top of the plan's: sleep in the bed, cook at the kitchen.
@@ -1093,7 +1118,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get inside() { return inside },
     get viewing() { return viewing },
     get arranging() { return arranging },
-    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
+    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : plan.id === 'hotel' ? 'The Grind Grand' : plan.id === 'mall' ? 'Grind Mall' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
     /** On a flight: the camera sees much further, the haze thins and the sky follows you up. */
     get flying() { return flying },
     /** Tests only: run rides and flights faster. */
@@ -1107,9 +1132,10 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       trying = null
       plan = P[id]
       level = plan.spawn.lv
+      move = null
       swamToday = false
       build()
-      for (const n of ['shell-penthouse', 'shell-skyhouse']) { const o = scene.getObjectByName(n); if (o) o.visible = n !== `shell-${id}` }
+      for (const n of SHELLS) { const o = scene.getObjectByName(n); if (o) o.visible = n !== `shell-${id}` }
       paintHud()
       const s = plan.spawn
       return { x: s.x, z: s.z, heading: s.heading, y: levels[level]!.y }
@@ -1118,7 +1144,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       const out = plan?.exitTo ?? { x: 40, z: -27.2 }
       dispose3d()
       wind(0)
-      for (const n of ['shell-penthouse', 'shell-skyhouse']) { const o = scene.getObjectByName(n); if (o) o.visible = true }
+      for (const n of SHELLS) { const o = scene.getObjectByName(n); if (o) o.visible = true }
       inside = null; plan = null; levels = []; pieces = []; move = null; trying = null
       setArranging(false)
       hud.hidden = true
