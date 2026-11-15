@@ -63,7 +63,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **Reasons to come back today.** A daily streak, needs that drop while you are away, a business that keeps selling to residents while you are gone (up to two hours are caught up), the Grind Pass season, friendships and events with residents, and messages with push and email alerts.
 - **Next (plans).** Dec 2026 to Q1 2027: an AI companion run on NEAR AI, sign-in from any chain with NEAR Intents, gas-sponsored certificate mints and alerts for streaks and events. Q1 to Q2 2027: partner courses, guilds and team challenges, and tools for community lessons. H2 2027: mainnet credentials that employers can check, and the job board. The full roadmap is in the [GDD](docs/GDD.md#18-roadmap).
 
-**Added after the deadline (15 Nov, not part of the hackathon entry):** luxury homes at Grind Realty (a duplex, a mansion with an escalator and a glass lift, a penthouse and a sky house with infinity pools, whole-room looks, premium pieces), referral rewards and tracking for invite links, and the Grind Metro train out to Grind Park (Ferris wheel, carousel).
+**Added after the deadline (15 Nov, not part of the hackathon entry):** luxury homes at Grind Realty (a duplex, a mansion with an escalator and a glass lift, a penthouse and a sky house with infinity pools, whole-room looks, premium pieces), referral rewards and tracking for invite links, and the Grind Metro train out to Grind Park (a day pass at the gate; a roller coaster, a speed slide, a tube slide, a Ferris wheel and a carousel).
 
 ## Screenshots
 
