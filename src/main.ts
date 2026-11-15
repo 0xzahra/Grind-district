@@ -52,7 +52,7 @@ import { applyPrefs } from './prefs.ts'
 import { createCrowd, label as nameLabel } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket, spendInGame, bonusXp } from './state.ts'
+import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket, spendInGame, bonusXp, isAccountBound } from './state.ts'
 import { mountUi } from './ui.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
@@ -828,11 +828,12 @@ const apiAgents = createRemoteAgents(scene)
   }
   nav.inert = true
   const closeSheet = () => { ccSheet.hidden = true; document.body.classList.remove('cc-sheet-on'); sheetBody.replaceChildren() }
+  let bakeWhenStill = () => { /* set once the map helpers exist */ }
   const setCC = (open: boolean) => {
     document.body.classList.toggle('rail-shut', !open)
     nav.inert = !open // keyboard and screen readers skip the shut menu too
     railToggle.setAttribute('aria-expanded', String(open))
-    if (open) { paintStatus(); paintNeedsCard(must('#cc-needs')) }
+    if (open) { paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
     else closeSheet()
   }
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
@@ -1131,6 +1132,8 @@ const apiAgents = createRemoteAgents(scene)
     else { learnGo = 'panel:profile'; if (t) t.textContent = 'Every course passed'; if (sub) sub.textContent = 'Your CV and certificates' }
     const fresh = !passed.length
     for (const id of ['nav-boutique', 'nav-trade', 'nav-seasons']) { const b = document.getElementById(id); if (b) b.hidden = fresh }
+    const grid = document.querySelector('#nav .cc-grid')
+    if (grid) grid.classList.toggle('few', [...grid.querySelectorAll<HTMLElement>('.cc-item')].filter((b) => !b.hidden).length <= 4)
   }
   learnKey?.addEventListener('click', () => runStep(learnGo))
   paintLearn()
@@ -1317,7 +1320,8 @@ const apiAgents = createRemoteAgents(scene)
   // Guests: after the first reward or purchase, offer to save progress to an account (once per session);
   // on leaving with progress, the browser asks to confirm. Signed-in players sync their save every minute.
   {
-    const st = await import('./state.ts')
+    // Already loaded: no await here (an await let a queue of other work run before the city could open).
+    const st = { onActivity, isAccountBound }
     st.onActivity(() => {
       // Sign-in is offered on the title screen only; never pop it up mid-game.
       if (st.isAccountBound() || sessionStorage.getItem('gd.savePrompted')) return
@@ -1921,10 +1925,11 @@ const apiAgents = createRemoteAgents(scene)
   // interiors is declared later in main(); a timer can fire before that, so read it defensively.
   const indoors = () => { try { return Boolean(interiors.inside) } catch { return true } }
   const bake = () => !indoors() && bakeSatellite(renderer, scene, 512) // one-off render; 512 keeps rooftops/roads readable when zoomed
-  let baked = false
-  const tryBake = () => { if (!indoors()) { bake(); baked = true } else setTimeout(tryBake, 5000) }
-  setTimeout(tryBake, 4000)
-  void baked
+  // The satellite picture for the map is one full render read back from the GPU, which stalls everything for a
+  // moment. It used to run four seconds after the city started loading, in the middle of the opening; now it
+  // runs when the player opens the menu (the city holds still behind it, so nothing stutters), and the Map
+  // still draws it on demand if it is not there yet.
+  bakeWhenStill = () => { if (!satelliteUrl() && !indoors() && !document.body.classList.contains('rail-shut')) { try { bake() } catch { /* vector map */ } } }
   let debugView: [number[], number[]] | null = null
   if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
@@ -2429,7 +2434,7 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   performance.mark('gd:interiors-loop')
-  await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 4000, () => undefined, 'Shader warm-up')
+  await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 1000, () => undefined, 'Shader warm-up')
   performance.mark('gd:shaders')
   // While the full-screen menu is open the city holds still: no movement, no camera drift, no redraw.
   // The blurred backdrop keeps showing the last frame, so nothing behind the menu can shake or zoom,

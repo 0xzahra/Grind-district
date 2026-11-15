@@ -3747,7 +3747,7 @@ html[data-ui='light'] #cert-exam .cx-key:not(.cx-go):not([aria-pressed='true']) 
 #cert-exam .cx-title { text-transform: none !important; letter-spacing: -0.01em !important; font-size: 20px !important; color: inherit !important; margin: 2px 0 0 !important; }
 
 /* Learn leads the control centre (main.ts paintLearn): the first or next lesson, above everything else. */
-html body #nav.cc #cc-learn { order: -1 !important; cursor: pointer; text-align: left; font: inherit; border-color: rgba(6, 238, 116, 0.45) !important; box-shadow: inset 0 0 0 1px rgba(6, 238, 116, 0.18), 0 6px 16px rgba(0, 0, 0, 0.3); }
+html body #nav.cc #cc-learn { order: 2 !important; cursor: pointer; text-align: left; font: inherit; border-color: rgba(6, 238, 116, 0.45) !important; box-shadow: inset 0 0 0 1px rgba(6, 238, 116, 0.18), 0 6px 16px rgba(0, 0, 0, 0.3); }
 html body #nav.cc #cc-learn .cc-circle { background: var(--key-gold) !important; color: #032612 !important; box-shadow: var(--key-gold-sh) !important; border-color: #04803f !important; }
 html body #nav.cc #cc-learn .cc-circle svg { stroke: #032612; }
 html body #nav.cc #cc-learn .cc-learn-text { min-width: 0; }
@@ -3757,3 +3757,6 @@ html body .cc-item .cc-circle.cc-accent, html body .cc-circle.cc-accent, html bo
 html body .cc-circle.cc-accent svg, html body .cc-btn.on svg, html body .cc-item.on .cc-circle svg { stroke: #032612 !important; }
 html body #sheet .hunt-link { display: inline-block; margin-top: 4px; color: #06c763 !important; font-weight: 600; }
 html[data-ui='light'] body #sheet .hunt-link { color: #04803f !important; }
+
+/* With four round keys (a new player), they sit as a 2 x 2 square beside the quick keys, not in a row below. */
+html body #nav.cc .cc-grid.few { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
