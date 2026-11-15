@@ -43,6 +43,18 @@ let privyCache: Cache<{ users: number; wallets: number } | null> | null = null
 type Learning = { learners: number; lessonsPassed: number; certificates: number; returning7d: number }
 let learnCache: Cache<Learning | null> | null = null
 
+/** The week's visit events, a thousand rows at a time (the database returns at most that many per request). */
+async function weekVisits(db: SupabaseClient, since: string): Promise<Array<{ anon_id?: string; created_at?: string }>> {
+  const out: Array<{ anon_id?: string; created_at?: string }> = []
+  for (let page = 0; page < 30; page++) {
+    const r = await db.from('events').select('anon_id, created_at').gte('created_at', since).in('name', ['session_start', 'first_visit', 'sign_in']).order('created_at', { ascending: true }).range(page * 1000, page * 1000 + 999)
+    const rows = (r.data ?? []) as Array<{ anon_id?: string; created_at?: string }>
+    out.push(...rows)
+    if (r.error || rows.length < 1000) break
+  }
+  return out
+}
+
 /** Learning numbers from the synced saves, the certificate records and the visit events. Cached five minutes. */
 async function learningStats(db: SupabaseClient): Promise<Learning | null> {
   if (learnCache && Date.now() - learnCache.at < SLOW_TTL_MS) return learnCache.value
@@ -50,16 +62,16 @@ async function learningStats(db: SupabaseClient): Promise<Learning | null> {
   const [skills, certs, visits] = await Promise.all([
     db.from('player_progress').select('skills:save->skills').limit(10000),
     db.from('certificates').select('cert_id', { count: 'exact', head: true }),
-    db.from('events').select('anon_id, created_at').gte('created_at', weekAgo).in('name', ['session_start', 'first_visit', 'sign_in']).limit(20000),
+    weekVisits(db, weekAgo),
   ])
-  if (skills.error && certs.error && visits.error) { learnCache = { at: Date.now(), value: null }; return null }
+  if (skills.error && certs.error && !visits.length) { learnCache = { at: Date.now(), value: null }; return null }
   let learners = 0, lessonsPassed = 0
   for (const row of (skills.data ?? []) as Array<{ skills?: Record<string, { passed?: boolean } | null> | null }>) {
     const n = Object.values(row.skills ?? {}).filter((s) => s?.passed === true).length
     if (n > 0) { learners += 1; lessonsPassed += n }
   }
   const days = new Map<string, Set<string>>()
-  for (const row of (visits.data ?? []) as Array<{ anon_id?: string; created_at?: string }>) {
+  for (const row of visits) {
     const id = String(row.anon_id ?? ''), at = String(row.created_at ?? '')
     if (!id || !at) continue
     const set = days.get(id) ?? new Set<string>(); set.add(lagosDayStart(Date.parse(at))); days.set(id, set)
