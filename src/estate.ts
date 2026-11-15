@@ -2,6 +2,7 @@
 // a members' lounge, a plaza and a classic stone quad for the campus. Generic designs, no real buildings.
 // Geometry is merged per material (about a dozen draw calls); pools and yacht detail only on medium/high.
 import * as THREE from 'three'
+import { ownsHome } from './homesShop.ts'
 import { foliageMaterial, shrubGeometry } from './trees.ts'
 import { pbrSet } from './pbrTex.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -104,6 +105,48 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   box(M.timber, 8, 0.35, 6.8, px - 0.7, 26.4, pz)
   block(px, pz, 3.2, 3.2)
   statusSpot('penthouse', 'penthouse', px - 4.4, pz + 2, 'Sky penthouse', 'Lift to the crown. Your penthouse looks over the whole district.')
+
+  // Luxury homes (homesShop.ts, homes.ts): the crown penthouse's glass pavilion and terrace pool on this tower, and
+  // the Sky Tower at the west edge with the sky house on top. Each shell hides while you are inside that home.
+  {
+    const shell = (name: string) => { const g = new THREE.Group(); g.name = name; scene.add(g); return g }
+    // Visual shells only: the camera and taps pass through them (a hidden mesh would still stop a ray).
+    const add = (g: THREE.Group, m: THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y + h / 2, z); me.castShadow = true; me.receiveShadow = true; me.userData.ghost = true; me.raycast = () => undefined; g.add(me) }
+    const pen = shell('shell-penthouse')
+    add(pen, M.plaster, 18, 0.3, 13, 51, 26.5, -32)
+    add(pen, M.glass, 13.5, 3.1, 13, 53.25, 26.8, -32)
+    add(pen, M.plaster, 14, 0.25, 13.5, 53.25, 29.9, -32)
+    add(pen, M.pool, 2.5, 0.05, 9, 43.55, 26.75, -32)
+    const sky = shell('shell-skyhouse')
+    const SX = -80, SZ = -18
+    add(sky, M.glass, 10, 107.7, 10, SX, 0, SZ)
+    for (const [dx, dz] of [[-5, -5], [5, -5], [-5, 5], [5, 5]] as const) add(sky, M.stone, 0.8, 107.7, 0.8, SX + dx, 0, SZ + dz)
+    add(sky, M.plaster, 28, 0.3, 16, -78, 107.7, SZ)
+    add(sky, M.glass, 21.4, 3.4, 16, -81.3, 108, SZ)
+    add(sky, M.pool, 4.3, 0.05, 12, -66.45, 107.95, SZ)
+    add(sky, M.plaster, 16, 0.3, 16, -84, 112.3, SZ)
+    add(sky, M.glass, 16, 3.2, 16, -84, 112.6, SZ)
+    add(sky, M.plaster, 16.4, 0.3, 16.4, -84, 115.8, SZ)
+    o.hotspots.push({ id: 'crown-lift', x: px - 4.4, z: pz - 2.2, r: 1.6, title: 'Crown penthouse', body: 'A glass crown with an infinity pool, 27 m up. Free viewing if it is not yours yet.', enter: 'Lift to the crown',
+      use: () => window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'penthouse', viewing: !ownsHome('penthouse') } })) })
+  }
+  // Grind Realty: a glass desk on the estate plaza. Homes, looks and premium pieces (the Homes panel).
+  box(M.dark, 2.2, 1.0, 0.7, 40, 0, -25.6)
+  box(M.brass, 2.3, 0.06, 0.8, 40, 1.0, -25.6)
+  box(M.dark, 0.1, 2.2, 0.1, 38.9, 0, -25.9); box(M.dark, 0.1, 2.2, 0.1, 41.1, 0, -25.9)
+  {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 96
+    const g = c.getContext('2d')!
+    g.fillStyle = '#121418'; g.fillRect(0, 0, 512, 96)
+    g.fillStyle = '#d9b45a'; g.font = '800 54px "Inter Variable", Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    g.fillText('GRIND REALTY', 256, 52)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.43), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.3, side: THREE.DoubleSide }))
+    sign.position.set(40, 2.0, -25.9)
+    scene.add(sign)
+  }
+  block(40, -25.6, 1.2, 0.45)
+  o.hotspots.push({ id: 'realty', x: 40, z: -27.1, r: 2.2, title: 'Grind Realty', body: 'A garden duplex, a hillside mansion, the crown penthouse and the sky house. Free viewings, whole-room looks and premium pieces.', action: 'homes', enter: 'Browse homes' })
 
   // --- Villa row (north-west): stone plinth, glass ground floor, timber-clad cantilevered upper box, pools.
   const villa = (x: number, z: number, flip: number) => {

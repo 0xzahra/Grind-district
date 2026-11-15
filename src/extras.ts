@@ -16,7 +16,7 @@ const MAKEUP = 'gd.makeup.v1'
 const WARDROBE = 'gd.wardrobe.v1'
 const OWNER = 'gd.extras.owner'
 type Obj = Record<string, unknown>
-export type Extras = { v: 1; at: number; needs?: Obj; pass?: Obj; career?: Obj; makeup?: Obj; wardrobe?: Obj }
+export type Extras = { v: 1; at: number; needs?: Obj; pass?: Obj; career?: Obj; makeup?: Obj; wardrobe?: Obj; homes?: Obj }
 
 const get = (k: string): Obj | undefined => { try { const v = JSON.parse(localStorage.getItem(k) ?? 'null') as unknown; return v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : undefined } catch { return undefined } }
 const put = (k: string, v: Obj) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* private mode */ } }
@@ -34,6 +34,7 @@ export function collectExtras(): Extras {
   const career = get(`${slot}.career`); if (career) { const { feed: _f, feedSeen: _s, ...rest } = career; out.career = rest }
   const makeup = get(MAKEUP); if (makeup) out.makeup = makeup
   const wardrobe = get(WARDROBE); if (wardrobe) out.wardrobe = wardrobe
+  const homes = get(`${slot}.homes`); if (homes) out.homes = homes
   return out
 }
 
@@ -66,6 +67,19 @@ export function applyExtras(serverSave: unknown, userId: string): boolean {
         trades: Math.max(num(lCareer?.trades), num(sCareer.trades)), events: Math.max(num(lCareer?.events), num(sCareer.events)),
         houseItems: union(lCareer?.houseItems, sCareer.houseItems),
         feed: lCareer?.feed ?? [], feedSeen: lCareer?.feedSeen ?? [],
+      })
+    }
+
+    // Luxury homes (homesShop.ts): every home, look and premium piece bought on either side is kept.
+    const sHomes = obj(x.homes), lHomes = get(`${slot}.homes`)
+    if (sHomes) {
+      const sl = obj(sHomes.luxe) ?? {}, ll = obj(lHomes?.luxe) ?? {}
+      const luxe: Obj = {}
+      for (const k of new Set([...Object.keys(sl), ...Object.keys(ll)])) luxe[k] = union(ll[k], sl[k])
+      set(`${slot}.homes`, {
+        owned: union(lHomes?.owned, sHomes.owned), styles: union(lHomes?.styles, sHomes.styles),
+        style: { ...(obj(sHomes.style) ?? {}), ...(obj(lHomes?.style) ?? {}) }, luxe,
+        layout: { ...(obj(sHomes.layout) ?? {}), ...(obj(lHomes?.layout) ?? {}) },
       })
     }
   }

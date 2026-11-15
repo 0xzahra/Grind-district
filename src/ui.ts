@@ -30,6 +30,7 @@ import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { renderLedger } from './ledger.ts'
 import { PLACES, placeNodes, casinoNodes, wellnessNodes, buyAt } from './places.ts'
 import { marketNodes, hostNodes } from './town.ts'
+import { homesNodes } from './homesShop.ts'
 import { societyNodes } from './society.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
@@ -1343,6 +1344,8 @@ export function mountUi(
       }
       case 'wellness':
         return renderSimple('Wellness house', wellnessNodes({ para, button, go: (p) => open(p) }))
+      case 'homes':
+        return renderSimple('Grind Realty', homesNodes({ para, button, finish: (m) => finish(m), reopen: () => open('homes') }))
       case 'market':
         return renderSimple('Market hall', marketNodes({ para, button, finish: (m) => finish(m), reopen: () => open('market') }))
       case 'society':

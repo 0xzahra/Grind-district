@@ -32,6 +32,8 @@ import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
 import { encodeShare, VEHICLES } from './logic.ts'
 import type { Ride, RideOpts } from './ride.ts'
+import type { Homes } from './homes.ts'
+import { setHomeInView, type HomeId, type StyleId } from './homesShop.ts'
 import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPresence } from './messages.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
@@ -1392,7 +1394,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   const beginRide = async (o: RideOpts) => {
     if (rideBusy) return
-    if (interiors.inside) { ui.toast('Step outside first.'); return }
+    if (interiors.inside || homes?.inside) { ui.toast('Step outside first.'); return }
     rideBusy = true
     try {
       const m = await loadRide()
@@ -1445,6 +1447,59 @@ const apiAgents = createRemoteAgents(scene)
     })
   }
   ;(window as unknown as { __ride?: () => Ride | null }).__ride = import.meta.env.DEV ? () => ride : undefined
+  // --- Luxury homes (homes.ts, loaded on the first visit). levelY lifts the player to the home's floor.
+  let homes: Homes | null = null
+  let levelY = 0
+  let homeCam = { dist: 0, pitch: 0 }
+  const loadHomes = async (): Promise<Homes> => {
+    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome() }) }
+    return homes
+  }
+  const fadeScreen = () => { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
+  let homeBusy = false
+  const enterHome = async (id: HomeId, viewing: boolean) => {
+    if (homeBusy) return
+    if (ride?.driving) { ui.toast('Park the car first.'); return }
+    if (interiors.inside) { ui.toast('Step outside first.'); return }
+    homeBusy = true
+    try {
+      const h = await loadHomes()
+      if (ui.isOpen()) ui.close()
+      if (seating.sitting) seating.stand()
+      const s = h.enter(id, viewing)
+      setHomeInView(id)
+      fadeScreen()
+      await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
+      pos.x = s.x; pos.z = s.z; levelY = s.y
+      vel.x = 0; vel.z = 0; target = null
+      if (!homeCam.dist) homeCam = { dist: camDistGoal, pitch: camPitch }
+      camDistGoal = 6.4; camPitch = 0.46
+      camYaw = s.heading + Math.PI
+      cameraReady = false
+      avatar.object.position.set(pos.x, levelY, pos.z)
+      ui.toast(viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+    } finally { homeBusy = false }
+  }
+  const leaveHome = () => {
+    if (!homes?.inside) return
+    const out = homes.leave()
+    setHomeInView(null)
+    fadeScreen()
+    pos.x = out.x; pos.z = out.z; levelY = 0
+    vel.x = 0; vel.z = 0; target = null
+    camDistGoal = homeCam.dist || 5.6; camPitch = homeCam.pitch || 0.42
+    homeCam = { dist: 0, pitch: 0 }
+    cameraReady = false
+    avatar.object.position.set(pos.x, 0, pos.z)
+    exitCooldown = 0.8
+  }
+  window.addEventListener('gd:home', (e) => {
+    const d = (e as CustomEvent<{ op: string; id?: HomeId; viewing?: boolean; style?: StyleId }>).detail
+    if (d.op === 'enter' && d.id) void enterHome(d.id, !!d.viewing)
+    else if (d.op === 'try' && d.style) { if (homes?.inside) { ui.close(); homes.tryStyle(d.style) } else ui.toast('Go to a home first (a free viewing works), then try a look on.') }
+    else if (d.op === 'restyle' && homes?.inside) homes.restyle()
+  })
+  ;(window as unknown as { __homes?: () => Homes | null }).__homes = import.meta.env.DEV ? () => homes : undefined
   let spot: Hotspot | null = null
   let cameraReady = false
   let revealed = false
@@ -1708,7 +1763,8 @@ const apiAgents = createRemoteAgents(scene)
     skyline.tick(elapsed, nightLevel)
     beach.tick(dt)
     ambient.tick(elapsed, focus, nightLevel)
-    if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
+    if (homes?.inside) ui.setPlace(homes.title)
+    else if (!interiors.inside) ui.setPlace(districtName(pos.x, pos.z))
     try { setAmbientPlace(Boolean(interiors.inside), Math.hypot(pos.x, pos.z)) } catch { /* */ }
 
     const frame = input.read()
@@ -1734,7 +1790,13 @@ const apiAgents = createRemoteAgents(scene)
 
     let directed = false
     let moving = false
-    if (ride && ride.driving) {
+    const homeRide = homes?.inside ? homes.tick(dt, pos.x, pos.z) : null
+    if (homeRide) {
+      // A lift or escalator carries you: no walking until it stops.
+      pos.x = homeRide.x; pos.z = homeRide.z; levelY = homeRide.y
+      vel.x = 0; vel.z = 0; target = null
+      avatar.object.position.set(pos.x, levelY, pos.z)
+    } else if (ride && ride.driving) {
       // At the wheel: the stick drives, taps on the ground do nothing, the body stays in the car.
       rideBlockers.length = 0
       rideBlockers.push(...world.obstacles, ...crowdObstacles)
@@ -1748,18 +1810,21 @@ const apiAgents = createRemoteAgents(scene)
     if (!paused && frame.tap) {
       pointer.set(frame.tap.nx, frame.tap.ny)
       raycaster.setFromCamera(pointer, camera)
+      floor.constant = -levelY
       // A person only counts if they stand in front of where the tap meets the ground (plus a body's depth).
       const groundHit = raycaster.ray.intersectPlane(floor, tapPoint) !== null
       const reach = groundHit ? tapPoint.distanceTo(raycaster.ray.origin) + 0.9 : Infinity
-      const tapped = interiors.inside ? null : net.pick(raycaster, reach)
-      const npc = !tapped && !interiors.inside ? crowd.pick(raycaster, reach) : null
-      const zahraHit = !tapped && !interiors.inside && Math.hypot(pos.x - ada.position.x, pos.z - ada.position.z) < 30 && raycaster.intersectObject(ada, true).some((h) => h.distance < reach)
-      if (zahraHit) { if (!mentor.isOpen() && !ui.isOpen()) mentor.hello() }
+      const inHome = Boolean(homes?.inside)
+      const tapped = interiors.inside || inHome ? null : net.pick(raycaster, reach)
+      const npc = !tapped && !interiors.inside && !inHome ? crowd.pick(raycaster, reach) : null
+      const zahraHit = !tapped && !interiors.inside && !inHome && Math.hypot(pos.x - ada.position.x, pos.z - ada.position.z) < 30 && raycaster.intersectObject(ada, true).some((h) => h.distance < reach)
+      if (inHome && homes!.arranging) homes!.arrangeTap(raycaster, groundHit ? tapPoint.clone() : null)
+      else if (zahraHit) { if (!mentor.isOpen() && !ui.isOpen()) mentor.hello() }
       else if (tapped) void openPeer(tapped)
       else if (npc) showNpcCard(npc)
       else if (groundHit) {
         target = tapPoint.clone()
-        const room = interiors.bounds()
+        const room = interiors.bounds() ?? (homes?.inside ? homes.bounds() : null)
         if (room) {
           target.x = THREE.MathUtils.clamp(target.x, room.x - room.hw, room.x + room.hw)
           target.z = THREE.MathUtils.clamp(target.z, room.z - room.hd, room.z + room.hd)
@@ -1769,8 +1834,8 @@ const apiAgents = createRemoteAgents(scene)
         }
         // A tap on furniture or water would park the walk target inside a blocker, where the player
         // slides, stalls and gives up. Nudge the target out to the nearest free spot (e.g. the pool rim).
-        const inRoom = interiors.inside ? interiors.obstacles() : world.obstacles
-        resolveCollision(target, { x: 0, z: 0 }, inRoom, PLAYER_R + 0.05, Boolean(interiors.inside))
+        const inRoom = homes?.inside ? homes.obstacles() : interiors.inside ? interiors.obstacles() : world.obstacles
+        resolveCollision(target, { x: 0, z: 0 }, inRoom, PLAYER_R + 0.05, Boolean(interiors.inside || homes?.inside))
         stuck = 0
         prevDist = Infinity
       }
@@ -1828,7 +1893,8 @@ const apiAgents = createRemoteAgents(scene)
       vel.z = 0
     }
     blockers.length = 0
-    if (interiors.inside) blockers.push(...interiors.obstacles())
+    if (homes?.inside) blockers.push(...homes.obstacles())
+    else if (interiors.inside) blockers.push(...interiors.obstacles())
     else blockers.push(...world.obstacles, ...crowdObstacles)
     if (ride && !ride.driving && !interiors.inside) blockers.push(...ride.shape())
     // Sub-step so a fast frame on a slow phone can never tunnel through a wall; boxes slide.
@@ -1836,17 +1902,19 @@ const apiAgents = createRemoteAgents(scene)
     for (let i = 0; i < steps && !seating.sitting; i += 1) {
       pos.x += (vel.x * dt) / steps
       pos.z += (vel.z * dt) / steps
-      resolveCollision(pos, vel, blockers, PLAYER_R, Boolean(interiors.inside))
+      resolveCollision(pos, vel, blockers, PLAYER_R, Boolean(interiors.inside || homes?.inside))
     }
     {
       // Indoors: never leave the room shell, whatever pushed the player (seats, busy moves, fast taps).
-      const room = interiors.bounds()
+      const room = interiors.bounds() ?? (homes?.inside ? homes.bounds() : null)
       if (room) {
         pos.x = THREE.MathUtils.clamp(pos.x, room.x - room.hw, room.x + room.hw)
         pos.z = THREE.MathUtils.clamp(pos.z, room.z - room.hd, room.z + room.hd)
       }
     }
-    avatar.object.position.set(pos.x, 0, pos.z)
+    // In a luxury home: stand at its floor height, lower in a pool.
+    if (homes?.inside) levelY += (homes.floorY(pos.x, pos.z) - levelY) * (1 - Math.exp(-9 * dt))
+    avatar.object.position.set(pos.x, homes?.inside ? levelY : 0, pos.z)
     const groundSpeed = Math.hypot(vel.x, vel.z)
     moving = groundSpeed > 0.22
     // Face where the body actually goes (after collision), falling back to the input while starting.
@@ -1892,7 +1960,7 @@ const apiAgents = createRemoteAgents(scene)
     let best: Hotspot | null = null
     let bestScore = Infinity
     if (ride && !ride.driving) { parkedSpot.x = ride.x; parkedSpot.z = ride.z; parkedSpot.title = ride.label }
-    const candidates: Hotspot[] = ride?.driving ? [] : interiors.inside ? (interiors.uses() as Hotspot[]) : ride ? [...streetSpots, parkedSpot] : streetSpots
+    const candidates: Hotspot[] = ride?.driving ? [] : homes?.inside ? homes.uses() : interiors.inside ? (interiors.uses() as Hotspot[]) : ride ? [...streetSpots, parkedSpot] : streetSpots
     for (const candidate of candidates) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
       // Walking through a door enters or leaves the 3D room.
@@ -1936,18 +2004,18 @@ const apiAgents = createRemoteAgents(scene)
     }
     // (The desktop idle face-swing was removed: standing still, the camera turned by itself on PC.)
     void faceYaw
-    if (!cameraReady) lookSmooth.set(pos.x, 1.15, pos.z)
+    if (!cameraReady) lookSmooth.set(pos.x, 1.15 + levelY, pos.z)
     // Over-the-shoulder: frame the player slightly left of centre, GTA style.
     shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving ? 0 : 0.55) * Math.min(1, 6 / camDist))
-    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
+    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, (ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45) + levelY, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const indoors = Boolean(interiors.inside)
     if (!indoors && cutHidden.size) restoreCut()
     const useDist = indoors ? Math.min(camDist, 4.6) : camDist // walls between camera and player are cut away indoors
     const horiz = useDist * Math.cos(camPitch)
-    desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + useDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
+    desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + levelY + useDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
     // The over-the-shoulder offset must not put the look point inside a wall (player hugging a building).
-    headPt.set(pos.x, 1.45, pos.z)
+    headPt.set(pos.x, 1.45 + levelY, pos.z)
     rayDirection.subVectors(lookTarget, headPt)
     const offLen = rayDirection.length()
     if (offLen > 0.05) {

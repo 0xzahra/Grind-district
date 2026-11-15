@@ -3489,3 +3489,24 @@ html[data-ui='light'] #ride-hud .rh-line { color: #8a5a00; }
 .ride-fade { position: fixed; inset: 0; z-index: 9; background: #0b0a08; pointer-events: none; animation: ride-fade 0.85s ease-out forwards; }
 @keyframes ride-fade { 0%, 25% { opacity: 1; } 100% { opacity: 0; } }
 
+/* Luxury homes (homes.ts, homesShop.ts): the chips over the city while you are in a home, and the Homes panel. */
+#home-hud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 60px); left: 16px; z-index: 6; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 124px); }
+#home-hud[hidden] { display: none; }
+#home-hud button { min-height: 36px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(14, 16, 20, 0.66); color: #fff; font: 600 13px/1 inherit; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25); }
+#home-hud button[hidden] { display: none; }
+html[data-ui='light'] #home-hud button { background: rgba(255, 255, 255, 0.9); color: #1d1b16; border-color: rgba(0, 0, 0, 0.1); }
+.home-card, .style-card, .luxe-card { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); }
+html[data-ui='light'] .home-card, html[data-ui='light'] .style-card, html[data-ui='light'] .luxe-card { background: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.08); }
+.home-head { display: flex; align-items: center; gap: 8px; }
+.home-head b { flex: 1; font-size: 16px; }
+.home-icon, .luxe-icon { font-size: 22px; line-height: 1; }
+.home-price, .style-price, .luxe-price { font-weight: 700; color: #d9b45a; font-variant-numeric: tabular-nums; }
+.home-where { margin: 0; font-size: 12px; opacity: 0.7; }
+.home-pitch, .style-blurb, .luxe-blurb { margin: 0; font-size: 13px; opacity: 0.85; }
+.home-acts, .style-acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.style-grid, .luxe-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.style-card.on { border-color: #d9b45a; }
+.style-swatch { display: grid; grid-template-columns: repeat(4, 1fr); height: 34px; border-radius: 10px; overflow: hidden; }
+.style-swatch i { display: block; }
+.homes-tabs { justify-content: flex-start; }
+
