@@ -6,18 +6,21 @@ import * as THREE from 'three'
 import type { Obstacle } from './physics.ts'
 import type { Hotspot } from './world.ts'
 import { animateWater } from './water.ts'
+import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type Palette, type StyleId } from './homesShop.ts'
 
 type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
-type Kind = 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
+export type AreaId = HomeId | 'park'
+type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-type Move = { from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+type Move = { cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
+  bench: [1.8, 0.7], tree: [1.0, 1.0], swings: [3.2, 1.6], slide: [1.2, 4.2], kiosk: [2.6, 2.0],
   sofaL: [3.0, 2.2], sofa: [2.5, 0.95], arm: [0.9, 0.9], coffee: [1.3, 0.7], rug: [0, 0], lamp: [0.4, 0.4], dining: [2.4, 1.9], island: [2.6, 1.0], kitchen: [4.0, 0.7],
   bed: [3.0, 2.3], tv: [3.0, 0.5], plant: [0.6, 0.6], art: [0, 0], lounger: [0.7, 1.9], tub: [1.7, 0.8], desk: [1.5, 1.2], recliners: [2.0, 1.0], screen: [3.6, 0.3], heli: [2.6, 8.5],
   piano: [1.6, 2.2], chandelier: [0, 0], lounge: [0.9, 1.6], sculpture: [0.7, 0.7], painting: [0, 0], aquarium: [2.6, 0.6], winewall: [2.6, 0.5], cinema: [3.4, 1.6], fireplace: [1.8, 0.5], telescope: [0.8, 0.8], palms: [1.6, 0.8], barcart: [0.9, 0.5],
@@ -224,6 +227,11 @@ function piece(kind: Kind, M: Mats): THREE.Group {
     }
     case 'telescope': { for (let k = 0; k < 3; k++) { const l = cyl(g, 0.015, 0.02, 1.2, M.wood, 0, 0, 0); l.position.set(Math.cos((k * Math.PI * 2) / 3) * 0.25, 0.55, Math.sin((k * Math.PI * 2) / 3) * 0.25); l.rotation.set(Math.sin((k * Math.PI * 2) / 3) * 0.35, 0, -Math.cos((k * Math.PI * 2) / 3) * 0.35) } const t = cyl(g, 0.07, 0.09, 1.1, std(0xb8892f, 0.25, 0.9), 0, 0, 0); t.rotation.x = -1.1; t.position.set(0, 1.3, 0.2); break }
     case 'palms': for (const [x, s] of [[-0.55, 1], [0, 1.25], [0.55, 0.9]] as const) { box(g, 0.42, 0.45, 0.42, M.stone, x, 0, 0); cyl(g, 0.03, 0.04, 1.2 * s, M.wood, x, 0.45); for (let k = 0; k < 6; k++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.7 * s), M.leaf); f.material.side = THREE.DoubleSide; f.position.set(x, 0.45 + 1.2 * s, 0); f.rotation.set(0.9, (k / 6) * Math.PI * 2, 0); f.translateY(0.3 * s); g.add(f) } } break
+    case 'bench': box(g, 1.8, 0.06, 0.45, M.wood, 0, 0.44, 0.05); box(g, 1.8, 0.4, 0.05, M.wood, 0, 0.55, -0.2); for (const sx of [-0.8, 0.8]) { box(g, 0.06, 0.44, 0.5, M.black, sx, 0, 0); box(g, 0.06, 0.45, 0.06, M.black, sx, 0.44, -0.2) } break
+    case 'tree': { cyl(g, 0.22, 0.32, 3.2, M.wood); for (const [x, y, z, r] of [[0, 4.4, 0, 2.2], [1.1, 3.8, 0.4, 1.5], [-1, 3.9, -0.5, 1.6], [0.2, 5.4, -0.3, 1.5]] as const) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), M.leaf); c.position.set(x, y, z); c.castShadow = true; g.add(c) } break }
+    case 'swings': { for (const x of [-1.5, 1.5]) for (const z of [-0.7, 0.7]) { const l = cyl(g, 0.05, 0.05, 2.6, M.metal, x, 0, z); l.rotation.x = z > 0 ? -0.25 : 0.25 } const top = cyl(g, 0.06, 0.06, 3.2, M.metal, 0, 0, 0); top.rotation.z = Math.PI / 2; top.position.set(0, 2.5, 0); for (const x of [-0.7, 0.7]) { cyl(g, 0.01, 0.01, 1.9, M.black, x - 0.2, 0.6, 0); cyl(g, 0.01, 0.01, 1.9, M.black, x + 0.2, 0.6, 0); box(g, 0.5, 0.04, 0.2, M.accent, x, 0.56, 0) } break }
+    case 'slide': { box(g, 1.0, 0.1, 1.0, M.wood, 0, 1.6, -1.6); for (const [x, z] of [[-0.45, -2.05], [0.45, -2.05], [-0.45, -1.15], [0.45, -1.15]] as const) box(g, 0.08, 1.6, 0.08, M.metal, x, 0, z); const sl = box(g, 0.7, 0.05, 3.0, M.accent, 0, 0, 0.3); sl.rotation.x = 0.5; sl.position.set(0, 0.85, 0.3); for (let k = 0; k < 5; k++) box(g, 0.6, 0.04, 0.12, M.metal, 0, k * 0.32, -2.3); break }
+    case 'kiosk': { box(g, 2.4, 1.0, 1.4, M.white, 0, 0, 0); box(g, 2.6, 0.06, 1.6, M.marble, 0, 1.0, 0); for (const x of [-1.1, 1.1]) box(g, 0.08, 1.4, 0.08, M.metal, x, 1.06, 0.6); const awn = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 1.9), std(0xf06292, 0.7)); awn.position.set(0, 2.5, 0.2); awn.rotation.x = 0.15; awn.castShadow = true; g.add(awn); for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), std([0xf7c6d9, 0xfff1c1, 0x7a4a2a, 0xb6e3c6][k]!, 0.6)); c.position.set(-0.6 + k * 0.4, 1.12, 0.3); g.add(c) } break }
     case 'barcart': box(g, 0.85, 0.02, 0.45, M.glass, 0, 0.82, 0); box(g, 0.85, 0.02, 0.45, M.glass, 0, 0.35, 0); for (const [x, z] of [[-0.4, -0.2], [0.4, -0.2], [-0.4, 0.2], [0.4, 0.2]] as const) cyl(g, 0.012, 0.012, 0.85, M.metal, x, 0, z); for (let k = 0; k < 4; k++) cyl(g, 0.04, 0.045, 0.26, std([0x7a3d12, 0x2a5a2a, 0xd8d0b0, 0x5a1218][k]!, 0.15, 0.1, { transparent: true, opacity: 0.85 }), -0.3 + k * 0.2, 0.84, 0); break
   }
   return g
@@ -232,7 +240,7 @@ function piece(kind: Kind, M: Mats): THREE.Group {
 // ---------------------------------------------------------------- the homes
 
 type Plan = {
-  id: HomeId
+  id: AreaId
   levels: Array<{ y: number; walk: Rect; pools: Rect[] }>
   spawn: { x: number; z: number; heading: number; lv: number }
   exitTo: { x: number; z: number }
@@ -259,8 +267,41 @@ const R = (x0: number, z0: number, x1: number, z1: number): Rect => ({ x0, z0, x
 const PEN = { x: 51, z: -32, y: 26.8 }
 const SKY = { x: -80, z: -18, y: 108 }
 
-function plans(): Record<HomeId, Plan> {
+function plans(): Record<AreaId, Plan> {
   return {
+    // Grind Park, south-west of the city at the end of the metro branch: lawns, a lake, a fountain, a playground,
+    // an ice-cream kiosk, and two rides: a Ferris wheel and a carousel (built in the plan, ridden with the gold button).
+    park: {
+      id: 'park',
+      levels: [{ y: 0, walk: R(-170, 104, -108, 170), pools: [] }],
+      spawn: { x: -118.5, z: 124, heading: -0.9, lv: 0 },
+      exitTo: { x: -8, z: -59.5 },
+      house: null,
+      pieces: [
+        ['b1', 'bench', -136, 131.6, 0, 0], ['b2', 'bench', -140.4, 140, Math.PI / 2, 0], ['b3', 'bench', -131.6, 140, -Math.PI / 2, 0], ['b4', 'bench', -136, 148.4, Math.PI, 0],
+        ['b5', 'bench', -150, 131, Math.PI, 0], ['b6', 'bench', -158, 120, Math.PI / 2, 0],
+        ['t1', 'tree', -112, 110, 0, 0], ['t2', 'tree', -125, 108, 0, 0], ['t3', 'tree', -165, 108, 0, 0], ['t4', 'tree', -166, 132, 0, 0], ['t5', 'tree', -166, 160, 0, 0],
+        ['t6', 'tree', -112, 162, 0, 0], ['t7', 'tree', -124, 166, 0, 0], ['t8', 'tree', -112, 140, 0, 0], ['t9', 'tree', -146, 108, 0, 0], ['t10', 'tree', -160, 145, 0, 0], ['t11', 'tree', -140, 166, 0, 0],
+        ['swings', 'swings', -116, 150, 0, 0], ['slide', 'slide', -116, 158, Math.PI / 2, 0], ['kiosk', 'kiosk', -128, 116, 0, 0],
+        ['l1', 'lamp', -132, 128, 0, 0], ['l2', 'lamp', -144, 152, 0, 0], ['l3', 'lamp', -124, 152, 0, 0],
+      ],
+      build: (A) => {
+        const lawn = new THREE.Mesh(new THREE.PlaneGeometry(130, 112), std(0x5f8f45, 1)); lawn.rotation.x = -Math.PI / 2; lawn.position.set(-112, -0.012, 121); lawn.receiveShadow = true; A.add(0, lawn)
+        const path = std(0xe0d6c2, 0.95)
+        for (const [x, z, w, d] of [[-127, 128, 3, 16], [-138, 140, 3, 50], [-138, 140, 52, 3]] as const) { const pth = new THREE.Mesh(new THREE.PlaneGeometry(w, d), path); pth.rotation.x = -Math.PI / 2; pth.position.set(x, 0.006, z); pth.receiveShadow = true; A.add(0, pth) }
+        const ringP = new THREE.Mesh(new THREE.RingGeometry(5.5, 8, 40), path); ringP.rotation.x = -Math.PI / 2; ringP.position.set(-138, 0.008, 140); A.add(0, ringP)
+        // Fountain at the centre.
+        const fount = new THREE.Group(); cyl(fount, 3.2, 3.4, 0.55, A.M.stone); const fw = new THREE.Mesh(new THREE.CircleGeometry(3.0, 28), A.M.water); fw.rotation.x = -Math.PI / 2; fw.position.y = 0.5; fount.add(fw); cyl(fount, 0.3, 0.45, 2.0, A.M.stone, 0, 0.4); cyl(fount, 1.1, 0.9, 0.2, A.M.stone, 0, 2.2); fount.position.set(-138, 0, 140); A.add(0, fount)
+        A.block(0, R(-141.5, 136.5, -134.5, 143.5))
+        // Lake with a sandy edge (not for swimming).
+        const sand = new THREE.Mesh(new THREE.CircleGeometry(11, 40), std(0xd9c79f, 1)); sand.rotation.x = -Math.PI / 2; sand.position.set(-152, 0.004, 120); A.add(0, sand)
+        const lake = new THREE.Mesh(new THREE.CircleGeometry(9.6, 40), A.M.water.clone()); lake.rotation.x = -Math.PI / 2; lake.position.set(-152, 0.03, 120); animateWater(lake, 4); A.add(0, lake)
+        A.block(0, R(-160.5, 112, -143.5, 128))
+        // Flower beds.
+        const bedCols = [0xe0457b, 0xf2c230, 0xffffff, 0x8e5bd1]
+        for (let k = 0; k < 4; k++) { const b = new THREE.Group(); cyl(b, 1.6, 1.7, 0.35, A.M.stone); for (let f = 0; f < 14; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), std(bedCols[(f + k) % 4]!, 0.7)); const a = f * 2.4; fl.position.set(Math.cos(a) * (0.3 + (f % 4) * 0.3), 0.45, Math.sin(a) * (0.3 + (f % 4) * 0.3)); b.add(fl) } b.position.set(-138 + [-10, 10, -10, 10][k]!, 0, 140 + [-10, -10, 10, 10][k]!); A.add(0, b); A.block(0, R(b.position.x - 1.7, b.position.z - 1.7, b.position.x + 1.7, b.position.z + 1.7)) }
+      },
+    },
     penthouse: {
       id: 'penthouse',
       levels: [{ y: PEN.y, walk: R(42.3, -38.2, 59.7, -25.8), pools: [R(42.3, -36.5, 44.8, -27.5)] }],
@@ -403,9 +444,10 @@ function plans(): Record<HomeId, Plan> {
 
 // ---------------------------------------------------------------- runtime
 
-export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => void; openPanel: () => void; leave: () => void }) {
+export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => void; openPanel: () => void; leave: () => void; parkTrain: () => void }) {
   const P = plans()
-  let inside: HomeId | null = null
+  let inside: AreaId | null = null
+  let extraObs: Obstacle[] = []
   let viewing = false
   let trying: StyleId | null = null
   let plan: Plan | null = null
@@ -435,6 +477,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   const paintHud = () => {
     hud.hidden = !inside
     arrangeBtn.hidden = viewing
+    stylesBtn.hidden = plan?.id === 'park'
     arrangeBtn.textContent = arranging ? 'Done' : 'Arrange'
     turnBtn.hidden = !arranging || !selected
     stylesBtn.textContent = viewing ? 'Try a look' : 'Styles'
@@ -450,11 +493,11 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (!selected || !plan) return
     selected.r += Math.PI / 4
     placePiece(selected)
-    saveLayout(plan.id, selected.key, selected.x, selected.z, selected.r)
+    if (plan.id !== 'park') saveLayout(plan.id, selected.key, selected.x, selected.z, selected.r)
     rebuildObstacles()
   }
 
-  const palette = (): Palette => (trying ? STYLES.find((s) => s.id === trying)!.p : plan ? styleOf(plan.id).p : STYLES[0]!.p)
+  const palette = (): Palette => (trying ? STYLES.find((s) => s.id === trying)!.p : plan && plan.id !== 'park' ? styleOf(plan.id).p : STYLES[0]!.p)
 
   const placePiece = (p: Piece) => {
     if (!p.obj) return
@@ -470,7 +513,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   }
   const staticObs: Obstacle[][] = []
   const rebuildObstacles = () => {
-    levels.forEach((L, i) => { L.obstacles = [...(staticObs[i] ?? [])]; for (const p of pieces) if (p.lv === i) { const o = pieceObstacle(p); if (o) L.obstacles.push(o) } })
+    levels.forEach((L, i) => { L.obstacles = [...(staticObs[i] ?? []), ...(plan?.id === 'park' && i === 0 ? extraObs : [])]; for (const p of pieces) if (p.lv === i) { const o = pieceObstacle(p); if (o) L.obstacles.push(o) } })
   }
 
   const build = () => {
@@ -590,9 +633,10 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       },
     }
     plan.build(A)
+    if (plan.id === 'park') parkRides(A)
     // Everyday uses on top of the plan's: sleep in the bed, cook at the kitchen.
-    const layout = readHomes().layout[plan.id] ?? {}
-    const luxe = viewing ? [] : readHomes().luxe[plan.id] ?? []
+    const layout = plan.id === 'park' ? {} : readHomes().layout[plan.id] ?? {}
+    const luxe = viewing || plan.id === 'park' ? [] : readHomes().luxe[plan.id] ?? []
     pieces = plan.pieces.map(([key, kind, x, z, r, lv]) => ({ key, kind, x, z, r, lv }))
     // Premium pieces go in free spots on the main floor; their place is remembered once moved.
     const main = levels[plan.spawn.lv]!.walk
@@ -632,6 +676,87 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     lastOutside = out
     if (plan) { const L = levels[level]!; light.position.set((L.walk.x0 + L.walk.x1) / 2, L.y + 2.8, (L.walk.z0 + L.walk.z1) / 2); light.intensity = plan.house && level === 0 ? 4 : 7 }
   }
+  /** The Ferris wheel and the carousel: they turn all the time; the gold button rides one round. */
+  const parkRides = (A: Arch) => {
+    const M = A.M
+    // Ferris wheel: two rims and spokes turning about an axis along x, sixteen cabins that stay upright.
+    const W = { x: -150, z: 150, hub: 15.5, r: 13, n: 16, period: 36 }
+    const legs = new THREE.Group()
+    for (const sx of [-1.6, 1.6]) for (const sz of [-1, 1]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, W.hub + 1.5, 10), M.metal); l.position.set(W.x + sx, (W.hub + 1.5) / 2, W.z + sz * 4.2); l.rotation.x = sz * -0.27; l.castShadow = true; legs.add(l) }
+    const plat = new THREE.Mesh(new THREE.BoxGeometry(7, 0.3, 6), A.M.stone); plat.position.set(W.x, 0.15, W.z); legs.add(plat)
+    A.add(0, legs)
+    const wheel = new THREE.Group(); wheel.position.set(W.x, W.hub, W.z)
+    for (const sx of [-1.2, 1.2]) {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(W.r, 0.14, 8, 64), std(0xf2f2ee, 0.4, 0.3)); rim.rotation.y = Math.PI / 2; rim.position.x = sx; wheel.add(rim)
+      for (let k = 0; k < W.n; k++) { const a = (k / W.n) * Math.PI * 2; const sp = new THREE.Mesh(new THREE.BoxGeometry(0.06, W.r, 0.08), std(0xf2f2ee, 0.4, 0.3)); sp.position.set(sx, Math.sin(a) * W.r / 2, Math.cos(a) * W.r / 2); sp.rotation.x = -a + Math.PI / 2; wheel.add(sp) }
+    }
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 3.4, 16), M.metal); hub.rotation.z = Math.PI / 2; wheel.add(hub)
+    // A string of lights round the rim.
+    const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({ color: 0xfff0b0 }), 64)
+    const mm = new THREE.Matrix4(); for (let k = 0; k < 64; k++) { const a = (k / 64) * Math.PI * 2; bulbs.setMatrixAt(k, mm.makeTranslation(1.35, Math.sin(a) * W.r, Math.cos(a) * W.r)) } wheel.add(bulbs)
+    wheel.traverse((c) => { c.userData.ghost = true })
+    root!.add(wheel)
+    const cabinCols = [0xe0457b, 0x2bd46b, 0x3b82f6, 0xf2c230]
+    const cabins: THREE.Group[] = []
+    for (let k = 0; k < W.n; k++) {
+      const c = new THREE.Group()
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 1.6, 12), std(cabinCols[k % 4]!, 0.4, 0.2)); body.position.y = -1.5; c.add(body)
+      const top = new THREE.Mesh(new THREE.ConeGeometry(1.1, 0.6, 12), std(0xf2f2ee, 0.4)); top.position.y = -0.4; c.add(top)
+      const glassBand = new THREE.Mesh(new THREE.CylinderGeometry(1.01, 1.01, 0.6, 12, 1, true), M.glass); glassBand.position.y = -1.2; c.add(glassBand)
+      c.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
+      root!.add(c); cabins.push(c)
+    }
+    const wheelAngle = (t: number) => (t / W.period) * Math.PI * 2
+    const cabinAt = (k: number, t: number) => { const a = wheelAngle(t) + (k / W.n) * Math.PI * 2; return { x: W.x, y: W.hub - Math.cos(a) * W.r, z: W.z + Math.sin(a) * W.r } }
+    animated.push({ tick: (t) => { wheel.rotation.x = -wheelAngle(t); cabins.forEach((c, k) => { const p = cabinAt(k, t); c.position.set(p.x, p.y, p.z) }) } })
+    A.block(0, R(W.x - 3.5, W.z - 5, W.x + 3.5, W.z + 5))
+    levels[0]!.uses.push({ id: 'park-wheel', x: W.x + 4.6, z: W.z, r: 1.8, title: 'Ferris wheel', body: 'One slow turn, 29 m up at the top, with the whole city in view.', enter: 'Ride the Ferris wheel · $3', use: () => {
+      const paid = spendInGame(3, 'Ferris wheel ride', 'Grind Park')
+      if (!paid.ok) { deps.toast(paid.message); return }
+      // Board the cabin nearest the bottom; ride it once round, standing in it.
+      let k0 = 0, best = Infinity
+      for (let k = 0; k < W.n; k++) { const p = cabinAt(k, time); if (p.y < best) { best = p.y; k0 = k } }
+      const t0 = time
+      startMove({ cam: 17, path: () => { const p = cabinAt(k0, time); return { x: p.x, z: p.z, y: p.y - 2.3 } }, from: { x: W.x, z: W.z, y: 0 }, to: { x: W.x + 4.2, z: W.z, y: 0 }, t: 0, dur: W.period, toLv: 0 })
+      void t0
+      deps.toast('Hold on: one full turn of the Ferris wheel.')
+    } })
+    // Carousel: a striped canopy, twelve horses on brass poles rising and falling as it turns.
+    const C = { x: -128, z: 150, r: 4.6, period: 12 }
+    const caro = new THREE.Group(); caro.position.set(C.x, 0, C.z)
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.4, 0.5, 32), std(0xf2e6cc, 0.6)); base.position.y = 0.25; caro.add(base)
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 4.2, 16), std(0xd4af37, 0.3, 0.8)); pole.position.y = 2.6; caro.add(pole)
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(7, 2.4, 24), std(0xd8263a, 0.7)); canopy.position.y = 5.6; caro.add(canopy)
+    const trim = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 0.5, 24, 1, true), std(0xf4f1ea, 0.6)); trim.position.y = 4.2; caro.add(trim)
+    const spin = new THREE.Group(); caro.add(spin)
+    const horses: THREE.Group[] = []
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2
+      const h = new THREE.Group()
+      const bodyH = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.9, 4, 10), std(k % 2 ? 0xf4f1ea : 0x8a5a3a, 0.5)); bodyH.rotation.z = Math.PI / 2; h.add(bodyH)
+      const neck = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.45, 4, 8), bodyH.material); neck.position.set(0.55, 0.35, 0); neck.rotation.z = -0.6; h.add(neck)
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.2), bodyH.material); head.position.set(0.8, 0.6, 0); h.add(head)
+      for (const lx of [-0.35, 0.35]) for (const lz of [-0.12, 0.12]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6), bodyH.material); leg.position.set(lx, -0.45, lz); h.add(leg) }
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.6, 6), std(0xd4af37, 0.3, 0.8)); p.position.y = 0.6; h.add(p)
+      h.position.set(Math.cos(a) * C.r, 1.6, Math.sin(a) * C.r); h.rotation.y = -a
+      spin.add(h); horses.push(h)
+    }
+    caro.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
+    A.add(0, caro)
+    const caroAngle = (t: number) => (t / C.period) * Math.PI * 2
+    animated.push({ tick: (t) => { spin.rotation.y = -caroAngle(t); horses.forEach((h, k) => { h.position.y = 1.5 + Math.sin(t * 2.2 + k) * 0.25 }) } })
+    A.block(0, R(C.x - 6.4, C.z - 6.4, C.x + 6.4, C.z + 6.4))
+    levels[0]!.uses.push({ id: 'park-carousel', x: C.x, z: C.z - 7.6, r: 1.8, title: 'Carousel', body: 'Two turns on a painted horse.', enter: 'Ride the carousel · $2', use: () => {
+      const paid = spendInGame(2, 'Carousel ride', 'Grind Park')
+      if (!paid.ok) { deps.toast(paid.message); return }
+      const k = 3
+      startMove({ cam: 8.5, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z - Math.sin(a) * C.r, y: 1.15 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
+    } })
+    // Back to the city by train, an ice cream, a go on the swings.
+    levels[0]!.uses.push({ id: 'park-train', x: -118.5, z: 121.5, r: 1.8, title: 'Grind Metro', body: 'Grind Park station. Trains round the city to the Beach, the Marina, the Raceway and the Sky Tower.', enter: 'Take the train · $2', use: () => deps.parkTrain() })
+    levels[0]!.uses.push({ id: 'park-icecream', x: -128, z: 118.6, r: 1.6, title: 'Ice-cream kiosk', body: 'Three scoops in a waffle cone.', enter: 'Buy an ice cream · $3', use: () => { const paid = spendInGame(3, 'Ice cream', 'Grind Park'); deps.toast(paid.ok ? adjust({ hunger: 10, social: 4 }) || 'Lovely.' : paid.message) } })
+    levels[0]!.uses.push({ id: 'park-swings', x: -116, z: 152.2, r: 1.6, title: 'Swings', body: 'Nobody is too old for the swings.', enter: 'Have a swing', use: () => { deps.toast(adjust({ social: 5 }, 'quiet') || 'Whee.') } })
+  }
   const startMove = (m: Move) => {
     if (move) return
     if (arranging) setArranging(false)
@@ -653,9 +778,11 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get inside() { return inside },
     get viewing() { return viewing },
     get arranging() { return arranging },
-    get title() { return plan ? HOMES.find((h) => h.id === plan!.id)!.title : '' },
+    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
+    /** Metro pillars standing in the park. */
+    setParkObstacles(o: Obstacle[]) { extraObs = o },
     /** Go into a home: build it, and return where to stand. */
-    enter(id: HomeId, asViewing: boolean): { x: number; z: number; heading: number; y: number } {
+    enter(id: AreaId, asViewing: boolean): { x: number; z: number; heading: number; y: number } {
       inside = id
       viewing = asViewing
       trying = null
@@ -690,6 +817,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     /** The height to stand at here (lower in a pool). */
     floorY(x: number, z: number): number { return levelY(x, z) },
     get moving() { return !!move },
+    /** How far back the camera sits during a ride (the Ferris wheel, the carousel). */
+    get rideCam(): number | null { return move?.cam ?? null },
     /** Animate the home; while a lift or escalator ride is on, return where the player is. */
     tick(dt: number, x: number, z: number): { x: number; z: number; y: number } | null {
       time += dt
@@ -702,7 +831,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       move.t += dt
       const u = Math.min(1, move.t / move.dur)
       const e = u * u * (3 - 2 * u)
-      const p = { x: move.from.x + (move.to.x - move.from.x) * e, z: move.from.z + (move.to.z - move.from.z) * e, y: move.from.y + (move.to.y - move.from.y) * e }
+      const p = move.path ? move.path(u) : { x: move.from.x + (move.to.x - move.from.x) * e, z: move.from.z + (move.to.z - move.from.z) * e, y: move.from.y + (move.to.y - move.from.y) * e }
       if (move.car && move.carY0 !== undefined && move.carY1 !== undefined) move.car.position.y = move.carY0 + (move.carY1 - move.carY0) * e
       if (u >= 1) {
         level = move.toLv
@@ -723,7 +852,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
         selected.x = THREE.MathUtils.clamp(ground.x, L.walk.x0 + 0.4, L.walk.x1 - 0.4)
         selected.z = THREE.MathUtils.clamp(ground.z, L.walk.z0 + 0.4, L.walk.z1 - 0.4)
         placePiece(selected)
-        saveLayout(plan.id, selected.key, selected.x, selected.z, selected.r)
+        if (plan.id !== 'park') saveLayout(plan.id, selected.key, selected.x, selected.z, selected.r)
         rebuildObstacles()
       }
       if (selected) {

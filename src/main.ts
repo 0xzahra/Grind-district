@@ -32,7 +32,8 @@ import { GUIDE } from './guide.ts'
 import { createNet } from './net.ts'
 import { encodeShare, VEHICLES } from './logic.ts'
 import type { Ride, RideOpts } from './ride.ts'
-import type { Homes } from './homes.ts'
+import type { Homes, AreaId } from './homes.ts'
+import type { Metro, StationId } from './metro.ts'
 import { setHomeInView, type HomeId, type StyleId } from './homesShop.ts'
 import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPresence } from './messages.ts'
 import { createTraffic } from './traffic.ts'
@@ -1454,12 +1455,12 @@ const apiAgents = createRemoteAgents(scene)
   let levelY = 0
   let homeCam = { dist: 0, pitch: 0 }
   const loadHomes = async (): Promise<Homes> => {
-    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome() }) }
+    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), parkTrain: () => boardMetro('park') }); parkPillars() }
     return homes
   }
   const fadeScreen = () => { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
   let homeBusy = false
-  const enterHome = async (id: HomeId, viewing: boolean) => {
+  const enterHome = async (id: AreaId, viewing: boolean) => {
     if (homeBusy) return
     if (ride?.driving) { ui.toast('Park the car first.'); return }
     if (interiors.inside) { ui.toast('Step outside first.'); return }
@@ -1469,7 +1470,7 @@ const apiAgents = createRemoteAgents(scene)
       if (ui.isOpen()) ui.close()
       if (seating.sitting) seating.stand()
       const s = h.enter(id, viewing)
-      setHomeInView(id)
+      setHomeInView(id === 'park' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
       pos.x = s.x; pos.z = s.z; levelY = s.y
@@ -1479,7 +1480,7 @@ const apiAgents = createRemoteAgents(scene)
       camYaw = s.heading + Math.PI
       cameraReady = false
       avatar.object.position.set(pos.x, levelY, pos.z)
-      ui.toast(viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
     } finally { homeBusy = false }
   }
   const leaveHome = () => {
@@ -1502,6 +1503,57 @@ const apiAgents = createRemoteAgents(scene)
     else if (d.op === 'restyle' && homes?.inside) homes.restyle()
   })
   ;(window as unknown as { __homes?: () => Homes | null }).__homes = import.meta.env.DEV ? () => homes : undefined
+  // --- The Grind Metro (metro.ts): a train round the city and out to Grind Park, loaded once the city is open.
+  let metro: Metro | null = null
+  let metroCam = { dist: 0, pitch: 0 }
+  const metroSpot: Hotspot = { id: '__metro__', x: 0, z: 0, r: 99, title: 'Grind Metro', body: 'Ride round the city. The gold button gets you off at the next stop.', enter: 'Get off at the next stop', use: () => { metro?.requestStop(); ui.toast(`Getting off at ${metro?.nextTitle() ?? 'the next stop'}.`) } }
+  const parkPillars = () => { if (metro && homes) homes.setParkObstacles(metro.pillars.map((p) => ({ kind: 'circle' as const, x: p.x, z: p.z, r: 0.85 }))) }
+  const boardMetro = (id: StationId) => {
+    if (!metro) { ui.toast('The trains are starting up. Try again in a moment.'); return }
+    if (ride?.driving) { ui.toast('Park the car first.'); return }
+    if (interiors.inside || (homes?.inside && homes.inside !== 'park')) { ui.toast('Step outside first.'); return }
+    const paid = spendInGame(2, 'Grind Metro fare', 'A ride on the train')
+    if (!paid.ok) { ui.toast(paid.message); return }
+    if (homes?.inside) homes.leave()
+    if (seating.sitting) seating.stand()
+    if (ui.isOpen()) ui.close()
+    metro.board(id)
+    const v = metro.view()
+    fadeScreen()
+    avatar.object.visible = false
+    target = null; vel.x = 0; vel.z = 0
+    if (!metroCam.dist) metroCam = { dist: homeCam.dist || camDistGoal, pitch: homeCam.pitch || camPitch }
+    homeCam = { dist: 0, pitch: 0 }
+    camDistGoal = 15; camPitch = 0.3
+    camYaw = v.heading + Math.PI
+    pos.x = v.x; pos.z = v.z; levelY = v.y
+    cameraReady = false
+    ui.toast('All aboard. The gold button gets you off at the next stop.')
+  }
+  const metroArrive = (id: StationId) => {
+    if (!metro) return
+    avatar.object.visible = true
+    camDistGoal = metroCam.dist || 5.6; camPitch = metroCam.pitch || 0.42
+    metroCam = { dist: 0, pitch: 0 }
+    if (id === 'park') { levelY = 0; void enterHome('park', true); return }
+    const st = STATIONS_AT[id]
+    fadeScreen()
+    pos.x = st[0]; pos.z = st[1]; levelY = 0
+    vel.x = 0; vel.z = 0; target = null
+    avatar.object.position.set(pos.x, 0, pos.z)
+    cameraReady = false
+    exitCooldown = 0.8
+    ui.toast(`${metro ? '' : ''}You are at the ${id === 'skytower' ? 'Sky Tower' : id[0]!.toUpperCase() + id.slice(1)} station.`)
+  }
+  const STATIONS_AT: Record<StationId, [number, number]> = { beach: [-8, -59.5], marina: [59, 8], raceway: [6, 59.5], park: [-118, 123], skytower: [-59, 10] }
+  window.addEventListener('gd:revealed', () => window.setTimeout(() => {
+    void import('./metro.ts').then((m) => {
+      metro = m.createMetro(scene, { onArrive: (id) => metroArrive(id) })
+      for (const st of m.STATIONS) if (st.id !== 'park') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
+      parkPillars()
+    })
+  }, 2500), { once: true })
+  ;(window as unknown as { __metro?: () => Metro | null }).__metro = import.meta.env.DEV ? () => metro : undefined
   let spot: Hotspot | null = null
   let cameraReady = false
   let revealed = false
@@ -1735,6 +1787,7 @@ const apiAgents = createRemoteAgents(scene)
       if (d < 3.8 && elapsed - serverSpoke > 60) { serverSpoke = elapsed; speak(SERVER_LINES[Math.floor(elapsed) % SERVER_LINES.length]!, { gender: 'm', seed: 7 }) }
     }
   apiAgents.tick(dt)
+    metro?.tick(dt)
     // Traffic gives way to the car you drive as it does to people.
     crowdObstacles.push(...traffic.tick(dt, elapsed, pos, ride && ride.driving && ride.kind === 'car' ? crowdObstacles.concat(ride.shape()) : crowdObstacles))
     // Reduced motion holds the sky still at the chosen GN time.
@@ -1776,7 +1829,7 @@ const apiAgents = createRemoteAgents(scene)
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     // Wheel/pinch moves a goal; the camera eases to it (no jumps, no runaway trackpad zoom).
-    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), 3.2, ride?.driving && ride.kind === 'boat' ? 18 : 12)
+    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), 3.2, (ride?.driving && ride.kind === 'boat') || metro?.riding ? 18 : 12)
     camDist += (camDistGoal - camDist) * (1 - Math.exp(-10 * dt))
 
     exitCooldown = Math.max(0, exitCooldown - dt)
@@ -1797,6 +1850,12 @@ const apiAgents = createRemoteAgents(scene)
       // A lift or escalator carries you: no walking until it stops.
       pos.x = homeRide.x; pos.z = homeRide.z; levelY = homeRide.y
       vel.x = 0; vel.z = 0; target = null
+      avatar.object.position.set(pos.x, levelY, pos.z)
+    } else if (metro?.riding) {
+      const v = metro.view()
+      pos.x = v.x; pos.z = v.z; levelY = v.y
+      vel.x = 0; vel.z = 0; target = null
+      stillFor = 0
       avatar.object.position.set(pos.x, levelY, pos.z)
     } else if (ride && ride.driving) {
       // At the wheel: the stick drives, taps on the ground do nothing, the body stays in the car.
@@ -1962,7 +2021,7 @@ const apiAgents = createRemoteAgents(scene)
     let best: Hotspot | null = null
     let bestScore = Infinity
     if (ride && !ride.driving) { parkedSpot.x = ride.x; parkedSpot.z = ride.z; parkedSpot.title = ride.label }
-    const candidates: Hotspot[] = ride?.driving ? [] : homes?.inside ? homes.uses() : interiors.inside ? (interiors.uses() as Hotspot[]) : ride ? [...streetSpots, parkedSpot] : streetSpots
+    const candidates: Hotspot[] = ride?.driving || metro?.riding ? [] : homes?.inside ? homes.uses() : interiors.inside ? (interiors.uses() as Hotspot[]) : ride ? [...streetSpots, parkedSpot] : streetSpots
     for (const candidate of candidates) {
       const dist = Math.hypot(pos.x - candidate.x, pos.z - candidate.z)
       // Walking through a door enters or leaves the 3D room.
@@ -1978,6 +2037,7 @@ const apiAgents = createRemoteAgents(scene)
       }
     }
     if (ride?.driving) { rideSpot.enter = ride.kind === 'boat' ? 'Back to harbour' : 'Get out'; rideSpot.title = ride.label; best = rideSpot }
+    if (metro?.riding) { metroSpot.enter = `Get off at ${metro.nextTitle()}`; best = metroSpot }
     showSpot(best)
     // An action button nobody used fades after a few seconds of standing still; it is back the moment the
     // player moves or reaches something else.
@@ -1993,6 +2053,11 @@ const apiAgents = createRemoteAgents(scene)
 
     // After a longer pause without manual look, ease the camera behind the walking direction (phones: less auto-swing).
     const coarseCam = matchMedia('(pointer: coarse)').matches
+    if (metro?.riding && lookIdle > 0.9) {
+      const behind = metro.view().heading + Math.PI
+      const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
+      camYaw += delta * (1 - Math.exp(-1.4 * dt))
+    }
     if (ride?.driving && lookIdle > 0.9) {
       // Chase camera: settle behind the car (or boat), quicker at speed.
       const behind = ride.heading + Math.PI
@@ -2008,12 +2073,12 @@ const apiAgents = createRemoteAgents(scene)
     void faceYaw
     if (!cameraReady) lookSmooth.set(pos.x, 1.15 + levelY, pos.z)
     // Over-the-shoulder: frame the player slightly left of centre, GTA style.
-    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving ? 0 : 0.55) * Math.min(1, 6 / camDist))
+    shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving || metro?.riding ? 0 : 0.55) * Math.min(1, 6 / camDist))
     lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, (ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45) + levelY, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const indoors = Boolean(interiors.inside)
     if (!indoors && cutHidden.size) restoreCut()
-    const useDist = indoors ? Math.min(camDist, 4.6) : camDist // walls between camera and player are cut away indoors
+    const useDist = homes?.rideCam ?? (indoors ? Math.min(camDist, 4.6) : camDist) // walls between camera and player are cut away indoors
     const horiz = useDist * Math.cos(camPitch)
     desiredCam.set(pos.x + Math.sin(camYaw) * horiz, 1.15 + levelY + useDist * Math.sin(camPitch), pos.z + Math.cos(camYaw) * horiz)
     // The over-the-shoulder offset must not put the look point inside a wall (player hugging a building).
