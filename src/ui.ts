@@ -39,6 +39,7 @@ import { masterclassNodes } from './masterclass.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
 import { photoCardNodes, shareCardToX } from './photoCard.ts'
+import { regionMapNodes } from './regionMap.ts'
 import { clubNodes, markPlate } from './stockClub.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
@@ -132,7 +133,11 @@ type Hooks = {
   onRank: (label: string) => void
   travel?: (title: string, enter?: boolean) => void
   /** Baked top-down map (data URL, '' if not baked yet), its half-extent in metres, and pin positions by guide title. */
-  satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number }>; me?: { x: number; z: number } }
+  satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number; id?: string; kind?: string }>; me?: { x: number; z: number } }
+  /** Go to a street spot by id (map pins for places that are not rooms). */
+  goSpot?: (id: string) => void
+  /** Go to a place beyond the centre (Grind Park, the airport), optionally to a spot inside it. */
+  goFar?: (area: 'park' | 'airport', at?: [number, number], title?: string) => void
   portrait?: (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => string | null
 }
 
@@ -1470,7 +1475,8 @@ export function mountUi(
               b.type = 'button'; b.className = 'sat-pin'; b.setAttribute('aria-label', pin.title); b.title = pin.title
               const label = document.createElement('span'); label.textContent = pin.title
               b.append(label)
-              b.onclick = () => hooks.travel?.(pin.title, true)
+              if (pin.kind) b.dataset.kind = pin.kind
+              b.onclick = () => pin.id ? hooks.goSpot?.(pin.id) : hooks.travel?.(pin.title, true)
               at(pin.x, pin.z, b); inner.append(b)
             }
             if (m.me) { const me = document.createElement('i'); me.className = 'sat-me'; me.title = 'You are here'; at(m.me.x, m.me.z, me); inner.append(me); requestAnimationFrame(() => { z = 1.8; tx = (0.5 - (m.me!.x + m.limit) / (2 * m.limit)) * box.clientWidth * z; ty = (0.5 - (m.me!.z + m.limit) / (2 * m.limit)) * box.clientWidth * z; apply() }) }
@@ -1478,6 +1484,8 @@ export function mountUi(
             requestAnimationFrame(() => box.parentElement?.querySelectorAll<HTMLElement>('.map-entry').forEach((n) => { n.hidden = true }))
             return [box, toggle]
           })(),
+          (() => { const h = document.createElement('h3'); h.className = 'region-h region-top'; h.textContent = 'The whole district'; return h })(),
+          ...regionMapNodes(button, (p) => hooks.goFar?.(p.area, p.at, p.title), () => hooks.goSpot?.('ring')),
           para('Every door on the street. Tap a pin or a row to go straight there and walk in.'),
           ...GUIDE.map((stop) => {
             const row = document.createElement('div')

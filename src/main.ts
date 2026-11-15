@@ -32,6 +32,7 @@ import { createInput } from './input.ts'
 import { money, decodeShare, rankFor, seasonAt, wearsPlate, type DroneId, type Graphics, type SkillId } from './logic.ts'
 import { drawMinimap, bakeSatellite, satelliteUrl } from './minimap.ts'
 import { GUIDE } from './guide.ts'
+import { HOUSES } from './houses.ts'
 import { createNet } from './net.ts'
 import { encodeShare, VEHICLES } from './logic.ts'
 import type { Ride, RideOpts } from './ride.ts'
@@ -461,6 +462,14 @@ const apiAgents = createRemoteAgents(scene)
     const dir = dirs[((Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) % 8) + 8) % 8]
     setCC(false); ui.toast(m < 3 ? `@${d.u} is right here.` : `@${d.u} is ${m} m ${dir} (gold dot on the minimap).`)
   })
+  /** Extra map pins: [spot id, label, kind] (kind colours the pin). */
+  const MAP_EXTRA: Array<[string, string, string]> = [
+    ['hospital', 'Hospital', 'health'], ['venue-hotel', 'The Grind Grand hotel', 'stay'], ['venue-mall', 'Grind Mall', 'shop'],
+    ['cruise', 'Harbour · cruises & party yacht', 'travel'], ['realty', 'Grind Realty', 'home'], ['villas', 'Villa row', 'home'],
+    ['crown-lift', 'Crown penthouse', 'home'], ['race', 'Raceway', 'fun'], ['casino', 'Casino (closed)', 'fun'],
+    ['graduation', 'Graduation 🎓', 'learn'], ['society', 'Etiquette House', 'learn'], ['market', 'Market hall', 'shop'],
+    ['metro-beach', 'Metro · Beach', 'travel'], ['metro-marina', 'Metro · Marina', 'travel'], ['metro-skytower', 'Metro · Sky Tower', 'travel'], ['metro-raceway', 'Metro · Raceway', 'travel'],
+  ]
   const portraitShot = (() => {
     const shot = createPortrait(renderer!, () => avatar.object)
     let big: ReturnType<typeof createPortrait> | null = null
@@ -498,13 +507,29 @@ const apiAgents = createRemoteAgents(scene)
     travel: (title, enter) => travelHook(title, enter),
     satMap: () => { try {
       if (!satelliteUrl()) { try { bake() } catch { /* vector list only */ } }
-      const pins = GUIDE.flatMap((g) => {
+      const pins: Array<{ title: string; x: number; z: number; id?: string; kind?: string }> = GUIDE.flatMap((g) => {
         const h = findSpot(g.title)
         return h && Math.abs(h.x) < MAP_LIMIT && Math.abs(h.z) < MAP_LIMIT ? [{ title: g.title, x: h.x, z: h.z }] : []
       })
+      // Places added since the guide was written: tap one to arrive beside it.
+      for (const [id, title, kind] of MAP_EXTRA) {
+        const h = streetSpots.find((x) => x.id === id) ?? world.hotspots.find((x) => x.id === id)
+        if (h && Math.abs(h.x) < MAP_LIMIT && Math.abs(h.z) < MAP_LIMIT) pins.push({ title, x: h.x, z: h.z, id, kind })
+      }
       return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
     } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
     portrait: (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => portraitShot(yaw, into, hi),
+    goSpot: (id) => {
+      const h = streetSpots.find((x) => x.id === id) ?? world.hotspots.find((x) => x.id === id)
+      if (!h) { ui.toast('That place is still opening. Try again in a moment.'); return }
+      if (homes?.inside) leaveHome()
+      travelTo(h)
+    },
+    goFar: (area, at, title) => {
+      ui.close()
+      window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: area, viewing: true, at } }))
+      if (title) window.setTimeout(() => ui.toast(`You are at ${title}.`), 3200)
+    },
   })
   performance.mark('gd:pre-mentor')
   const mentor = createMentorCard({
@@ -1375,6 +1400,16 @@ const apiAgents = createRemoteAgents(scene)
   // Grind Ring kiosk: stand at the front of the counter to order tea or coffee, or take a free stool.
   const freeStools = () => kioskSeats().filter((s) => !crowd.occupied(s.x, s.z))
   // Graduation, by the Campus steps: progress until every Campus course is passed, then the ceremony.
+  // Every side of every house on the row answers, not only the door: walk up to any wall and you can ring the
+  // bell (or go home), and you are let in through the front door.
+  for (const home of HOUSES) {
+    const sides: Array<[string, number, number]> = [['nx', -1, 0], ['px', 1, 0], ['nz', 0, -1], ['pz', 0, 1]]
+    for (const [side, sx, sz] of sides) {
+      if (side === home.door) continue
+      const x = home.x + sx * (home.w / 2 + 1.1), z = home.z + sz * (home.d / 2 + 1.1)
+      streetSpots.push({ id: `${home.id}-side-${side}`, x, z, r: 1.8, title: home.spotTitle, body: `${home.body} The front door is round the ${home.door === 'nx' ? 'west' : home.door === 'px' ? 'east' : home.door === 'nz' ? 'north' : 'south'} side.`, enter: home.id === 'yours' ? 'Go inside' : 'Ring the bell', use: () => { const door = world.hotspots.find((h) => h.id === home.id); if (door) enterRoom(door) } })
+    }
+  }
   streetSpots.push({ id: 'graduation', x: 4.6, z: -41.2, r: 1.4, title: 'Graduation 🎓', body: 'Pass every course in the six Campus worlds to graduate: cap and gown, your name called, the diploma from Zahra.', enter: 'Graduation', use: () => ui.open('diploma') })
   window.addEventListener('gd:graduated', () => { notify('Graduate 🎓', 'Diploma in Web3 Foundations. Download it or share it from Graduation.', 'graduated', 'panel:diploma'); window.setTimeout(() => ui.open('diploma'), 4200) })
   streetSpots.push({ id: 'kiosk', x: 0, z: 3.15, r: 1.5, title: 'Grind Ring kiosk', body: 'Welcome to Grind. Tea or coffee?', enter: 'Order', use: () => {
@@ -1549,7 +1584,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   const fadeScreen = () => { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
   let homeBusy = false
-  const enterHome = async (id: AreaId, viewing: boolean) => {
+  const enterHome = async (id: AreaId, viewing: boolean, at?: [number, number]) => {
     if (homeBusy) return
     if (ride?.driving) { ui.toast('Park the car first.'); return }
     if (interiors.inside) { ui.toast('Step outside first.'); return }
@@ -1559,6 +1594,8 @@ const apiAgents = createRemoteAgents(scene)
       if (ui.isOpen()) ui.close()
       if (seating.sitting) seating.stand()
       const s = h.enter(id, viewing)
+      // From the map: arrive at a particular place inside the area (the zoo, the golf course, the cliffs).
+      if (at && (id === 'park' || id === 'airport')) { s.x = at[0]; s.z = at[1]; s.y = 0 }
       setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
@@ -1586,8 +1623,8 @@ const apiAgents = createRemoteAgents(scene)
     exitCooldown = 0.8
   }
   window.addEventListener('gd:home', (e) => {
-    const d = (e as CustomEvent<{ op: string; id?: HomeId; viewing?: boolean; style?: StyleId }>).detail
-    if (d.op === 'enter' && d.id) void enterHome(d.id, !!d.viewing)
+    const d = (e as CustomEvent<{ op: string; id?: HomeId; viewing?: boolean; style?: StyleId; at?: [number, number] }>).detail
+    if (d.op === 'enter' && d.id) void enterHome(d.id, !!d.viewing, d.at)
     else if (d.op === 'try' && d.style) { if (homes?.inside) { ui.close(); homes.tryStyle(d.style) } else ui.toast('Go to a home first (a free viewing works), then try a look on.') }
     else if (d.op === 'restyle' && homes?.inside) homes.restyle()
     else if (d.op === 'yacht') {

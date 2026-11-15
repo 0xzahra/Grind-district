@@ -182,7 +182,14 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   box(M.timber, 6.4, 0.2, 4.4, -45, 2.8, -45)
   block(-45, -45, 2.6, 1.4)
   statusSpot('supercar', 'supercar', -45, -42, 'Supercar garage', 'Keys are yours. Your grand tourer waits under the canopy.')
-  o.hotspots.push({ id: 'villas', x: -45, z: -48.5, r: 2.5, title: 'Villa row', body: 'Architect villas: stone, glass and timber, with cantilevered upper floors and pools.' })
+  // Villa row is lived in: the west villa is the Mensahs' home (ring the bell), the east one is for sale (tour it).
+  o.hotspots.push({ id: 'villas', x: -45, z: -48.5, r: 2.2, title: 'Villa row', body: 'Architect villas: stone, glass and timber, cantilevered upper floors and pools. The east villa is for sale: tour it free, buy at Grind Realty.', enter: 'Tour the villa for sale',
+    use: () => window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'duplex', viewing: true } })) })
+  const hello = ['Kofi Mensah opens the door: "Welcome, neighbour! Come by for jollof on Sunday."', 'Ama Mensah waves from the terrace: "The pool is lovely in the evening. Say hi anytime."', '"Ah, the new face on the row! We built this place on patience, not hype. Keep grinding."']
+  o.hotspots.push({ id: 'villa-mensah', x: -52, z: -48.2, r: 1.8, title: 'The Mensah villa', body: 'Home of the Mensah family: Kofi, an architect, and Ama, a retired trader.', enter: 'Ring the bell',
+    use: () => o.toast(hello[Math.floor(Math.random() * hello.length)]!) })
+  o.hotspots.push({ id: 'villa-sale', x: -38, z: -48.2, r: 1.8, title: 'Villa for sale', body: 'An architect villa on the market: two floors, a glass lift and a garden pool. Tour it free.', enter: 'Tour the villa',
+    use: () => window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'duplex', viewing: true } })) })
   { // The same grand tourer the dealership shows, from the city's own car kit.
     const car = itemModel('tourer')
     car.position.set(-45, 0.1, -45); car.rotation.y = Math.PI / 2

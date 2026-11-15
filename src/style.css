@@ -2867,16 +2867,16 @@ html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor) :is(.kicker, .xch-group
 html[data-ui='light'] body #npc-card .npc-doing { color: #8a6a2c !important; }
 /* Keys: light raised keys with dark labels (gold, green and red keys keep their own colours). */
 html[data-ui='light'] body :is(#sheet, #nav.cc, .mentor, #menu, .login-dlg) button:not(.primary):not(.xch-go):not([aria-selected='true']):not([aria-pressed='true']):not(.live):not(#menu-create):not(#play):not(#account-existing),
-html[data-ui='light'] body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn, #menu-profile, .greet-fab, #online-chip), html[data-ui='light'] body #cam-tools .cam-btn,
-html[data-ui='light'] body #nav.cc :is(.cc-btn, .cc-item .cc-circle:not(.cc-accent)), html[data-ui='light'] body .goal-pill.folded {
+html[data-ui='light'] body #menu-profile,
+html[data-ui='light'] body #nav.cc :is(.cc-btn, .cc-item .cc-circle:not(.cc-accent)) {
   color: #2a261f !important; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) !important;
 }
-html[data-ui='light'] body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn, #menu-profile, #online-chip), html[data-ui='light'] body #cam-tools .cam-btn, html[data-ui='light'] body #nav.cc :is(.cc-btn, .cc-item .cc-circle:not(.cc-accent)), html[data-ui='light'] body .goal-pill.folded {
+html[data-ui='light'] body #menu-profile, html[data-ui='light'] body #nav.cc :is(.cc-btn, .cc-item .cc-circle:not(.cc-accent)) {
   background: radial-gradient(120% 120% at 32% 22%, #ffffff 0%, #ece7dd 55%, #d3ccbe 100%) !important; border-color: rgba(60, 50, 30, 0.35) !important;
   box-shadow: inset 0 1px 0 #ffffff, inset 0 -2px 3px rgba(60, 50, 30, 0.12), 0 2px 0 #b2aa99, 0 6px 14px rgba(30, 24, 14, 0.28) !important;
 }
 html[data-ui='light'] body #nav.cc .cc-quad .cc-btn { background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important; }
-html[data-ui='light'] body #online-chip { color: #1d1b17 !important; }
+
 /* Inputs and the segmented controls on the trading card. */
 html[data-ui='light'] body :is(#sheet, #nav.cc) :is(input[type='text'], input[type='search'], select, textarea) { background: #ffffff !important; color: #1d1b17 !important; border-color: rgba(40, 32, 20, 0.22) !important; box-shadow: inset 0 1px 2px rgba(40, 32, 20, 0.12) !important; }
 html[data-ui='light'] body .sheet-card .xch-seg { background: rgba(40, 32, 20, 0.08) !important; border-color: rgba(40, 32, 20, 0.14) !important; box-shadow: inset 0 2px 4px rgba(40, 32, 20, 0.14) !important; }
@@ -3638,3 +3638,36 @@ html body #toast { z-index: 70 !important; }
   .gdesk-app{width:auto;flex:1;padding:4px 2px}.gdesk-icon{width:34px;height:34px;font-size:17px;border-radius:10px}
 }
 .gdesk-bar .gd-btn{display:inline-block;width:auto;margin:0;text-align:center;white-space:nowrap}.gdesk-bar b,.gdesk-earned{white-space:nowrap}
+
+/* Keys that float over the 3D city (menu, screenshot, camera, messages, online) stay solid and dark in both
+   themes: on a bright sky a white key reads as see-through. */
+html body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn, .greet-fab), html body #cam-tools .cam-btn, html body #cam-panel .cam-btn {
+  background: radial-gradient(120% 120% at 32% 22%, #5a5d63 0%, #2b2d31 52%, #131416 100%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.75) !important; color: #f6f1e6 !important; text-shadow: none !important; opacity: 1 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 3px rgba(0, 0, 0, 0.45), 0 2px 0 #08090a, 0 6px 14px rgba(0, 0, 0, 0.45) !important;
+}
+html body :is(#rail-toggle, #shot, #cam-toggle, #msg-btn) svg { stroke: #f6f1e6 !important; opacity: 1 !important; }
+/* Map: pin colours by kind, and the whole-district metro map (regionMap.ts). */
+.sat-pin[data-kind]::before { content: ''; position: absolute; inset: 0; border-radius: 50%; }
+.sat-pin[data-kind='health'] { background: #e0525a !important; } .sat-pin[data-kind='stay'] { background: #c9a25e !important; }
+.sat-pin[data-kind='shop'] { background: #e08a3c !important; } .sat-pin[data-kind='travel'] { background: #3f86e0 !important; }
+.sat-pin[data-kind='home'] { background: #9a6be0 !important; } .sat-pin[data-kind='fun'] { background: #1fb873 !important; }
+.sat-pin[data-kind='learn'] { background: #d6b25e !important; }
+.region-h { margin: 16px 2px 8px; font-size: 15px; letter-spacing: .02em; }
+.region-top { margin-top: 20px; }
+.region-map { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(214,178,94,.35); box-shadow: 0 10px 28px rgba(0,0,0,.35); background: #121a16; }
+.region-map svg { display: block; width: 100%; height: auto; min-height: 190px; }
+.region-map .sat-legend { position: absolute; left: 8px; bottom: 6px; }
+.rm-water { font: 700 9px Inter, system-ui, sans-serif; letter-spacing: 3px; fill: rgba(190,225,250,.7); }
+.rm-area { font: 800 10px Inter, system-ui, sans-serif; letter-spacing: 1.6px; fill: rgba(240,230,205,.75); }
+.rm-city-t { font: 800 11px Inter, system-ui, sans-serif; letter-spacing: 2px; fill: #f3dfa6; pointer-events: none; }
+.rm-city { cursor: pointer; }
+.rm-station { font: 700 9px Inter, system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: #0b100d; stroke-width: 3px; }
+.rm-pin { cursor: pointer; }
+.rm-pin circle { stroke: #fff; stroke-width: 1.6; filter: drop-shadow(0 2px 2px rgba(0,0,0,.5)); }
+.rm-fun circle { fill: #1fb873; } .rm-nature circle { fill: #4b9a3c; } .rm-travel circle { fill: #3f86e0; } .rm-thrill circle { fill: #e0603c; }
+.rm-glyph { font-size: 11px; pointer-events: none; }
+.rm-label { font: 700 8.5px Inter, system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: rgba(8,12,10,.9); stroke-width: 3px; pointer-events: none; }
+.region-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.region-row small { opacity: .75; font-size: 12px; padding: 0 4px; }
+.region-cap { display: block; margin: 6px 4px 0; font-size: 12px; opacity: .75; line-height: 1.4; }
