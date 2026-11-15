@@ -50,6 +50,10 @@ check(/from this update/i.test(note), 'honest about new counters')
 check(/not counted twice/i.test(note), 'privy wallet note mentions dedupe')
 check(!/0x|@|\.near|did:privy/i.test(JSON.stringify(rows)), 'no identities in the card')
 
+const withNear = formatStatsRows({ ...sample, nearAccounts: 6 }, 4)
+check(withNear.some((r) => r.kind === 'row' && r.label === 'Signed up with a NEAR wallet' && r.value === '6'), 'NEAR wallet sign-ups get their own line')
+check(!rows.some((r) => r.label === 'Signed up with a NEAR wallet'), 'no NEAR line when the count is unavailable')
+
 const fallback = formatStatsRows(null, 1)
 check(fallback.some((r) => r.kind === 'row' && r.label === 'Online now' && r.value === '1'), 'online now still shows when the API fails')
 check(fallback.some((r) => r.kind === 'note' && /could not load/i.test(r.label)), 'load failure is honest')

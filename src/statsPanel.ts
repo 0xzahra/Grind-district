@@ -16,6 +16,7 @@ export type PublicStats = {
   cloudSavesToday: number
   logouts: number
   deletions: number
+  nearAccounts?: number
   learners?: number
   lessonsPassed?: number
   certificates?: number
@@ -59,6 +60,7 @@ export function formatStatsRows(st: PublicStats | null, onlineNow: number): Stat
     ] : []),
     { kind: 'row', label: 'Registered', value: n(st.registered) },
     { kind: 'row', label: 'Sign-ups', value: n(st.signups) },
+    ...(typeof st.nearAccounts === 'number' ? [{ kind: 'row' as const, label: 'Signed up with a NEAR wallet', value: n(st.nearAccounts) }] : []),
     { kind: 'row', label: 'Sign-ins', value: n(st.signIns) },
     { kind: 'row', label: 'Agents registered', value: n(st.agentsRegistered) },
     { kind: 'row', label: 'Agents online', value: n(st.agentsOnline) },

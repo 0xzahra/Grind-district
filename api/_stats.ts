@@ -26,6 +26,8 @@ export type PublicStats = {
   deletions: number
   /** Learning, counts only: players with at least one course passed, courses passed in all, server certificate
    *  records, and players who saved progress in the last seven days on a later day than they joined. */
+  /** Accounts made by signing in with a NEAR wallet (players rows keyed near:<account>). */
+  nearAccounts?: number
   learners?: number
   lessonsPassed?: number
   certificates?: number
@@ -239,7 +241,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
   const fiveMin = new Date(Date.now() - 5 * 60_000).toISOString()
   const [
     players, agentsRegistered, agentsOnline, saves, savesToday, signIns, logouts, deletions,
-    walletEvents, activeToday, mints, privy, learning,
+    walletEvents, activeToday, mints, privy, learning, nearPlayers,
   ] = await Promise.all([
     db.from('players').select('id', { count: 'exact', head: true }),
     db.from('agents').select('id', { count: 'exact', head: true }),
@@ -254,6 +256,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     chainMints(db),
     privyCounts(),
     timeout(learningStats(db).catch(() => null), FETCH_MS * 2),
+    db.from('players').select('id', { count: 'exact', head: true }).like('privy_user_id', 'near:%'),
   ])
   const registered = count(players)
   // Sign-ups = current game accounts plus deletions recorded from this update on (ever-created, as far as we can see).
@@ -288,6 +291,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     logouts,
     deletions,
     ...(learning ?? {}),
+    ...(nearPlayers.error ? {} : { nearAccounts: count(nearPlayers) }),
   }
   statsCache = { at: Date.now(), value }
   return value
