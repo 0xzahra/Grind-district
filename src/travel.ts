@@ -35,14 +35,14 @@ const JET_USD = 250
 
 // ---------------------------------------------------------------- small helpers
 
-const std = (color: number, roughness = 0.6, metalness = 0, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra })
-const glow = (color: number) => new THREE.MeshBasicMaterial({ color, toneMapped: false })
-function put(g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0, shadow = true): THREE.Mesh {
+export const std = (color: number, roughness = 0.6, metalness = 0, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra })
+export const glow = (color: number) => new THREE.MeshBasicMaterial({ color, toneMapped: false })
+export function put(g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0, shadow = true): THREE.Mesh {
   const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; g.add(o); return o
 }
 /** A box by its centre. */
-const cube = (g: THREE.Object3D, w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, shadow = true) => put(g, new THREE.BoxGeometry(w, h, d), m, x, y, z, shadow)
-function tex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, repeat?: [number, number]): THREE.CanvasTexture {
+export const cube = (g: THREE.Object3D, w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, shadow = true) => put(g, new THREE.BoxGeometry(w, h, d), m, x, y, z, shadow)
+export function tex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, repeat?: [number, number]): THREE.CanvasTexture {
   const c = document.createElement('canvas'); c.width = w; c.height = h
   draw(c.getContext('2d')!)
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
@@ -51,7 +51,7 @@ function tex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, 
 }
 const FONT = '"Inter Variable", Inter, system-ui, sans-serif'
 /** A flat lit sign: text on a plate, readable from the front. */
-function sign(text: string, w: number, h: number, o: { bg?: string; fg?: string; px?: number; weight?: number; glowing?: boolean } = {}): THREE.Mesh {
+export function sign(text: string, w: number, h: number, o: { bg?: string; fg?: string; px?: number; weight?: number; glowing?: boolean } = {}): THREE.Mesh {
   const W = 1024, H = Math.max(64, Math.round((W * h) / w))
   const t = tex(W, H, (g) => {
     if (o.bg) { g.fillStyle = o.bg; g.fillRect(0, 0, W, H) } else g.clearRect(0, 0, W, H)
@@ -64,7 +64,7 @@ function sign(text: string, w: number, h: number, o: { bg?: string; fg?: string;
 }
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u
 /** A posed person; once loaded, scenery to the camera (it never pulls in to avoid them). */
-function person(model: HumanModel, o: Parameters<typeof posedHuman>[1]): THREE.Group {
+export function person(model: HumanModel, o: Parameters<typeof posedHuman>[1]): THREE.Group {
   const root: THREE.Group = posedHuman(model, { ...o, onReady: () => root.traverse((c) => { c.userData.ghost = true }) })
   return root
 }
@@ -397,14 +397,14 @@ function jet(kind: 'liner' | 'vip'): Jet {
 
 // ---------------------------------------------------------------- moving along a route
 
-type Leg = { curve: THREE.CatmullRomCurve3; L: number; v: number[]; rev: boolean }
-function leg(pts: number[][], rev = false): Leg {
+export type Leg = { curve: THREE.CatmullRomCurve3; L: number; v: number[]; rev: boolean }
+export function leg(pts: number[][], rev = false): Leg {
   const curve = new THREE.CatmullRomCurve3(pts.map(([x, y, z]) => new THREE.Vector3(x, y, z)), false, 'centripetal')
   curve.arcLengthDivisions = Math.max(200, Math.round(curve.getLength() / 3))
   return { curve, L: curve.getLength(), v: pts.map((p) => p[3]!), rev }
 }
 /** A route of legs with speeds set at each point; time-sampled so a Move can play it back. */
-function route(legs: Leg[]) {
+export function route(legs: Leg[]) {
   const DT = 1 / 30
   const sampleV = (lg: Leg, s: number) => {
     const t = lg.curve.getUtoTmapping(Math.min(1, Math.max(0, s / lg.L)), 0) * (lg.v.length - 1)

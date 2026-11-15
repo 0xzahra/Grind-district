@@ -1501,6 +1501,7 @@ const apiAgents = createRemoteAgents(scene)
   let homeCam = { dist: 0, pitch: 0 }
   let ridePitchSaved: number | null = null
   const rideSeat: Seat = { x: 0, z: 0, yaw: 0, y: 0.45 }
+  let rideHid = false
   const loadHomes = async (): Promise<Homes> => {
     if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), train: (id) => boardMetro(id), fade: () => fadeScreen() }); parkPillars() }
     return homes
@@ -1908,6 +1909,7 @@ const apiAgents = createRemoteAgents(scene)
     let moving = false
     const homeRide = homes?.inside ? homes.tick(dt, pos.x, pos.z) : null
     if (!homeRide && seating.sitting === rideSeat) seating.stand()
+    if (!homeRide && rideHid) { rideHid = false; avatar.object.visible = true }
     if (homeRide) {
       // A lift or escalator carries you: no walking until it stops.
       pos.x = homeRide.x; pos.z = homeRide.z; levelY = homeRide.y
@@ -1919,6 +1921,8 @@ const apiAgents = createRemoteAgents(scene)
       else if (seating.sitting === rideSeat) seating.stand()
       const rf = rs ? null : homes!.rideFace
       if (rf !== null) avatar.face(Math.sin(rf), Math.cos(rf), dt, true)
+      // Following a golf ball: the player steps out of the picture until it stops.
+      if (homes!.rideHidden) { avatar.object.visible = false; rideHid = true }
       avatar.step(dt, false, 0)
       seating.apply(avatar.object, dt)
     } else if (metro?.riding) {

@@ -10,6 +10,7 @@ import { slotKey, spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type Palette, type StyleId } from './homesShop.ts'
 import { buildAirport, buildYacht, type TravelCtx } from './travel.ts'
+import { buildParkPlus } from './parkPlus.ts'
 
 export type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
@@ -20,7 +21,7 @@ const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
 type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; hide?: boolean; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
@@ -277,7 +278,7 @@ function plans(): Record<AreaId, Plan> {
     // an ice-cream kiosk, and two rides: a Ferris wheel and a carousel (built in the plan, ridden with the gold button).
     park: {
       id: 'park',
-      levels: [{ y: 0, walk: R(-208, 100, -108, 206), pools: [] }],
+      levels: [{ y: 0, walk: R(-302, 100, -108, 206), pools: [] }],
       spawn: { x: -118.5, z: 124, heading: -0.9, lv: 0 },
       exitTo: { x: -8, z: -59.5 },
       house: null,
@@ -670,7 +671,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       },
     }
     plan.build(A)
-    if (plan.id === 'park') { parkRides(A); parkThrills(A) }
+    if (plan.id === 'park') { parkRides(A); parkThrills(A); buildParkPlus(A, { ...travel, fare, charge, onRelabel: (f) => { relabelHooks.push(f) } }) }
     if (plan.id === 'airport') buildAirport(A, travel)
     if (plan.id === 'yacht') buildYacht(A, travel)
     // Everything in an area is scenery to the camera (people load in later and mark themselves).
@@ -728,7 +729,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   const fare = (usd: number) => (hasPass() ? 'day pass' : `$${usd}`)
   const charge = (usd: number, label: string): { ok: boolean; message: string } => (hasPass() ? { ok: true, message: '' } : spendInGame(usd, label, 'Grind Park'))
   const fareSpots: Array<{ u: Hotspot; words: string; usd: number }> = []
-  const relabel = () => { for (const f of fareSpots) f.u.enter = `${f.words} · ${fare(f.usd)}`; activeLabelBump++; relabelExtra() }
+  const relabelHooks: Array<() => void> = []
+  const relabel = () => { for (const f of fareSpots) f.u.enter = `${f.words} · ${fare(f.usd)}`; activeLabelBump++; relabelExtra(); for (const h of relabelHooks) h() }
   let activeLabelBump = 0
   void activeLabelBump
   const buyPass = () => {
@@ -737,7 +739,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (!paid.ok) { deps.toast(paid.message); return }
     try { localStorage.setItem(passKey(), JSON.stringify({ pass: today() })) } catch { /* private mode */ }
     relabel()
-    deps.toast('Day pass on your wrist: the coaster, both slides, the Ferris wheel and the carousel are yours all day.')
+    deps.toast('Day pass on your wrist: the coaster, both slides, the Ferris wheel, the carousel and the zoo\'s safari tram are yours all day.')
   }
   // The wind on fast rides: filtered noise that rises with speed.
   let windCtx: AudioContext | null = null, windGain: GainNode | null = null, windFilter: BiquadFilterNode | null = null
@@ -810,6 +812,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     const M = A.M
     const L0 = levels[0]!
     fareSpots.length = 0
+    relabelHooks.length = 0
     relabelExtra = () => {}
     // --- Gate: an arch over the path from the station, with the pass desk.
     {
@@ -824,7 +827,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       gate.position.set(-121, 0, 128.5); gate.rotation.y = -0.9
       A.add(0, gate)
       A.block(0, R(-123.6, 129.6, -121.4, 131.4))
-      const u: Hotspot = { id: 'park-gate', x: -119.6, z: 127.4, r: 1.8, title: 'Grind Park gate', body: `A day pass covers every ride today: the roller coaster, both water slides, the Ferris wheel and the carousel. Or pay at each ride.`, enter: '', use: () => buyPass() }
+      const u: Hotspot = { id: 'park-gate', x: -119.6, z: 127.4, r: 1.8, title: 'Grind Park gate', body: `A day pass covers every ride today: the roller coaster, both water slides, the Ferris wheel, the carousel and the safari tram at the zoo. Or pay at each ride.`, enter: '', use: () => buyPass() }
       const paint = () => { u.enter = hasPass() ? 'Day pass: valid today' : `Buy a day pass · $${PASS_USD}` }
       paint()
       L0.uses.push(u)
@@ -1140,6 +1143,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get rideView(): { heading: number; pitch: number } | null { return move?.view?.() ?? null },
     /** Standing on a moving ride (the party jet's dance floor): which way to face. */
     get rideFace(): number | null { return move?.face?.() ?? null },
+    /** Following something else (a golf ball): the player is out of sight until it stops. */
+    get rideHidden(): boolean { return !!move?.hide },
     /** Animate the home; while a lift or escalator ride is on, return where the player is. */
     tick(dt: number, x: number, z: number): { x: number; z: number; y: number } | null {
       dt *= turbo
