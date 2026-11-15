@@ -157,7 +157,7 @@ export function mountMenu(enter: () => void): void {
     const handle = localStorage.getItem('gd.privy.username')
     play.hidden = !session
     play.disabled = false
-    play.textContent = handle ? `Continue as @${handle}` : 'Continue'
+    play.textContent = 'Continue' // the line under it says who is signed in, so the key stays narrow
     note.textContent = session ? (handle ? `Signed in as @${handle}.` : 'Signed in on this device.') : ''
     // Opening card: Sign up / Sign in / Agents. Continue only appears after a real session.
     const create = document.querySelector<HTMLButtonElement>('#menu-create')

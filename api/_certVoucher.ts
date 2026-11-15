@@ -1,7 +1,8 @@
 // Certificate mint vouchers (Base EIP-712 / NEAR ed25519). Underscore = not a Vercel function.
 // The server signs only for the signed-in player's own username, a course their synced save shows
 // passed, and canonical fields it rebuilds itself (title from the course list, name from the save).
-// The save is written by the player's device, so this is a practice credential, not a verified grade.
+// The save is written by the player's device, so minting also needs a pass on the server-graded exam
+// (api/_certExam.ts, checked in _certMint.ts). The exam is open-book, not proctored.
 import { createPrivateKey, sign as edSign, createPublicKey } from 'node:crypto'
 import { encodeCertId, decodeCertId, certSerial, issuedWat, certField, type CertData } from './_certArt.js'
 import { CERT_COURSES } from './_certCourses.js'

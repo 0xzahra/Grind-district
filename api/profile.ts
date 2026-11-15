@@ -4,6 +4,7 @@ import rewardWallet from './_rewardWallet.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
 import { certVoucher } from './_certMint.js'
+import { startExam, gradeExam } from './_certExam.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
 import { issueCert } from './_certStore.js'
 import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
@@ -108,6 +109,18 @@ export default async function handler(req: Req, res: Res) {
     const r = await issueCert(db, userId, p.data.username, String(req.body?.course ?? ''), String(req.body?.certId ?? ''))
     if (!r.ok) return res.status(r.status).json({ error: r.error })
     return res.status(200).json({ certId: r.row.cert_id, serial: r.row.serial, name: r.row.player_name, at: r.row.issued_ms })
+  }
+  if (req.query?.op === 'cert-exam') {
+    // A fresh certificate exam paper: the course's checks, shuffled, no answers, with a time limit.
+    const r = startExam(p.data.username, String(req.body?.course ?? ''))
+    if (!r.ok) return res.status(r.status).json({ error: r.error })
+    return res.status(200).json(r.paper)
+  }
+  if (req.query?.op === 'cert-grade') {
+    // Graded here against the server's answer key; a pass returns the ticket the mint voucher needs.
+    const r = gradeExam(p.data.username, String(req.body?.course ?? ''), req.body?.token, req.body?.answers)
+    if (!r.ok) return res.status(r.status).json({ error: r.error })
+    return res.status(200).json(r.result)
   }
   if (req.query?.op === 'cert-voucher') {
     // Certificate NFT voucher (Base or NEAR). Linked wallets come from Privy, never from the client.

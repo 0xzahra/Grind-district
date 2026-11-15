@@ -213,5 +213,42 @@ r = resOf()
 await certVoucher({ chain: 'near', course: 'spot', certId: id, receiver: 'amina.testnet' }, r.res, fakeDb as never, 'near:amina.testnet', 'amina', async () => [])
 ok(r.o.code === 503, 'no NEAR signer/contract: 503')
 
+// Certificate exam (api/_certExam.ts): graded on the server, a pass ticket for the voucher
+{
+  const { EXAM_BANK } = await import('../api/_certExamBank.ts')
+  const { COURSES } = await import('../src/courses.ts')
+  const mirror = COURSES.every((c) => JSON.stringify(EXAM_BANK[c.id]) === JSON.stringify(c.questions.map((q) => [q.prompt, q.choices, q.answer]))) && Object.keys(EXAM_BANK).length === COURSES.length
+  ok(mirror, `api/_certExamBank.ts matches the lessons (${COURSES.length} courses); rerun scripts/gen-cert-exam.ts if not`)
+  const { startExam, gradeExam, checkTicket, passMark } = await import('../api/_certExam.ts')
+  delete process.env.CERT_NEAR_SIGNER_KEY; delete process.env.CERT_SIGNER_PRIVATE_KEY; delete process.env.CERT_EXAM_KEY
+  const off = startExam('amina', 'spot')
+  ok(!off.ok && off.status === 503, 'no signer key: exams are honestly off')
+  process.env.CERT_EXAM_KEY = 'test-only-exam-key'
+  const t0 = Date.parse('2026-11-15T12:00:00Z')
+  const s1 = startExam('Amina', 'spot', t0)
+  ok(s1.ok && s1.paper.questions.length === EXAM_BANK.spot!.length, 'paper has every question of the course')
+  ok(s1.ok && !/"answer"|,\s*\d+\]\]/.test(JSON.stringify(s1.paper.questions)), 'paper carries no answers')
+  ok(passMark(3) === 3 && passMark(4) === 3 && passMark(5) === 4 && passMark(8) === 6, 'pass mark: three in four, rounded up')
+  if (s1.ok) {
+    const right = s1.paper.questions.map((q) => { const b = EXAM_BANK.spot!.find((x) => x[0] === q.prompt)!; return q.choices.indexOf(b[1][b[2]]!) })
+    const g = gradeExam('amina', 'spot', s1.paper.token, right, t0 + 60_000)
+    ok(g.ok && g.result.passed && g.result.score === right.length && typeof g.result.ticket === 'string', 'right answers pass and earn a ticket')
+    const ticket = g.ok ? g.result.ticket : ''
+    ok(checkTicket('amina', 'spot', ticket, t0 + 120_000).ok, 'ticket is accepted for the same player and course')
+    ok(!checkTicket('bola', 'spot', ticket, t0 + 120_000).ok, 'ticket is refused for another player')
+    ok(!checkTicket('amina', 'risk', ticket, t0 + 120_000).ok, 'ticket is refused for another course')
+    ok(!checkTicket('amina', 'spot', ticket, t0 + 31 * 60_000 + 60_000).ok, 'ticket expires after 30 minutes')
+    ok(!checkTicket('amina', 'spot', String(ticket).replace(/^(.{4})(.)/, (_, a, c) => a + (c === 'x' ? 'y' : 'x')), t0 + 120_000).ok, 'a tampered ticket is refused')
+    ok(!checkTicket('amina', 'spot', undefined, t0).ok, 'no ticket, no voucher')
+    const wrong = right.map((k, i) => (i === 0 || i === 1 ? (k + 1) % s1.paper.questions[i]!.choices.length : k))
+    const w = gradeExam('amina', 'spot', s1.paper.token, wrong, t0 + 60_000)
+    ok(w.ok && !w.result.passed && !w.result.ticket && w.result.missed.length === 2, 'two wrong answers fail with no ticket, and say which')
+    ok(!gradeExam('bola', 'spot', s1.paper.token, right, t0 + 60_000).ok, "another player cannot hand in this paper")
+    ok(!gradeExam('amina', 'spot', s1.paper.token, right, t0 + (s1.paper.seconds + 5) * 1000).ok, 'a paper handed in after the time limit is refused')
+    ok(!gradeExam('amina', 'spot', s1.paper.token, right.slice(1), t0 + 60_000).ok, 'every question must be answered')
+  }
+  delete process.env.CERT_EXAM_KEY
+}
+
 console.log(`cert: ${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

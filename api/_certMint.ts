@@ -1,6 +1,7 @@
 // POST /api/profile?op=cert-voucher (auth already checked by profile.ts). Underscore = not a function.
 // Body: { chain: 'base'|'near', course, certId, to?: 0x… (Base), receiver?: account.near/.testnet (NEAR) }
-// Signs only when: minting is configured, the course is passed in the player's synced save, the
+// Signs only when: minting is configured, the course is passed in the player's synced save, the player
+// holds a pass ticket from the server-graded certificate exam (api/_certExam.ts), the
 // wallet is the player's own (Base: a wallet linked to their Privy account; NEAR: their signed-in
 // NEAR account if they use NEAR sign-in) and this (username, course) is not already minted.
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -8,9 +9,10 @@ import { baseVoucher, signBaseVoucher, nearVoucherJson, signNearVoucher } from '
 import { baseContract, nearContract, baseChainId, nearNetwork, mintedOnBase, mintedOnNear } from './_certChain.js'
 import { isNearAccount } from './_nearAuth.js'
 import { issueCert, rowData } from './_certStore.js'
+import { checkTicket } from './_certExam.js'
 
 type Res = { status(n: number): { json(b: unknown): void } }
-type Body = Record<string, unknown> & { chain?: unknown; course?: unknown; certId?: unknown; to?: unknown; receiver?: unknown }
+type Body = Record<string, unknown> & { chain?: unknown; course?: unknown; certId?: unknown; to?: unknown; receiver?: unknown; ticket?: unknown }
 
 export async function certVoucher(body: Body, res: Res, db: SupabaseClient, userId: string, username: string, linkedEvm: () => Promise<string[]>) {
   const chain = body.chain === 'base' || body.chain === 'near' ? body.chain : null
@@ -31,6 +33,7 @@ export async function certVoucher(body: Body, res: Res, db: SupabaseClient, user
     if (!mine.includes(to.toLowerCase())) return res.status(403).json({ error: 'that wallet is not linked to your account' })
     const already = await mintedOnBase(c.data.u, course).catch(() => null)
     if (already) return res.status(200).json({ already, certId: c.id })
+    if (!checkTicket(username, course, body.ticket).ok) return res.status(403).json({ error: 'pass the short certificate exam first', exam: true })
     const v = baseVoucher(to as `0x${string}`, c.id, c.data)
     const signature = await signBaseVoucher(key as `0x${string}`, baseChainId(), contract, v)
     return res.status(200).json({ chain, contract, chainId: baseChainId(), certId: c.id, signature, voucher: { ...v, issuedAt: v.issuedAt.toString(), deadline: v.deadline.toString() } })
@@ -44,6 +47,8 @@ export async function certVoucher(body: Body, res: Res, db: SupabaseClient, user
   if (userId.startsWith('near:') && userId !== `near:${receiver}`) return res.status(403).json({ error: 'mint to the NEAR account you signed in with' })
   const already = await mintedOnNear(c.data.u, course).catch(() => null)
   if (already) return res.status(200).json({ already, certId: c.id })
+  // The on-chain certificate needs a pass on the server-graded exam (api/_certExam.ts), not just the device's save.
+  if (!checkTicket(username, course, body.ticket).ok) return res.status(403).json({ error: 'pass the short certificate exam first', exam: true })
   const json = nearVoucherJson(contract, receiver, c.id, c.data)
   return res.status(200).json({ chain, contract, network: nearNetwork(), certId: c.id, voucher: json, signature: signNearVoucher(key, json) })
 }

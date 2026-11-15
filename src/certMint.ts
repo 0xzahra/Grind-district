@@ -8,6 +8,7 @@ import { gameWalletAddress } from './privyWallet.ts'
 import { adoptCertId } from './certs.ts'
 import { track } from './track.ts'
 import type { SkillId } from './logic.ts'
+import { takeExam, heldTicket } from './certExam.ts'
 
 const BASE_NFT = String(import.meta.env.VITE_CERT_NFT_BASE ?? '')
 const BASE_CHAIN = Number(import.meta.env.VITE_CERT_NFT_BASE_CHAIN || 8453)
@@ -81,10 +82,20 @@ export async function serverCert(course: SkillId, hintId: string): Promise<{ cer
   return { certId: j.certId, serial: String(j.serial ?? '') }
 }
 
+/** The server-graded certificate exam's two calls (api/_certExam.ts), signed in like every other profile call. */
+const examPost = async (op: 'cert-exam' | 'cert-grade', body: Record<string, unknown>) => {
+  const auth = await authHeaders()
+  if (!auth) return { ok: false, j: { error: 'Sign in to your Grind District account first (Menu > Account), then try again.' } as Record<string, unknown> }
+  const r = await fetch(`/api/profile?op=${op}`, { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ ...body, ...(auth.near ? { near: auth.near } : {}) }) }).catch(() => null)
+  const j = ((await r?.json().catch(() => ({}))) ?? {}) as Record<string, unknown>
+  return { ok: !!r?.ok, j }
+}
+
 async function voucher(body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const auth = await authHeaders()
   if (!auth) throw new Error('Sign in to your Grind District account first (Menu > Account), then try again.')
-  const r = await fetch('/api/profile?op=cert-voucher', { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ ...body, ...(auth.near ? { near: auth.near } : {}) }) })
+  const ticket = heldTicket(String(body.course) as SkillId)
+  const r = await fetch('/api/profile?op=cert-voucher', { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ ...body, ...(ticket ? { ticket } : {}), ...(auth.near ? { near: auth.near } : {}) }) })
   const j = (await r.json().catch(() => ({}))) as Record<string, unknown>
   if (!r.ok) throw new Error(String(j.error ?? 'Could not prepare the mint') + (r.status === 401 && auth.near ? '. Sign in with NEAR again (sign-in proofs last 10 minutes).' : '.'))
   return j
@@ -100,7 +111,7 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
   if (!baseMintOn() && !nearMintOn()) return
   root.style.cssText = 'border:1px solid rgba(201,162,94,.45);border-radius:12px;padding:12px;display:grid;gap:8px;background:rgba(201,162,94,.05)'
   const head = el('p', 'Mint as NFT'); head.style.cssText = 'font-weight:700;margin:0;color:#e9cd8f'
-  const note = el('p', 'Writes this practice certificate to the chain you pick, into your own wallet. It is soulbound: it cannot be sold or moved, and it has no money value. You pay the network fee (Base: a little ETH for gas; NEAR: 0.05 NEAR attached for storage, unused part refunded). Gas sponsorship comes later. Your name, @username, course and issue time become public on-chain.', 'muted')
+  const note = el('p', 'First a short exam on this course, graded on the server. Then this certificate is written to the chain you pick, into your own wallet. It is soulbound: it cannot be sold or moved, and it has no money value. You pay the network fee (Base: a little ETH for gas; NEAR: 0.05 NEAR attached for storage, unused part refunded). Gas sponsorship comes later. Your name, @username, course and issue time become public on-chain.', 'muted')
   note.style.margin = '0'
   const pick = el('div', '', 'tabs'); pick.setAttribute('role', 'radiogroup'); pick.setAttribute('aria-label', 'Chain')
   const status = el('p', '', 'muted'); status.setAttribute('role', 'status'); status.style.margin = '0'
@@ -139,7 +150,16 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
     }
   }
 
+  // Every mint starts with the short exam, graded on the server; a pass in the last 25 minutes is reused.
+  const examFirst = async (again: () => void): Promise<boolean> => {
+    set('Certificate exam: a few questions from this course, graded on the server…')
+    const ticket = await takeExam(course, examPost)
+    if (!ticket) { set('Minting needs a pass on the short certificate exam (graded on the server, not on this device). Take it when you are ready.', btn('Take the exam', again)); return false }
+    return true
+  }
+
   const mintBase = async (addr: string) => {
+    if (!(await examFirst(() => void mintBase(addr)))) return
     set('Preparing your certificate…')
     try {
       const j = await voucher({ chain: 'base', course, certId, to: addr })
@@ -164,6 +184,7 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
   }
 
   const mintNear = async () => {
+    if (!(await examFirst(() => void mintNear()))) return
     set('Opening NEAR wallets…')
     try {
       const conn = await nearConnector()
