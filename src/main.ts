@@ -2254,9 +2254,13 @@ const apiAgents = createRemoteAgents(scene)
     }
     camera.lookAt(lookTarget)
     // Flights: see to the horizon, and keep the sky box round the camera at 150 m up.
-    const wantFar = flying ? 900 : 260
+    // A rocket: much further still, and in space a black sky with no haze.
+    const space = homes?.space ?? 0
+    const wantFar = space >= 1 ? 60000 : space > 0 ? 3000 : flying ? 900 : 260
     if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix() }
     if (flying) physSky.sky.position.copy(camera.position)
+    if (space > 0 && scene.fog instanceof THREE.FogExp2) scene.fog.density = space >= 1 ? 0 : 0.0009
+    if (space >= 1) { physSky.sky.visible = false; if (scene.background instanceof THREE.Color) scene.background.setHex(0x000004) }
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
     camera.updateMatrixWorld()
     setMixerViewer(camera)

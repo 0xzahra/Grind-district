@@ -21,7 +21,7 @@ const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
 type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; hide?: boolean; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; hide?: boolean; hidden?: () => boolean; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
@@ -310,7 +310,7 @@ function plans(): Record<AreaId, Plan> {
     // Grind International Airport, east of the city at the end of the metro's airport branch (travel.ts builds it).
     airport: {
       id: 'airport',
-      levels: [{ y: 0, walk: R(134, -78, 330, 128), pools: [] }],
+      levels: [{ y: 0, walk: R(134, -78, 430, 128), pools: [] }],
       spawn: { x: 143, z: 12, heading: Math.PI / 2, lv: 0 },
       exitTo: { x: 59, z: 8 },
       house: null,
@@ -486,6 +486,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   let time = 0
   let turbo = 1
   let flying = false
+  let space = 0
   const cleanups: Array<() => void> = []
   const light = new THREE.PointLight(0xffe2b8, 0, 26, 1.6)
   light.castShadow = false
@@ -708,6 +709,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   const dispose3d = () => {
     for (const f of cleanups.splice(0)) { try { f() } catch { /* already gone */ } }
     flying = false
+    space = 0
     if (!root) return
     scene.remove(root)
     root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mm = m.material as THREE.Material | THREE.Material[]; for (const x of Array.isArray(mm) ? mm : [mm]) x.dispose() } })
@@ -1074,7 +1076,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     startMove, now: () => time, toast: deps.toast, fade: deps.fade, leave: deps.leave,
     train: () => deps.train(plan?.id === 'airport' ? 'airport' : 'park'),
     wind: (v) => wind(v), animate: (f) => { animated.push({ tick: f }) }, light,
-    flying: (on) => { flying = on }, onLeave: (f) => { cleanups.push(f) },
+    flying: (on) => { flying = on }, space: (v) => { space = v }, onLeave: (f) => { cleanups.push(f) },
   }
 
   const levelY = (x: number, z: number): number => {
@@ -1144,7 +1146,9 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     /** Standing on a moving ride (the party jet's dance floor): which way to face. */
     get rideFace(): number | null { return move?.face?.() ?? null },
     /** Following something else (a golf ball): the player is out of sight until it stops. */
-    get rideHidden(): boolean { return !!move?.hide },
+    get rideHidden(): boolean { return move?.hidden ? move.hidden() : !!move?.hide },
+    /** 0 in our sky, 0.5 high up, 1 in space. */
+    get space() { return space },
     /** Animate the home; while a lift or escalator ride is on, return where the player is. */
     tick(dt: number, x: number, z: number): { x: number; z: number; y: number } | null {
       dt *= turbo

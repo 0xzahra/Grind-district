@@ -15,6 +15,7 @@ import { adjust } from './needs.ts'
 import { posedHuman, MEN, WOMEN, type HumanModel } from './humans.ts'
 import { lighthouse } from './ride.ts'
 import { musicOn, musicVolume, duckMusic } from './music.ts'
+import { buildSpaceport, ORBIT_USD } from './space.ts'
 
 export type TravelCtx = {
   startMove: (m: Move) => void
@@ -27,6 +28,8 @@ export type TravelCtx = {
   animate: (f: (t: number) => void) => void
   light: THREE.PointLight
   flying: (on: boolean) => void
+  /** 0 in our sky, 0.5 climbing high (see further, thinner haze), 1 in space (black sky, no haze). */
+  space: (v: number) => void
   onLeave: (f: () => void) => void
 }
 
@@ -573,7 +576,7 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
   const fieldCols = [0x8ea85a, 0xb9a865, 0x6f9a4c, 0xa7b86a, 0x7fa255, 0xc2b06e]
   let seed = 11
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-  const clear = (x: number, z: number, pad: number) => z < -72 || (x > 120 - pad && x < 350 + pad && z > -90 && z < 135 + pad) || Math.hypot(x, z) < 165 + pad || (Math.abs(x) < 90 + pad && z > 120 && z < 270 + pad) || (x > -220 - pad && x < -100 + pad && z > 90 - pad && z < 215 + pad) || Math.hypot(x - 150, z - 118) < 60 + pad
+  const clear = (x: number, z: number, pad: number) => z < -72 || (x > 120 - pad && x < 440 + pad && z > -90 && z < 135 + pad) || Math.hypot(x, z) < 165 + pad || (Math.abs(x) < 90 + pad && z > 120 && z < 270 + pad) || (x > -220 - pad && x < -100 + pad && z > 90 - pad && z < 215 + pad) || Math.hypot(x - 150, z - 118) < 60 + pad
   for (let k = 0; k < 26; k++) {
     const x = (rnd() - 0.5) * 1300, z = -60 + rnd() * 700, w = 40 + rnd() * 70, d = 40 + rnd() * 70
     if (clear(x, z, Math.max(w, d) * 0.6)) continue
@@ -886,6 +889,16 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
     })
   }
 
+  // Grind Orbital's desk at the north end of the terminal; the pad is out past the runway on the coast.
+  {
+    const desk = { x: 204.6, z: -18 }
+    cube(g, 1.0, 1.1, 3.2, std(0x0b0c0e, 0.3, 0.3), desk.x, 0.55, desk.z)
+    cube(g, 1.04, 0.05, 3.24, std(0x14a058, 0.5), desk.x, 1.12, desk.z, false)
+    const os = sign(`GRIND ORBITAL · TO SPACE`, 5, 0.6, { bg: '#0b0c0e', fg: '#ffffff', glowing: true }); os.position.set(desk.x + 0.2, 2.6, desk.z); os.rotation.y = -Math.PI / 2; g.add(os)
+    A.block(0, { x0: desk.x - 0.5, z0: desk.z - 1.6, x1: desk.x + 0.5, z1: desk.z + 1.6 })
+    buildSpaceport(A, X, desk)
+    void ORBIT_USD
+  }
   // --- What you can do here.
   const use = (u: Hotspot) => A.use(0, u)
   use({ id: 'air-train', x: 143, z: 16, r: 1.8, title: 'Grind Metro · Airport', body: 'Trains back round the city: the Marina, the Raceway, Grind Park, the Sky Tower and the Beach.', enter: 'Take the train · $2', use: () => X.train() })
