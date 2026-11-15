@@ -224,6 +224,11 @@ Needs give players a reason to come back each day; the season gives them a goal 
 | **District Cards** | 27 collectible cards in five sets: Landmarks (visit places), Scholar (pass courses), Society (friends, classes, your business, hosting), Raceway (medals) and Founders. The Founders pack is $250 in-game and its four foil cards are shown before you buy. Nothing is random: no blind packs, no odds. A complete set gives +5 reputation. |
 | **Dealership and gadgets** | Seven cars with smooth bodies, real wheel arches and alloy wheels: city saloon, executive saloon, sport saloon, grand tourer, electric coupé, V8 supercar and hypercar. Original designs, with no real badges. New computers: a pro laptop with an ARM chip, a mini desktop with a display, a pro tablet, a folding phone and a mixed-reality headset. Cars you own are quicker at the Raceway. |
 | **Photo card** | A picture of your character with your name, reputation and an invite code to scan, shared from Profile. It shows no balance or wallet. |
+| **Driving** | Your most valuable car waits by your house; every dealership car has a free test drive. One stick (up to go, back to brake or reverse, sideways to steer) and one button (Get out). Chase camera, rolling and steering wheels, an engine note; traffic gives way. |
+| **Grind Raceway circuit** | A circuit south of the city with kerbs, barriers, a start gantry and a grandstand. Two laps against three rival drivers, a 3-2-1 start, gates and a gold arrow, your place live, a ghost of your best run, medals against par. |
+| **Bay cruise** | A day cruiser from the harbour launch: seven pairs of buoys round a lighthouse rock, a wake, the bow lifting at speed. |
+| **Grind Metro and Grind Park** | A three-car train on a raised line round the city, five stations, $2 a ride, "Get off at the next stop" on the gold button. It runs out to Grind Park: lawns, a lake, a fountain, a playground, an ice-cream kiosk, a Ferris wheel and a carousel you can ride. |
+| **Luxury homes** | Grind Realty sells a garden duplex ($9,500), a hillside mansion with an escalator, a glass lift, a roof infinity pool and a helipad ($32,000), the crown penthouse on the marina tower ($48,000) and the sky house on the 110 m Sky Tower ($90,000), each with a free viewing. Ten whole-room looks (try first, buy once), twelve premium pieces, and Arrange (tap a piece, tap where it goes). |
 
 <p align="center"><img src="screenshots/cars.jpg" alt="The seven dealership cars" width="720"></p>
 
@@ -309,7 +314,7 @@ Nothing is rolled when you press a button: a visit is fixed by the resident, the
 - **Nearby chat** with players within 12 m (lines are not saved).
 - **Messages** to anyone by username or name, even when they are offline: text, photos and voice notes. Open their public profile from search.
 - **Friends and party** (up to 4), "join me" to meet up.
-- **Greet** people you pass. **Invites** with a referral link or a **photo card** with a code to scan. **Share on 𝕏** for CV and certificates.
+- **Greet** people you pass. **Invites** with a referral link or a **photo card** with a code to scan: the friend gets a $100 welcome gift, you get $50 when they join and $150 when they pass a course (up to 25 friends), and Profile tracks link opens, joins, active friends and the month's top inviters. **Share on 𝕏** for CV and certificates.
 - **Friendships with residents:** four levels, built by showing up (see the town economy).
 - **Online pill** shows who is in the city.
 

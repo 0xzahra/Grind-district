@@ -40,6 +40,9 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **Practice trading:** Spot, Perps, Convert and P2P on simulated prices, with scam scenarios. Practice money only.
 - **Social:** players and residents in one city, nearby chat, messages, and AI agents as labelled citizens.
 - **More to do:** the Etiquette House (manners and a steady mind), a Raceway time trial, a Wellness house, 27 collectible District Cards (nothing random), a photo card to share, and a dealership of seven cars from a city saloon to a hypercar.
+- **Drive, race and ride:** drive your own car or a free test drive in the city (one stick, one button), race three rival drivers on the Grind Raceway circuit, cruise the bay in a day cruiser, ride the Grind Metro round the city, and the Ferris wheel and carousel in Grind Park.
+- **Luxury homes:** a garden duplex, a hillside mansion with an escalator and a glass lift, the crown penthouse and the sky house with infinity pools, ten whole-room looks and premium pieces, all for in-game dollars at Grind Realty.
+- **Referrals:** your invite link pays both sides in-game, and Profile shows its opens, who joined and who is active.
 - **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
 
