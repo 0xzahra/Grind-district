@@ -250,5 +250,13 @@ ok(r.o.code === 503, 'no NEAR signer/contract: 503')
   delete process.env.CERT_EXAM_KEY
 }
 
+// Base Builder Code on the certificate mint (src/builderCode.ts)
+{
+  const { Attribution } = await import('ox/erc8021')
+  const { BUILDER_CODE, BUILDER_SUFFIX, withBuilderCode } = await import('../src/builderCode.ts')
+  ok(Attribution.toDataSuffix({ codes: [BUILDER_CODE] }) === `0x${BUILDER_SUFFIX}`, 'builder code suffix matches the ERC-8021 encoding')
+  ok(withBuilderCode('0xabcd').endsWith(BUILDER_SUFFIX) && withBuilderCode('0xabcd').startsWith('0xabcd'), 'mint calldata keeps its arguments and ends with the builder code')
+}
+
 console.log(`cert: ${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

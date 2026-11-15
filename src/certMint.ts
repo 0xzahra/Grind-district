@@ -9,6 +9,7 @@ import { adoptCertId } from './certs.ts'
 import { track } from './track.ts'
 import type { SkillId } from './logic.ts'
 import { takeExam, heldTicket } from './certExam.ts'
+import { withBuilderCode } from './builderCode.ts'
 
 const BASE_NFT = String(import.meta.env.VITE_CERT_NFT_BASE ?? '')
 const BASE_CHAIN = Number(import.meta.env.VITE_CERT_NFT_BASE_CHAIN || 8453)
@@ -168,7 +169,7 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
       if (j.already) { const a = j.already as { tokenId: string; explorer: string }; const m = { chain: 'base', tokenId: a.tokenId, explorer: a.explorer } as Minted; remember(course, m); return showMinted(m) }
       if (typeof j.certId === 'string') adoptCertId(course, j.certId)
       const v = j.voucher as Record<string, string>
-      const data = encodeFunctionData({ abi: ABI, functionName: 'mint', args: [{ to: v.to as `0x${string}`, courseId: v.courseId, courseTitle: v.courseTitle, playerName: v.playerName, username: v.username, rank: v.rank, issuedAt: BigInt(v.issuedAt), issuedWat: v.issuedWat, serial: v.serial, certId: v.certId, deadline: BigInt(v.deadline) }, j.signature as `0x${string}`] })
+      const data = withBuilderCode(encodeFunctionData({ abi: ABI, functionName: 'mint', args: [{ to: v.to as `0x${string}`, courseId: v.courseId, courseTitle: v.courseTitle, playerName: v.playerName, username: v.username, rank: v.rank, issuedAt: BigInt(v.issuedAt), issuedWat: v.issuedWat, serial: v.serial, certId: v.certId, deadline: BigInt(v.deadline) }, j.signature as `0x${string}`] })) // Base Builder Code on the end
       set('Confirm in your game wallet…')
       const { callFromGameWallet } = await import('./privyWallet.ts')
       const { hash } = await callFromGameWallet(String(j.contract), data, Number(j.chainId) || BASE_CHAIN)
