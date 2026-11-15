@@ -461,6 +461,18 @@ const apiAgents = createRemoteAgents(scene)
     const dir = dirs[((Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) % 8) + 8) % 8]
     setCC(false); ui.toast(m < 3 ? `@${d.u} is right here.` : `@${d.u} is ${m} m ${dir} (gold dot on the minimap).`)
   })
+  const portraitShot = (() => {
+    const shot = createPortrait(renderer!, () => avatar.object)
+    let big: ReturnType<typeof createPortrait> | null = null
+    // Portraits show the player standing: while seated (or riding), the shot is taken from the plain animation
+    // pose, and the seat pose comes back on the next frame. `hi` is the sharper shot for photo cards.
+    return (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => {
+      const person = avatar.object.userData.person as THREE.Object3D | undefined
+      const posed = !!seating.sitting, py = person?.position.y ?? 0, rx = person?.rotation.x ?? 0
+      if (posed) { avatar.object.userData.acc = 0.2; avatar.step(0, false, 0); if (person) { person.position.y = 0; person.rotation.x = 0 } }
+      try { return hi ? (big ??= createPortrait(renderer!, () => avatar.object, { w: 720, h: 1200 }))(yaw, into) : shot(yaw, into) } finally { if (posed && person) { person.position.y = py; person.rotation.x = rx } }
+    }
+  })()
   const ui = mountUi(sheet, toast, {
     rank: must('#pill-rank'),
     place: must('#pill-place'),
@@ -492,7 +504,7 @@ const apiAgents = createRemoteAgents(scene)
       })
       return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
     } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
-    portrait: (() => { const shot = createPortrait(renderer!, () => avatar.object); return (yaw?: number, into?: HTMLCanvasElement) => shot(yaw, into) })(),
+    portrait: (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => portraitShot(yaw, into, hi),
   })
   performance.mark('gd:pre-mentor')
   const mentor = createMentorCard({
@@ -1820,7 +1832,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)

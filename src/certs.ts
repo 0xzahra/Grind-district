@@ -44,7 +44,7 @@ export function certId(course: SkillId): string {
 
 let assets: Promise<{ lockup: HTMLImageElement; shrimp: HTMLImageElement }> | null = null
 const loadImg = (src: string) => new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error(src)); i.src = src })
-async function certAssets() {
+export async function certAssets() {
   assets ??= Promise.all([loadImg('/brand/lockup.png'), loadImg('/brand/shrimp.png')]).then(([lockup, shrimp]) => ({ lockup, shrimp })).catch((e) => { assets = null; throw e })
   const fonts = ['400 20px Outfit', '500 20px Outfit', '600 20px Outfit', '400 20px "Archivo Black"', 'italic 400 20px "Cormorant Garamond"', '600 20px "Cormorant Garamond"', 'italic 600 20px "Cormorant Garamond"']
   await Promise.race([Promise.all(fonts.map((f) => document.fonts?.load(f).catch(() => null))), new Promise((r) => setTimeout(r, 2500))])

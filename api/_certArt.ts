@@ -246,7 +246,7 @@ function cornerOrnament(g: Ctx, x: number, y: number, sx: number, sy: number) {
   g.restore()
 }
 
-function seal(g: Ctx, a: CertAssets, cx: number, cy: number) {
+function seal(g: Ctx, a: CertAssets, cx: number, cy: number, legend = 'GRIND DISTRICT  ✦  CERTIFICATE  ✦  ') {
   const R = 92
   // ribbon tails
   g.save()
@@ -278,7 +278,6 @@ function seal(g: Ctx, a: CertAssets, cx: number, cy: number) {
   g.strokeStyle = '#e9cd8f'; g.lineWidth = 1.4; g.beginPath(); g.arc(cx, cy, R - 18, 0, Math.PI * 2); g.stroke()
   g.strokeStyle = 'rgba(233,205,143,0.6)'; g.lineWidth = 0.8; g.beginPath(); g.arc(cx, cy, R - 44, 0, Math.PI * 2); g.stroke()
   // circular legend
-  const legend = 'GRIND DISTRICT  ✦  CERTIFICATE  ✦  '
   g.save()
   g.fillStyle = '#5c4a24'
   g.font = `600 12px ${F.sans}`
@@ -407,3 +406,6 @@ export function drawCertificate(g: Ctx, d: CertData, id: string, a: CertAssets, 
   void id
   g.restore()
 }
+
+/** The certificate's drawing pieces, shared with the Campus diploma (src/diploma.ts) so both share one look. */
+export const certArt = { F, C, foil, spaced, fit, diamond, ruleWithDiamond, tinted, guilloche, cornerOrnament, seal }

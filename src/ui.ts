@@ -133,7 +133,7 @@ type Hooks = {
   travel?: (title: string, enter?: boolean) => void
   /** Baked top-down map (data URL, '' if not baked yet), its half-extent in metres, and pin positions by guide title. */
   satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number }>; me?: { x: number; z: number } }
-  portrait?: (yaw?: number, into?: HTMLCanvasElement) => string | null
+  portrait?: (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => string | null
 }
 
 export type Ui = {
@@ -401,11 +401,11 @@ export function mountUi(
     const status = para('', 'muted')
     share.append(
       head('Invite and share'),
-      photoCardNodes({ para, button }, () => hooks.portrait?.() ?? null, (m) => toast(m)),
+      photoCardNodes({ para, button }, () => hooks.portrait?.(0, undefined, true) ?? null, (m) => toast(m)),
       // Two actions only: post to X, or copy the one invite link.
       strip(
       // X shows the photo card (avatar, rank, reputation, invite code) under the link, never the balance.
-      button('Share on 𝕏', 'ghost', () => shareCardToX(() => hooks.portrait?.() ?? null, (t) => toast(t))),
+      button('Share on 𝕏', 'ghost', () => shareCardToX(() => hooks.portrait?.(0, undefined, true) ?? null, (t) => toast(t))),
       button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
       ),
       status,
