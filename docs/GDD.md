@@ -397,7 +397,7 @@ North star: **weekly players who pass at least one lesson.**
 | --- | --- | --- | --- |
 | Title → sign up → first lesson passed | D1, D7, D30; daily check-in streaks | Certificates issued, CVs shared, NFTs minted | Earned vs topped-up balance, sink usage, top-up conversion |
 
-**Live now** in the city stats (the Online pill) and at `https://www.grinddistrict.app/api/track?op=stats`, counts only: players active today, learners (a course passed), courses passed, certificates issued and players who came back on another day in the last seven. On 15 November: 9 learners, 26 courses passed, 18 certificates, 4 returning players, 27 registered.
+**Live now** in the city stats (the Online pill) and at `https://www.grinddistrict.app/api/track?op=stats`, counts only: players active today, learners (a course passed), courses passed, certificates issued and players who came back on another day in the last seven. On 15 November: 9 learners, 26 courses passed, 18 certificates, 10 players back on a later day this week, 27 registered.
 
 ---
 
