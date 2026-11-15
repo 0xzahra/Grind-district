@@ -106,7 +106,8 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
   const status = el('p', '', 'muted'); status.setAttribute('role', 'status'); status.style.margin = '0'
   const act = el('div'); act.style.cssText = 'display:grid;gap:6px'
   root.append(head, note, pick, status, act)
-  let chain: 'base' | 'near' = baseMintOn() ? 'base' : 'near'
+  // NEAR first: it is the chain the core loop and the README walk through; Base stays one tap away.
+  let chain: 'base' | 'near' = nearMintOn() ? 'near' : 'base'
   const chip = (c: 'base' | 'near', label: string, on: boolean) => {
     const b = el('button', on ? label : `${label} (soon)`, 'ghost'); b.setAttribute('role', 'radio'); b.disabled = !on
     b.onclick = () => { chain = c; pick.querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', String(x === b))); void show() }
@@ -171,7 +172,24 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
       if (!account) { w = await conn.connect(); account = (await w.getAccounts())[0]?.accountId }
       if (!account) throw new Error('No NEAR account connected')
       set('Preparing your certificate…')
-      const j = await voucher({ chain: 'near', course, certId, receiver: account })
+      let j: Record<string, unknown>
+      try {
+        j = await voucher({ chain: 'near', course, certId, receiver: account })
+      } catch (e) {
+        // A NEAR sign-in proof lives in memory for 10 minutes, so after a reload (or a long lesson) it is gone.
+        // The wallet is connected right here: sign a fresh Grind District login message with it and try once more.
+        const sign = (w as unknown as { signMessage?: (p: { message: string; recipient: string; nonce: Uint8Array }) => Promise<{ accountId?: string; publicKey: string; signature: string }> } | null)?.signMessage
+        if (!sign || !/sign in|10 minutes|401/i.test((e as Error).message)) throw e
+        set('Confirm a sign-in message in your NEAR wallet (no funds, no transaction)…')
+        const nonce = crypto.getRandomValues(new Uint8Array(32))
+        let bin = ''; for (const b of nonce) bin += String.fromCharCode(b)
+        const nonceB64 = btoa(bin)
+        const message = `Grind District login\n${Date.now()}\n${nonceB64}`
+        const signed = await sign.call(w, { message, recipient: 'grinddistrict.vercel.app', nonce })
+        ;(await import('./state.ts')).holdNearProof({ accountId: signed.accountId || account, publicKey: signed.publicKey, signature: signed.signature, message, recipient: 'grinddistrict.vercel.app', nonce: nonceB64 })
+        set('Preparing your certificate…')
+        j = await voucher({ chain: 'near', course, certId, receiver: account })
+      }
       if (j.already) { const a = j.already as { tokenId: string; explorer: string }; const m = { chain: 'near', tokenId: a.tokenId, explorer: a.explorer } as Minted; remember(course, m); return showMinted(m) }
       if (typeof j.certId === 'string') adoptCertId(course, j.certId)
       set('Approve in your NEAR wallet…')
