@@ -225,7 +225,8 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     return
   }
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  try { renderer.toneMapping = THREE.AgXToneMapping } catch { renderer.toneMapping = THREE.ACESFilmicToneMapping }
+  // Neutral tone mapping keeps colours true and crisp (AgX washed them to pastels and read as too bright).
+  try { renderer.toneMapping = THREE.NeutralToneMapping } catch { renderer.toneMapping = THREE.ACESFilmicToneMapping }
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
 
@@ -532,11 +533,13 @@ const apiAgents = createRemoteAgents(scene)
     },
   })
   performance.mark('gd:pre-mentor')
+  let runStepRef: ((go: string) => void) | null = null
   const mentor = createMentorCard({
     toast: (m) => ui.toast(m),
     onRank: () => world.setRank(rankFor(getSave().xp).label),
     fullLesson: (course) => ui.open('learn', { course }),
-    next: () => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'jobs' })),
+    // After a lesson, 'What next?' follows the core loop (your CV, then the certificate) before jobs.
+    next: () => { const st = nextStep(); runStepRef?.(st.go) },
     // Camera sits on the far side of the player from Zahra, so she and the Campus door are in frame.
     face: () => { camYaw = Math.atan2(pos.x - ada.position.x, pos.z - ada.position.z) },
     toCampus: () => travelHook('Campus', false),
@@ -1098,6 +1101,7 @@ const apiAgents = createRemoteAgents(scene)
     return card
   })
   setStepSource(() => { const st = nextStep(); return { ...st, run: () => runStep(st.go) } })
+  runStepRef = runStep
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
   onCareer(() => { paintStatus(); if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
@@ -1962,7 +1966,7 @@ const apiAgents = createRemoteAgents(scene)
       scene.environmentIntensity = 0.5 * (1 - nightLevel) + 0.07 * nightLevel
       // Night: let the street lamps do the lighting (deeper blue between the warm pools).
       warmAmbient.intensity = 0.3 * (1 - nightLevel) + 0.035 * nightLevel
-      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.95, 0.86, nightLevel) // AgX: slightly lower day exposure (Zahra: too bright)
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.84, 0.8, nightLevel) // Neutral mapping: normal daylight, not washed out
       physSky.sky.visible = nightLevel < 0.85
   phoneFill.intensity = phoneFill.visible ? 0.15 * (1 - nightLevel) + 0.06 : 0
     }

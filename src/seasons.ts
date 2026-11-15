@@ -17,7 +17,7 @@ export const SEASONS: Record<SeasonId, { title: string; leaf: number; leafGlow: 
   spring: { title: 'Spring', leaf: 0xdcffc4, leafGlow: 0x3a5a20, leafGlowK: 0.12, sun: 1.0, sunTint: 0xfff6e8, fogTint: 0xdfeee6, snow: 0, fall: 'petals', arrive: 'Spring in Grind District: fresh leaves and blossom in the air.' },
   summer: { title: 'Summer', leaf: 0xffffff, leafGlow: 0x000000, leafGlowK: 0, sun: 1.08, sunTint: 0xfff0d0, fogTint: 0xf0e8d8, snow: 0, fall: null, arrive: 'Summer: long bright days. The beach and the park pools are calling.' },
   autumn: { title: 'Autumn', leaf: 0xffb060, leafGlow: 0xb8480c, leafGlowK: 0.55, sun: 0.94, sunTint: 0xffd9a8, fogTint: 0xe8d8c4, snow: 0, fall: 'leaves', arrive: 'Autumn: the leaves are turning gold and red, and drifting down.' },
-  winter: { title: 'Winter', leaf: 0xf2f6fa, leafGlow: 0xe8eef4, leafGlowK: 0.62, sun: 0.82, sunTint: 0xdfe9ff, fogTint: 0xdfe6ee, snow: 1, fall: 'snow', arrive: 'Winter: snow on the trees and the streets. Wrap up warm.' },
+  winter: { title: 'Winter', leaf: 0xf2f6fa, leafGlow: 0xe8eef4, leafGlowK: 0.36, sun: 0.82, sunTint: 0xdfe9ff, fogTint: 0xdfe6ee, snow: 1, fall: 'snow', arrive: 'Winter: snow on the trees and the streets. Wrap up warm.' },
 }
 
 /** Climate scenarios: warming since 1850-1900, sea-level rise since 1995-2014 (global means, IPCC AR6). */
@@ -141,14 +141,14 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
       foliage.emissive.setHex(S.leafGlow); foliage.emissiveIntensity = S.leafGlowK * (1 - night * 0.8)
       // Ground: snow in winter (a cool white glow, dimmed at night), parched in heat.
       o.ground.color.copy(groundBase).lerp(tmp2.setHex(0xe6d2a6), C.heat * 0.5)
-      o.ground.emissive.setHex(0xdfe8f2); o.ground.emissiveIntensity = S.snow * 0.48 * (1 - night * 0.75)
+      o.ground.emissive.setHex(0xdfe8f2); o.ground.emissiveIntensity = S.snow * 0.2 * (1 - night * 0.75)
       ground.visible = season() === 'autumn'
       sun.color.multiply(tmp.setHex(S.sunTint)).lerp(tmp2.setHex(0xffc27a), C.heat * 0.25).lerp(tmp2.setHex(0xbcd4ff), E.cool * 0.3)
       sun.intensity *= S.sun * (1 + C.heat * 0.12)
-      hemi.intensity *= 0.96 + S.snow * 0.1
+      hemi.intensity *= 0.96 + S.snow * 0.02
       if (fog) {
         fog.color.lerp(tmp.setHex(S.fogTint), 0.18 * (1 - night)).lerp(tmp2.setHex(0xd9b27a), C.heat * 0.4 * (1 - night * 0.6)).lerp(tmp2.setHex(0xc4d4e4), E.cool * 0.25 * (1 - night))
-        fog.density *= 1 + S.snow * 0.25 + C.heat * 0.7
+        fog.density *= 1 + S.snow * 0.08 + C.heat * 0.7
       }
     },
     /** Falling petals, leaves or snow round the camera; storms in the hotter futures. */
