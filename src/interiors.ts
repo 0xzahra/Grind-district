@@ -12,6 +12,7 @@ import { RANKS, rankFor } from './logic.ts'
 import { certNftContract, certNftNetwork, certNftOn, certNfts, type HeldCert } from './nftAccess.ts'
 import { buildHomeFurniture } from './homeFurniture.ts'
 import { buildHomeLife } from './homeLife.ts'
+import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
 import { paintSchedule } from './events.ts'
@@ -60,6 +61,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   roomFill.position.set(0, -50, 0)
   scene.add(roomFill)
   let inside: RoomId | null = null
+  let houseLight = 1
   const gymDone = new Set<string>()
   let cvTex: THREE.CanvasTexture | null = null
 
@@ -169,7 +171,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const box = (bw: number, bh: number, bd: number, mat: THREE.Material, x: number, z: number, y = 0, block = true, ry = 0) =>
       add(new THREE.BoxGeometry(bw, bh, bd), mat, x, y + bh / 2, z, block, ry)
     // Every interaction also tells needs.ts (the bed restores energy, the cooker hunger, the shower hygiene...).
-    const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }) => uses.push({ ...u, x: o.x + u.x, z: o.z + u.z, run: () => { u.run(); usedAtHome(u.id) } })
+    const use = (u: Omit<Use, 'x' | 'z'> & { x: number; z: number }): Use => { const it: Use = { ...u, x: o.x + u.x, z: o.z + u.z, run: () => { u.run(); usedAtHome(u.id) } }; uses.push(it); return it }
     // Seats: room-local position, facing yaw, seat-top height. Tap or E sits; any move stands.
     const seat = (sid: string, title: string, x: number, z: number, yaw: number, y: number) => {
       const sp = seatSpot(`${id}-seat-${sid}`, title, { x: o.x + x, z: o.z + z, yaw, y }, hooks.sit, 1.3)
@@ -294,7 +296,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       { const leaf = add(new THREE.IcosahedronGeometry(0.2, 0), std(0x4f6b3e, 0.8), -9.6, 1.18, -5.4); leaf.scale.set(1, 1.3, 1) }
       // Living room: rug, L sofa, coffee table, TV wall.
       // Furniture itself is tiered by ladder rank: see homeFurniture.ts (rebuilt on enter).
-      use({ id: 'lights', x: -4.8, z: -1.2, r: 0.8, title: 'Light switch', body: 'Dim the house for the evening.', enter: 'Lights to night', run: () => { setTime('night'); hooks.onLook(); hooks.toast('Lamp on. Night in the district.') } })
+      // Light switches by each room's door, and the plasma, appliances and fan: homeTech.ts.
       // Kitchen (NE): counters, island, fridge, stove; stairs up.
       const steel = std(0xc9ccd0, 0.3, 0.7), dark = std(0x2a2c2f, 0.4, 0.4), worktop = std(0x8a8d90, 0.35, 0.1)
       // Counters either side of the gas cooker (homeLife.ts), which stands at x 6.4.
@@ -400,6 +402,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const x of [-0.5, 7.0]) northWall.attach(box(1.8, 1.2, 0.04, new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.12, roughness: 0.1 }), x, -d / 2 + 0.02, 1.4, false))
       // Daily life: gas cooker, fridge, utensils and food, doors, bathroom, laundry, garden, lounger (homeLife.ts).
       buildHomeLife({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, wall: part, walls: { north: northWall, east: eastWall, bath: bathWall } })
+      // Switches, ceiling lights, the plasma and the appliances (homeTech.ts). The room lamp follows the switches.
+      buildHomeTech({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, setLights: (f) => { houseLight = f; if (inside === 'house') { lamp.intensity = 5.5 * (0.18 + 0.82 * f); roomFill.intensity = 0.22 * (0.4 + 0.6 * f) } } })
     }
 
     if (id === 'gym') {
@@ -1015,9 +1019,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       savedEnv = scene.environmentIntensity
       scene.environmentIntensity = Math.min(savedEnv, 0.18)
       // Softer indoor light: previous values (~25 on campus) washed rooms to stark white.
-      lamp.intensity = id === 'house' ? 5.5 : 7.5 + SIZE[id].w * 0.28
+      lamp.intensity = id === 'house' ? 5.5 * (0.18 + 0.82 * houseLight) : 7.5 + SIZE[id].w * 0.28
       lamp.distance = Math.max(16, SIZE[id].w * 1.15)
-      roomFill.intensity = id === 'house' ? 0.22 : 0.28
+      roomFill.intensity = id === 'house' ? 0.22 * (0.4 + 0.6 * houseLight) : 0.28
       if (id === 'house' && cvTex) { paintDesktop((cvTex.image as HTMLCanvasElement).getContext('2d')!, 512, 320); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
       if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.2, z: o.z + DOOR_Z.house!, yaw: Math.PI / 2 }
