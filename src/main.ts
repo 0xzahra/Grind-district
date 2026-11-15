@@ -8,6 +8,8 @@ import { resumeMusicOnFirstTap } from './music.ts'
 import { speak } from './speech.ts'
 import { setAmbientPlace, setAmbientEnv, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
+import { createSeasons } from './seasons.ts'
+import { foliageMaterial as seasonFoliage } from './trees.ts'
 import { setMixerViewer, posedHuman } from './humans.ts'
 import { createMentorCard, tourSeen } from './mentor.ts'
 import { nextStep } from './objective.ts'
@@ -294,6 +296,8 @@ const apiAgents = createRemoteAgents(scene)
   performance.mark('gd:estate-beach-skyline-street')
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
+  // Seasons and climate previews (seasons.ts): leaves, snow, light and the waterline.
+  const seasons = createSeasons(scene, { foliage: seasonFoliage(), ground: world.groundMat, beach, weather, graphics: matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics, toast: (m) => ui.toast(m) })
   let bob = 0
   let hemiBase = 1
   // ~10 real minutes per in-game day. GN time in Settings picks where the clock starts.
@@ -532,6 +536,7 @@ const apiAgents = createRemoteAgents(scene)
   document.getElementById('nav-trade')?.addEventListener('click', () => ui.open('trade'))
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
+  document.getElementById('nav-seasons')?.addEventListener('click', () => ui.open('seasons'))
   // Click-to-travel: tap a spot on the map and arrive outside the nearest door.
   const travelTo = (spot: Hotspot) => {
     if (interiors.inside) leaveRoom()
@@ -1849,11 +1854,12 @@ const apiAgents = createRemoteAgents(scene)
     // Reduced motion holds the sky still at the chosen GN time.
     // The city is mostly in daylight: the clock runs slowly while the sun is up, briskly through dusk and dawn,
     // and quickly through the night (about 8 minutes of day to 2 of night).
-    if (!calmSky() && !clockHeld()) { const up = Math.sin((dayPhase - 0.25) * Math.PI * 2); dayPhase = (dayPhase + (dt / DAY_SECONDS) * (up > 0.12 ? 0.55 : up < -0.12 ? 2.6 : 1.3)) % 1 }
+    if (!calmSky() && !clockHeld()) { const up = Math.sin((dayPhase - 0.25) * Math.PI * 2); const before = dayPhase; dayPhase = (dayPhase + (dt / DAY_SECONDS) * (up > 0.12 ? 0.55 : up < -0.12 ? 2.6 : 1.3)) % 1; if (dayPhase < before) seasons.newDay() }
     lightAcc += dt
     if (lightAcc > 0.25) {
       lightAcc = 0
       world.setDaylight(dayPhase)
+      seasons.apply(scene.fog instanceof THREE.FogExp2 ? scene.fog : null, world.sun, world.hemi, nightLevel)
       if (homes?.flying && scene.fog instanceof THREE.FogExp2) scene.fog.density *= 0.45 // clearer air up high
       hemiBase = world.hemi.intensity
       physSky.setPhase(dayPhase, focus)
@@ -2234,6 +2240,7 @@ const apiAgents = createRemoteAgents(scene)
       camera.position.y += Math.sin(bob * 2) * amp
       camera.position.x += Math.cos(bob) * amp * 0.5
     }
+    seasons.tick(dt, camera, !interiors.inside && !homes?.flying)
     { const pulse = weather.tick(dt, camera, !interiors.inside, calmSky())
       world.hemi.intensity = hemiBase * (1 - 0.18 * weather.rain()) + pulse * 0.9
       post.setFocus(camera.position.distanceTo(lookTarget)) }

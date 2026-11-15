@@ -32,13 +32,16 @@ export function createWeather(scene: THREE.Scene, ground: THREE.MeshStandardMate
   const rainyDay = () => { const d = new Date(Date.now() + 3600_000).toISOString().slice(0, 10); let h = 7; for (const c of d) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 100 < 12 }
   let clock = forced === 'rain' ? 10 : WET + 1
   let rain = 0 // 0..1 eased intensity
+  let forcedRain: boolean | null = null
   let flash = 0
   let nextFlash = 6
   return {
+    /** Climate previews: storms on (true), dry (false), or the usual weather (null). */
+    force(on: boolean | null) { forcedRain = on },
     /** Returns lightning pulse 0..1 for the caller to add to sky/sun intensity. */
     tick(dt: number, cam: THREE.Camera, outside: boolean, calm: boolean): number {
       clock = (clock + dt) % CYCLE
-      const raining = forced === 'clear' ? false : forced === 'rain' || (rainyDay() && clock < WET)
+      const raining = forcedRain ?? (forced === 'clear' ? false : forced === 'rain' || (rainyDay() && clock < WET))
       rain += ((raining ? 1 : 0) - rain) * (1 - Math.exp(-dt / 6))
       ground.roughness = baseRough - rain * 0.38
       flash = Math.max(0, flash - dt * 5)

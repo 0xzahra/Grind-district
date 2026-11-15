@@ -82,7 +82,7 @@ function palmParts(): { trunk: THREE.BufferGeometry; leaves: THREE.BufferGeometr
   return { trunk: merge(trunkParts), leaves: merge(leafParts) }
 }
 
-export function createBeach(scene: THREE.Scene, graphics: Graphics): { tick: (dt: number) => void } {
+export function createBeach(scene: THREE.Scene, graphics: Graphics): { tick: (dt: number) => void; setRise: (metres: number) => void } {
   const hi = graphics === 'high'
   const group = new THREE.Group(); group.name = 'beach'
   // Sand: dry sand, then a darker wet band at the waterline.
@@ -162,12 +162,15 @@ export function createBeach(scene: THREE.Scene, graphics: Graphics): { tick: (dt
 
   scene.add(group)
   let t = 0
+  let rise = 0
   return {
+    /** Climate preview: the waterline moves this many metres up the beach. */
+    setRise(metres: number) { rise = metres; sea.position.z = SHORE - 800 + rise; wet.position.z = SHORE + 1.2 + rise },
     tick(dt: number) {
       t += dt
       normals.offset.set(t * 0.012, t * 0.02)
       foamTex.offset.x = t * 0.01
-      foam.position.z = SHORE + 0.2 + Math.sin(t * 0.8) * 0.45
+      foam.position.z = SHORE + 0.2 + rise + Math.sin(t * 0.8) * 0.45
       foamMat.opacity = 0.6 + Math.sin(t * 0.8 + 1.2) * 0.2
     },
   }

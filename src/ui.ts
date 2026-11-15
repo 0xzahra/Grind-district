@@ -32,6 +32,7 @@ import { PLACES, placeNodes, casinoNodes, wellnessNodes, buyAt } from './places.
 import { marketNodes, hostNodes } from './town.ts'
 import { homesNodes } from './homesShop.ts'
 import { referralNodes } from './referrals.ts'
+import { seasonsNodes } from './seasons.ts'
 import { societyNodes } from './society.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
@@ -1485,8 +1486,11 @@ export function mountUi(
             return row
           }),
         ])
+      case 'seasons':
+        return renderSimple('Seasons & climate', seasonsNodes({ para, button }, () => close(), (m) => toast(m)))
       case 'climate':
         return renderSimple('Carbon desk', [
+          button('See climate change in the city', 'ghost', () => open('seasons')),
           para(`A practice pledge costs ${money(CLIMATE_USD)}. It does not retire a real credit. Rank does not move because you spent.`),
           para('A method names what was reduced, who measured it, and whether the work needed the credit revenue. A logo does not. This desk records a practice note and does not issue a tonne.'),
           ...PROJECTS.map((project) => button(project.name, 'primary', () => {

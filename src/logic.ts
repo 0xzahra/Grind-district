@@ -111,6 +111,7 @@ export type PanelId =
   | 'house'
   | 'city'
   | 'climate'
+  | 'seasons'
   | 'bounty'
   | 'conference'
   | 'robot'
