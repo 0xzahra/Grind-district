@@ -1,24 +1,34 @@
 # Grind District
 
-Millions of people want to work in Web3, but they learn from scattered videos, get scammed on the way, and end up with nothing that proves what they know.
+**Learn Web3 in a 3D city and leave with proof.** Pass a short lesson at Campus and it goes on your CV with a certificate, which you can mint on NEAR as a soulbound NFT.
 
-**Grind District** is a free 3D city where you learn Web3 by living it. Every lesson you pass becomes proof: a CV, a certificate, and a soulbound certificate NFT on NEAR that the game reads back to unlock things.
+Millions of people want to work in Web3, but they learn from scattered videos, get scammed on the way, and end up with nothing that proves what they know. Grind District turns a short lesson into proof you keep.
 
 **Play (phone or desktop, no install):** https://www.grinddistrict.app · [Demo post](https://x.com/0xarewah/status/2119301193100837169) · Made by [Zahra](https://0xzahra.github.io)
 
-![The Grind District plaza: people walking, the Grind Ring drinks stand, shops and offices](docs/screenshots/city.jpg)
+## The core loop (about 5 minutes)
 
-## Try the NEAR flow (about 3 minutes)
+1. **Enter the city.** Sign up with Google, X, email or a NEAR wallet. Zahra, the Campus guide, gives a one-minute tour.
+2. **Go to Campus.** The gold *Next step* button takes you there. Campus is just north of the plaza.
+3. **Finish a short lesson.** Three short cards and two quick checks with Zahra.
+4. **See the proof.** The course is on your CV with a certificate: Profile, right under your name.
+5. **Optional: mint it on NEAR.** Open the certificate and tap *Mint as NFT* > NEAR. The game reads the token back and marks the course *Verified on NEAR*.
 
-1. **Learn.** Open [grinddistrict.app](https://www.grinddistrict.app), sign in (NEAR wallet, Google, X or email), walk to Campus and pass a one-minute lesson with Zahra.
-2. **Prove.** The pass goes on your CV with a certificate (Profile > Certificates), each with a public page.
-3. **Mint on NEAR.** Open the certificate and tap *Mint as NFT* > NEAR. A soulbound NEP-171 token is minted on [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) to your NEAR testnet account (0.05 NEAR attached for storage). You need a NEAR testnet wallet such as [Meteor](https://meteorwallet.app) with a little free testnet NEAR from [near-faucet.io](https://near-faucet.io). No testnet wallet? Tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1) and [#2](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/2) show the same mint already done, and step 5 works without signing in.
-4. **See it do something.** The game calls the view method `cert_for({ username, course_id })` and marks that course *Verified on NEAR* on your CV and profile, and the members-only **Holders' room** in the Members' lounge opens.
-5. **Check it anywhere.** The certificate's public page reads the chain too: [this certificate](https://www.grinddistrict.app/cert/eyJ2IjoyLCJuIjoiMHh6YXJhIiwidSI6InphcmEiLCJyIjoiQ3JhYiIsImMiOiJpbnRlcm5ldCIsInQiOiJXaGF0IHRoZSBpbnRlcm5ldCBpcyIsImQiOiIyMDI2LTExLTEwIiwiYXQiOjE3OTQzMzc0MjE1NDJ9) shows *Minted on NEAR · [Token #1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1)*.
+The rest of the city (jobs, practice trading, shops, the park, the airport) is optional. It stays in the background until you have passed a first lesson.
 
-| Certificate | Verified on NEAR | Holders' room |
+| Campus | Your CV | Your certificate |
 | --- | --- | --- |
-| ![Certificate of completion](docs/screenshots/certificate.jpg) | ![Profile nameplate marked Verified on NEAR](docs/screenshots/profile-verified.jpg) | ![The Holders' room door in the Members' lounge](docs/screenshots/holders-room.jpg) |
+| ![Campus: worlds, missions and progress](docs/screenshots/campus.jpg) | ![A CV built from the courses the player passed](docs/screenshots/cv.jpg) | ![Certificate of completion](docs/screenshots/certificate.jpg) |
+
+## The NEAR mint, step by step (about 3 minutes)
+
+1. **Mint.** On the certificate, tap *Mint as NFT* > NEAR. A soulbound NEP-171 token is minted on [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) to your NEAR testnet account (0.05 NEAR attached for storage). You need a NEAR testnet wallet such as [Meteor](https://meteorwallet.app) with a little free testnet NEAR from [near-faucet.io](https://near-faucet.io). No testnet wallet? Tokens [#1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1) and [#2](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/2) show the same mint already done, and step 3 works without signing in.
+2. **See it do something.** The game calls the view method `cert_for({ username, course_id })` and marks that course *Verified on NEAR* on your CV and profile, and the members-only **Holders' room** in the Members' lounge opens.
+3. **Check it anywhere.** The certificate's public page reads the chain too: [this certificate](https://www.grinddistrict.app/cert/eyJ2IjoyLCJuIjoiMHh6YXJhIiwidSI6InphcmEiLCJyIjoiQ3JhYiIsImMiOiJpbnRlcm5ldCIsInQiOiJXaGF0IHRoZSBpbnRlcm5ldCBpcyIsImQiOiIyMDI2LTExLTEwIiwiYXQiOjE3OTQzMzc0MjE1NDJ9) shows *Minted on NEAR · [Token #1](https://testnet.nearblocks.io/nft-token/grinddistrict-cert.testnet/1)*.
+
+| Verified on NEAR | Holders' room |
+| --- | --- |
+| ![Profile nameplate marked Verified on NEAR](docs/screenshots/profile-verified.jpg) | ![The Holders' room door in the Members' lounge](docs/screenshots/holders-room.jpg) |
 
 ## NEAR hackathon entry
 
@@ -32,7 +42,10 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 | **Built in the window** | Everything since baseline commit `39a1707` (1 Nov 2026), tagged `pre-hackathon`: [one diff](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...main). The entry is the last commit on `main` before 14 Nov 2026 23:59 UTC; anything committed later is not part of it. The full list with commits and both contracts is in [`docs/NEAR-ENTRY.md`](docs/NEAR-ENTRY.md). |
 | **Disclosure** | An existing project: 116 commits came before 1 Nov. Other chains: the in-game top-up on Base (built before 1 Nov), plus two Base features built in the window, the Base option of the certificate mint ([`GrindCertificate`](https://basescan.org/address/0xBEC44b497b5D4696644A5ad581804476CB20808f)) and the Stockholders' Club. None of the Base work is part of this entry. All NEAR work was built in the window. The submission is the last commit before 14 Nov 2026 23:59 UTC. |
 
-## What's in the game
+## Beyond the core loop (optional)
+
+Everything below is real and playable, but secondary: none of it is needed to learn, earn a certificate or mint it.
+
 
 - **Campus:** six worlds of one-minute lessons with Zahra, a voiced guide. Each pass is filed to a CV with a certificate.
 - **A life in the city:** a home to cook, sleep and shower in, needs that fall while you play, shops, a hospital, jobs and a season with a Grind Pass. Reputation is the only score.
@@ -43,6 +56,8 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **Drive and race:** drive your own car or a free test drive in the city (one stick, one button), race three rival drivers on the Grind Raceway circuit, and cruise the bay in a day cruiser.
 - **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
+
+**Added after the deadline (15 Nov, not part of the hackathon entry):** luxury homes at Grind Realty (a duplex, a mansion with an escalator and a glass lift, a penthouse and a sky house with infinity pools, whole-room looks, premium pieces), referral rewards and tracking for invite links, and the Grind Metro train out to Grind Park (a $100 day pass at the gate; a roller coaster, a speed slide, a tube slide, a Ferris wheel and a carousel, all seated rides). Then: Grind International Airport with flight GA 101 in Economy, Business or First over the sea and the city; the Grind One party jet and a party yacht with a DJ and guests; Grind Park's picnic lawn, Grind Zoo with a safari tram, and three holes of golf; Grind Orbital, a rocket trip to orbit and back to a splashdown; the four seasons and a Seasons & climate view of 2050 and 2100 under low and high emissions; the Grind Grand hotel with a rooftop infinity pool, and Grind Mall with the Grind Fresh supermarket, a food court and a cinema; a realistic skyline. Then: eight premium Society Masterclasses at the Etiquette House (the wealth mindset, quiet luxury, signal and larping, fine dining, working the room, presence, first-class travel, negotiation); graduation from Campus with a ceremony and a downloadable diploma; El Niño and La Niña years; a guided sea-cliff climb and a tandem skydive; notifications as 3D buttons with each update. Screenshots: [first set](docs/shots-2026-11-15/), [second set](docs/shots-2026-11-15b/).
 
 ## Why onchain
 
@@ -62,8 +77,6 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **Who it is for.** People who are curious about Web3 and want to learn it without getting scammed, and people looking for Web3 work who need proof of what they know.
 - **Reasons to come back today.** A daily streak, needs that drop while you are away, a business that keeps selling to residents while you are gone (up to two hours are caught up), the Grind Pass season, friendships and events with residents, and messages with push and email alerts.
 - **Next (plans).** Dec 2026 to Q1 2027: an AI companion run on NEAR AI, sign-in from any chain with NEAR Intents, gas-sponsored certificate mints and alerts for streaks and events. Q1 to Q2 2027: partner courses, guilds and team challenges, and tools for community lessons. H2 2027: mainnet credentials that employers can check, and the job board. The full roadmap is in the [GDD](docs/GDD.md#18-roadmap).
-
-**Added after the deadline (15 Nov, not part of the hackathon entry):** luxury homes at Grind Realty (a duplex, a mansion with an escalator and a glass lift, a penthouse and a sky house with infinity pools, whole-room looks, premium pieces), referral rewards and tracking for invite links, and the Grind Metro train out to Grind Park (a $100 day pass at the gate; a roller coaster, a speed slide, a tube slide, a Ferris wheel and a carousel, all seated rides). Then: Grind International Airport with flight GA 101 in Economy, Business or First over the sea and the city; the Grind One party jet and a party yacht with a DJ and guests; Grind Park's picnic lawn, Grind Zoo with a safari tram, and three holes of golf; Grind Orbital, a rocket trip to orbit and back to a splashdown; the four seasons and a Seasons & climate view of 2050 and 2100 under low and high emissions; the Grind Grand hotel with a rooftop infinity pool, and Grind Mall with the Grind Fresh supermarket, a food court and a cinema; a realistic skyline. Then: eight premium Society Masterclasses at the Etiquette House (the wealth mindset, quiet luxury, signal and larping, fine dining, working the room, presence, first-class travel, negotiation); graduation from Campus with a ceremony and a downloadable diploma; El Niño and La Niña years; a guided sea-cliff climb and a tandem skydive; notifications as 3D buttons with each update. Screenshots: [first set](docs/shots-2026-11-15/), [second set](docs/shots-2026-11-15b/).
 
 ## Screenshots
 
