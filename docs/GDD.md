@@ -2,7 +2,7 @@
 
 <h1 align="center">Grind District: Game Design Document</h1>
 
-<p align="center"><b>Version 2.3 · 14 November 2026</b><br>
+<p align="center"><b>Version 2.4 · 15 November 2026</b><br>
 City · Career · Skills · CV<br>
 <a href="https://www.grinddistrict.app">www.grinddistrict.app</a> · free, in the browser, phone or desktop</p>
 
@@ -119,11 +119,11 @@ flowchart LR
 
 ### The menu
 
-Messages · Notifications · Map · Home · Profile (CV, certificates, books) · Boutique · Trade · Courses · Career · City Feed · Settings · Shortcuts. The Balance card opens the wallet; the Needs card shows your mood and each need.
+**Learn** comes first: a green card with the first lesson ("Learn at Campus · about a minute · it goes on your CV") or the next one. Beside it: Messages · Notifications · Map · Home, and Profile (CV, certificates, books) · Career · Settings · Shortcuts. Boutique, Trade and Seasons join once the first lesson is passed, so a new player sees the learning path first. The Balance card opens the wallet; the Needs card shows your mood and each need. Main keys are in the logo's green; red is kept for delete and reset.
 
 ### Settings
 
-Graphics **Low / Medium / High** · time of day **GM day / Dusk / GN night** or automatic · theme **Dark / Light** · voices, music and city sound with volumes · notifications · replay Zahra's tour · account (sign out, change email, delete account, reset progress).
+Graphics **Low / Medium / High** · time of day **GM day / Dusk / GN night** or **Auto** (the city opens in GM day and stays there; only Auto lets the day and the seasons run) · theme **Dark / Light** · voices, music and city sound with volumes · notifications · replay Zahra's tour · account (sign out, change email, delete account, reset progress).
 
 ---
 
@@ -284,7 +284,7 @@ Assets are grouped as **Coins** (District Coin, BTC, ETH, SOL…) and **Tokens**
 | Grind Pass cash back, $1,000 across the season | Cars and status items (with upkeep) |
 | Practice trading gains | Paid ranks (only after a real top-up above $5) |
 | Takings from your business; tickets to events you host | Business licence, stock and rent; hall hire; gifts; the Founders card pack |
-| Optional top-up: USDC or ETH on Base (default $5, 1 to 1,000) | Practice trading losses and perps liquidations |
+| Optional top-up: USDC or ETH on Base (default $5, 1 to 1,000); NEAR on mainnet (the player sends NEAR from their own wallet, the server checks the transaction and credits once; added 15 Nov, switched off until configured) | Practice trading losses and perps liquidations |
 
 ### The town economy
 
@@ -318,7 +318,7 @@ Nothing is rolled when you press a button: a visit is fixed by the resident, the
 
 - **CV.** A professional, printable CV built from what you completed: profile, experience (job and practical tracks), education and certifications (the five-module Web3 Foundations Programme and specialist courses), skills. No ranks or XP on it. Download as PDF; share a public page at `/cv/<username>`.
 - **Certificates.** A premium certificate for every pass, each with a public page at `/cert/<id>` and an image for sharing.
-- **Certificate NFTs.** Mint a passed course as a **soulbound NEP-171 NFT** on NEAR testnet (`grinddistrict-cert.testnet`). One per username and course; the player pays the small storage fee. The mint dialog also offers Base (a soulbound `GrindCertificate`); that option is not part of the NEAR entry.
+- **Certificate NFTs.** Mint a passed course as a **soulbound NEP-171 NFT** on NEAR testnet (`grinddistrict-cert.testnet`). One per username and course; the player pays the small storage fee. **Minting starts with a short exam graded on the server**: the course's own checks, shuffled and timed by the server, three in four to pass. A pass returns a signed 30-minute ticket and the mint voucher is refused without it, so editing a save cannot produce a certificate. The exam is open-book, not proctored. Moving the contract to mainnet is a configuration change ([`docs/NEAR-MAINNET.md`](NEAR-MAINNET.md)). The mint dialog also offers Base (a soulbound `GrindCertificate`); that option is not part of the NEAR entry.
 - **NFTs that do something.** The game reads each certificate back from the chain (never from local data) and then:
   - marks the course **Verified on NEAR**, with the token link, on the CV, the certificate list and the profile nameplate;
   - adds an **On-chain credentials** entry to the CV;
@@ -397,13 +397,15 @@ North star: **weekly players who pass at least one lesson.**
 | --- | --- | --- | --- |
 | Title → sign up → first lesson passed | D1, D7, D30; daily check-in streaks | Certificates issued, CVs shared, NFTs minted | Earned vs topped-up balance, sink usage, top-up conversion |
 
+**Live now** in the city stats (the Online pill) and at `https://www.grinddistrict.app/api/track?op=stats`, counts only: players active today, learners (a course passed), courses passed, certificates issued and players who came back on another day in the last seven. On 15 November: 9 learners, 26 courses passed, 18 certificates, 4 returning players, 27 registered.
+
 ---
 
 ## 18. Roadmap
 
 | Phase | When | What |
 | --- | --- | --- |
-| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). Since 15 Nov (after the hackathon): luxury homes, the metro, Grind Park with its rides, zoo and golf, the airport with three cabins, the party jet and yacht, a trip to orbit, the four seasons and climate previews, the hotel and the mall. |
+| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). Since 15 Nov (after the hackathon deadline): a short exam graded on the server before any certificate mint, live learning numbers, a Learn-first menu, a NEAR top-up for in-game purchases (off until configured), the city opening in daytime and faster; luxury homes, the metro, Grind Park with its rides, zoo and golf, the airport with three cabins, the party jet and yacht, a trip to orbit, the four seasons and climate previews, the hotel and the mall. |
 | **Next** | Dec 2026 – Q1 2027 | An AI companion you feed and dress, run on NEAR AI. Sign-in from any chain (NEAR Intents). Private, selective sharing of certificates on Midnight. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. |
 | **Then** | Q1 – Q2 2027 | Agents that help their owners play and earn rewards. Partner courses from Web3 projects with their own certificates. Guilds and team challenges. Creator tools for community lessons. |
 | **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
@@ -466,7 +468,7 @@ North star: **weekly players who pass at least one lesson.**
 
 ## 22. Hackathon fit
 
-Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in four tracks. Submissions close on 14 November 2026 at 23:59 UTC, and the judged work is what was built since 1 November (see the README's disclosure and diff).
+Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in four tracks. Submissions closed on 14 November 2026 at 23:59 UTC; the entry is commit `394ef41`, and the judged work is what was built since 1 November. Up to the entry, 210 of the 326 commits and 24,574 of the 40,185 lines of code (61%) were written in the window, and every NEAR file (both contracts, NEAR sign-in, the mint and the read-back) is new (`git diff --shortstat pre-hackathon 394ef41`). Work from 15 November on is listed in the README under *Added after the deadline* and is not part of the entry.
 
 | Track | What a judge can open |
 | --- | --- |
