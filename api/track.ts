@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { stocksHandler } from './_stocks.js'
+import { newsHandler } from './_news.js'
 import { STATS_EVENT_NAMES, collectPublicStats, publicEventProps } from './_stats.js'
 
 // Accepts batched client events and inserts them with the service role. 202 no-op until env vars exist.
@@ -10,6 +11,8 @@ type Res = { status(n: number): { json(b: unknown): void } }
 export default async function handler(req: Req, res: Res) {
   // The tokenized stock list for the Stockholders' Club (/api/stocks rewrites here; see _stocks.ts).
   if (req.query?.op === 'stocks') return stocksHandler(req, res)
+  // Live market and crypto news for the TVs in the game (see _news.ts).
+  if (req.query?.op === 'news') return newsHandler(req, res)
   if (req.method === 'GET' && req.query?.op === 'stats') {
     // Public aggregate stats only (no identities). Cached briefly; mint and Privy reads are cached longer.
     const out = await collectPublicStats()

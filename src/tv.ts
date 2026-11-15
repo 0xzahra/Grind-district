@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { getSave } from './state.ts'
 import { passedCount } from './certs.ts'
 import { rankFor } from './logic.ts'
+import { liveNews, ensureNews, ago, fmtPrice } from './marketNews.ts'
 
 // Wall TVs: a small canvas screen that wakes when the player is close (or taps it) and sleeps when far or
 // offscreen. Repaints at ~6 fps while on, nothing at all while off, so it costs a phone almost nothing.
@@ -68,7 +69,8 @@ function paint(tv: Tv) {
   g.fillStyle = '#14110e'; g.font = '700 14px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText('NEWS', 14, H - 22)
   g.save(); g.beginPath(); g.rect(70, H - 44, W - 70, 44); g.clip()
   g.fillStyle = '#d9d3c6'; g.font = '500 17px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
-  const line = NEWS.join('     ·     ')
+  const live = liveNews()
+  const line = live && (live.crypto.length || live.markets.length) ? [...live.crypto.slice(0, 5), ...live.markets.slice(0, 4)].map((h) => `${h.t} (${h.src})`).join('     ·     ') : NEWS.join('     ·     ')
   const lw = g.measureText(line).width + 60
   const off = (tv.t * 55) % lw
   g.fillText(line, 84 - off, H - 22); g.fillText(line, 84 - off + lw, H - 22)
@@ -78,29 +80,109 @@ function paint(tv: Tv) {
   tv.tex.needsUpdate = true
 }
 
-export const PROGRAMS = ['GD News', 'Markets', 'Nature', 'Raceway', 'Music']
+export const PROGRAMS = ['Markets live', 'Crypto news', 'Market news', 'GD News', 'Nature', 'Raceway', 'Music']
 const FONT = '-apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'
 /** The plasma's other channels: a markets board, a nature film, motorsport and a music visualiser. */
+/** Wrap text into at most `lines` lines of width `w`; the last line ends with an ellipsis if cut. */
+function wrap(g: CanvasRenderingContext2D, text: string, w: number, lines: number): string[] {
+  const words = text.split(' '), out: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word
+    if (g.measureText(next).width <= w) { cur = next; continue }
+    out.push(cur); cur = word
+    if (out.length === lines) break
+  }
+  if (out.length < lines && cur) out.push(cur)
+  if (out.length === lines && words.join(' ') !== out.join(' ')) { let l = out[lines - 1]!; while (l && g.measureText(`${l}…`).width > w) l = l.slice(0, -1); out[lines - 1] = `${l.trimEnd()}…` }
+  return out
+}
+const LIVE_DOT = (g: CanvasRenderingContext2D, x: number, y: number, t: number) => { g.fillStyle = `rgba(239,68,68,${0.55 + Math.sin(t * 4) * 0.45})`; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill() }
+/** The bottom strip: live prices for the headline channels, or headlines for the prices channel. */
+function strip(g: CanvasRenderingContext2D, t: number, text: string) {
+  g.fillStyle = '#0b1220'; g.fillRect(0, H - 34, W, 34)
+  g.save(); g.beginPath(); g.rect(0, H - 34, W, 34); g.clip()
+  g.fillStyle = '#d6dee6'; g.font = `600 15px ${FONT}`; g.textBaseline = 'middle'
+  const lw = g.measureText(text).width + 80, off = (t * 46) % lw
+  g.fillText(text, 12 - off, H - 17); g.fillText(text, 12 - off + lw, H - 17)
+  g.restore()
+}
+const priceLine = () => (liveNews()?.coins ?? []).map((c) => `${c.s} ${fmtPrice(c.last)} ${c.chg >= 0 ? '▲' : '▼'}${Math.abs(c.chg).toFixed(2)}%`).join('     ')
+
+/** Markets live: real prices with 24-hour change, and Bitcoin over the last 48 hours. */
+function paintMarkets(tv: Tv) {
+  const g = tv.g, t = tv.t, news = liveNews()
+  g.fillStyle = '#07101a'; g.fillRect(0, 0, W, H)
+  g.textBaseline = 'middle'; g.textAlign = 'left'
+  LIVE_DOT(g, 22, 24, t)
+  g.fillStyle = '#f2f5f8'; g.font = `800 18px ${FONT}`; g.fillText('MARKETS LIVE', 34, 24)
+  g.fillStyle = '#7f93a6'; g.font = `500 13px ${FONT}`; g.textAlign = 'right'
+  g.fillText(news ? `Updated ${new Date(news.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Connecting to the markets…', W - 16, 24); g.textAlign = 'left'
+  const coins = news?.coins ?? []
+  coins.slice(0, 5).forEach((c, i) => {
+    const y = 64 + i * 34
+    g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(12, y - 15, 186, 30)
+    g.fillStyle = '#e6edf3'; g.font = `700 15px ${FONT}`; g.fillText(c.s, 20, y)
+    g.font = `600 14px ${FONT}`; g.fillText(fmtPrice(c.last), 66, y)
+    g.fillStyle = c.chg >= 0 ? '#4fd18b' : '#ef6b6b'; g.textAlign = 'right'; g.fillText(`${c.chg >= 0 ? '+' : ''}${c.chg.toFixed(2)}%`, 192, y); g.textAlign = 'left'
+  })
+  if (!coins.length) { g.fillStyle = '#7f93a6'; g.font = `500 14px ${FONT}`; g.fillText('Live prices load in a moment.', 20, 80) }
+  // Bitcoin, 48 hours.
+  const pts = news?.btc48 ?? []
+  const X0 = 214, X1 = W - 16, Y0 = 52, Y1 = 214
+  g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1
+  for (let y = Y0; y <= Y1; y += 40) { g.beginPath(); g.moveTo(X0, y); g.lineTo(X1, y); g.stroke() }
+  g.fillStyle = '#9fb3c6'; g.font = `600 12px ${FONT}`; g.fillText('BITCOIN · 48 HOURS', X0, Y0 - 12)
+  if (pts.length > 2) {
+    const lo = Math.min(...pts), hi = Math.max(...pts), up = pts[pts.length - 1]! >= pts[0]!
+    const px = (i: number) => X0 + (i / (pts.length - 1)) * (X1 - X0), py = (v: number) => Y1 - ((v - lo) / Math.max(1e-9, hi - lo)) * (Y1 - Y0 - 8)
+    const area = g.createLinearGradient(0, Y0, 0, Y1); area.addColorStop(0, up ? 'rgba(79,209,139,.35)' : 'rgba(239,107,107,.35)'); area.addColorStop(1, 'rgba(0,0,0,0)')
+    g.beginPath(); pts.forEach((v, i) => (i ? g.lineTo(px(i), py(v)) : g.moveTo(px(i), py(v)))); g.lineTo(X1, Y1); g.lineTo(X0, Y1); g.closePath(); g.fillStyle = area; g.fill()
+    g.beginPath(); pts.forEach((v, i) => (i ? g.lineTo(px(i), py(v)) : g.moveTo(px(i), py(v)))); g.strokeStyle = up ? '#4fd18b' : '#ef6b6b'; g.lineWidth = 2.4; g.stroke()
+    g.fillStyle = '#9fb3c6'; g.font = `500 11px ${FONT}`; g.textAlign = 'right'; g.fillText(`H ${fmtPrice(hi)}`, X1, Y0 - 12); g.fillText(`L ${fmtPrice(lo)}`, X1, Y1 + 12); g.textAlign = 'left'
+  }
+  const heads = [...(news?.crypto ?? []), ...(news?.markets ?? [])].map((h) => `${h.t} (${h.src})`).join('     ·     ')
+  strip(g, t, heads || 'Market and crypto headlines are on their way.     Practice trading in the game uses in-game money only.')
+  if (tv.glow < 1) { g.fillStyle = `rgba(0,0,0,${1 - tv.glow})`; g.fillRect(0, 0, W, H) }
+  tv.tex.needsUpdate = true
+}
+
+/** Crypto news / Market news: the latest real headlines, three to a page, with the source and how long ago. */
+function paintHeadlines(tv: Tv, kind: 'crypto' | 'markets') {
+  const g = tv.g, t = tv.t, news = liveNews()
+  const list = news?.[kind] ?? []
+  g.fillStyle = kind === 'crypto' ? '#0c0a1a' : '#0a1410'; g.fillRect(0, 0, W, H)
+  g.fillStyle = kind === 'crypto' ? '#f7931a' : '#2bd47d'; g.fillRect(0, 0, W, 44)
+  g.textBaseline = 'middle'; g.textAlign = 'left'
+  g.fillStyle = '#0b0b0b'; g.font = `900 19px ${FONT}`; g.fillText(kind === 'crypto' ? 'CRYPTO NEWS' : 'MARKET NEWS', 16, 22)
+  LIVE_DOT(g, W - 60, 22, t); g.fillStyle = '#0b0b0b'; g.font = `800 13px ${FONT}`; g.fillText('LIVE', W - 50, 22)
+  const page = Math.floor(t / 9) % Math.max(1, Math.ceil(list.length / 3))
+  const items = list.slice(page * 3, page * 3 + 3)
+  items.forEach((h, i) => {
+    const y = 66 + i * 64
+    g.fillStyle = '#f5f5f5'; g.font = `800 19px ${FONT}`
+    const lines = wrap(g, h.t, W - 32, 2)
+    lines.forEach((l, k) => g.fillText(l, 16, y + k * 21))
+    g.fillStyle = '#9aa6b2'; g.font = `600 13px ${FONT}`; g.fillText(`${h.src}${h.at ? ` · ${ago(h.at)}` : ''}`, 16, y + lines.length * 21 + 1)
+  })
+  if (!items.length) { g.fillStyle = '#9aa4ae'; g.font = `500 15px ${FONT}`; g.fillText(news ? 'No fresh headlines right now.' : 'Loading the latest headlines…', 16, 90) }
+  strip(g, t, priceLine() || 'Live prices load in a moment.')
+  if (tv.glow < 1) { g.fillStyle = `rgba(0,0,0,${1 - tv.glow})`; g.fillRect(0, 0, W, H) }
+  tv.tex.needsUpdate = true
+}
+
 function paintProgram(tv: Tv) {
-  const g = tv.g, t = tv.t, p = tv.program ?? 0
-  if (p === 0) { paint(tv); return }
-  if (p === 1) {
-    g.fillStyle = '#071018'; g.fillRect(0, 0, W, H)
-    g.fillStyle = '#4fd18b'; g.font = `700 18px ${FONT}`; g.textBaseline = 'middle'; g.fillText('MARKETS LIVE', 20, 26)
-    const coins: Array<[string, number]> = [['BTC', 0.7], ['ETH', 1.3], ['SOL', 2.1], ['GRIND', 3.2]]
-    coins.forEach(([n, k], i) => {
-      const y = 62 + i * 28, ch = Math.sin(t * 0.4 + k) * 3.2
-      g.fillStyle = '#d8e2ea'; g.font = `600 16px ${FONT}`; g.fillText(n, 20, y)
-      g.fillStyle = ch >= 0 ? '#4fd18b' : '#ef6b6b'; g.textAlign = 'right'; g.fillText(`${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%`, 170, y); g.textAlign = 'left'
-    })
-    g.strokeStyle = 'rgba(255,255,255,.06)'; for (let y = 60; y < 260; y += 40) { g.beginPath(); g.moveTo(190, y); g.lineTo(W - 16, y); g.stroke() }
-    for (let i = 0; i < 26; i++) {
-      const k = i + Math.floor(t * 2), o = 160 - Math.sin(k * 0.45) * 40 - Math.sin(k * 0.13) * 30, c = o + Math.sin(k * 1.7) * 18
-      const x = 196 + i * 11.6, up = c < o
-      g.fillStyle = up ? '#4fd18b' : '#ef6b6b'; g.fillRect(x + 4, Math.min(o, c) - 10, 1.4, Math.abs(c - o) + 20); g.fillRect(x, Math.min(o, c), 9, Math.max(2, Math.abs(c - o)))
-    }
-    g.fillStyle = '#8aa0b0'; g.font = `500 13px ${FONT}`; g.fillText('Practice prices · not financial advice', 20, H - 18)
-  } else if (p === 2) {
+  const p = tv.program ?? 0
+  if (p === 0) { paintMarkets(tv); return }
+  if (p === 1 || p === 2) { paintHeadlines(tv, p === 1 ? 'crypto' : 'markets'); return }
+  if (p === 3) { paint(tv); return }
+  paintExtra(tv, p - 2)
+}
+
+/** The other channels: Nature (2), Raceway (3) and Music (4). */
+function paintExtra(tv: Tv, p: number) {
+  const g = tv.g, t = tv.t
+  if (p === 2) {
     const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#f6b26b'); sky.addColorStop(0.55, '#f9d9a0'); sky.addColorStop(1, '#a7c98a')
     g.fillStyle = sky; g.fillRect(0, 0, W, H)
     g.fillStyle = '#fff3c4'; g.beginPath(); g.arc(W * 0.7, 120 + Math.sin(t * 0.05) * 6, 30, 0, Math.PI * 2); g.fill()
@@ -180,6 +262,7 @@ export function createPlasma(width: number): { mesh: THREE.Mesh; power: (on?: bo
 export function tickTvs(dt: number, x: number, z: number, camera: THREE.Camera) {
   if (!tvs.length) return
   let frustumReady = false
+  if (tvs.some((x) => x.on || x.power)) ensureNews()
   for (const tv of tvs) {
     if (tv.power === false) continue
     if (!tv.mesh.parent || !tv.mesh.parent.visible) { if (tv.on) { tv.on = false; tv.forced = false; blank(tv) } continue }
