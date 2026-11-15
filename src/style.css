@@ -3596,3 +3596,45 @@ html body #toast { z-index: 70 !important; }
 .sheet-card .mc .mc-tag { margin: -4px 2px 4px; font-size: 13px; opacity: .72; }
 .sheet-card .mc .mc-card-h { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #d9b26a; }
 .sheet-card .mc { padding-bottom: 14px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.1); }
+
+/* Grind desk: the laptop on the bedroom desk (grindDesk.ts). An aluminium bezel round a dark desktop, a dock of
+   apps (left on wide screens, along the bottom on phones) and cards inside each app. */
+.gdesk{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(6,9,8,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:gdesk-in .28s ease-out}
+@keyframes gdesk-in{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
+.gdesk-screen{width:min(980px,96vw);height:min(86vh,720px);display:flex;flex-direction:column;border-radius:22px;padding:12px;background:linear-gradient(180deg,#d9dce0,#a9aeb4);box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.7)}
+.gdesk-bar{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px 12px 0 0;background:#0c1310;color:#d8dfd9;font-size:13px}
+.gdesk-bar b{color:#e9cf8e;letter-spacing:.04em}.gdesk-earned{margin-left:auto;color:#9fd9b5}.gdesk-clock{opacity:.7}
+.gdesk-close{padding:6px 12px!important;font-size:12px!important}
+.gdesk-body{flex:1;min-height:0;display:flex;background:radial-gradient(circle at 20% 0%,#1d3328,#0d1512 70%);border-radius:0 0 12px 12px;overflow:hidden}
+.gdesk-dock{display:flex;flex-direction:column;gap:6px;padding:12px 8px;background:rgba(0,0,0,.28);border-right:1px solid rgba(233,207,142,.14)}
+.gdesk-app{display:flex;flex-direction:column;align-items:center;gap:4px;width:68px;padding:8px 4px;border:0;border-radius:14px;background:transparent;color:#cfd6d1;font:600 11px/1.1 inherit;cursor:pointer}
+.gdesk-app.on{background:rgba(233,207,142,.14);color:#f3dfa6}
+.gdesk-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;font-size:20px;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.app-feed .gdesk-icon{background:linear-gradient(180deg,#1fc276,#0f8a52)}.app-wire .gdesk-icon{background:linear-gradient(180deg,#4f8cf0,#2d5fc4)}
+.app-guilds .gdesk-icon{background:linear-gradient(180deg,#8a63e8,#5d3cc0)}.app-gigs .gdesk-icon{background:linear-gradient(180deg,#e2b85a,#b58a2e)}
+.app-farm .gdesk-icon{background:linear-gradient(180deg,#e0794a,#b5502a)}.app-cv .gdesk-icon{background:linear-gradient(180deg,#6b7a72,#45524b)}
+.gdesk-view{flex:1;min-width:0;overflow-y:auto;padding:16px 18px 28px;color:#e8ece9;-webkit-overflow-scrolling:touch}
+.gdesk-h{margin:0 0 4px;font-size:22px;color:#f7f3ea}.gdesk-h3{margin:18px 0 8px;font-size:15px;color:#e9cf8e}
+.gdesk-sub{margin:0 0 14px;color:#a9b5ae;font-size:13.5px;line-height:1.45}
+.gdesk-card{padding:12px 14px;margin-bottom:10px;border-radius:14px;background:rgba(255,255,255,.055);border:1px solid rgba(233,207,142,.16)}
+.gdesk-card>b{display:block;font-size:14.5px;color:#f5efe0;margin-bottom:4px}.gdesk-card p{margin:4px 0;font-size:13.5px;line-height:1.45;color:#d3dbd6}
+.gdesk-me{background:linear-gradient(135deg,rgba(31,194,118,.18),rgba(233,207,142,.08))}
+.gdesk-dm{border-left:3px solid #e0794a}
+.gdesk-draft{padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.25);font-style:italic}
+.gdesk-muted{color:#8e9a93!important;font-size:12.5px}
+.gdesk-q{margin-top:8px;display:flex;flex-direction:column;gap:6px}.gdesk-qq{font-weight:600;color:#f3dfa6!important}
+.gdesk-ok{color:#8fe0b0!important}.gdesk-no{color:#f2a08a!important}
+.gdesk-sub-task{margin-top:8px}
+.gd-btn{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(233,207,142,.28);background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.03));color:#f2eee4;font:600 13.5px/1.35 inherit;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.12);margin-top:6px;transition:transform .08s,box-shadow .08s}
+.gd-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.gd-btn.primary{background:linear-gradient(180deg,#22c47a,#119157);border-color:#0d7a48;color:#fff;text-align:center}
+.gd-btn.danger{border-color:rgba(242,160,138,.5);color:#f6b7a5;background:rgba(242,120,90,.08)}
+.gdesk-meter{height:6px;border-radius:99px;background:rgba(255,255,255,.08);margin:8px 0 4px;overflow:hidden}.gdesk-meter i{display:block;height:100%;background:linear-gradient(90deg,#d6b25e,#f3dfa6);border-radius:99px}
+@media (max-width:640px){
+  .gdesk-screen{width:100vw;height:100dvh;border-radius:0;padding:0}
+  .gdesk-bar{border-radius:0;padding-top:max(8px,env(safe-area-inset-top))}.gdesk-clock{display:none}
+  .gdesk-body{flex-direction:column-reverse;border-radius:0}
+  .gdesk-dock{flex-direction:row;justify-content:space-around;border-right:0;border-top:1px solid rgba(233,207,142,.14);padding:6px 4px max(6px,env(safe-area-inset-bottom))}
+  .gdesk-app{width:auto;flex:1;padding:4px 2px}.gdesk-icon{width:34px;height:34px;font-size:17px;border-radius:10px}
+}
+.gdesk-bar .gd-btn{display:inline-block;width:auto;margin:0;text-align:center;white-space:nowrap}.gdesk-bar b,.gdesk-earned{white-space:nowrap}

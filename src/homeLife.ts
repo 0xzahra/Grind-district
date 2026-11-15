@@ -386,11 +386,7 @@ export function buildHomeLife(c: HomeCtx): void {
     } })
   }
 
-  // =================== WORK FROM HOME (the bedroom desk) ===================
-  c.use({ id: 'remote', x: 0.3, z: 2.45, r: 0.7, title: 'Work from home', body: 'Laptop open on the desk. A quiet hour of focused work.', enter: 'Sit down to work', run: () => {
-    c.sit({ x: c.ox + 1.3, z: c.oz + 2.35, yaw: Math.PI, y: 0.48 })
-    c.toast('Head down. A focused hour of remote work.')
-  } })
+  // Work from home is the Grind desk on the bedroom desk (grindDesk.ts, opened from interiors.ts).
 
   // Small things never block the view on their own and are skipped by the cut-away's rays.
   for (const [a, per] of bags) for (const [m, list] of per) {

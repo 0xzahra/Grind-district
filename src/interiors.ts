@@ -5,7 +5,6 @@ import { ownedHouseItems } from './career.ts'
 import { floorFinish, glossFloor, wallFinish, type FloorKind } from './surfaces.ts'
 import type { Obstacle } from './physics.ts'
 import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
-import { passedCount } from './certs.ts'
 import { seatSpot, type Seat } from './seating.ts'
 import { createTvScreen } from './tv.ts'
 import { animateWater } from './water.ts'
@@ -13,6 +12,7 @@ import { RANKS, rankFor } from './logic.ts'
 import { certNftContract, certNftNetwork, certNftOn, certNfts, type HeldCert } from './nftAccess.ts'
 import { buildHomeFurniture } from './homeFurniture.ts'
 import { buildHomeLife } from './homeLife.ts'
+import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
 import { paintSchedule } from './events.ts'
 import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers, paintTicker } from './tradingFloor.ts'
@@ -62,16 +62,6 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   let inside: RoomId | null = null
   const gymDone = new Set<string>()
   let cvTex: THREE.CanvasTexture | null = null
-  const paintCv = (g: CanvasRenderingContext2D) => {
-    const s = getSave()
-    g.fillStyle = '#f5f2ea'; g.fillRect(0, 0, 512, 320)
-    g.fillStyle = '#14110e'; g.font = '700 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillText(`${s.name || 'Your'} · CV`, 28, 64)
-    g.font = '500 26px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; g.fillStyle = '#5b5348'
-    g.fillText(`@${s.username || 'guest'} · ${rankFor(s.xp).label}`, 28, 110)
-    g.fillText(`Courses passed: ${passedCount()}`, 28, 160)
-    g.fillText(passedCount() >= 3 ? 'CV page unlocked' : `CV page unlocks at 3`, 28, 200)
-    g.fillStyle = '#c9a25e'; g.fillRect(28, 236, 456, 6)
-  }
 
   // Home: ladder-tiered furniture (homeFurniture.ts) and a simple second floor reached by the stairs.
   const UP = { x: 400, z: -40, w: 12, d: 9 }
@@ -338,7 +328,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       ]) wardrobe.attach(part)
       use({ id: 'closet', x: WX + 0.75, z: WZ, r: 0.9, title: 'Closet', body: 'Change bodies and outfits.', enter: 'Open closet', run: () => hooks.openPanel('boutique') })
       use({ id: 'key', x: -9.2, z: -3.4, r: 0.8, title: 'Key hook', body: getSave().houseClaimed ? 'The key is yours.' : 'The room is empty until you claim it.', enter: 'Take the key', run: () => hooks.toast(claimHouse().message) })
-      // Bedroom (S middle): round bed, side tables, desk with the live CV laptop.
+      // Bedroom (S middle): round bed, side tables, and the Grind desk (the laptop where you work online).
       // Sleep ON the bed: feet at the foot of the mattress, head on the pillow by the headboard (south wall).
       // A lying figure's head points the way the seat faces.
       use({ id: 'bed', x: 1.0, z: 4.9, r: 1.1, title: 'Bed', body: 'Sleep and wake to daylight.', enter: 'Sleep', run: () => {
@@ -356,11 +346,14 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const sx of [-0.66, 0.66]) box(0.05, 0.71, 0.56, deskWood, DX + sx, 1.65, 0, false)
       obstacles.push({ kind: 'box', x: o.x + DX, z: o.z + 1.65, hx: 0.75, hz: 0.35 })
       box(0.6, 0.03, 0.42, std(0x9aa0a6, 0.3, 0.8), DX, 1.65, 0.76, false)
-      cvTex = canvasTex(512, 320, paintCv)
+      cvTex = canvasTex(512, 320, (g) => paintDesktop(g, 512, 320))
       const screen = add(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshBasicMaterial({ map: cvTex }), DX, 0.97, 1.48)
       screen.rotation.y = Math.PI
       screen.rotation.x = 0.18
-      use({ id: 'desk', x: DX, z: 2.6, r: 1.0, title: 'Desk · laptop', body: 'Your CV, live on the screen.', enter: 'Open my CV', run: () => hooks.openPanel('profile') })
+      use({ id: 'desk', x: DX, z: 2.6, r: 1.0, title: 'Grind desk · laptop', body: 'Where you make a living online: your feed, group chats, project guilds, paid gigs and airdrop farming. Your CV too.', enter: 'Open the laptop', run: () => {
+        hooks.sit({ x: ORIGIN.house.x + DX, z: ORIGIN.house.z + 2.35, yaw: Math.PI, y: 0.48 })
+        openGrindDesk({ toast: hooks.toast, openPanel: (p) => hooks.openPanel(p), onClose: () => { if (cvTex) { paintDesktop((cvTex.image as HTMLCanvasElement).getContext('2d')!, 512, 320); cvTex.needsUpdate = true } } })
+      } })
       // Indoor pool (SE): a teak deck, a travertine coping, a basin of aqua mosaic tiles with a lane stripe,
       // clear water just under the coping (you see the tiled floor through it), an underwater light and a
       // chrome ladder.
@@ -1025,7 +1018,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       lamp.intensity = id === 'house' ? 5.5 : 7.5 + SIZE[id].w * 0.28
       lamp.distance = Math.max(16, SIZE[id].w * 1.15)
       roomFill.intensity = id === 'house' ? 0.22 : 0.28
-      if (id === 'house' && cvTex) { paintCv((cvTex.image as HTMLCanvasElement).getContext('2d')!); cvTex.needsUpdate = true }
+      if (id === 'house' && cvTex) { paintDesktop((cvTex.image as HTMLCanvasElement).getContext('2d')!, 512, 320); cvTex.needsUpdate = true }
       // Home: spawn a few steps in, facing the rooms (camera behind, toward the door), so the view opens on the interior.
       if (id === 'house') return { x: o.x - SIZE[id].w / 2 + 3.2, z: o.z + DOOR_Z.house!, yaw: Math.PI / 2 }
       return { x: o.x - SIZE[id].w / 2 + 2.0, z: o.z + (DOOR_Z[id] ?? 0), yaw: -Math.PI / 2 }
