@@ -25,7 +25,7 @@ export type PublicStats = {
   logouts: number
   deletions: number
   /** Learning, counts only: players with at least one course passed, courses passed in all, server certificate
-   *  records, and players seen on two or more different days in the last seven. */
+   *  records, and players who saved progress in the last seven days on a later day than they joined. */
   learners?: number
   lessonsPassed?: number
   certificates?: number
@@ -43,40 +43,27 @@ let privyCache: Cache<{ users: number; wallets: number } | null> | null = null
 type Learning = { learners: number; lessonsPassed: number; certificates: number; returning7d: number }
 let learnCache: Cache<Learning | null> | null = null
 
-/** The week's visit events, a thousand rows at a time (the database returns at most that many per request). */
-async function weekVisits(db: SupabaseClient, since: string): Promise<Array<{ anon_id?: string; created_at?: string }>> {
-  const out: Array<{ anon_id?: string; created_at?: string }> = []
-  for (let page = 0; page < 30; page++) {
-    const r = await db.from('events').select('anon_id, created_at').gte('created_at', since).in('name', ['session_start', 'first_visit', 'sign_in']).order('created_at', { ascending: true }).range(page * 1000, page * 1000 + 999)
-    const rows = (r.data ?? []) as Array<{ anon_id?: string; created_at?: string }>
-    out.push(...rows)
-    if (r.error || rows.length < 1000) break
-  }
-  return out
-}
-
 /** Learning numbers from the synced saves, the certificate records and the visit events. Cached five minutes. */
 async function learningStats(db: SupabaseClient): Promise<Learning | null> {
   if (learnCache && Date.now() - learnCache.at < SLOW_TTL_MS) return learnCache.value
-  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
-  const [skills, certs, visits] = await Promise.all([
-    db.from('player_progress').select('skills:save->skills').limit(10000),
+  // Three small reads (one row per player, plus a count), so this answers well inside the stats call.
+  const [saves, certs, players] = await Promise.all([
+    db.from('player_progress').select('privy_user_id, updated_at, skills:save->skills').limit(10000),
     db.from('certificates').select('cert_id', { count: 'exact', head: true }),
-    weekVisits(db, weekAgo),
+    db.from('players').select('privy_user_id, created_at').limit(10000),
   ])
-  if (skills.error && certs.error && !visits.length) { learnCache = { at: Date.now(), value: null }; return null }
-  let learners = 0, lessonsPassed = 0
-  for (const row of (skills.data ?? []) as Array<{ skills?: Record<string, { passed?: boolean } | null> | null }>) {
-    const n = Object.values(row.skills ?? {}).filter((s) => s?.passed === true).length
+  if (saves.error && certs.error) { learnCache = { at: Date.now(), value: null }; return null }
+  const joined = new Map<string, number>()
+  for (const p of (players.data ?? []) as Array<{ privy_user_id?: string; created_at?: string }>) if (p.privy_user_id && p.created_at) joined.set(p.privy_user_id, Date.parse(p.created_at))
+  const weekAgo = Date.now() - 7 * 86_400_000
+  let learners = 0, lessonsPassed = 0, returning7d = 0
+  for (const row of (saves.data ?? []) as Array<{ privy_user_id?: string; updated_at?: string; skills?: Record<string, { passed?: boolean } | null> | null }>) {
+    const n = Object.values(row.skills ?? {}).filter((x) => x?.passed === true).length
     if (n > 0) { learners += 1; lessonsPassed += n }
+    // Came back: progress saved in the last seven days, on a later day than the account was made.
+    const seen = Date.parse(String(row.updated_at ?? '')), made = joined.get(String(row.privy_user_id ?? ''))
+    if (Number.isFinite(seen) && made !== undefined && seen >= weekAgo && lagosDayStart(seen) !== lagosDayStart(made)) returning7d += 1
   }
-  const days = new Map<string, Set<string>>()
-  for (const row of visits) {
-    const id = String(row.anon_id ?? ''), at = String(row.created_at ?? '')
-    if (!id || !at) continue
-    const set = days.get(id) ?? new Set<string>(); set.add(lagosDayStart(Date.parse(at))); days.set(id, set)
-  }
-  const returning7d = [...days.values()].filter((d) => d.size >= 2).length
   const value = { learners, lessonsPassed, certificates: count(certs), returning7d }
   learnCache = { at: Date.now(), value }
   return value
