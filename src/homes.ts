@@ -9,14 +9,18 @@ import { animateWater } from './water.ts'
 import { slotKey, spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type Palette, type StyleId } from './homesShop.ts'
+import { buildAirport, buildYacht, type TravelCtx } from './travel.ts'
 
-type Rect = { x0: number; z0: number; x1: number; z1: number }
+export type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
-export type AreaId = HomeId | 'park'
+export type AreaId = HomeId | 'park' | 'airport' | 'yacht'
+/** Places anyone can visit (not homes you own): no styles, no arranging, nothing saved. */
+export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht']
+const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
 type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-type Move = { seat?: () => { yaw: number; y: number } | null; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
@@ -249,7 +253,7 @@ type Plan = {
   pieces: Array<[string, Kind, number, number, number, number]>
   build: (A: Arch) => void
 }
-type Arch = {
+export type Arch = {
   M: Mats
   lv: Level[]
   slab: (l: number, r: Rect, hole?: Rect, mat?: THREE.Material) => void
@@ -301,6 +305,26 @@ function plans(): Record<AreaId, Plan> {
         const bedCols = [0xe0457b, 0xf2c230, 0xffffff, 0x8e5bd1]
         for (let k = 0; k < 4; k++) { const b = new THREE.Group(); cyl(b, 1.6, 1.7, 0.35, A.M.stone); for (let f = 0; f < 14; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), std(bedCols[(f + k) % 4]!, 0.7)); const a = f * 2.4; fl.position.set(Math.cos(a) * (0.3 + (f % 4) * 0.3), 0.45, Math.sin(a) * (0.3 + (f % 4) * 0.3)); b.add(fl) } b.position.set(-138 + [-10, 10, -10, 10][k]!, 0, 140 + [-10, -10, 10, 10][k]!); A.add(0, b); A.block(0, R(b.position.x - 1.7, b.position.z - 1.7, b.position.x + 1.7, b.position.z + 1.7)) }
       },
+    },
+    // Grind International Airport, east of the city at the end of the metro's airport branch (travel.ts builds it).
+    airport: {
+      id: 'airport',
+      levels: [{ y: 0, walk: R(134, -78, 330, 128), pools: [] }],
+      spawn: { x: 143, z: 12, heading: Math.PI / 2, lv: 0 },
+      exitTo: { x: 59, z: 8 },
+      house: null,
+      pieces: [],
+      build: () => {},
+    },
+    // The party yacht at the end of a jetty off the beach (travel.ts): you board on the aft deck.
+    yacht: {
+      id: 'yacht',
+      levels: [{ y: 2.5, walk: R(41, -93.5, 47, -86.6), pools: [] }],
+      spawn: { x: 44, z: -87.6, heading: Math.PI, lv: 0 },
+      exitTo: { x: 30.5, z: -47.6 },
+      house: null,
+      pieces: [],
+      build: () => {},
     },
     penthouse: {
       id: 'penthouse',
@@ -444,7 +468,7 @@ function plans(): Record<AreaId, Plan> {
 
 // ---------------------------------------------------------------- runtime
 
-export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => void; openPanel: () => void; leave: () => void; parkTrain: () => void }) {
+export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => void; openPanel: () => void; leave: () => void; train: (id: 'park' | 'airport') => void; fade: () => void }) {
   const P = plans()
   let inside: AreaId | null = null
   let extraObs: Obstacle[] = []
@@ -459,6 +483,9 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   const animated: Array<{ tick: (t: number) => void }> = []
   let swamToday = false
   let time = 0
+  let turbo = 1
+  let flying = false
+  const cleanups: Array<() => void> = []
   const light = new THREE.PointLight(0xffe2b8, 0, 26, 1.6)
   light.castShadow = false
 
@@ -477,7 +504,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   const paintHud = () => {
     hud.hidden = !inside
     arrangeBtn.hidden = viewing
-    stylesBtn.hidden = plan?.id === 'park'
+    stylesBtn.hidden = !plan || isPublic(plan.id)
+    if (plan && isPublic(plan.id)) arrangeBtn.hidden = true
     arrangeBtn.textContent = arranging ? 'Done' : 'Arrange'
     turnBtn.hidden = !arranging || !selected
     stylesBtn.textContent = viewing ? 'Try a look' : 'Styles'
@@ -493,11 +521,11 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (!selected || !plan) return
     selected.r += Math.PI / 4
     placePiece(selected)
-    if (plan.id !== 'park') saveLayout(plan.id, selected.key, selected.x, selected.z, selected.r)
+    if (!isPublic(plan.id)) saveLayout(plan.id as HomeId, selected.key, selected.x, selected.z, selected.r)
     rebuildObstacles()
   }
 
-  const palette = (): Palette => (trying ? STYLES.find((s) => s.id === trying)!.p : plan && plan.id !== 'park' ? styleOf(plan.id).p : STYLES[0]!.p)
+  const palette = (): Palette => (trying ? STYLES.find((s) => s.id === trying)!.p : plan && !isPublic(plan.id) ? styleOf(plan.id as HomeId).p : STYLES[0]!.p)
 
   const placePiece = (p: Piece) => {
     if (!p.obj) return
@@ -513,7 +541,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
   }
   const staticObs: Obstacle[][] = []
   const rebuildObstacles = () => {
-    levels.forEach((L, i) => { L.obstacles = [...(staticObs[i] ?? []), ...(plan?.id === 'park' && i === 0 ? extraObs : [])]; for (const p of pieces) if (p.lv === i) { const o = pieceObstacle(p); if (o) L.obstacles.push(o) } })
+    levels.forEach((L, i) => { L.obstacles = [...(staticObs[i] ?? []), ...((plan?.id === 'park' || plan?.id === 'airport') && i === 0 ? extraObs : [])]; for (const p of pieces) if (p.lv === i) { const o = pieceObstacle(p); if (o) L.obstacles.push(o) } })
   }
 
   const build = () => {
@@ -643,9 +671,13 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     }
     plan.build(A)
     if (plan.id === 'park') { parkRides(A); parkThrills(A) }
+    if (plan.id === 'airport') buildAirport(A, travel)
+    if (plan.id === 'yacht') buildYacht(A, travel)
+    // Everything in an area is scenery to the camera (people load in later and mark themselves).
+    root!.traverse((c) => { c.userData.ghost = true })
     // Everyday uses on top of the plan's: sleep in the bed, cook at the kitchen.
-    const layout = plan.id === 'park' ? {} : readHomes().layout[plan.id] ?? {}
-    const luxe = viewing || plan.id === 'park' ? [] : readHomes().luxe[plan.id] ?? []
+    const layout = isPublic(plan.id) ? {} : readHomes().layout[plan.id as HomeId] ?? {}
+    const luxe = viewing || isPublic(plan.id) ? [] : readHomes().luxe[plan.id as HomeId] ?? []
     pieces = plan.pieces.map(([key, kind, x, z, r, lv]) => ({ key, kind, x, z, r, lv }))
     // Premium pieces go in free spots on the main floor; their place is remembered once moved.
     const main = levels[plan.spawn.lv]!.walk
@@ -667,11 +699,14 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     }
     rebuildObstacles()
     for (const L of levels) for (const u of L.uses) if (u.id === 'home-exit') u.use = () => deps.leave()
-    root.add(light, selRing)
+    root.add(selRing)
+    if (!light.userData.held) root.add(light)
     scene.add(root)
     showLevels()
   }
   const dispose3d = () => {
+    for (const f of cleanups.splice(0)) { try { f() } catch { /* already gone */ } }
+    flying = false
     if (!root) return
     scene.remove(root)
     root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mm = m.material as THREE.Material | THREE.Material[]; for (const x of Array.isArray(mm) ? mm : [mm]) x.dispose() } })
@@ -683,7 +718,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     const out = level === 0 && outsideHouse(x, z)
     levels.forEach((L, i) => { L.group.visible = i <= level || out })
     lastOutside = out
-    if (plan) { const L = levels[level]!; light.position.set((L.walk.x0 + L.walk.x1) / 2, L.y + 2.8, (L.walk.z0 + L.walk.z1) / 2); light.intensity = plan.house && level === 0 ? 4 : 7 }
+    if (plan && !light.userData.held) { const L = levels[level]!; light.position.set((L.walk.x0 + L.walk.x1) / 2, L.y + 2.8, (L.walk.z0 + L.walk.z1) / 2); light.intensity = plan.house && level === 0 ? 4 : 7 }
   }
   // --- Grind Park tickets: a day pass at the gate covers every ride today; without one, each ride has its fare.
   const PASS_USD = 100
@@ -1022,7 +1057,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       startMove({ cam: 8.5, seat: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { yaw: Math.atan2(-Math.sin(a), -Math.cos(a)), y: 0.45 } }, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z - Math.sin(a) * C.r, y: 1.33 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
     } })
     // Back to the city by train, an ice cream, a go on the swings.
-    levels[0]!.uses.push({ id: 'park-train', x: -118.5, z: 121.5, r: 1.8, title: 'Grind Metro', body: 'Grind Park station. Trains round the city to the Beach, the Marina, the Raceway and the Sky Tower.', enter: 'Take the train · $2', use: () => deps.parkTrain() })
+    levels[0]!.uses.push({ id: 'park-train', x: -118.5, z: 121.5, r: 1.8, title: 'Grind Metro', body: 'Grind Park station. Trains round the city to the Beach, the Marina, the Raceway and the Sky Tower.', enter: 'Take the train · $2', use: () => deps.train('park') })
     levels[0]!.uses.push({ id: 'park-icecream', x: -128, z: 118.6, r: 1.6, title: 'Ice-cream kiosk', body: 'Three scoops in a waffle cone.', enter: 'Buy an ice cream · $3', use: () => { const paid = spendInGame(3, 'Ice cream', 'Grind Park'); deps.toast(paid.ok ? adjust({ hunger: 10, social: 4 }) || 'Lovely.' : paid.message) } })
     levels[0]!.uses.push({ id: 'park-swings', x: -116, z: 152.2, r: 1.6, title: 'Swings', body: 'Nobody is too old for the swings.', enter: 'Have a swing', use: () => { deps.toast(adjust({ social: 5 }, 'quiet') || 'Whee.') } })
   }
@@ -1031,6 +1066,12 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (arranging) setArranging(false)
     move = m
     levels.forEach((L) => { L.group.visible = true })
+  }
+  const travel: TravelCtx = {
+    startMove, now: () => time, toast: deps.toast, fade: deps.fade, leave: deps.leave,
+    train: () => deps.train(plan?.id === 'airport' ? 'airport' : 'park'),
+    wind: (v) => wind(v), animate: (f) => { animated.push({ tick: f }) }, light,
+    flying: (on) => { flying = on }, onLeave: (f) => { cleanups.push(f) },
   }
 
   const levelY = (x: number, z: number): number => {
@@ -1047,7 +1088,11 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get inside() { return inside },
     get viewing() { return viewing },
     get arranging() { return arranging },
-    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
+    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
+    /** On a flight: the camera sees much further, the haze thins and the sky follows you up. */
+    get flying() { return flying },
+    /** Tests only: run rides and flights faster. */
+    set turbo(n: number) { turbo = Math.max(1, Math.min(30, n)) },
     /** Metro pillars standing in the park. */
     setParkObstacles(o: Obstacle[]) { extraObs = o },
     /** Go into a home: build it, and return where to stand. */
@@ -1067,6 +1112,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     leave(): { x: number; z: number } {
       const out = plan?.exitTo ?? { x: 40, z: -27.2 }
       dispose3d()
+      wind(0)
       for (const n of ['shell-penthouse', 'shell-skyhouse']) { const o = scene.getObjectByName(n); if (o) o.visible = true }
       inside = null; plan = null; levels = []; pieces = []; move = null; trying = null
       setArranging(false)
@@ -1092,8 +1138,11 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get rideSeat(): { yaw: number; y: number } | null { return move?.seat?.() ?? null },
     /** On the coaster and the slides the camera rides just behind you, looking where you are going. */
     get rideView(): { heading: number; pitch: number } | null { return move?.view?.() ?? null },
+    /** Standing on a moving ride (the party jet's dance floor): which way to face. */
+    get rideFace(): number | null { return move?.face?.() ?? null },
     /** Animate the home; while a lift or escalator ride is on, return where the player is. */
     tick(dt: number, x: number, z: number): { x: number; z: number; y: number } | null {
+      dt *= turbo
       time += dt
       for (const a of animated) a.tick(time)
       if (!move) {
@@ -1104,10 +1153,11 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       move.t += dt
       const u = Math.min(1, move.t / move.dur)
       const e = u * u * (3 - 2 * u)
-      const p = move.path ? move.path(u) : { x: move.from.x + (move.to.x - move.from.x) * e, z: move.from.z + (move.to.z - move.from.z) * e, y: move.from.y + (move.to.y - move.from.y) * e }
+      let p = move.path ? move.path(u) : { x: move.from.x + (move.to.x - move.from.x) * e, z: move.from.z + (move.to.z - move.from.z) * e, y: move.from.y + (move.to.y - move.from.y) * e }
       if (move.car && move.carY0 !== undefined && move.carY1 !== undefined) move.car.position.y = move.carY0 + (move.carY1 - move.carY0) * e
       if (u >= 1) {
         level = move.toLv
+        if (move.exit) p = { x: move.exit.x, z: move.exit.z, y: levels[level]!.y }
         const done = move.done
         move = null
         done?.()
@@ -1127,7 +1177,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
         selected.x = THREE.MathUtils.clamp(ground.x, L.walk.x0 + 0.4, L.walk.x1 - 0.4)
         selected.z = THREE.MathUtils.clamp(ground.z, L.walk.z0 + 0.4, L.walk.z1 - 0.4)
         placePiece(selected)
-        if (plan.id !== 'park') saveLayout(plan.id, selected.key, selected.x, selected.z, selected.r)
+        if (!isPublic(plan.id)) saveLayout(plan.id as HomeId, selected.key, selected.x, selected.z, selected.r)
         rebuildObstacles()
       }
       if (selected) {

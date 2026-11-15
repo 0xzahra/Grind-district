@@ -708,7 +708,7 @@ function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): 
  * chest; `kneel` sits back on the heels with the hands on the thighs. `mono` paints skin and hair one colour
  * (a shop mannequin). Returns at once and fills in when the model has loaded.
  */
-export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel'; look?: Look; height?: number; cap?: number; mono?: number; detail?: number; extras?: Extras; onReady?: () => void }): THREE.Group {
+export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kneel' | 'cheer'; look?: Look; height?: number; cap?: number; mono?: number; detail?: number; extras?: Extras; onReady?: () => void }): THREE.Group {
   const root = new THREE.Group()
   const look: Look | undefined = o.mono !== undefined ? { skin: o.mono, hair: o.mono, ...o.look } : o.look
   void load(figure(model, look)).then((t) => {
@@ -754,6 +754,10 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
       } else if (o.pose === 'kneel') {
         aim(s.upper, s.fore, dir(s.side * 0.2, -0.93, 0.3))
         aim(s.fore, s.hand, dir(-s.side * 0.2, -0.42, 0.88))
+      } else if (o.pose === 'cheer') {
+        // Hands up at a party: upper arms out and up, forearms straight up.
+        aim(s.upper, s.fore, dir(s.side * 0.55, 0.8, 0.12))
+        aim(s.fore, s.hand, dir(s.side * 0.12, 0.98, 0.1))
       }
     }
     if (o.cap !== undefined && t.name !== 'kurta') {

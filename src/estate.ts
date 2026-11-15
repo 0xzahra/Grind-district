@@ -84,6 +84,22 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   // The harbour launch: a day cruiser out on the bay, free for everyone (ride.ts).
   o.hotspots.push({ id: 'cruise', x: 36, z: -45.2, r: 2.4, title: 'Harbour launch', body: 'Take the day cruiser out on the bay, round the buoys and the lighthouse. Free.', enter: 'Cast off',
     use: () => window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'boat', model: 'cruiser', label: 'Day cruiser', mode: 'cruise', temp: true } })) })
+  // Party cruises: a board by the harbour; the yacht itself waits at a jetty off the beach (travel.ts).
+  box(M.dark, 0.1, 2.0, 0.1, 29.4, 0, -46.6); box(M.dark, 0.1, 2.0, 0.1, 31.6, 0, -46.6)
+  {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128
+    const g = c.getContext('2d')!
+    g.fillStyle = '#10213a'; g.fillRect(0, 0, 512, 128)
+    g.fillStyle = '#ffd36b'; g.font = '800 50px "Inter Variable", Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    g.fillText('PARTY CRUISES', 256, 46)
+    g.fillStyle = '#ffffff'; g.font = '600 30px "Inter Variable", Inter, system-ui, sans-serif'; g.fillText('DJ · guests · the bay', 256, 98)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.58), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35, side: THREE.DoubleSide }))
+    sign.position.set(30.5, 1.75, -46.6)
+    scene.add(sign)
+  }
+  o.hotspots.push({ id: 'party-cruise', x: 30.5, z: -45.0, r: 1.6, title: 'Party yacht', body: 'A 30 m yacht with a DJ, a dance floor and a crowd on the aft deck: out past the lighthouse and back along the beach. About a minute and a half.', enter: 'Party cruise · $150',
+    use: () => window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'yacht' } })) })
   // Members' lounge pavilion: glass box under a floating timber roof.
   box(M.stone, 7, 0.3, 5, 28.5, 0, -39.5)
   box(M.glass, 6, 2.8, 4, 28.5, 0.3, -39.5)

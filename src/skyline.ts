@@ -1,3 +1,4 @@
+import { CTRL } from './metroRoute.ts'
 import * as THREE from 'three'
 import type { Graphics } from './logic.ts'
 
@@ -146,7 +147,15 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   const c = new THREE.Color()
   let rnd = 7
   const rand = () => ((rnd = (rnd * 16807) % 2147483647) / 2147483647)
+  // Keep towers off the metro viaduct and out of the airport and Grind Park grounds.
+  const line = new THREE.CatmullRomCurve3(CTRL.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal')
+  const linePts = line.getSpacedPoints(Math.round(line.getLength() / 4))
+  const grounds: Array<[number, number, number, number]> = [[130, -70, 340, 70], [-212, 96, -104, 210]]
+  const blocked = (x: number, z: number, rad: number) =>
+    linePts.some((p) => Math.hypot(p.x - x, p.z - z) < rad + 5) || grounds.some(([x0, z0, x1, z1]) => x > x0 - rad && x < x1 + rad && z > z0 - rad && z < z1 + rad)
+  let skip = false
   const put = (kind: number, x: number, y: number, z: number, w: number, h: number, d: number, a: number, tint: number) => {
+    if (skip) return
     const k = used[kind]!++
     m.position.set(x, y, z); m.rotation.set(0, -a, 0); m.scale.set(w, h, d); m.updateMatrix()
     bodies[kind]!.setMatrixAt(k, m.matrix)
@@ -163,6 +172,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
     const tint = tints[kinds[kind]!][Math.floor(rand() * tints[kinds[kind]!].length)]!
     // Whole numbers of bays and floors, so windows meet the corners and the roof cleanly.
     const w = BAY * (3 + Math.floor(rand() * 4)), d = BAY * (3 + Math.floor(rand() * 4))
+    skip = blocked(x, z, Math.hypot(w, d) / 2)
     const tall = rand()
     const floors = kind === 1 ? 6 + Math.floor(tall * 14) : 6 + Math.floor(tall * tall * 24)
     const h = floors * FLOOR
@@ -182,13 +192,14 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
       }
     }
     // Parapet and roof, plant boxes, a spire and an aviation light on the tallest.
-    m.position.set(x, top, z); m.rotation.set(0, -a, 0); m.scale.set(tw + 0.3, 0.9, td + 0.3); m.updateMatrix(); parapets.setMatrixAt(nPar++, m.matrix)
+    if (!skip) { m.position.set(x, top, z); m.rotation.set(0, -a, 0); m.scale.set(tw + 0.3, 0.9, td + 0.3); m.updateMatrix(); parapets.setMatrixAt(nPar++, m.matrix) }
     for (let k = 0; k < 2; k++) {
       m.position.set(x + (rand() - 0.5) * tw * 0.4, top + 0.9, z + (rand() - 0.5) * td * 0.4); m.scale.set(2 + rand() * 3, 1.2 + rand() * 2, 2 + rand() * 3); m.updateMatrix()
-      plant.setMatrixAt(nPlant++, m.matrix)
+      if (!skip) plant.setMatrixAt(nPlant++, m.matrix)
     }
     if (top > 60 && kind !== 1) {
       const sh = 8 + rand() * 18
+      if (skip) continue
       m.position.set(x, top + 0.9, z); m.rotation.set(0, 0, 0); m.scale.set(1.4, sh, 1.4); m.updateMatrix(); spires.setMatrixAt(nSpire, m.matrix)
       m.position.set(x, top + 0.9 + sh, z); m.scale.setScalar(0.9); m.updateMatrix(); beacons.setMatrixAt(nSpire, m.matrix)
       nSpire++

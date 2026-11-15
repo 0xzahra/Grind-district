@@ -1502,7 +1502,7 @@ const apiAgents = createRemoteAgents(scene)
   let ridePitchSaved: number | null = null
   const rideSeat: Seat = { x: 0, z: 0, yaw: 0, y: 0.45 }
   const loadHomes = async (): Promise<Homes> => {
-    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), parkTrain: () => boardMetro('park') }); parkPillars() }
+    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), train: (id) => boardMetro(id), fade: () => fadeScreen() }); parkPillars() }
     return homes
   }
   const fadeScreen = () => { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
@@ -1517,7 +1517,7 @@ const apiAgents = createRemoteAgents(scene)
       if (ui.isOpen()) ui.close()
       if (seating.sitting) seating.stand()
       const s = h.enter(id, viewing)
-      setHomeInView(id === 'park' ? null : id)
+      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
       pos.x = s.x; pos.z = s.z; levelY = s.y
@@ -1527,7 +1527,7 @@ const apiAgents = createRemoteAgents(scene)
       camYaw = s.heading + Math.PI
       cameraReady = false
       avatar.object.position.set(pos.x, levelY, pos.z)
-      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
     } finally { homeBusy = false }
   }
   const leaveHome = () => {
@@ -1548,6 +1548,13 @@ const apiAgents = createRemoteAgents(scene)
     if (d.op === 'enter' && d.id) void enterHome(d.id, !!d.viewing)
     else if (d.op === 'try' && d.style) { if (homes?.inside) { ui.close(); homes.tryStyle(d.style) } else ui.toast('Go to a home first (a free viewing works), then try a look on.') }
     else if (d.op === 'restyle' && homes?.inside) homes.restyle()
+    else if (d.op === 'yacht') {
+      // The party yacht from the harbour: paid here, then you step aboard at the jetty.
+      if (ride?.driving) { ui.toast('Park the car first.'); return }
+      const paid = spendInGame(150, 'Party yacht cruise', 'DJ, guests and the bay at sunset')
+      if (!paid.ok) { ui.toast(paid.message); return }
+      void enterHome('yacht', true)
+    }
   })
   ;(window as unknown as { __homes?: () => Homes | null }).__homes = import.meta.env.DEV ? () => homes : undefined
   // --- The Grind Metro (metro.ts): a train round the city and out to Grind Park, loaded once the city is open.
@@ -1558,7 +1565,8 @@ const apiAgents = createRemoteAgents(scene)
   const boardMetro = (id: StationId) => {
     if (!metro) { ui.toast('The trains are starting up. Try again in a moment.'); return }
     if (ride?.driving) { ui.toast('Park the car first.'); return }
-    if (interiors.inside || (homes?.inside && homes.inside !== 'park')) { ui.toast('Step outside first.'); return }
+    if (interiors.inside || (homes?.inside && homes.inside !== 'park' && homes.inside !== 'airport')) { ui.toast('Step outside first.'); return }
+    if (homes?.moving) { ui.toast('Wait for the ride to finish.'); return }
     const paid = spendInGame(2, 'Grind Metro fare', 'A ride on the train')
     if (!paid.ok) { ui.toast(paid.message); return }
     if (homes?.inside) homes.leave()
@@ -1582,7 +1590,7 @@ const apiAgents = createRemoteAgents(scene)
     avatar.object.visible = true
     camDistGoal = metroCam.dist || 5.6; camPitch = metroCam.pitch || 0.42
     metroCam = { dist: 0, pitch: 0 }
-    if (id === 'park') { levelY = 0; void enterHome('park', true); return }
+    if (id === 'park' || id === 'airport') { levelY = 0; void enterHome(id, true); return }
     const st = STATIONS_AT[id]
     fadeScreen()
     pos.x = st[0]; pos.z = st[1]; levelY = 0
@@ -1592,11 +1600,11 @@ const apiAgents = createRemoteAgents(scene)
     exitCooldown = 0.8
     ui.toast(`${metro ? '' : ''}You are at the ${id === 'skytower' ? 'Sky Tower' : id[0]!.toUpperCase() + id.slice(1)} station.`)
   }
-  const STATIONS_AT: Record<StationId, [number, number]> = { beach: [-8, -59.5], marina: [59, 8], raceway: [6, 59.5], park: [-118, 123], skytower: [-59, 10] }
+  const STATIONS_AT: Record<StationId, [number, number]> = { beach: [-8, -59.5], marina: [59, 8], raceway: [6, 59.5], park: [-118, 123], skytower: [-59, 10], airport: [141, 16] }
   window.addEventListener('gd:revealed', () => window.setTimeout(() => {
     void import('./metro.ts').then((m) => {
       metro = m.createMetro(scene, { onArrive: (id) => metroArrive(id) })
-      for (const st of m.STATIONS) if (st.id !== 'park') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
+      for (const st of m.STATIONS) if (st.id !== 'park' && st.id !== 'airport') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
       parkPillars()
     })
   }, 2500), { once: true })
@@ -1845,6 +1853,7 @@ const apiAgents = createRemoteAgents(scene)
     if (lightAcc > 0.25) {
       lightAcc = 0
       world.setDaylight(dayPhase)
+      if (homes?.flying && scene.fog instanceof THREE.FogExp2) scene.fog.density *= 0.45 // clearer air up high
       hemiBase = world.hemi.intensity
       physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
@@ -1908,6 +1917,8 @@ const apiAgents = createRemoteAgents(scene)
       const rs = homes!.rideSeat
       if (rs) { rideSeat.x = pos.x; rideSeat.z = pos.z; rideSeat.yaw = rs.yaw; rideSeat.y = rs.y; if (!seating.sitting) seating.sit(rideSeat, avatar.object) }
       else if (seating.sitting === rideSeat) seating.stand()
+      const rf = rs ? null : homes!.rideFace
+      if (rf !== null) avatar.face(Math.sin(rf), Math.cos(rf), dt, true)
       avatar.step(dt, false, 0)
       seating.apply(avatar.object, dt)
     } else if (metro?.riding) {
@@ -2126,7 +2137,7 @@ const apiAgents = createRemoteAgents(scene)
       const behind = rv.heading + Math.PI
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
       camYaw += delta * (1 - Math.exp(-7 * dt))
-      camPitch += (THREE.MathUtils.clamp(rv.pitch, 0.1, 0.9) - camPitch) * (1 - Math.exp(-4 * dt))
+      camPitch += (THREE.MathUtils.clamp(rv.pitch, 0.1, 0.9) - camPitch) * (homes?.flying ? 1 : 1 - Math.exp(-4 * dt))
     } else if (ridePitchSaved !== null) { camPitch = ridePitchSaved; ridePitchSaved = null }
     if (metro?.riding && lookIdle > 0.9) {
       const behind = metro.view().heading + Math.PI
@@ -2152,7 +2163,8 @@ const apiAgents = createRemoteAgents(scene)
     // Driving or riding the metro keeps the camera centred.
     const shoulderAmt = THREE.MathUtils.clamp((camera.aspect - 0.8) / 0.6, 0, 1)
     shoulder.set(Math.cos(camYaw), 0, -Math.sin(camYaw)).multiplyScalar((ride?.driving || metro?.riding ? 0 : 0.55) * shoulderAmt * Math.min(1, 6 / camDist) * THREE.MathUtils.clamp(camDist / 3.2, 0.3, 1)) // also eases off in a face close-up
-    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, (ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45) + levelY, pos.z + shoulder.z), 1 - Math.exp(-12 * dt))
+    const flying = !!homes?.flying
+    lookSmooth.lerp(lookTarget.set(pos.x + shoulder.x, (ride?.driving && ride.kind === 'boat' ? 2.7 : 1.45) + levelY, pos.z + shoulder.z), flying ? 1 : 1 - Math.exp(-12 * dt))
     lookTarget.copy(lookSmooth)
     const indoors = Boolean(interiors.inside)
     if (!indoors && cutHidden.size) restoreCut()
@@ -2197,6 +2209,9 @@ const apiAgents = createRemoteAgents(scene)
     if (!cameraReady) {
       smoothCam.copy(ideal)
       cameraReady = true
+    } else if (flying) {
+      // In a plane at 60 m/s a spring would trail metres behind: the camera rides with the plane.
+      smoothCam.copy(ideal); camVel.set(0, 0, 0)
     } else {
       // Critically damped spring toward the ideal spot; the collision pull below snaps in instantly.
       const k = 38
@@ -2234,6 +2249,10 @@ const apiAgents = createRemoteAgents(scene)
       introT = 1
     }
     camera.lookAt(lookTarget)
+    // Flights: see to the horizon, and keep the sky box round the camera at 150 m up.
+    const wantFar = flying ? 900 : 260
+    if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix() }
+    if (flying) physSky.sky.position.copy(camera.position)
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
     camera.updateMatrixWorld()
     setMixerViewer(camera)

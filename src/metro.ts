@@ -1,21 +1,11 @@
-// The Grind Metro: a raised line round the city with a branch out to Grind Park, and a three-car train that runs
-// all day, stopping at five stations. Board at a station entrance in the street (a $2 fare), ride above the city
+// The Grind Metro: a raised line round the city with branches out to Grind Park and the airport, and a three-car
+// train that runs all day, stopping at six stations. Board at a station entrance in the street (a $2 fare), ride above the city
 // with the camera following, and the gold button gets you off at the next stop. Loaded after the city opens.
 import * as THREE from 'three'
 
-export type StationId = 'beach' | 'marina' | 'raceway' | 'park' | 'skytower'
-export const STATIONS: Array<{ id: StationId; title: string; at: [number, number]; street: [number, number] }> = [
-  { id: 'beach', title: 'Beach', at: [-8, -70], street: [-8, -59.5] },
-  { id: 'marina', title: 'Marina', at: [72, 8], street: [59, 8] },
-  { id: 'raceway', title: 'Raceway', at: [6, 74], street: [6, 59.5] },
-  { id: 'park', title: 'Grind Park', at: [-122, 120], street: [-118, 123] },
-  { id: 'skytower', title: 'Sky Tower', at: [-70, 10], street: [-59, 10] },
-]
+import { STATIONS, CTRL, AWAY, type StationId } from './metroRoute.ts'
+export { STATIONS, type StationId }
 const DECK = 7.2 // top of the viaduct
-const CTRL: Array<[number, number]> = [
-  [-55, -70], [-8, -70], [40, -70], [66, -62], [72, -30], [72, 8], [72, 40], [64, 66], [40, 74], [6, 74], [-30, 74],
-  [-58, 82], [-92, 106], [-122, 120], [-128, 96], [-100, 74], [-74, 50], [-70, 10], [-68, -30], [-64, -60],
-]
 const CAR = 10.4, CARS = 3, CRUISE = 15, ACC = 1.1, BRAKE = 1.3, DWELL = 5
 
 export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId) => void }) {
@@ -70,7 +60,7 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
     sg.position.set(p.x, 0, p.z); sg.rotation.y = p.h
     sg.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
     group.add(sg)
-    if (st.id !== 'park') {
+    if (!AWAY.includes(st.id)) {
       const totem = new THREE.Group()
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.8, 0.16), steel); post.position.y = 1.4; totem.add(post)
       const board = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.4), signTex(st.title)); board.position.y = 2.6; totem.add(board)

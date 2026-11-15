@@ -168,10 +168,9 @@ function cruiser(): THREE.Group {
   return g
 }
 
-/** The lighthouse rock and the buoys of the cruise route. */
-function bayScenery(gates: P[], route: P[], gateIdx: number[]): { group: THREE.Group; buoys: Array<{ red: THREE.Mesh; green: THREE.Mesh }>; obstacles: Obstacle[] } {
+/** The lighthouse on its rock, across the bay (the cruise rounds it; the party yacht sails past it). */
+export function lighthouse(): THREE.Group {
   const group = new THREE.Group()
-  const obstacles: Obstacle[] = [{ kind: 'circle', x: LIGHTHOUSE.x, z: LIGHTHOUSE.z, r: LIGHTHOUSE.r }]
   const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(LIGHTHOUSE.r, 1), new THREE.MeshStandardMaterial({ color: 0x6b675f, roughness: 0.95, flatShading: true }))
   rock.scale.set(1, 0.32, 1); rock.position.set(LIGHTHOUSE.x, -0.6, LIGHTHOUSE.z); rock.castShadow = true
   group.add(rock)
@@ -189,6 +188,14 @@ function bayScenery(gates: P[], route: P[], gateIdx: number[]): { group: THREE.G
   cap.position.y = top + 1.85; tower.add(cap)
   tower.position.set(LIGHTHOUSE.x, 2.2, LIGHTHOUSE.z)
   group.add(tower)
+  return group
+}
+
+/** The lighthouse rock and the buoys of the cruise route. */
+function bayScenery(gates: P[], route: P[], gateIdx: number[]): { group: THREE.Group; buoys: Array<{ red: THREE.Mesh; green: THREE.Mesh }>; obstacles: Obstacle[] } {
+  const group = new THREE.Group()
+  const obstacles: Obstacle[] = [{ kind: 'circle', x: LIGHTHOUSE.x, z: LIGHTHOUSE.z, r: LIGHTHOUSE.r }]
+  group.add(lighthouse())
   // A gate is a red buoy to port and a green one to starboard, 14 m apart across the route.
   const buoyGeo = new THREE.CylinderGeometry(0.0, 0.55, 1.6, 12).translate(0, 0.8, 0)
   const ring = new THREE.CylinderGeometry(0.62, 0.62, 0.3, 14).translate(0, 0.15, 0)
