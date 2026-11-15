@@ -187,7 +187,7 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   const canopy = new THREE.Group()
   const cells = tex(512, 64, (c) => { for (let i = 0; i < 9; i++) { c.fillStyle = ['#14a058', '#ffd36b', '#ffffff'][i % 3]!; c.fillRect(i * 57, 0, 57, 64) } })
   // A ram-air wing: 8 m across, arched over your head, 3.4 m from front to back.
-  const wingGeo = new THREE.CylinderGeometry(8, 8, 3.4, 24, 1, true, -0.55, 1.1).rotateX(Math.PI / 2).translate(0, -7.3, 0)
+  const wingGeo = new THREE.CylinderGeometry(8, 8, 3.4, 24, 1, true, -0.55, 1.1).rotateX(-Math.PI / 2).translate(0, -7.3, 0)
   put(canopy, wingGeo, std(0xffffff, 0.8, 0, { map: cells, side: THREE.DoubleSide }), 0, 7.2, 0, false)
   for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const l = put(canopy, new THREE.CylinderGeometry(0.008, 0.008, 6.4, 4), std(0xdddddd, 0.5), s * (1.2 + k * 1.1), 3.4, 0, false); l.rotation.z = -s * (0.18 + k * 0.12) }
   canopy.visible = false; pair.add(canopy)
