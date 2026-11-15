@@ -16,7 +16,7 @@ export type AreaId = HomeId | 'park'
 type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-type Move = { camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+type Move = { seat?: () => { yaw: number; y: number } | null; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
@@ -686,7 +686,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (plan) { const L = levels[level]!; light.position.set((L.walk.x0 + L.walk.x1) / 2, L.y + 2.8, (L.walk.z0 + L.walk.z1) / 2); light.intensity = plan.house && level === 0 ? 4 : 7 }
   }
   // --- Grind Park tickets: a day pass at the gate covers every ride today; without one, each ride has its fare.
-  const PASS_USD = 12
+  const PASS_USD = 100
   const passKey = () => `${slotKey()}.park`
   const today = () => new Date().toLocaleDateString('en-CA')
   const hasPass = () => { try { return (JSON.parse(localStorage.getItem(passKey()) ?? '{}') as { pass?: string }).pass === today() } catch { return false } }
@@ -866,7 +866,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       startMove({
         cam: 6.8,
         view: () => { const f = frameAt(track, ((coasterS(time) / TL) % 1 + 1) % 1); return { heading: f.heading, pitch: Math.max(0.22, Math.min(0.55, -f.pitch * 0.5 + 0.26)) } },
-        path: () => { const f = frameAt(track, (((coasterS(time) - 0.9) / TL) % 1 + 1) % 1); nn.crossVectors(upv, f.t).normalize(); bb.crossVectors(f.t, nn).normalize(); const sp = coaster.at(Math.max(0, time - t0 - 1.2) + 0.016) - coaster.at(Math.max(0, time - t0 - 1.2)); wind(sp * 60); return { x: f.p.x + bb.x * 0.55, z: f.p.z + bb.z * 0.55, y: f.p.y + bb.y * 0.55 } },
+        path: () => { const f = frameAt(track, (((coasterS(time) - 0.9) / TL) % 1 + 1) % 1); nn.crossVectors(upv, f.t).normalize(); bb.crossVectors(f.t, nn).normalize(); const sp = coaster.at(Math.max(0, time - t0 - 1.2) + 0.016) - coaster.at(Math.max(0, time - t0 - 1.2)); wind(sp * 60); return { x: f.p.x + bb.x * 0.15, z: f.p.z + bb.z * 0.15, y: f.p.y + bb.y * 0.15 } },
+        seat: () => { const f = frameAt(track, (((coasterS(time) - 0.9) / TL) % 1 + 1) % 1); return { yaw: f.heading, y: 0.45 } },
         from: { x: -175, z: 112, y: 0 }, to: { x: -171, z: 116, y: 0 }, t: 0, dur: coaster.T + 1.2, toLv: 0,
         done: () => { wind(0); deps.toast(adjust({ social: 8 }, 'quiet') || 'What a ride!') },
       })
@@ -916,6 +917,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
         startMove({
           cam: 5.6,
           camFn: () => (time - t0 < CLIMB ? 10 : 5.6),
+          seat: () => { const tt = time - t0; if (tt < CLIMB) return null; const f = frameAt(curve, run.at(tt - CLIMB) / run.L); return { yaw: f.heading, y: 0.35 } },
           view: () => { const tt = time - t0; if (tt < CLIMB) return { heading: Math.atan2(TW.x - (-138), TW.z - 190), pitch: 0.5 }; const f = frameAt(curve, run.at(tt - CLIMB) / run.L); return { heading: f.heading, pitch: Math.max(-0.4, Math.min(0.5, -f.pitch * 0.5 + 0.18)) } },
           path: () => {
             const tt = time - t0
@@ -923,7 +925,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
             const s = run.at(tt - CLIMB), f = frameAt(curve, s / run.L)
             const sp = run.at(tt - CLIMB + 0.016) - s
             wind(sp * 60)
-            return { x: f.p.x, z: f.p.z, y: f.p.y + 0.05 }
+            return { x: f.p.x, z: f.p.z, y: f.p.y - 0.25 }
           },
           from: { x: TW.x, z: TW.z, y: 0 }, to: { x: TW.x, z: TW.z, y: 0 }, t: 0, dur: CLIMB + run.T, toLv: 0,
           done: () => { wind(0); deps.toast(adjust({ hygiene: 12, social: 6 }, 'quiet') || 'Splash!') },
@@ -984,7 +986,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       let k0 = 0, best = Infinity
       for (let k = 0; k < W.n; k++) { const p = cabinAt(k, time); if (p.y < best) { best = p.y; k0 = k } }
       const t0 = time
-      startMove({ cam: 17, path: () => { const p = cabinAt(k0, time); return { x: p.x, z: p.z, y: p.y - 2.3 } }, from: { x: W.x, z: W.z, y: 0 }, to: { x: W.x + 4.2, z: W.z, y: 0 }, t: 0, dur: W.period, toLv: 0 })
+      startMove({ cam: 17, seat: () => ({ yaw: Math.PI / 2, y: 0.45 }), path: () => { const p = cabinAt(k0, time); return { x: p.x, z: p.z, y: p.y - 2.3 } }, from: { x: W.x, z: W.z, y: 0 }, to: { x: W.x + 4.2, z: W.z, y: 0 }, t: 0, dur: W.period, toLv: 0 })
       void t0
       deps.toast('Hold on: one full turn of the Ferris wheel.')
     } })
@@ -1017,7 +1019,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       const paid = charge(2, 'Carousel ride')
       if (!paid.ok) { deps.toast(paid.message); return }
       const k = 3
-      startMove({ cam: 8.5, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z - Math.sin(a) * C.r, y: 1.15 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
+      startMove({ cam: 8.5, seat: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { yaw: Math.atan2(-Math.sin(a), -Math.cos(a)), y: 0.45 } }, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z - Math.sin(a) * C.r, y: 1.33 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
     } })
     // Back to the city by train, an ice cream, a go on the swings.
     levels[0]!.uses.push({ id: 'park-train', x: -118.5, z: 121.5, r: 1.8, title: 'Grind Metro', body: 'Grind Park station. Trains round the city to the Beach, the Marina, the Raceway and the Sky Tower.', enter: 'Take the train · $2', use: () => deps.parkTrain() })
@@ -1086,6 +1088,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get moving() { return !!move },
     /** How far back the camera sits during a ride (the Ferris wheel, the carousel). */
     get rideCam(): number | null { return move?.camFn?.() ?? move?.cam ?? null },
+    /** Seated on a ride: which way you face and how high the seat is above where you stand. */
+    get rideSeat(): { yaw: number; y: number } | null { return move?.seat?.() ?? null },
     /** On the coaster and the slides the camera rides just behind you, looking where you are going. */
     get rideView(): { heading: number; pitch: number } | null { return move?.view?.() ?? null },
     /** Animate the home; while a lift or escalator ride is on, return where the player is. */

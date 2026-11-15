@@ -1500,6 +1500,7 @@ const apiAgents = createRemoteAgents(scene)
   let levelY = 0
   let homeCam = { dist: 0, pitch: 0 }
   let ridePitchSaved: number | null = null
+  const rideSeat: Seat = { x: 0, z: 0, yaw: 0, y: 0.45 }
   const loadHomes = async (): Promise<Homes> => {
     if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), parkTrain: () => boardMetro('park') }); parkPillars() }
     return homes
@@ -1732,8 +1733,8 @@ const apiAgents = createRemoteAgents(scene)
   let captionTimer = 0
   let pillSpot: string | null = null, pillX = 0, pillZ = 0, pillAge = 0
   const showSpot = (next: Hotspot | null) => {
-    // While seated: always offer Stand (never leave a gold Sit button up).
-    if (seating.sitting) {
+    // While seated: always offer Stand (never leave a gold Sit button up). Not on a ride: you get off at the end.
+    if (seating.sitting && seating.sitting !== rideSeat) {
       if (activeSpot !== '__seated__') {
         activeSpot = '__seated__'
         spot = null
@@ -1885,7 +1886,8 @@ const apiAgents = createRemoteAgents(scene)
     exitCooldown = Math.max(0, exitCooldown - dt)
     busyFor = Math.max(0, busyFor - dt)
     if (!paused && frame.interact) {
-      if (seating.sitting) { seating.stand() }
+      if (seating.sitting && seating.sitting !== rideSeat) { seating.stand() }
+      else if (seating.sitting === rideSeat) { /* riding: the ride brings you back */ }
       else if (spot) {
       if (spot.exit) leaveRoom()
       else if (spot.use) spot.use()
@@ -1896,11 +1898,18 @@ const apiAgents = createRemoteAgents(scene)
     let directed = false
     let moving = false
     const homeRide = homes?.inside ? homes.tick(dt, pos.x, pos.z) : null
+    if (!homeRide && seating.sitting === rideSeat) seating.stand()
     if (homeRide) {
       // A lift or escalator carries you: no walking until it stops.
       pos.x = homeRide.x; pos.z = homeRide.z; levelY = homeRide.y
       vel.x = 0; vel.z = 0; target = null
       avatar.object.position.set(pos.x, levelY, pos.z)
+      // On a ride you sit: in the coaster car, on the wheel's bench, on a carousel horse, down the slides.
+      const rs = homes!.rideSeat
+      if (rs) { rideSeat.x = pos.x; rideSeat.z = pos.z; rideSeat.yaw = rs.yaw; rideSeat.y = rs.y; if (!seating.sitting) seating.sit(rideSeat, avatar.object) }
+      else if (seating.sitting === rideSeat) seating.stand()
+      avatar.step(dt, false, 0)
+      seating.apply(avatar.object, dt)
     } else if (metro?.riding) {
       const v = metro.view()
       pos.x = v.x; pos.z = v.z; levelY = v.y
