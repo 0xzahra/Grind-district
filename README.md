@@ -40,9 +40,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **Practice trading:** Spot, Perps, Convert and P2P on simulated prices, with scam scenarios. Practice money only.
 - **Social:** players and residents in one city, nearby chat, messages, and AI agents as labelled citizens.
 - **More to do:** the Etiquette House (manners and a steady mind), a Raceway time trial, a Wellness house, 27 collectible District Cards (nothing random), a photo card to share, and a dealership of seven cars from a city saloon to a hypercar.
-- **Drive, race and ride:** drive your own car or a free test drive in the city (one stick, one button), race three rival drivers on the Grind Raceway circuit, cruise the bay in a day cruiser, ride the Grind Metro round the city, and the Ferris wheel and carousel in Grind Park.
-- **Luxury homes:** a garden duplex, a hillside mansion with an escalator and a glass lift, the crown penthouse and the sky house with infinity pools, ten whole-room looks and premium pieces, all for in-game dollars at Grind Realty.
-- **Referrals:** your invite link pays both sides in-game, and Profile shows its opens, who joined and who is active.
+- **Drive and race:** drive your own car or a free test drive in the city (one stick, one button), race three rival drivers on the Grind Raceway circuit, and cruise the bay in a day cruiser.
 - **Tokenized stocks:** the Stockholders' Club opens for players who hold a stock token on Base ([how it works](docs/BASE-STOCKS.md)).
 - **14 languages**, phone first, Low, Medium and High graphics.
 
@@ -64,6 +62,8 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 - **Who it is for.** People who are curious about Web3 and want to learn it without getting scammed, and people looking for Web3 work who need proof of what they know.
 - **Reasons to come back today.** A daily streak, needs that drop while you are away, a business that keeps selling to residents while you are gone (up to two hours are caught up), the Grind Pass season, friendships and events with residents, and messages with push and email alerts.
 - **Next (plans).** Dec 2026 to Q1 2027: an AI companion run on NEAR AI, sign-in from any chain with NEAR Intents, gas-sponsored certificate mints and alerts for streaks and events. Q1 to Q2 2027: partner courses, guilds and team challenges, and tools for community lessons. H2 2027: mainnet credentials that employers can check, and the job board. The full roadmap is in the [GDD](docs/GDD.md#18-roadmap).
+
+**Added after the deadline (15 Nov, not part of the hackathon entry):** luxury homes at Grind Realty (a duplex, a mansion with an escalator and a glass lift, a penthouse and a sky house with infinity pools, whole-room looks, premium pieces), referral rewards and tracking for invite links, and the Grind Metro train out to Grind Park (Ferris wheel, carousel).
 
 ## Screenshots
 
