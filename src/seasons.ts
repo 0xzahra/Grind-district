@@ -29,6 +29,24 @@ export const CLIMATE: Record<ClimateId, { title: string; warming: string; sea: s
   '2100-high': { title: '2100 · high emissions', warming: 'about +4.4 °C', sea: 'about +0.77 m (0.63 to 1.01 m; up to 2 m cannot be ruled out)', shore: 23, heat: 1, storms: 0.8, lines: ['On the highest-emission path the world is over 4 °C warmer: a different planet.', 'The beach is under water and waves reach the promenade; storm surges flood the streets.', 'Deadly heat on many days of the year, droughts, wildfires and failing harvests.'] },
 }
 
+/** El Niño and La Niña: the tropical Pacific warming or cooling for about a year, every 2 to 7 years. */
+export type EnsoId = 'neutral' | 'el-nino' | 'la-nina'
+export const ENSO: Record<EnsoId, { title: string; heat: number; storms: number; cool: number; lines: string[] }> = {
+  neutral: { title: 'Normal year', heat: 0, storms: 0, cool: 0, lines: [] },
+  'el-nino': { title: 'El Niño year', heat: 0.3, storms: 0.35, cool: 0, lines: [
+    'Every 2 to 7 years the surface of the tropical Pacific warms by 1 °C or more for about a year. The trade winds weaken and the warm water spreads east towards South America.',
+    'It moves rain round the planet: floods in Peru, Ecuador and the southern United States; drought in Australia, Indonesia, southern Africa and the Sahel; a weaker Indian monsoon; coral reefs bleach in the warm water.',
+    'It adds roughly 0.1 to 0.2 °C to the world\'s temperature that year. On top of climate change, El Niño years set the records: 2016, and 2023 to 2024.',
+    'Here: a warmer, hazier year with dry spells broken by sudden heavy downpours.',
+  ] },
+  'la-nina': { title: 'La Niña year', heat: 0, storms: 0.5, cool: 0.35, lines: [
+    'La Niña is the opposite swing: the tropical Pacific cools and the trade winds strengthen.',
+    'It brings floods to Australia and Indonesia, drought to the southern United States and East Africa, and a busier Atlantic hurricane season.',
+    'The world cools slightly for a year, but less than climate change has already warmed it.',
+    'Here: cooler, bluer light and more frequent rain.',
+  ] },
+}
+
 type Weatherish = { force: (on: boolean | null) => void }
 type Beachish = { setRise: (metres: number) => void }
 
@@ -37,11 +55,15 @@ let ctl: ReturnType<typeof createSeasons> | null = null
 export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; ground: THREE.MeshStandardMaterial; beach: Beachish; weather: Weatherish; graphics: 'low' | 'medium' | 'high'; toast: (m: string) => void }) {
   const key = () => `${slotKey()}.seasons`
   const realSeason = (): number => { const m = new Date().getMonth(); return m >= 2 && m <= 4 ? 0 : m >= 5 && m <= 7 ? 1 : m >= 8 && m <= 10 ? 2 : 3 }
-  const read = (): { i: number; d: number } => { try { const v = JSON.parse(localStorage.getItem(key()) ?? 'null') as { i: number; d: number } | null; if (v && v.i >= 0 && v.i < 4) return v } catch { /* none yet */ } return { i: realSeason(), d: 0 } }
-  const write = (v: { i: number; d: number }) => { try { localStorage.setItem(key(), JSON.stringify(v)) } catch { /* private mode */ } }
+  const read = (): { i: number; d: number; y?: number } => { try { const v = JSON.parse(localStorage.getItem(key()) ?? 'null') as { i: number; d: number; y?: number } | null; if (v && v.i >= 0 && v.i < 4) return v } catch { /* none yet */ } return { i: realSeason(), d: 0, y: 0 } }
+  const write = (v: { i: number; d: number; y?: number }) => { try { localStorage.setItem(key(), JSON.stringify(v)) } catch { /* private mode */ } }
   let state = read()
   let preview: SeasonId | null = null
   let climate: ClimateId = 'today'
+  let ensoPreview: EnsoId | null = null
+  // A natural cycle: in-game years run neutral, neutral, El Niño, La Niña (one season-year is eight in-game days).
+  const naturalEnso = (): EnsoId => { const y = state.y ?? 0; return y % 4 === 2 ? 'el-nino' : y % 4 === 3 ? 'la-nina' : 'neutral' }
+  const enso = (): EnsoId => ensoPreview ?? naturalEnso()
   const season = (): SeasonId => preview ?? ORDER[state.i]!
   const foliage = o.foliage as THREE.MeshLambertMaterial
   const groundBase = o.ground.color.clone()
@@ -93,14 +115,24 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
     /** A new in-game day: seasons turn every two days. */
     newDay() {
       state.d++
-      if (state.d >= DAYS_PER_SEASON) { state = { i: (state.i + 1) % 4, d: 0 }; if (!preview) o.toast(SEASONS[ORDER[state.i]!].arrive) }
+      if (state.d >= DAYS_PER_SEASON) {
+        const before = naturalEnso()
+        state = { i: (state.i + 1) % 4, d: 0, y: (state.y ?? 0) + (state.i === 3 ? 1 : 0) }
+        if (!preview) o.toast(SEASONS[ORDER[state.i]!].arrive)
+        const now = naturalEnso()
+        if (now !== before && now !== 'neutral') window.setTimeout(() => o.toast(`${ENSO[now].title} has begun. ${ENSO[now].lines[3]} Seasons in the menu explains it.`), 4000)
+      }
       write(state)
     },
     preview(s: SeasonId | null) { preview = s && s !== ORDER[state.i] ? s : null; paintFall(SEASONS[season()].fall) },
     setClimate(c: ClimateId) { climate = c; applyClimateNow() },
+    get enso() { return enso() },
+    get ensoNatural() { return naturalEnso() },
+    setEnso(e: EnsoId | null) { ensoPreview = e },
     /** After the day's light is set: season and climate colour the light, the haze, the leaves and the ground. */
     apply(fog: THREE.FogExp2 | null, sun: THREE.DirectionalLight, hemi: THREE.HemisphereLight, night: number) {
-      const S = SEASONS[season()], C = CLIMATE[climate]
+      const S = SEASONS[season()], E = ENSO[enso()], C0 = CLIMATE[climate]
+      const C = { ...C0, heat: Math.min(1, C0.heat + E.heat) }
       if (S.fall !== fallKind) paintFall(S.fall)
       // Leaves: the season's colour, drying towards straw with heat.
       tmp.setHex(S.leaf).lerp(tmp2.setHex(0xc9b26a), C.heat * 0.45)
@@ -111,17 +143,18 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
       o.ground.color.copy(groundBase).lerp(tmp2.setHex(0xe6d2a6), C.heat * 0.5)
       o.ground.emissive.setHex(0xdfe8f2); o.ground.emissiveIntensity = S.snow * 0.48 * (1 - night * 0.75)
       ground.visible = season() === 'autumn'
-      sun.color.multiply(tmp.setHex(S.sunTint)).lerp(tmp2.setHex(0xffc27a), C.heat * 0.25)
+      sun.color.multiply(tmp.setHex(S.sunTint)).lerp(tmp2.setHex(0xffc27a), C.heat * 0.25).lerp(tmp2.setHex(0xbcd4ff), E.cool * 0.3)
       sun.intensity *= S.sun * (1 + C.heat * 0.12)
       hemi.intensity *= 0.96 + S.snow * 0.1
       if (fog) {
-        fog.color.lerp(tmp.setHex(S.fogTint), 0.18 * (1 - night)).lerp(tmp2.setHex(0xd9b27a), C.heat * 0.4 * (1 - night * 0.6))
+        fog.color.lerp(tmp.setHex(S.fogTint), 0.18 * (1 - night)).lerp(tmp2.setHex(0xd9b27a), C.heat * 0.4 * (1 - night * 0.6)).lerp(tmp2.setHex(0xc4d4e4), E.cool * 0.25 * (1 - night))
         fog.density *= 1 + S.snow * 0.25 + C.heat * 0.7
       }
     },
     /** Falling petals, leaves or snow round the camera; storms in the hotter futures. */
     tick(dt: number, cam: THREE.Camera, outside: boolean) {
-      const C = CLIMATE[climate]
+      const storms = Math.max(CLIMATE[climate].storms, ENSO[enso()].storms)
+      const C = { storms }
       if (C.storms > 0) { stormClock = (stormClock + dt) % 80; o.weather.force(stormClock < 26 * C.storms + 6) } else o.weather.force(null)
       const show = outside && !!fallKind && N > 0
       fallMesh.visible = show
@@ -173,6 +206,15 @@ export function seasonsNodes(h: { para: (t: string, cls?: string) => HTMLElement
   const k = CLIMATE[c.climate]
   out.push(h.para(`${k.title}: warming ${k.warming}; sea level ${k.sea}.`, 'section-title'))
   for (const l of k.lines) out.push(h.para(l))
+  out.push(h.para('El Niño and La Niña', 'section-title'))
+  out.push(h.para(c.enso === 'neutral' ? 'This is a normal year in the Pacific. Every few in-game years an El Niño or a La Niña year comes round; you can see either one now.' : `This in-game year is ${c.ensoNatural === c.enso ? 'an' : 'previewing an'} ${ENSO[c.enso].title}.`))
+  const row3 = document.createElement('div'); row3.className = 'chip-row'
+  for (const [id, label] of [['el-nino', 'See an El Niño year'], ['la-nina', 'See a La Niña year'], ['neutral', 'Back to the real year']] as const) row3.append(h.button(label, c.enso === id ? 'primary' : 'ghost', () => {
+    c.setEnso(id === 'neutral' ? null : id); close()
+    toast(id === 'neutral' ? 'Back to the real year.' : `${ENSO[id].title}: ${ENSO[id].lines[3]}`)
+  }))
+  out.push(row3)
+  if (c.enso !== 'neutral') for (const l of ENSO[c.enso].lines.slice(0, 3)) out.push(h.para(l))
   out.push(h.para('What helps: clean power and transport, efficient homes, protecting forests and wetlands, and planting trees in cities for shade. The lower path is still within reach.'))
   return out
 }

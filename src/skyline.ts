@@ -150,7 +150,7 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
   // Keep towers off the metro viaduct and out of the airport and Grind Park grounds.
   const line = new THREE.CatmullRomCurve3(CTRL.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal')
   const linePts = line.getSpacedPoints(Math.round(line.getLength() / 4))
-  const grounds: Array<[number, number, number, number]> = [[130, -70, 440, 70], [-308, 94, -104, 214], [-116, -64, -84, -32], [80, -50, 128, -2]]
+  const grounds: Array<[number, number, number, number]> = [[130, -70, 482, 70], [-308, 94, -104, 214], [-116, -64, -84, -32], [80, -50, 128, -2]]
   const blocked = (x: number, z: number, rad: number) =>
     linePts.some((p) => Math.hypot(p.x - x, p.z - z) < rad + 5) || grounds.some(([x0, z0, x1, z1]) => x > x0 - rad && x < x1 + rad && z > z0 - rad && z < z1 + rad)
   let skip = false

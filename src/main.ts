@@ -9,6 +9,7 @@ import { speak } from './speech.ts'
 import { setAmbientPlace, setAmbientEnv, ensureAmbientOnGesture } from './ambient-audio.ts'
 import { createWeather } from './weather.ts'
 import { createSeasons } from './seasons.ts'
+import { canGraduate, graduatedOn } from './diploma.ts'
 import { foliageMaterial as seasonFoliage } from './trees.ts'
 import { setMixerViewer, posedHuman } from './humans.ts'
 import { createMentorCard, tourSeen } from './mentor.ts'
@@ -687,6 +688,22 @@ const apiAgents = createRemoteAgents(scene)
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
   mountNotifications()
+  // What's new: each update lands once in the notifications (newest on top), with a link where there is one.
+  window.setTimeout(() => {
+    const UPDATES: Array<[string, string, string, string | undefined]> = [
+      ['u1115-hotel', 'New: the Grind Grand hotel and Grind Mall', 'A suite for the night and a rooftop infinity pool on the west street; the Grind Fresh supermarket, a food court and a cinema on the east street.', undefined],
+      ['u1115-seasons', 'New: the four seasons and climate change', 'Snow in winter, orange trees in autumn. Open Seasons in the menu to see 2050 and 2100 on low and high emissions.', 'panel:seasons'],
+      ['u1115-park', 'New in Grind Park', 'A roller coaster, two water slides, Grind Zoo with a safari tram, three holes of golf and a picnic lawn. Take the metro to Grind Park.', undefined],
+      ['u1115-orbit', 'New: a trip to orbit', 'Grind Orbital flies from the coast past the runway. Book at the desk at the north end of the airport terminal.', undefined],
+      ['u1115-party', 'New: the party jet and the party yacht', 'Charter Grind One in the airport lounge, or board the party yacht from the board by the harbour.', 'place:Party yacht'],
+      ['u1115-air', 'New: Grind International Airport', 'Take the metro to the Airport stop. Fly GA 101 in Economy, Business or First, out over the sea and across the whole city.', undefined],
+      ['u1115b-masterclass', 'New: Society Masterclasses', 'Eight premium masterclasses at the Etiquette House: the wealth mindset, quiet luxury, signal and larping, fine dining, working the room, presence, first-class travel and negotiation.', 'panel:society'],
+      ['u1115b-grad', 'New: graduation 🎓', 'Pass every course in the six Campus worlds to graduate in the Great Hall: cap and gown, your name called, a diploma to download and share.', 'panel:diploma'],
+      ['u1115b-enso', 'New: El Niño and La Niña', 'Every few in-game years the Pacific warms or cools and the weather shifts. See either one now in Seasons.', 'panel:seasons'],
+      ['u1115b-adventure', 'New: cliff climbing and skydiving', 'At the airport: a guided 34 m sea-cliff climb past the spaceport, and a tandem skydive from the Grind Skydive desk by the hangar. Every step explained.', undefined],
+    ]
+    for (const [k, t, b, go] of UPDATES) notify(t, b, k, go)
+  }, 4000)
   installLayers()
   if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Everyone starts at the bottom of the ladder. Learn on Campus, show up daily, climb toward whale — your CV keeps the proof.', 'welcome', 'place:The Grind Ring')
   localStorage.setItem('gd.welcomed', '1')
@@ -704,7 +721,11 @@ const apiAgents = createRemoteAgents(scene)
   } catch { /* private mode */ }
   onActivity((kind, label, detail) => {
     if (kind === 'tax') notify('Family request', `${label}. ${detail}`, undefined, 'panel:profile')
-    else if (kind === 'skill' && label.startsWith('Passed')) notify('Course complete', `${label}. ${detail}`, undefined, 'panel:profile')
+    else if (kind === 'skill' && label.startsWith('Passed')) {
+      notify('Course complete', `${label}. ${detail}`, undefined, 'panel:profile')
+      // The last Campus course: graduation is ready.
+      if (canGraduate() && !graduatedOn()) window.setTimeout(() => notify('You finished Campus 🎓', 'Every course in all six worlds passed. Your graduation is ready: cap and gown are waiting in the Great Hall.', 'grad-ready', 'panel:diploma'), 1500)
+    }
     else if (label === 'Sign-up bonus') notify('Sign-up bonus', detail, undefined, 'balance')
   })
   const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
@@ -1341,6 +1362,9 @@ const apiAgents = createRemoteAgents(scene)
     ...workoutSpots().map((s, i) => ({ ...seatSpot(`workout-${i}`, 'Workout spot', s, sitOn), body: 'Do a few squats. Move to stop.', enter: 'Exercise' }))]
   // Grind Ring kiosk: stand at the front of the counter to order tea or coffee, or take a free stool.
   const freeStools = () => kioskSeats().filter((s) => !crowd.occupied(s.x, s.z))
+  // Graduation, by the Campus steps: progress until every Campus course is passed, then the ceremony.
+  streetSpots.push({ id: 'graduation', x: 4.6, z: -41.2, r: 1.4, title: 'Graduation 🎓', body: 'Pass every course in the six Campus worlds to graduate: cap and gown, your name called, the diploma from Zahra.', enter: 'Graduation', use: () => ui.open('diploma') })
+  window.addEventListener('gd:graduated', () => { notify('Graduate 🎓', 'Diploma in Web3 Foundations. Download it or share it from Graduation.', 'graduated', 'panel:diploma'); window.setTimeout(() => ui.open('diploma'), 4200) })
   streetSpots.push({ id: 'kiosk', x: 0, z: 3.15, r: 1.5, title: 'Grind Ring kiosk', body: 'Welcome to Grind. Tea or coffee?', enter: 'Order', use: () => {
     speak(SERVER_LINES[Math.floor(Math.random() * SERVER_LINES.length)]!, { gender: 'm', seed: 7 })
     ui.open('kiosk')
@@ -1523,7 +1547,7 @@ const apiAgents = createRemoteAgents(scene)
       if (ui.isOpen()) ui.close()
       if (seating.sitting) seating.stand()
       const s = h.enter(id, viewing)
-      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' ? null : id)
+      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
       pos.x = s.x; pos.z = s.z; levelY = s.y
@@ -1533,7 +1557,7 @@ const apiAgents = createRemoteAgents(scene)
       camYaw = s.heading + Math.PI
       cameraReady = false
       avatar.object.position.set(pos.x, levelY, pos.z)
-      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : id === 'grad' ? 'The Great Hall. Cap and gown on: take your seat with the class.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
     } finally { homeBusy = false }
   }
   const leaveHome = () => {
@@ -2241,7 +2265,8 @@ const apiAgents = createRemoteAgents(scene)
       camera.position.y += Math.sin(bob * 2) * amp
       camera.position.x += Math.cos(bob) * amp * 0.5
     }
-    seasons.tick(dt, camera, !interiors.inside && !homes?.flying)
+    // No leaves or snow indoors (the Great Hall, the mall) or up in a plane.
+    seasons.tick(dt, camera, !interiors.inside && !homes?.flying && homes?.inside !== 'grad' && homes?.inside !== 'mall')
     { const pulse = weather.tick(dt, camera, !interiors.inside, calmSky())
       world.hemi.intensity = hemiBase * (1 - 0.18 * weather.rain()) + pulse * 0.9
       post.setFocus(camera.position.distanceTo(lookTarget)) }

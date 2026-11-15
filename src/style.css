@@ -3570,5 +3570,29 @@ html body .family-fab { bottom: calc(200px + env(safe-area-inset-bottom)); }
 /* Rewards and notices read above every panel and pop-up (the pass and rank-up moment was hidden behind Campus). */
 html body #toast { z-index: 70 !important; }
 
-/* Title card: what's new, cycling under the tagline (preview.ts). */
-#menu .title-desc.title-new { margin-top: -4px; color: #ffd36b; min-height: 1.4em; white-space: nowrap; }
+/* Notifications as 3D buttons: a raised glass key with a lit top edge and a soft drop; it presses in on tap. */
+.cc-list { gap: 10px; }
+.cc-list li { padding: 0; background: none; border-radius: 16px; }
+.cc-list li.unread { box-shadow: none; }
+.cc-list .cc-row {
+  position: relative; padding: 12px 14px 13px; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.05) 46%, rgba(0,0,0,.08));
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.28), 0 4px 0 rgba(0,0,0,.38), 0 10px 18px rgba(0,0,0,.28);
+  transform: translateY(0); transition: transform .08s ease, box-shadow .08s ease;
+}
+.cc-list li.unread .cc-row {
+  background: linear-gradient(180deg, rgba(255,214,120,.26), rgba(217,178,106,.12) 50%, rgba(0,0,0,.06));
+  border-color: rgba(255,214,120,.42);
+}
+.cc-list li.unread .cc-row::before { content: ''; position: absolute; top: 14px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: #ffd36b; box-shadow: 0 0 8px rgba(255,211,107,.8); }
+.cc-list .cc-row:active { transform: translateY(3px); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 0 rgba(0,0,0,.38), 0 4px 8px rgba(0,0,0,.25); }
+.cc-list .cc-go { justify-self: start; margin-top: 4px; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #1d1405;
+  background: linear-gradient(180deg, #ffe08a, #e5b23a); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 0 #9b6f16; }
+.cc-link { border-radius: 999px; padding: 7px 14px; background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06)); border: 1px solid rgba(255,255,255,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 3px 0 rgba(0,0,0,.35); }
+.cc-link:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 1px 0 rgba(0,0,0,.35); }
+
+/* Society Masterclasses (masterclass.ts): premium list and lesson cards. */
+.sheet-card .mc .mc-tag { margin: -4px 2px 4px; font-size: 13px; opacity: .72; }
+.sheet-card .mc .mc-card-h { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #d9b26a; }
+.sheet-card .mc { padding-bottom: 14px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.1); }

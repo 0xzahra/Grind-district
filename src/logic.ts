@@ -112,6 +112,7 @@ export type PanelId =
   | 'city'
   | 'climate'
   | 'seasons'
+  | 'diploma'
   | 'bounty'
   | 'conference'
   | 'robot'

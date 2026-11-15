@@ -33,7 +33,9 @@ import { marketNodes, hostNodes } from './town.ts'
 import { homesNodes } from './homesShop.ts'
 import { referralNodes } from './referrals.ts'
 import { seasonsNodes } from './seasons.ts'
+import { diplomaNodes } from './diploma.ts'
 import { societyNodes } from './society.ts'
+import { masterclassNodes } from './masterclass.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
 import { photoCardNodes } from './photoCard.ts'
@@ -1355,7 +1357,7 @@ export function mountUi(
       case 'market':
         return renderSimple('Market hall', marketNodes({ para, button, finish: (m) => finish(m), reopen: () => open('market') }))
       case 'society':
-        return renderSimple('Etiquette House', societyNodes({ para, button, finish: (m) => finish(m) }))
+        return renderSimple('Etiquette House', [...masterclassNodes({ para, button, finish: (m) => finish(m) }), ...societyNodes({ para, button, finish: (m) => finish(m) })])
       case 'race':
         return renderSimple('Raceway', raceNodes({ para, button, finish: (m) => finish(m) }))
       case 'cards':
@@ -1486,6 +1488,8 @@ export function mountUi(
             return row
           }),
         ])
+      case 'diploma':
+        return renderSimple('Graduation 🎓', diplomaNodes({ para, button }, () => { close(); window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'grad', viewing: true } })) }))
       case 'seasons':
         return renderSimple('Seasons & climate', seasonsNodes({ para, button }, () => close(), (m) => toast(m)))
       case 'climate':

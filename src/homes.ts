@@ -12,12 +12,14 @@ import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type 
 import { buildAirport, buildYacht, type TravelCtx } from './travel.ts'
 import { buildParkPlus } from './parkPlus.ts'
 import { buildHotel, buildMall, HOTEL, MALL } from './venues.ts'
+import { buildGraduation, HALL } from './graduation.ts'
+import { buildAdventures } from './adventure.ts'
 
 export type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
-export type AreaId = HomeId | 'park' | 'airport' | 'yacht' | 'hotel' | 'mall'
+export type AreaId = HomeId | 'park' | 'airport' | 'yacht' | 'hotel' | 'mall' | 'grad'
 /** Places anyone can visit (not homes you own): no styles, no arranging, nothing saved. */
-export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht', 'hotel', 'mall']
+export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht', 'hotel', 'mall', 'grad']
 const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
 /** Outside pieces that hide while you're in that place (so the camera isn't boxed in). */
 const SHELLS = ['shell-penthouse', 'shell-skyhouse', 'shell-hotel', 'shell-mall']
@@ -313,7 +315,7 @@ function plans(): Record<AreaId, Plan> {
     // Grind International Airport, east of the city at the end of the metro's airport branch (travel.ts builds it).
     airport: {
       id: 'airport',
-      levels: [{ y: 0, walk: R(134, -78, 430, 128), pools: [] }],
+      levels: [{ y: 0, walk: R(134, -78, 470, 128), pools: [] }],
       spawn: { x: 143, z: 12, heading: Math.PI / 2, lv: 0 },
       exitTo: { x: 59, z: 8 },
       house: null,
@@ -336,6 +338,16 @@ function plans(): Record<AreaId, Plan> {
       levels: [{ y: 0, walk: R(MALL.x0 + 0.5, MALL.z0 + 0.5, MALL.x1 - 0.5, MALL.z1 - 0.5), pools: [] }, { y: MALL.up, walk: R(MALL.x0 + 0.5, MALL.z0 + 0.5, MALL.x1 - 0.5, MALL.z1 - 0.5), pools: [] }],
       spawn: { x: MALL.x0 + 2.4, z: -26, heading: Math.PI / 2, lv: 0 },
       exitTo: { x: 57.6, z: -18 },
+      house: null,
+      pieces: [],
+      build: () => {},
+    },
+    // The Campus Great Hall for the graduation ceremony (graduation.ts), far from the city.
+    grad: {
+      id: 'grad',
+      levels: [{ y: 0, walk: R(HALL.x - 17, HALL.z - 13, HALL.x + 17, HALL.z + 21), pools: [] }],
+      spawn: { x: HALL.x - 1.2, z: HALL.z - 7, heading: Math.PI, lv: 0 },
+      exitTo: { x: 2.6, z: -39.6 },
       house: null,
       pieces: [],
       build: () => {},
@@ -696,7 +708,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     }
     plan.build(A)
     if (plan.id === 'park') { parkRides(A); parkThrills(A); buildParkPlus(A, { ...travel, fare, charge, onRelabel: (f) => { relabelHooks.push(f) } }) }
-    if (plan.id === 'airport') buildAirport(A, travel)
+    if (plan.id === 'airport') { buildAirport(A, travel); buildAdventures(A, travel) }
+    if (plan.id === 'grad') buildGraduation(A, travel)
     if (plan.id === 'yacht') buildYacht(A, travel)
     if (plan.id === 'hotel') buildHotel(A, travel)
     if (plan.id === 'mall') buildMall(A, travel)
@@ -1118,7 +1131,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get inside() { return inside },
     get viewing() { return viewing },
     get arranging() { return arranging },
-    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : plan.id === 'hotel' ? 'The Grind Grand' : plan.id === 'mall' ? 'Grind Mall' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
+    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : plan.id === 'hotel' ? 'The Grind Grand' : plan.id === 'mall' ? 'Grind Mall' : plan.id === 'grad' ? 'The Great Hall' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
     /** On a flight: the camera sees much further, the haze thins and the sky follows you up. */
     get flying() { return flying },
     /** Tests only: run rides and flights faster. */

@@ -81,6 +81,7 @@ export function societyNodes(h: H): HTMLElement[] {
     root.replaceChildren()
     if (!at) {
       const d = done()
+      root.append(el('h4', 'soc-h', 'Free short classes'))
       root.append(h.para(`Seven short classes in manners, presence and a steady mind. ${d.length} of ${CLASSES.length} passed${polished() ? ': you are Polished.' : '.'}`))
       for (const c of CLASSES) {
         const b = h.button(`${d.includes(c.id) ? '✓ ' : ''}${c.title}`, d.includes(c.id) ? 'ghost' : 'primary', () => { at = c; step = 0; wrong = ''; render() })

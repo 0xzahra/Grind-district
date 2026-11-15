@@ -577,7 +577,7 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
   const fieldCols = [0x8ea85a, 0xb9a865, 0x6f9a4c, 0xa7b86a, 0x7fa255, 0xc2b06e]
   let seed = 11
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-  const clear = (x: number, z: number, pad: number) => z < -72 || (x > 120 - pad && x < 440 + pad && z > -90 && z < 135 + pad) || Math.hypot(x, z) < 165 + pad || (Math.abs(x) < 90 + pad && z > 120 && z < 270 + pad) || (x > -220 - pad && x < -100 + pad && z > 90 - pad && z < 215 + pad) || Math.hypot(x - 150, z - 118) < 60 + pad
+  const clear = (x: number, z: number, pad: number) => z < -72 || (x > 120 - pad && x < 482 + pad && z > -90 && z < 135 + pad) || Math.hypot(x, z) < 165 + pad || (Math.abs(x) < 90 + pad && z > 120 && z < 270 + pad) || (x > -220 - pad && x < -100 + pad && z > 90 - pad && z < 215 + pad) || Math.hypot(x - 150, z - 118) < 60 + pad
   for (let k = 0; k < 26; k++) {
     const x = (rnd() - 0.5) * 1300, z = -60 + rnd() * 700, w = 40 + rnd() * 70, d = 40 + rnd() * 70
     if (clear(x, z, Math.max(w, d) * 0.6)) continue

@@ -60,10 +60,6 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const sky = createPhysicalSky(scene)
   // The Grind Metro runs round the city (and out to the park and the airport) in the preview too.
   const metro = createMetro(scene, { onArrive: () => {} })
-  // What's new, under the tagline: the places you can now go.
-  const NEW = ['New · Airport & flights', 'New · First & Business class', 'New · Party jet & yacht', 'New · Coaster & water slides', 'New · Zoo safari tram', 'New · Golf & picnics', 'New · A trip to orbit', 'New · Four seasons & climate', 'New · Hotel, mall & supermarket']
-  const newLine = document.getElementById('title-new')
-  let newAt = 0, newK = 0
   // Clean cinematic shot: no name plates, label cards or floating markers (the game keeps them).
   const hideLabels = () => scene.traverse((o) => {
     if ((o as THREE.Sprite).isSprite && o.scale.x < 50) o.visible = false
@@ -153,7 +149,6 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     look.set(THREE.MathUtils.lerp(Math.cos(a + 2.4) * 6, -Math.cos(a) * 34, wide), THREE.MathUtils.lerp(3, 6, wide), THREE.MathUtils.lerp(Math.sin(a + 2.4) * 6, -Math.sin(a) * 34, wide))
     camera.lookAt(look)
     metro.tick(dt)
-    if (newLine && t > newAt) { newAt = t + 3.6; newLine.textContent = NEW[newK++ % NEW.length]! }
     focus.set(look.x, 0, look.z)
     world.tick(t, focus)
     const people = crowd.tick(dt)
