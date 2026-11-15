@@ -661,12 +661,16 @@ export function setMixerViewer(camera: THREE.Camera): void {
   viewPos.setFromMatrixPosition(camera.matrixWorld)
   viewReady = true
 }
+const COARSE = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 function mixerLod(root: THREE.Object3D): number {
   if (!viewReady || root.userData.player) return 0
   root.getWorldPosition(lodSphere.center)
   lodSphere.center.y += 0.9
   if (!viewFrustum.intersectsSphere(lodSphere)) return 0.5
   const d = lodSphere.center.distanceToSquared(viewPos)
+  // Computers animate everyone near and mid-distance at full rate (choppy runners read as lag on a big screen);
+  // phones keep the lighter schedule.
+  if (!COARSE) return d > 2500 ? 0.1 : d > 1225 ? 0.033 : 0
   return d > 900 ? 0.12 : d > 324 ? 0.06 : 0
 }
 

@@ -1990,7 +1990,11 @@ const apiAgents = createRemoteAgents(scene)
     camYaw -= frame.lookX * 0.0052
     camPitch = THREE.MathUtils.clamp(camPitch - frame.lookY * 0.0036, 0.18, 1.05)
     // Wheel/pinch moves a goal; the camera eases to it (no jumps, no runaway trackpad zoom).
-    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), CAM_ZMIN, (ride?.driving && ride.kind === 'boat') || metro?.riding ? 18 : CAM_ZMAX)
+    // Zoom out further outdoors (the city, the park, the airport) to see the whole place and tap anywhere to walk;
+    // rooms and homes keep the close limit so the camera never leaves the walls.
+    const outdoorArea = homes?.inside === 'park' || homes?.inside === 'airport'
+    const zMax = (ride?.driving && ride.kind === 'boat') || metro?.riding ? 18 : interiors.inside ? CAM_ZMAX : homes?.inside ? (outdoorArea ? 36 : CAM_ZMAX) : 24
+    camDistGoal = THREE.MathUtils.clamp(camDistGoal + THREE.MathUtils.clamp(frame.zoom * 0.012, -1.5, 1.5), CAM_ZMIN, zMax)
     camDist += (camDistGoal - camDist) * (1 - Math.exp(-10 * dt))
 
     exitCooldown = Math.max(0, exitCooldown - dt)
