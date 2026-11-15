@@ -37,14 +37,16 @@ const n = (v: number | undefined) => String(Math.max(0, Math.round(Number(v) || 
 
 /** Build the card’s lines. Online now is passed from live presence, not the API. */
 export function formatStatsRows(st: PublicStats | null, onlineNow: number): StatRow[] {
-  const rows: StatRow[] = [{ kind: 'title', label: 'City stats' }, { kind: 'row', label: 'Online now', value: n(onlineNow) }]
+  // Active today leads (it is the number on the pill); Online now is who is in the city this minute.
+  const rows: StatRow[] = [{ kind: 'title', label: 'City stats' }]
+  if (st) rows.push({ kind: 'row', label: 'Active today', value: n(Math.max(st.activeToday, onlineNow)) })
+  rows.push({ kind: 'row', label: 'Online now', value: n(onlineNow) })
   if (!st) {
     rows.push({ kind: 'note', label: 'Other counts could not load just now. Online now still updates as people arrive.' })
     return rows
   }
   const nearLabel = st.mintsNearNetwork === 'mainnet' ? 'Mints on NEAR' : 'Mints on NEAR testnet'
   rows.push(
-    { kind: 'row', label: 'Active today', value: n(st.activeToday) },
     { kind: 'row', label: 'Registered', value: n(st.registered) },
     { kind: 'row', label: 'Sign-ups', value: n(st.signups) },
     { kind: 'row', label: 'Sign-ins', value: n(st.signIns) },

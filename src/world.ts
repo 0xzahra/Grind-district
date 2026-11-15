@@ -1173,7 +1173,7 @@ export function createWorld(options: {
     const setting = THREE.MathUtils.smoothstep(elev, 0, 0.06)
     sun.intensity = (elev >= 0 ? 0.1 + (0.15 + day * 1.5 + dusk * 0.12) * setting : 0.1) * (seasonBear ? 0.88 : 1)
     sun.castShadow = day > 0.2
-    hemi.intensity = 0.16 + day * 0.74 // sky fill by day (less flat fill = real contrast); enough at night that the street never goes black
+    hemi.intensity = 0.24 + day * 0.66 // sky fill by day (less flat fill = real contrast); enough at night that the street never goes black
     hemi.color.copy(moonLight).lerp(sunDay, day).lerp(sunDusk, dusk * 0.5)
     hemi.groundColor.setHex(LOOK.bounceNight).lerp(tmpA.setHex(LOOK.bounceDay), day)
     fill.intensity = 0.02 + day * 0.25

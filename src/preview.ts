@@ -31,8 +31,9 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     document.getElementById('menu')?.classList.add('menu-fallback')
     return () => {}
   }
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); canvas.style.opacity = '0' })
-  canvas.addEventListener('webglcontextrestored', () => { canvas.style.opacity = '' })
+  // If the phone drops the GPU context, fall back to the title card's still backdrop (never the city behind it).
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); canvas.style.opacity = '0'; document.getElementById('menu')?.classList.add('menu-fallback') })
+  canvas.addEventListener('webglcontextrestored', () => { canvas.style.opacity = ''; document.getElementById('menu')?.classList.remove('menu-fallback') })
   // Phones drew the title preview at 0.8x, which looked soft next to the crisp title card.
   renderer.setPixelRatio(coarse ? Math.min(1.15, devicePixelRatio) : Math.min(1.5, devicePixelRatio))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -139,7 +140,8 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   let park: { tick: (dt: number, x: number, z: number) => unknown } | null = null
   let disposed = false
   window.setTimeout(() => {
-    if (disposed || cost > 26) return
+    // Computers only: on a phone the extra park can use up the GPU's memory and the preview drops out.
+    if (disposed || coarse || cost > 26) return
     void import('./homes.ts').then(({ createHomes }) => {
       if (disposed) return
       const h = createHomes(scene, { toast: () => {}, openPanel: () => {}, leave: () => {}, train: () => {}, fade: () => {} })

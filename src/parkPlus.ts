@@ -9,106 +9,14 @@ import type { TravelCtx } from './travel.ts'
 import { std, put, cube, tex, sign, person, leg, route } from './travel.ts'
 import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
+import { giraffe, zebra, elephant, lion, flamingo, stepLegs } from './animals.ts'
 
 export type ParkCtx = TravelCtx & { fare: (usd: number) => string; charge: (usd: number, label: string) => { ok: boolean; message: string }; onRelabel: (f: () => void) => void }
 type Box = { x0: number; z0: number; x1: number; z1: number }
 
 // ---------------------------------------------------------------- animals
 
-const furTex = (base: string, draw: (g: CanvasRenderingContext2D) => void) => tex(256, 256, (g) => { g.fillStyle = base; g.fillRect(0, 0, 256, 256); draw(g) })
-const spots = () => furTex('#d9a75a', (g) => { g.fillStyle = '#7a4a22'; for (let i = 0; i < 46; i++) { const x = (i * 53) % 256, y = ((i * 97) % 256); g.beginPath(); const n = 6; for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2, r = 10 + ((i * 7 + k * 3) % 8); g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.9) } g.closePath(); g.fill() } })
-const stripes = () => furTex('#f4f2ec', (g) => { g.fillStyle = '#16161a'; for (let x = 0; x < 256; x += 22) { g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + 10, 80, x - 8, 170, x + 6, 256); g.lineTo(x + 14, 256); g.bezierCurveTo(x, 170, x + 18, 80, x + 9, 0); g.closePath(); g.fill() } })
-
 type Beast = { g: THREE.Group; legs: THREE.Object3D[]; neck?: THREE.Object3D; tail?: THREE.Object3D; trunk?: THREE.Object3D; speed: number; box: Box; tx: number; tz: number; heading: number; phase: number; rest: number; stride: number }
-function legPair(g: THREE.Group, m: THREE.Material, len: number, r: number, hx: number, hz: number, hy: number): THREE.Object3D[] {
-  const out: THREE.Object3D[] = []
-  for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]] as const) {
-    const hip = new THREE.Group(); hip.position.set(sx * hx, hy, sz * hz)
-    put(hip, new THREE.CylinderGeometry(r * 0.75, r, len, 8).translate(0, -len / 2, 0), m)
-    g.add(hip); out.push(hip)
-  }
-  return out
-}
-function ellipsoid(g: THREE.Object3D, m: THREE.Material, sx: number, sy: number, sz: number, x: number, y: number, z: number): THREE.Mesh {
-  const o = put(g, new THREE.SphereGeometry(1, 18, 12), m, x, y, z); o.scale.set(sx, sy, sz); return o
-}
-function giraffe(): Omit<Beast, 'box' | 'tx' | 'tz' | 'heading' | 'phase' | 'rest'> {
-  const g = new THREE.Group()
-  const coat = std(0xffffff, 0.85, 0, { map: spots() })
-  const dark = std(0x5a3a1c, 0.8)
-  ellipsoid(g, coat, 0.62, 0.62, 1.15, 0, 2.75, 0)
-  const legs = legPair(g, coat, 2.35, 0.12, 0.38, 0.72, 2.55)
-  const neck = new THREE.Group(); neck.position.set(0, 3.05, 0.85); neck.rotation.x = 0.42
-  put(neck, new THREE.CylinderGeometry(0.16, 0.3, 2.5, 10).translate(0, 1.25, 0), coat)
-  const head = new THREE.Group(); head.position.set(0, 2.5, 0.05); neck.add(head)
-  ellipsoid(head, coat, 0.2, 0.22, 0.42, 0, 0, 0.2)
-  for (const s of [-1, 1]) { put(head, new THREE.CylinderGeometry(0.035, 0.04, 0.24, 6), dark, s * 0.09, 0.26, 0.05); put(head, new THREE.SphereGeometry(0.05, 6, 4), dark, s * 0.09, 0.39, 0.05); const ear = ellipsoid(head, coat, 0.04, 0.1, 0.05, s * 0.2, 0.12, 0.0); ear.rotation.z = s * 0.9 }
-  for (let k = 0; k < 8; k++) put(neck, new THREE.BoxGeometry(0.05, 0.3, 0.12), dark, 0, 0.3 + k * 0.28, -0.22)
-  g.add(neck)
-  const tail = new THREE.Group(); tail.position.set(0, 2.9, -1.1); put(tail, new THREE.CylinderGeometry(0.03, 0.04, 0.9, 6).translate(0, -0.45, 0), coat); put(tail, new THREE.SphereGeometry(0.08, 6, 4), dark, 0, -0.92, 0); tail.rotation.x = 0.3; g.add(tail)
-  return { g, legs, neck, tail, speed: 0.9, stride: 1.4 }
-}
-function zebra(): Omit<Beast, 'box' | 'tx' | 'tz' | 'heading' | 'phase' | 'rest'> {
-  const g = new THREE.Group()
-  const coat = std(0xffffff, 0.8, 0, { map: stripes() })
-  const black = std(0x141416, 0.7)
-  ellipsoid(g, coat, 0.42, 0.48, 0.95, 0, 1.3, 0)
-  const legs = legPair(g, coat, 1.15, 0.08, 0.24, 0.6, 1.15)
-  const neck = new THREE.Group(); neck.position.set(0, 1.5, 0.75); neck.rotation.x = 0.75
-  put(neck, new THREE.CylinderGeometry(0.15, 0.24, 0.8, 10).translate(0, 0.4, 0), coat)
-  cube(neck, 0.06, 0.8, 0.12, black, 0, 0.42, -0.17)
-  const head = new THREE.Group(); head.position.set(0, 0.85, 0); head.rotation.x = 0.85; neck.add(head)
-  ellipsoid(head, coat, 0.14, 0.15, 0.36, 0, 0, 0.18)
-  put(head, new THREE.SphereGeometry(0.11, 8, 6), black, 0, -0.03, 0.46)
-  for (const s of [-1, 1]) { const ear = put(head, new THREE.ConeGeometry(0.05, 0.18, 6), coat, s * 0.08, 0.17, 0.0); ear.rotation.z = -s * 0.3 }
-  g.add(neck)
-  const tail = new THREE.Group(); tail.position.set(0, 1.45, -0.9); put(tail, new THREE.CylinderGeometry(0.02, 0.03, 0.6, 6).translate(0, -0.3, 0), black); tail.rotation.x = 0.25; g.add(tail)
-  return { g, legs, neck, tail, speed: 1.3, stride: 1.8 }
-}
-function elephant(): Omit<Beast, 'box' | 'tx' | 'tz' | 'heading' | 'phase' | 'rest'> {
-  const g = new THREE.Group()
-  const skin = std(0x8d8a86, 0.95)
-  ellipsoid(g, skin, 1.05, 1.0, 1.55, 0, 2.15, 0)
-  const legs = legPair(g, skin, 1.6, 0.34, 0.6, 0.95, 1.55)
-  const head = new THREE.Group(); head.position.set(0, 2.55, 1.55)
-  ellipsoid(head, skin, 0.62, 0.66, 0.6, 0, 0, 0)
-  for (const s of [-1, 1]) { const ear = ellipsoid(head, skin, 0.08, 0.62, 0.5, s * 0.62, -0.05, -0.2); ear.rotation.y = s * 0.35 }
-  for (const s of [-1, 1]) { const tusk = put(head, new THREE.ConeGeometry(0.06, 0.7, 8), std(0xf3ecdc, 0.5), s * 0.24, -0.45, 0.45); tusk.rotation.x = 2.0 }
-  const trunk = new THREE.Group(); trunk.position.set(0, -0.15, 0.5)
-  const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.6, 0.25), new THREE.Vector3(0, -1.2, 0.2), new THREE.Vector3(0, -1.6, 0.35)])
-  put(trunk, new THREE.TubeGeometry(curve, 16, 0.14, 8, false), skin)
-  head.add(trunk)
-  g.add(head)
-  const tail = new THREE.Group(); tail.position.set(0, 2.3, -1.5); put(tail, new THREE.CylinderGeometry(0.03, 0.05, 0.9, 6).translate(0, -0.45, 0), skin); tail.rotation.x = 0.2; g.add(tail)
-  return { g, legs, neck: head, tail, trunk, speed: 0.7, stride: 1.2 }
-}
-function lion(male: boolean): Omit<Beast, 'box' | 'tx' | 'tz' | 'heading' | 'phase' | 'rest'> {
-  const g = new THREE.Group()
-  const coat = std(0xc9974f, 0.85), mane = std(0x6b3f1d, 0.95)
-  ellipsoid(g, coat, 0.42, 0.45, 0.95, 0, 0.98, 0)
-  const legs = legPair(g, coat, 0.82, 0.1, 0.24, 0.6, 0.85)
-  const head = new THREE.Group(); head.position.set(0, 1.25, 0.95)
-  if (male) ellipsoid(head, mane, 0.5, 0.52, 0.4, 0, 0, -0.08)
-  ellipsoid(head, coat, 0.28, 0.3, 0.3, 0, 0, 0.12)
-  put(head, new THREE.SphereGeometry(0.12, 8, 6), std(0xe2c28c, 0.85), 0, -0.08, 0.36)
-  put(head, new THREE.SphereGeometry(0.05, 6, 4), std(0x2a1a10, 0.6), 0, 0.0, 0.47)
-  for (const s of [-1, 1]) put(head, new THREE.SphereGeometry(0.08, 6, 4), coat, s * 0.2, 0.25, 0.05)
-  g.add(head)
-  const tail = new THREE.Group(); tail.position.set(0, 1.05, -0.92); put(tail, new THREE.CylinderGeometry(0.03, 0.04, 0.9, 6).translate(0, -0.45, 0), coat); put(tail, new THREE.SphereGeometry(0.08, 6, 4), mane, 0, -0.92, 0); tail.rotation.x = 0.9; g.add(tail)
-  return { g, legs, neck: head, tail, speed: 1.1, stride: 1.4 }
-}
-function flamingo(): THREE.Group {
-  const g = new THREE.Group()
-  const pink = std(0xf38fa3, 0.7), beak = std(0x1a1a1a, 0.5)
-  ellipsoid(g, pink, 0.2, 0.18, 0.32, 0, 1.0, 0)
-  put(g, new THREE.CylinderGeometry(0.02, 0.02, 0.95, 5).translate(0, -0.47, 0), std(0xe46e86, 0.6), 0.05, 0.95, 0)
-  const l2 = put(g, new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5).translate(0, -0.25, 0), std(0xe46e86, 0.6), -0.05, 0.95, 0); l2.rotation.x = 1.2
-  const neck = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 1.05, 0.25), new THREE.Vector3(0, 1.4, 0.32), new THREE.Vector3(0, 1.62, 0.18), new THREE.Vector3(0, 1.78, 0.3)])
-  put(g, new THREE.TubeGeometry(neck, 12, 0.04, 6, false), pink)
-  put(g, new THREE.SphereGeometry(0.07, 8, 6), pink, 0, 1.8, 0.32)
-  const b = put(g, new THREE.ConeGeometry(0.035, 0.16, 6), beak, 0, 1.76, 0.42); b.rotation.x = 2.2
-  return g
-}
 
 // ---------------------------------------------------------------- the build
 
@@ -222,7 +130,7 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
         moving = true
       }
       b.g.rotation.y = b.heading
-      b.legs.forEach((l, i) => { l.rotation.x = moving ? Math.sin(b.phase + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.38 : l.rotation.x * 0.9 })
+      stepLegs(b.legs, b.phase, moving)
       if (b.tail) b.tail.rotation.z = Math.sin(t * 2.2 + b.phase) * 0.3
       if (b.neck && !moving) b.neck.rotation.y = Math.sin(t * 0.5 + b.heading) * 0.35
       if (b.trunk) b.trunk.rotation.x = Math.sin(t * 1.1 + b.heading) * 0.25

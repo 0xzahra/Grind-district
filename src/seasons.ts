@@ -72,7 +72,25 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
   // --- Falling things round the camera: petals, leaves or snow (one instanced mesh, no allocations per frame).
   const N = o.graphics === 'high' ? 700 : o.graphics === 'medium' ? 420 : 180
   const R = 16, H = 14
-  const fallMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, fog: true }), N)
+  // Real shapes, not squares: a notched blossom petal, a pointed leaf with a stalk, and a round snowflake.
+  const petalGeo = (() => {
+    const sh = new THREE.Shape()
+    sh.moveTo(0, -0.5)
+    sh.bezierCurveTo(0.42, -0.32, 0.5, 0.18, 0.2, 0.46)
+    sh.lineTo(0, 0.32); sh.lineTo(-0.2, 0.46)
+    sh.bezierCurveTo(-0.5, 0.18, -0.42, -0.32, 0, -0.5)
+    return new THREE.ShapeGeometry(sh, 6)
+  })()
+  const leafGeo = (() => {
+    const sh = new THREE.Shape()
+    sh.moveTo(0, -0.62); sh.lineTo(0.03, -0.42)
+    sh.bezierCurveTo(0.42, -0.3, 0.44, 0.2, 0, 0.55)
+    sh.bezierCurveTo(-0.44, 0.2, -0.42, -0.3, -0.03, -0.42)
+    sh.lineTo(0, -0.62)
+    return new THREE.ShapeGeometry(sh, 6)
+  })()
+  const snowGeo = new THREE.CircleGeometry(0.5, 10)
+  const fallMesh = new THREE.InstancedMesh<THREE.BufferGeometry>(petalGeo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, fog: true }), N)
   fallMesh.frustumCulled = false; fallMesh.visible = false; fallMesh.userData.ghost = true; fallMesh.raycast = () => undefined
   scene.add(fallMesh)
   const px = new Float32Array(N), py = new Float32Array(N), pz = new Float32Array(N), ph = new Float32Array(N)
@@ -81,13 +99,14 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
   const paintFall = (k: typeof fallKind) => {
     fallKind = k
     if (!k) return
+    fallMesh.geometry = k === 'snow' ? snowGeo : k === 'petals' ? petalGeo : leafGeo
     const pal = k === 'snow' ? [0xffffff, 0xf4f8ff] : k === 'petals' ? [0xffc4d8, 0xffe4ee, 0xffffff, 0xf7a8c4] : [0xd9531e, 0xe8a22a, 0xb8321e, 0xc9792a, 0x8a5a2a]
     for (let i = 0; i < N; i++) fallMesh.setColorAt(i, tmp.setHex(pal[i % pal.length]!))
     if (fallMesh.instanceColor) fallMesh.instanceColor.needsUpdate = true
   }
   // --- Autumn leaves lying on the ground round the city.
   const LEAVES = o.graphics === 'low' ? 350 : 900
-  const ground = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.16, 0.11).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }), LEAVES)
+  const ground = new THREE.InstancedMesh(leafGeo.clone().scale(0.13, 0.18, 1).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }), LEAVES)
   ground.userData.ghost = true; ground.raycast = () => undefined; ground.visible = false; ground.receiveShadow = true
   {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0)
@@ -159,9 +178,9 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
       const show = outside && !!fallKind && N > 0
       fallMesh.visible = show
       if (!show) return
-      const snow = fallKind === 'snow', leaves = fallKind === 'leaves'
+      const snow = fallKind === 'snow', leaves = fallKind === 'leaves', petalsW = snow ? 1 : 0.8
       const speed = snow ? 1.1 : leaves ? 1.5 : 0.9
-      const size = snow ? 0.055 : leaves ? 0.13 : 0.08
+      const size = snow ? 0.06 : leaves ? 0.15 : 0.09
       const cx = cam.position.x, cy = cam.position.y - 3, cz = cam.position.z
       for (let i = 0; i < N; i++) {
         ph[i]! += dt
@@ -172,7 +191,7 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
         const sway = Math.sin(t * (snow ? 0.9 : 1.6) + i) * (snow ? 0.35 : 0.7)
         v4.set(cx + px[i]! + sway, cy + y, cz + pz[i]! + Math.cos(t * 1.1 + i) * 0.3)
         e4.set(t * (leaves ? 2.4 : 1.2) + i, t * 1.7, t * (leaves ? 1.9 : 0.8))
-        m4.compose(v4, q4.setFromEuler(e4), s4.set(size, size * (leaves ? 0.7 : 1), size))
+        m4.compose(v4, q4.setFromEuler(e4), s4.set(size * (leaves ? 0.75 : petalsW), size, size))
         fallMesh.setMatrixAt(i, m4)
       }
       fallMesh.instanceMatrix.needsUpdate = true

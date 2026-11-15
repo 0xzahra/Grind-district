@@ -42,6 +42,21 @@ The rest of the city (jobs, practice trading, shops, the park, the airport) is o
 | **Built in the window** | Everything since baseline commit `39a1707` (1 Nov 2026), tagged `pre-hackathon`: [one diff](https://github.com/0xzahra/Grind-district/compare/pre-hackathon...main). The entry is the last commit on `main` before 14 Nov 2026 23:59 UTC; anything committed later is not part of it. The full list with commits and both contracts is in [`docs/NEAR-ENTRY.md`](docs/NEAR-ENTRY.md). |
 | **Disclosure** | An existing project: 116 commits came before 1 Nov. Other chains: the in-game top-up on Base (built before 1 Nov), plus two Base features built in the window, the Base option of the certificate mint ([`GrindCertificate`](https://basescan.org/address/0xBEC44b497b5D4696644A5ad581804476CB20808f)) and the Stockholders' Club. None of the Base work is part of this entry. All NEAR work was built in the window. The submission is the last commit before 14 Nov 2026 23:59 UTC. |
 
+## For reviewers and AI agents
+
+A map from each claim above to the code that does it, and a way to check it without signing in. The hackathon entry is commit [`394ef41`](https://github.com/0xzahra/Grind-district/commit/394ef41), the last commit on `main` before 14 Nov 2026 23:59 UTC.
+
+| Claim | Where it lives | Check it |
+| --- | --- | --- |
+| A short lesson with checks, filed to a CV | `src/courses.ts`, `src/worldCourses.ts` (lessons and checks), `src/cvPaper.ts` (the CV), `src/objective.ts` (the *Next step* button) | `npm run build` runs `tsc` and the checks in `src/logic.check.ts` |
+| Zahra's tour teaches the loop | `src/mentor.ts`, `src/mentorLines.ts` | Open the game in a private window and sign up |
+| Certificate NFT, soulbound, minted only with a server voucher for the caller's own account | `near/cert-nft/src/lib.rs` (`nft_mint`, `cert_for`), `api/_certVoucher.ts` (ed25519 voucher), `src/certMint.ts` (client) | `cd near/cert-nft && cargo test` → 11 passed |
+| The NFT does something: read back from the chain, never from local state | `src/nftAccess.ts` (*Verified on NEAR*, Holders' room), `api/_certChain.ts` (public certificate page) | `near view grinddistrict-cert.testnet cert_for '{"username":"zara","course_id":"internet"}'` |
+| Sign in with a NEAR wallet | `api/_nearAuth.ts` (NEP-413 signed message, 10-minute window, nonce) | Read the file: it rebuilds the NEP-413 payload and verifies the ed25519 signature |
+| Skill Passport contract | `near/skill-passport/src/lib.rs` | `cd near/skill-passport && cargo test` → 22 passed; `node near/skill-passport/check-testnet.mjs` → `OK` |
+
+Limits, stated plainly: the contracts are on NEAR **testnet**. A lesson pass is recorded by the player's own device and synced, so a certificate is a practice credential, not a proctored grade (`api/_certVoucher.ts` says so at the top). The in-game economy uses game dollars, not a token. The 3D city needs WebGL; on a machine without a GPU, the steps in *Run from source* still build and test everything.
+
 ## Beyond the core loop (optional)
 
 Everything below is real and playable, but secondary: none of it is needed to learn, earn a certificate or mint it.

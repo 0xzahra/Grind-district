@@ -192,6 +192,24 @@ const schedulePreview = () => {
   }
 }
 schedulePreview()
+// Phones: signing up with 𝕏 (or Google, or a wallet) opens another window over this tab. Let go of the 3D preview
+// while the tab is out of sight so the phone has the memory for that window (Chrome on Android crashed with both
+// open), and bring it back when the player returns to the title card.
+if (matchMedia('(pointer: coarse)').matches) {
+  let dropped = false
+  document.addEventListener('visibilitychange', () => {
+    if (opening) return
+    if (document.hidden) {
+      try { stopPreview() } catch { /* none running */ }
+      stopPreview = () => {}
+      dropped = true
+      document.getElementById('menu')?.classList.add('menu-fallback')
+    } else if (dropped) {
+      dropped = false
+      window.setTimeout(() => { if (!opening && !document.hidden) bootTitlePreview() }, 900)
+    }
+  })
+}
 // Fetch the city while the title card is up: its code, the walking animations and the ground textures, so
 // tapping Continue opens the district without waiting on a download. Low priority, after the card has painted.
 const prefetchCity = () => {

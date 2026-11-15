@@ -308,6 +308,9 @@ const apiAgents = createRemoteAgents(scene)
   const phaseFor = (time: string) => (time === 'day' ? 0.42 : time === 'dusk' ? 0.74 : 0.02)
   const forced = new URLSearchParams(location.search).get('time')
   if (forced === 'day' || forced === 'dusk' || forced === 'night') setTime(forced)
+  // A player who never picked a time starts in GM day and stays there. (New saves used to start at GN night with
+  // a running clock, so phones opened onto a dark city.) GN night, Dusk and Auto in Settings still work as before.
+  try { if (localStorage.getItem('gd.clock') === null) { localStorage.setItem('gd.clock', 'hold'); if (!forced) setTime('day') } } catch { /* private mode: the saved time stands */ }
   let dayPhase = phaseFor(getSave().timeOfDay)
   // Phones: extra sky/ground fill so figures never go silhouette-black on dim mobile screens.
   const phoneFill = new THREE.HemisphereLight(0xdfe6ee, 0x6b5a48, 0)
@@ -355,8 +358,9 @@ const apiAgents = createRemoteAgents(scene)
     window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Zahra at Campus', 'Follow the gold marker north of the plaza. Zahra gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
-  // Settings: GN night, Dusk and GM day hold the sky where the player put it; Auto lets the day run.
-  const clockHeld = () => { try { return localStorage.getItem('gd.clock') === 'hold' } catch { return false } }
+  // The sky (and so the season) stays where the player put it unless they choose Auto in Settings: the day
+  // never turns to night, or summer to winter, on its own.
+  const clockHeld = () => { try { return localStorage.getItem('gd.clock') !== 'auto' } catch { return true } }
 
   let avatar: Avatar = createAvatar(getSave().body, getSave().tint, getSave().luxury)
   if (NFT_COLLECTIONS_ENABLED) void loadSkinPermissions().then(() => { if (getSave().mask !== 'none') avatar.setMask(getSave().mask) })
@@ -1158,6 +1162,14 @@ const apiAgents = createRemoteAgents(scene)
   const onlineChip = document.createElement('button')
   onlineChip.type = 'button'; onlineChip.id = 'online-chip'; onlineChip.className = 'pill'; onlineChip.hidden = true
   let onlineNow = 1
+  // The pill shows players active today (from the city stats), never fewer than are online this minute.
+  let activeToday = 0
+  const paintChip = () => {
+    const n = Math.max(activeToday, onlineNow)
+    onlineChip.textContent = String(n)
+    onlineChip.setAttribute('aria-label', `${n} active today, ${onlineNow} online now`)
+    onlineChip.title = `${n} player${n === 1 ? '' : 's'} active today · ${onlineNow} in the city right now. Tap for city stats.`
+  }
   // Tap: city stats under the pill. Stays open and refreshes on its own until you close it.
   const onlineCard = document.createElement('div'); onlineCard.id = 'online-card'; onlineCard.hidden = true
   onlineCard.setAttribute('role', 'dialog'); onlineCard.setAttribute('aria-label', 'City stats')
@@ -1182,7 +1194,7 @@ const apiAgents = createRemoteAgents(scene)
   const loadOnlineStats = async () => {
     const raw = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null)
     const st = isPublicStats(raw) ? raw : lastStats
-    if (st) lastStats = st
+    if (st) { lastStats = st; activeToday = st.activeToday; paintChip() }
     if (!onlineCard.hidden) paintOnlineCard(st)
   }
   const openOnlineCard = () => {
@@ -1207,6 +1219,8 @@ const apiAgents = createRemoteAgents(scene)
     if (event.key === 'Escape' && !onlineCard.hidden) { event.preventDefault(); closeOnlineCard() }
   })
   document.querySelector('#hud header')?.append(onlineChip)
+  // Today's count loads a little after the city opens, then every ten minutes.
+  window.setTimeout(() => { void loadOnlineStats(); window.setInterval(() => { if (!document.hidden) void loadOnlineStats() }, 600_000) }, 6000)
   document.body.append(onlineCard)
   performance.mark('gd:pre-net')
   const net = createNet({
@@ -1247,8 +1261,7 @@ const apiAgents = createRemoteAgents(scene)
     },
     onCount: (n) => {
       onlineNow = n
-      onlineChip.textContent = String(n); onlineChip.setAttribute('aria-label', `${n} online`)
-      onlineChip.title = n > 1 ? `${n - 1} other player${n > 2 ? 's' : ''} in the city. Real players have a gold ring and a name tag.` : 'Only you right now.'
+      paintChip()
       if (!onlineCard.hidden) paintOnlineCard(lastStats)
     },
   })

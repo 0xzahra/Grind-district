@@ -68,8 +68,10 @@ export function sign(text: string, w: number, h: number, o: { bg?: string; fg?: 
     g.fillStyle = o.fg ?? '#ffffff'; g.font = `${o.weight ?? 800} ${o.px ?? Math.round(H * 0.56)}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'
     g.fillText(text, W / 2, H / 2 + 2)
   })
-  const m = new THREE.MeshStandardMaterial({ map: t, transparent: !o.bg, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: o.glowing ? 0.8 : 0.25, side: THREE.DoubleSide })
+  const m = new THREE.MeshStandardMaterial({ map: t, transparent: !o.bg, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: o.glowing ? 0.8 : 0.25, side: THREE.FrontSide })
   const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m)
+  // The back carries the same words the right way round (a double-sided plane showed them mirrored).
+  const back = new THREE.Mesh(p.geometry, m); back.rotation.y = Math.PI; back.position.z = -0.001; p.add(back)
   return p
 }
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u
