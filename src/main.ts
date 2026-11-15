@@ -572,6 +572,11 @@ const apiAgents = createRemoteAgents(scene)
     tryNow()
   }
   window.addEventListener('gd:tour', () => startTour(true))
+  // Grind Park photo booth: four shots of the player from different angles, made into a strip (photoBooth.ts).
+  window.addEventListener('gd:photobooth', () => {
+    const shots = [0, 0.5, -0.5, 0.2].map((yaw) => portraitShot(yaw, undefined, true))
+    void import('./photoBooth.ts').then((m) => m.showBoothStrip(shots))
+  })
   function hooksTeleport(x: number, z: number) {
       pos.x = x
       pos.z = z

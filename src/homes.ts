@@ -10,6 +10,7 @@ import { slotKey, spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type Palette, type StyleId } from './homesShop.ts'
 import { buildAirport, buildYacht, type TravelCtx } from './travel.ts'
+import { buildParkLife } from './parkLife.ts'
 import { buildParkPlus } from './parkPlus.ts'
 import { buildHotel, buildMall, HOTEL, MALL } from './venues.ts'
 import { buildGraduation, HALL } from './graduation.ts'
@@ -293,7 +294,7 @@ function plans(): Record<AreaId, Plan> {
         ['b5', 'bench', -150, 131, Math.PI, 0], ['b6', 'bench', -158, 120, Math.PI / 2, 0],
         ['t1', 'tree', -112, 110, 0, 0], ['t2', 'tree', -125, 108, 0, 0], ['t3', 'tree', -165, 108, 0, 0], ['t4', 'tree', -166, 132, 0, 0], ['t5', 'tree', -166, 160, 0, 0],
         ['t6', 'tree', -112, 162, 0, 0], ['t7', 'tree', -124, 166, 0, 0], ['t8', 'tree', -112, 140, 0, 0], ['t9', 'tree', -146, 108, 0, 0], ['t10', 'tree', -160, 145, 0, 0], ['t11', 'tree', -140, 166, 0, 0],
-        ['swings', 'swings', -116, 150, 0, 0], ['slide', 'slide', -116, 158, Math.PI / 2, 0], ['kiosk', 'kiosk', -128, 116, 0, 0],
+        ['slide', 'slide', -116, 158, Math.PI / 2, 0], ['kiosk', 'kiosk', -128, 116, 0, 0],
         ['l1', 'lamppost', -132, 128, 0, 0], ['l2', 'lamppost', -144, 152, 0, 0], ['l3', 'lamppost', -124, 152, 0, 0],
       ],
       build: (A) => {
@@ -708,7 +709,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       },
     }
     plan.build(A)
-    if (plan.id === 'park') { parkRides(A); parkThrills(A); buildParkPlus(A, { ...travel, fare, charge, onRelabel: (f) => { relabelHooks.push(f) } }) }
+    if (plan.id === 'park') { parkRides(A); parkThrills(A); const pctx = { ...travel, fare, charge, onRelabel: (f: () => void) => { relabelHooks.push(f) } }; buildParkPlus(A, pctx); buildParkLife(A, pctx) }
     if (plan.id === 'airport') { buildAirport(A, travel); buildAdventures(A, travel) }
     if (plan.id === 'grad') buildGraduation(A, travel)
     if (plan.id === 'yacht') buildYacht(A, travel)
@@ -1104,7 +1105,6 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     // Back to the city by train, an ice cream, a go on the swings.
     levels[0]!.uses.push({ id: 'park-train', x: -118.5, z: 121.5, r: 1.8, title: 'Grind Metro', body: 'Grind Park station. Trains round the city to the Beach, the Marina, the Raceway and the Sky Tower.', enter: 'Take the train · $2', use: () => deps.train('park') })
     levels[0]!.uses.push({ id: 'park-icecream', x: -128, z: 118.6, r: 1.6, title: 'Ice-cream kiosk', body: 'Three scoops in a waffle cone.', enter: 'Buy an ice cream · $3', use: () => { const paid = spendInGame(3, 'Ice cream', 'Grind Park'); deps.toast(paid.ok ? adjust({ hunger: 10, social: 4 }) || 'Lovely.' : paid.message) } })
-    levels[0]!.uses.push({ id: 'park-swings', x: -116, z: 152.2, r: 1.6, title: 'Swings', body: 'Nobody is too old for the swings.', enter: 'Have a swing', use: () => { deps.toast(adjust({ social: 5 }, 'quiet') || 'Whee.') } })
   }
   const startMove = (m: Move) => {
     if (move) return

@@ -3685,3 +3685,10 @@ body.mentor-on .goal-pill.tour-spot { display: flex !important; visibility: visi
 .region-map svg.rm-wide .rm-citypin text { display: none; }
 .rm-stn circle { stroke: #0b100d; stroke-width: 2; }
 .rm-me circle { stroke: #fff; stroke-width: 2.5; filter: drop-shadow(0 0 4px rgba(79,163,255,.9)); }
+
+/* Grind Park photo booth strip (photoBooth.ts). */
+.booth-strip { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(6,8,7,.66); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+.booth-card { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; border-radius: 18px; background: #12100d; border: 1px solid rgba(214,178,94,.4); box-shadow: 0 20px 60px rgba(0,0,0,.5); max-width: 92vw; }
+.booth-card img { max-height: 70vh; max-width: 80vw; border-radius: 8px; box-shadow: 0 8px 26px rgba(0,0,0,.45); transform: rotate(-1.5deg); }
+.booth-row { display: flex; gap: 8px; width: 100%; }
+.booth-row .gd-btn { flex: 1; text-align: center; margin: 0; }
