@@ -10,6 +10,7 @@ import { createTraffic } from './traffic.ts'
 import { createSkyline } from './skyline.ts'
 import { createAmbient } from './ambient.ts'
 import { createPhysicalSky } from './sky.ts'
+import { createMetro } from './metro.ts'
 import { applyEnvironment, keepFoliageOutOfAO } from './quality.ts'
 
 // Title-screen preview: the REAL city (same world, townspeople, traffic, skyline, ambient life) at golden hour
@@ -57,6 +58,12 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   const skyline = createSkyline(scene, grade)
   const ambient = createAmbient(scene, world.obstacles, coarse)
   const sky = createPhysicalSky(scene)
+  // The Grind Metro runs round the city (and out to the park and the airport) in the preview too.
+  const metro = createMetro(scene, { onArrive: () => {} })
+  // What's new, under the tagline: the places you can now go.
+  const NEW = ['New · Airport & flights', 'New · First & Business class', 'New · Party jet & yacht', 'New · Coaster & water slides', 'New · Zoo safari tram', 'New · Golf & picnics', 'New · A trip to orbit', 'New · Four seasons & climate', 'New · Hotel, mall & supermarket']
+  const newLine = document.getElementById('title-new')
+  let newAt = 0, newK = 0
   // Clean cinematic shot: no name plates, label cards or floating markers (the game keeps them).
   const hideLabels = () => scene.traverse((o) => {
     if ((o as THREE.Sprite).isSprite && o.scale.x < 50) o.visible = false
@@ -136,12 +143,17 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     t += dt
-    // Cinematic drone: slow orbit, gentle height breathing, look target drifting over the plaza.
+    // Cinematic drone: a slow orbit over the plaza, then every minute a high sweep out over the skyline, the
+    // metro and the coast, and back down.
     const a = 0.6 + t * 0.035
-    const r = 30 + Math.sin(t * 0.07) * 4
-    camera.position.set(Math.cos(a) * r, 20 + Math.sin(t * 0.11) * 3, Math.sin(a) * r)
-    look.set(Math.cos(a + 2.4) * 6, 3, Math.sin(a + 2.4) * 6)
+    const cyc = t % 60
+    const wide = THREE.MathUtils.smoothstep(cyc, 18, 27) * (1 - THREE.MathUtils.smoothstep(cyc, 44, 53))
+    const r = THREE.MathUtils.lerp(30 + Math.sin(t * 0.07) * 4, 104, wide)
+    camera.position.set(Math.cos(a) * r, THREE.MathUtils.lerp(20 + Math.sin(t * 0.11) * 3, 64, wide), Math.sin(a) * r)
+    look.set(THREE.MathUtils.lerp(Math.cos(a + 2.4) * 6, -Math.cos(a) * 34, wide), THREE.MathUtils.lerp(3, 6, wide), THREE.MathUtils.lerp(Math.sin(a + 2.4) * 6, -Math.sin(a) * 34, wide))
     camera.lookAt(look)
+    metro.tick(dt)
+    if (newLine && t > newAt) { newAt = t + 3.6; newLine.textContent = NEW[newK++ % NEW.length]! }
     focus.set(look.x, 0, look.z)
     world.tick(t, focus)
     const people = crowd.tick(dt)

@@ -3569,3 +3569,6 @@ html body .family-fab { bottom: calc(200px + env(safe-area-inset-bottom)); }
 
 /* Rewards and notices read above every panel and pop-up (the pass and rank-up moment was hidden behind Campus). */
 html body #toast { z-index: 70 !important; }
+
+/* Title card: what's new, cycling under the tagline (preview.ts). */
+#menu .title-desc.title-new { margin-top: -4px; color: #ffd36b; min-height: 1.4em; white-space: nowrap; }

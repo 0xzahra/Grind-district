@@ -38,7 +38,9 @@ function noise2(seed: number) {
 }
 /** Earth: oceans, continents with forests, grassland and deserts by latitude, ice caps (equirectangular). */
 function earthTextures(): { day: THREE.CanvasTexture; clouds: THREE.CanvasTexture } {
-  const W = 1024, H = 512
+  // Phones: a quarter of the pixels, so the Earth is ready in a blink at the start of the trip.
+  const lite = matchMedia('(pointer: coarse)').matches
+  const W = lite ? 512 : 1024, H = lite ? 256 : 512
   const n = noise2(7), m = noise2(19)
   const day = document.createElement('canvas'); day.width = W; day.height = H
   const g = day.getContext('2d')!

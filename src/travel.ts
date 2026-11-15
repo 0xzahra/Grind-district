@@ -346,7 +346,8 @@ function linerCabin(floorY: number): { group: THREE.Group; seats: Record<Cabin, 
   g.traverse((o) => { o.castShadow = false })
   // A few fellow passengers and the crew.
   const pax: Array<[number, number, 'woman1' | 'man2' | 'woman3' | 'man4' | 'woman2' | 'man1']> = [[-1.85, rows[2]!, 'woman1'], [0.89, rows[1]!, 'man2'], [1.37, rows[3]!, 'woman3'], [-0.89, rows[4]!, 'man4'], [1.42, 0.2, 'woman2'], [1.32, 7.0, 'man1']]
-  for (const [x, z, m] of pax) { const p = person(m, { pose: 'sit', seatY: 0.48, height: m.startsWith('w') ? 1.66 : 1.78 }); p.position.set(x, floorY, z); g.add(p) }
+  // Phones: fewer fellow passengers (each is a full animated figure).
+  for (const [x, z, m] of matchMedia('(pointer: coarse)').matches ? pax.slice(0, 3) : pax) { const p = person(m, { pose: 'sit', seatY: 0.48, height: m.startsWith('w') ? 1.66 : 1.78 }); p.position.set(x, floorY, z); g.add(p) }
   const crew = person('woman4', { pose: 'stand', height: 1.7, look: { top: 0x14a058, bottom: 0x1c1f26, shoes: 0x111111 } }); crew.position.set(0, floorY, -1.0); crew.rotation.y = Math.PI; g.add(crew)
   return { group: g, seats: { eco: new THREE.Vector3(-1.37, floorY, rows[2]!), biz: new THREE.Vector3(-1.42, floorY, 2.9), first: new THREE.Vector3(-1.32, floorY, 7.0) } }
 }
@@ -582,16 +583,17 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
     if (clear(x, z, Math.max(w, d) * 0.6)) continue
     const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), std(fieldCols[k % fieldCols.length]!, 1)); f.rotation.x = -Math.PI / 2; f.rotation.z = rnd() * 0.6; f.position.set(x, -0.045, z); f.receiveShadow = true; add(f)
   }
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 3, 6).translate(0, 1.5, 0), std(0x5a4632, 0.9), 520)
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(2.4, 0).translate(0, 4.4, 0), std(0xffffff, 0.85, 0, { flatShading: true }), 520)
+  const TREES = matchMedia('(pointer: coarse)').matches ? 260 : 520
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 3, 6).translate(0, 1.5, 0), std(0x5a4632, 0.9), TREES)
+  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(2.4, 0).translate(0, 4.4, 0), std(0xffffff, 0.85, 0, { flatShading: true }), TREES)
   let nT = 0
   const mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), ss = new THREE.Vector3(), vv = new THREE.Vector3(), cc = new THREE.Color()
-  for (let k = 0; k < 2400 && nT < 520; k++) {
+  for (let k = 0; k < 2400 && nT < TREES; k++) {
     // Clumps: pick a centre, then a few trees round it.
     const cx = (rnd() - 0.5) * 1300, cz = -60 + rnd() * 720
     if (clear(cx, cz, 8)) continue
     const n = 3 + Math.floor(rnd() * 6)
-    for (let j = 0; j < n && nT < 520; j++) {
+    for (let j = 0; j < n && nT < TREES; j++) {
       const x = cx + (rnd() - 0.5) * 22, z = cz + (rnd() - 0.5) * 22, s = 0.7 + rnd() * 0.9
       mm.compose(vv.set(x, 0, z), qq.setFromAxisAngle(ss.set(0, 1, 0), rnd() * 6), ss.set(s, s * (0.9 + rnd() * 0.4), s))
       trunks.setMatrixAt(nT, mm); crowns.setMatrixAt(nT, mm); crowns.setColorAt(nT, cc.setHSL(0.27 + rnd() * 0.06, 0.45, 0.25 + rnd() * 0.12)); nT++
