@@ -51,7 +51,7 @@ export const TOUR: Array<{ say: string; spot?: string }> = [
   { say: 'Here you learn Web3 by doing it. Pass a short lesson at Campus and it goes on your CV with a certificate you keep. Practice money only: nothing real is at risk.' },
   { say: 'Move with the joystick, or W A S D on a computer. Drag to look around, pinch or scroll to zoom, or tap the ground to walk there.', spot: '#stick' },
   { say: 'Your next step always waits in this gold Next step button. Tap it and it takes you straight there.', spot: '#goal' },
-  { say: 'Step one is Campus, just north of the plaza. I\u2019ll ask three quick questions, then teach your first lesson. It only takes a few minutes.' },
+  { say: 'Step one is Campus, just north of the plaza. I\u2019ll ask three quick questions, then teach your first lesson. It takes about a minute.' },
   { say: 'Pass it, and the course appears on your CV with a certificate. Open them any time from Profile in the menu. Minting the certificate on NEAR is optional.', spot: '#rail-toggle' },
   { say: 'The rest of the city, from jobs and trading to shops and the park, is there whenever you want it. One rule: never share your seed phrase. Ready?' },
 ]

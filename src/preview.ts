@@ -14,8 +14,10 @@ import { createMetro } from './metro.ts'
 import { applyEnvironment, keepFoliageOutOfAO } from './quality.ts'
 
 // Title-screen preview: the REAL city (same world, townspeople, traffic, skyline, ambient life) at golden hour
-// with a physical sky and a slow cinematic drone orbit. Desktop: soft shadows, AO, depth of field, bloom.
-// Phones: shadows + bloom only, lower resolution. Disposed when the player enters.
+// with a physical sky, flown like a drone: a continuous loop over the plaza, out over Grind Park (the Ferris
+// wheel, the coaster, the zoo and the golf course), high above the skyline, down over the bay and low along the
+// beach, past the harbour and the marina and back. Desktop: soft shadows, AO, bloom. Phones: lighter, lower
+// resolution. Disposed when the player enters.
 export function startPreview(canvas: HTMLCanvasElement): () => void {
   // Decorative background only — never steal Sign up / Sign in taps.
   canvas.style.pointerEvents = 'none'
@@ -40,7 +42,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   renderer.shadowMap.enabled = !coarse
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 600)
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.5, 700)
   const blank = new THREE.Texture()
   const world = createWorld({
     scene,
@@ -86,7 +88,7 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   cam.right = cam.top = 40
   cam.far = 120
   cam.updateProjectionMatrix()
-  if (scene.fog instanceof THREE.FogExp2) scene.fog.density = 0.0055
+  if (scene.fog instanceof THREE.FogExp2) scene.fog.density = 0.0034 // lighter haze: the drone sees across the district
 
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: coarse ? THREE.UnsignedByteType : THREE.HalfFloatType, samples: coarse ? 0 : 4 }))
   composer.addPass(new RenderPass(scene, camera))
@@ -114,6 +116,39 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
   addEventListener('resize', resize)
   const focus = new THREE.Vector3()
   const look = new THREE.Vector3()
+  // The drone's flight: camera points (P) and what it looks at (L), with the seconds each leg takes (D).
+  const K: Array<[[number, number, number], [number, number, number], number]> = [
+    [[26, 18, 22], [0, 3, 0], 6], [[-6, 16, 32], [0, 3, 0], 6], [[-30, 20, 8], [0, 4, -6], 8], // round the plaza
+    [[-58, 32, 48], [-110, 6, 120], 9], [[-104, 28, 100], [-150, 10, 150], 7], // out to Grind Park
+    [[-148, 22, 116], [-190, 4, 142], 7], [[-196, 16, 118], [-210, 3, 140], 7], // the coaster, the zoo
+    [[-232, 26, 160], [-160, 8, 165], 9], [[-180, 58, 205], [-50, 12, 40], 10], // golf, then up, back at the skyline
+    [[-40, 64, 30], [-20, 4, -70], 9], [[-40, 16, -112], [-10, 4, -60], 7], // high over the city, down to the bay
+    [[10, 9, -106], [20, 5, -55], 7], [[44, 13, -98], [36, 4, -45], 7], // low along the beach to the harbour
+    [[78, 34, -50], [20, 6, -10], 7], [[52, 24, 14], [0, 3, 0], 6], // over the marina and home to the plaza
+  ]
+  const camPath = new THREE.CatmullRomCurve3(K.map(([p]) => new THREE.Vector3(...p)), true, 'centripetal')
+  const lookPath = new THREE.CatmullRomCurve3(K.map(([, l]) => new THREE.Vector3(...l)), true, 'centripetal')
+  const legEnd: number[] = []; K.reduce((sum, [, , d]) => { legEnd.push(sum + d); return sum + d }, 0)
+  const LOOP = legEnd[legEnd.length - 1]!
+  /** Curve position (0..1) at flight time `ft`: each leg takes its own seconds, so the drone slows over the sights. */
+  const along = (ft: number) => { const f = ft % LOOP; let i = 0; while (f > legEnd[i]!) i++; const t0 = i ? legEnd[i - 1]! : 0; return (i + (f - t0) / (legEnd[i]! - t0)) / K.length }
+  const ahead = new THREE.Vector3(), prevAhead = new THREE.Vector3()
+  let roll = 0
+  // Grind Park and its zoo are built into this scene a few seconds in (homes.ts, the same code the game uses),
+  // so the drone flies over the real rides and animals. Skipped if this device is already struggling.
+  let park: { tick: (dt: number, x: number, z: number) => unknown } | null = null
+  let disposed = false
+  window.setTimeout(() => {
+    if (disposed || cost > 26) return
+    void import('./homes.ts').then(({ createHomes }) => {
+      if (disposed) return
+      const h = createHomes(scene, { toast: () => {}, openPanel: () => {}, leave: () => {}, train: () => {}, fade: () => {} })
+      document.getElementById('home-hud')?.remove()
+      h.enter('park', true)
+      park = h
+      hideLabels()
+    }).catch(() => { /* the city alone still makes a fine preview */ })
+  }, 4500)
   let raf = 0
   let last = performance.now()
   let t = 0
@@ -139,15 +174,19 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     t += dt
-    // Cinematic drone: a slow orbit over the plaza, then every minute a high sweep out over the skyline, the
-    // metro and the coast, and back down.
-    const a = 0.6 + t * 0.035
-    const cyc = t % 60
-    const wide = THREE.MathUtils.smoothstep(cyc, 18, 27) * (1 - THREE.MathUtils.smoothstep(cyc, 44, 53))
-    const r = THREE.MathUtils.lerp(30 + Math.sin(t * 0.07) * 4, 104, wide)
-    camera.position.set(Math.cos(a) * r, THREE.MathUtils.lerp(20 + Math.sin(t * 0.11) * 3, 64, wide), Math.sin(a) * r)
-    look.set(THREE.MathUtils.lerp(Math.cos(a + 2.4) * 6, -Math.cos(a) * 34, wide), THREE.MathUtils.lerp(3, 6, wide), THREE.MathUtils.lerp(Math.sin(a + 2.4) * 6, -Math.sin(a) * 34, wide))
+    // The drone: along the flight path, with a little hover drift and a bank into the turns.
+    const u = along(t)
+    camPath.getPoint(u, camera.position)
+    lookPath.getPoint(u, look)
+    camera.position.y += Math.sin(t * 0.9) * 0.25
+    camera.position.x += Math.sin(t * 0.53) * 0.3
     camera.lookAt(look)
+    camPath.getPoint((u + 0.004) % 1, ahead).sub(camera.position)
+    const turn = prevAhead.lengthSq() ? Math.atan2(prevAhead.x * ahead.z - prevAhead.z * ahead.x, prevAhead.x * ahead.x + prevAhead.z * ahead.z) : 0
+    prevAhead.copy(ahead)
+    roll += (THREE.MathUtils.clamp(-turn * 6, -0.12, 0.12) - roll) * Math.min(1, dt * 1.5)
+    camera.rotateZ(roll)
+    park?.tick(dt, camera.position.x, camera.position.z)
     metro.tick(dt)
     focus.set(look.x, 0, look.z)
     world.tick(t, focus)
@@ -164,7 +203,9 @@ export function startPreview(canvas: HTMLCanvasElement): () => void {
     frameGap = coarse ? (cost > 30 ? 100 : cost > 18 ? 66 : cost > 10 ? 50 : 33) : (cost > 20 ? 33 : 16)
   }
   raf = requestAnimationFrame(loop)
+  if (import.meta.env.DEV) Object.assign(window, { __previewT: (v: number) => { t = v } })
   return () => {
+    disposed = true
     cancelAnimationFrame(raf)
     removeEventListener('pointerdown', press, { capture: true })
     removeEventListener('keydown', press, { capture: true })
