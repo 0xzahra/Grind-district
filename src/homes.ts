@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import type { Obstacle } from './physics.ts'
 import type { Hotspot } from './world.ts'
 import { animateWater } from './water.ts'
-import { spendInGame } from './state.ts'
+import { slotKey, spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { HOMES, LUXE, STYLES, readHomes, saveLayout, styleOf, type HomeId, type Palette, type StyleId } from './homesShop.ts'
 
@@ -16,7 +16,7 @@ export type AreaId = HomeId | 'park'
 type Kind = 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-type Move = { cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+type Move = { camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
@@ -273,7 +273,7 @@ function plans(): Record<AreaId, Plan> {
     // an ice-cream kiosk, and two rides: a Ferris wheel and a carousel (built in the plan, ridden with the gold button).
     park: {
       id: 'park',
-      levels: [{ y: 0, walk: R(-170, 104, -108, 170), pools: [] }],
+      levels: [{ y: 0, walk: R(-208, 100, -108, 206), pools: [] }],
       spawn: { x: -118.5, z: 124, heading: -0.9, lv: 0 },
       exitTo: { x: -8, z: -59.5 },
       house: null,
@@ -286,7 +286,7 @@ function plans(): Record<AreaId, Plan> {
         ['l1', 'lamp', -132, 128, 0, 0], ['l2', 'lamp', -144, 152, 0, 0], ['l3', 'lamp', -124, 152, 0, 0],
       ],
       build: (A) => {
-        const lawn = new THREE.Mesh(new THREE.PlaneGeometry(130, 112), std(0x5f8f45, 1)); lawn.rotation.x = -Math.PI / 2; lawn.position.set(-112, -0.012, 121); lawn.receiveShadow = true; A.add(0, lawn)
+        const lawn = new THREE.Mesh(new THREE.PlaneGeometry(176, 152), std(0x5f8f45, 1)); lawn.rotation.x = -Math.PI / 2; lawn.position.set(-125, -0.012, 138); lawn.receiveShadow = true; A.add(0, lawn)
         const path = std(0xe0d6c2, 0.95)
         for (const [x, z, w, d] of [[-127, 128, 3, 16], [-138, 140, 3, 50], [-138, 140, 52, 3]] as const) { const pth = new THREE.Mesh(new THREE.PlaneGeometry(w, d), path); pth.rotation.x = -Math.PI / 2; pth.position.set(x, 0.006, z); pth.receiveShadow = true; A.add(0, pth) }
         const ringP = new THREE.Mesh(new THREE.RingGeometry(5.5, 8, 40), path); ringP.rotation.x = -Math.PI / 2; ringP.position.set(-138, 0.008, 140); A.add(0, ringP)
@@ -574,6 +574,15 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
         const y = levels[l]!.y
         const w = r.x1 - r.x0, d = r.z1 - r.z0, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2
         const depth = 1.3
+        if (y === 0) {
+          // On a lawn the ground plane would cover a sunken basin: show the water just above it, in a stone coping.
+          const deep = new THREE.Mesh(new THREE.PlaneGeometry(w, d), std(0x1f86a8, 0.3)); deep.rotation.x = -Math.PI / 2; deep.position.set(cx, 0.014, cz); A.add(l, deep)
+          for (const [bx, bz, bw, bd] of [[cx, r.z0 - 0.2, w + 0.8, 0.4], [cx, r.z1 + 0.2, w + 0.8, 0.4], [r.x0 - 0.2, cz, 0.4, d], [r.x1 + 0.2, cz, 0.4, d]] as const) { const c = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.08, bd), M.stone); c.position.set(bx, 0.04, bz); c.receiveShadow = true; A.add(l, c) }
+          const wat = new THREE.Mesh(new THREE.PlaneGeometry(w, d), M.water.clone()); wat.rotation.x = -Math.PI / 2; wat.position.set(cx, 0.03, cz); wat.renderOrder = 2
+          animateWater(wat, Math.max(1, Math.round(w / 3)))
+          A.add(l, wat)
+          return
+        }
         const bottom = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, d), M.tile); bottom.position.set(cx, y - depth, cz); A.add(l, bottom)
         for (const side of ['x0', 'x1', 'z0', 'z1'] as const) {
           const along = side[0] === 'z'
@@ -633,7 +642,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       },
     }
     plan.build(A)
-    if (plan.id === 'park') parkRides(A)
+    if (plan.id === 'park') { parkRides(A); parkThrills(A) }
     // Everyday uses on top of the plan's: sleep in the bed, cook at the kitchen.
     const layout = plan.id === 'park' ? {} : readHomes().layout[plan.id] ?? {}
     const luxe = viewing || plan.id === 'park' ? [] : readHomes().luxe[plan.id] ?? []
@@ -676,6 +685,264 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     lastOutside = out
     if (plan) { const L = levels[level]!; light.position.set((L.walk.x0 + L.walk.x1) / 2, L.y + 2.8, (L.walk.z0 + L.walk.z1) / 2); light.intensity = plan.house && level === 0 ? 4 : 7 }
   }
+  // --- Grind Park tickets: a day pass at the gate covers every ride today; without one, each ride has its fare.
+  const PASS_USD = 12
+  const passKey = () => `${slotKey()}.park`
+  const today = () => new Date().toLocaleDateString('en-CA')
+  const hasPass = () => { try { return (JSON.parse(localStorage.getItem(passKey()) ?? '{}') as { pass?: string }).pass === today() } catch { return false } }
+  const fare = (usd: number) => (hasPass() ? 'day pass' : `$${usd}`)
+  const charge = (usd: number, label: string): { ok: boolean; message: string } => (hasPass() ? { ok: true, message: '' } : spendInGame(usd, label, 'Grind Park'))
+  const fareSpots: Array<{ u: Hotspot; words: string; usd: number }> = []
+  const relabel = () => { for (const f of fareSpots) f.u.enter = `${f.words} · ${fare(f.usd)}`; activeLabelBump++; relabelExtra() }
+  let activeLabelBump = 0
+  void activeLabelBump
+  const buyPass = () => {
+    if (hasPass()) { deps.toast('Your day pass covers every ride today.'); return }
+    const paid = spendInGame(PASS_USD, 'Grind Park day pass', 'Every ride, all day')
+    if (!paid.ok) { deps.toast(paid.message); return }
+    try { localStorage.setItem(passKey(), JSON.stringify({ pass: today() })) } catch { /* private mode */ }
+    relabel()
+    deps.toast('Day pass on your wrist: the coaster, both slides, the Ferris wheel and the carousel are yours all day.')
+  }
+  // The wind on fast rides: filtered noise that rises with speed.
+  let windCtx: AudioContext | null = null, windGain: GainNode | null = null, windFilter: BiquadFilterNode | null = null
+  const wind = (speed: number) => {
+    try {
+      if (!windCtx) {
+        const C = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        if (!C) return
+        windCtx = new C()
+        const buf = windCtx.createBuffer(1, windCtx.sampleRate * 2, windCtx.sampleRate)
+        const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+        const src = windCtx.createBufferSource(); src.buffer = buf; src.loop = true
+        windFilter = windCtx.createBiquadFilter(); windFilter.type = 'bandpass'; windFilter.Q.value = 0.7
+        windGain = windCtx.createGain(); windGain.gain.value = 0
+        src.connect(windFilter).connect(windGain).connect(windCtx.destination); src.start()
+      }
+      if (windCtx.state === 'suspended') void windCtx.resume().catch(() => undefined)
+      const t = windCtx.currentTime
+      windFilter!.frequency.setTargetAtTime(300 + speed * 60, t, 0.1)
+      windGain!.gain.setTargetAtTime(Math.min(0.22, speed * 0.012), t, 0.15)
+    } catch { /* no audio */ }
+  }
+
+  /** A track or chute swept along a curve: a cross-section (sideways, up) carried along it. */
+  const sweep = (curve: THREE.Curve<THREE.Vector3>, segs: number, profile: Array<[number, number]>, closed: boolean): THREE.BufferGeometry => {
+    const pos: number[] = [], idx: number[] = []
+    const P = profile.length
+    const t = new THREE.Vector3(), n = new THREE.Vector3(), b = new THREE.Vector3(), upv = new THREE.Vector3(0, 1, 0)
+    for (let i = 0; i <= segs; i++) {
+      const u = i / segs
+      const p = curve.getPointAt(u); curve.getTangentAt(u, t)
+      n.crossVectors(upv, t); if (n.lengthSq() < 1e-6) n.set(1, 0, 0); n.normalize()
+      b.crossVectors(t, n).normalize()
+      for (const [lx, ly] of profile) pos.push(p.x + n.x * lx + b.x * ly, p.y + n.y * lx + b.y * ly, p.z + n.z * lx + b.z * ly)
+      if (i < segs) for (let k = 0; k < P - (closed ? 0 : 1); k++) { const a = i * P + k, c = i * P + ((k + 1) % P), dd = (i + 1) * P + k, e = (i + 1) * P + ((k + 1) % P); idx.push(a, dd, c, c, dd, e) }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals()
+    return g
+  }
+  /** Time table for a run down a curve: gravity speeds you up, friction takes a little; a chain pulls you up a lift. */
+  const runTable = (curve: THREE.Curve<THREE.Vector3>, opts: { v0: number; lift?: [number, number]; liftV?: number; brakeFrom?: number; friction: number; minV: number }) => {
+    const L = curve.getLength()
+    const yAt = (s: number) => curve.getPointAt(Math.min(1, Math.max(0, s / L))).y
+    let s = 0, v = opts.v0, t = 0
+    let topY = yAt(0), topV = opts.v0
+    const times: number[] = [0], dists: number[] = [0]
+    const dt = 1 / 60
+    while (s < L && t < 240) {
+      const onLift = opts.lift && s >= opts.lift[0] && s <= opts.lift[1]
+      if (onLift) { v = opts.liftV ?? 3; topY = yAt(s); topV = v }
+      else {
+        const e = topV * topV + 2 * 9.81 * (topY - yAt(s)) * opts.friction
+        v = Math.max(opts.minV, Math.sqrt(Math.max(0, e)))
+        if (opts.brakeFrom !== undefined && s > opts.brakeFrom) v = Math.max(1.2, v * (1 - (s - opts.brakeFrom) / (L - opts.brakeFrom)) + 1.2)
+      }
+      s = Math.min(L, s + v * dt); t += dt
+      times.push(t); dists.push(s)
+    }
+    const T = t
+    const at = (time: number) => { const k = Math.min(times.length - 1, Math.max(0, Math.round((time / T) * (times.length - 1)))); return dists[k]! }
+    return { L, T, at }
+  }
+  const frameAt = (curve: THREE.Curve<THREE.Vector3>, u: number) => {
+    const p = curve.getPointAt(Math.min(1, Math.max(0, u))), t = curve.getTangentAt(Math.min(1, Math.max(0, u)))
+    return { p, t, heading: Math.atan2(t.x, t.z), pitch: Math.asin(Math.max(-1, Math.min(1, t.y))) }
+  }
+
+  /** The roller coaster, the speed slide and the tube slide, and the gate where the day pass is sold. */
+  const parkThrills = (A: Arch) => {
+    const M = A.M
+    const L0 = levels[0]!
+    fareSpots.length = 0
+    relabelExtra = () => {}
+    // --- Gate: an arch over the path from the station, with the pass desk.
+    {
+      const gate = new THREE.Group()
+      for (const sx of [-3.2, 3.2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5, 0.6), std(0xf2f2ee, 0.5)); post.position.set(sx, 2.5, 0); gate.add(post) }
+      const c = document.createElement('canvas'); c.width = 512; c.height = 96
+      const g = c.getContext('2d')!; g.fillStyle = '#123524'; g.fillRect(0, 0, 512, 96); g.fillStyle = '#ffd36b'; g.font = '900 60px "Inter Variable", Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('GRIND PARK', 256, 52)
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(7.2, 1.3, 0.3), [std(0x123524), std(0x123524), std(0x123524), std(0x123524), std(0xffffff, 0.5, 0, { map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.3 }), std(0xffffff, 0.5, 0, { map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.3 })])
+      sign.position.y = 5.4; gate.add(sign)
+      const booth = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 1.4), std(0xe0457b, 0.6)); booth.position.set(4.6, 1.1, 0); gate.add(booth)
+      gate.position.set(-121, 0, 128.5); gate.rotation.y = -0.9
+      A.add(0, gate)
+      A.block(0, R(-123.6, 129.6, -121.4, 131.4))
+      const u: Hotspot = { id: 'park-gate', x: -119.6, z: 127.4, r: 1.8, title: 'Grind Park gate', body: `A day pass covers every ride today: the roller coaster, both water slides, the Ferris wheel and the carousel. Or pay at each ride.`, enter: '', use: () => buyPass() }
+      const paint = () => { u.enter = hasPass() ? 'Day pass: valid today' : `Buy a day pass · $${PASS_USD}` }
+      paint()
+      L0.uses.push(u)
+      relabelExtra = paint
+    }
+
+    // --- Roller coaster: lift hill, a big drop, a climb, a tight turn and a camel hump, then brakes into the station.
+    const pts: Array<[number, number, number]> = [
+      [-176, 1.6, 110], [-176, 1.6, 122], [-176, 9, 136], [-176.5, 20, 150], [-179, 22.5, 158], [-186, 22.5, 163], [-193, 19, 162],
+      [-200, 4, 150], [-203, 6, 134], [-200, 14, 124], [-196, 9, 114], [-201, 3.5, 106], [-192, 5, 103], [-184, 2.4, 104], [-178, 1.7, 106],
+    ]
+    const track = new THREE.CatmullRomCurve3(pts.map(([x, y, z]) => new THREE.Vector3(x, y, z)), true, 'centripetal')
+    const TL = track.getLength()
+    const railM = std(0xd8263a, 0.35, 0.6), steelM = std(0x9aa0a8, 0.4, 0.7)
+    const segs = Math.round(TL * 1.5)
+    const railsG = new THREE.Group()
+    for (const side of [-0.55, 0.55]) { const prof: Array<[number, number]> = []; for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; prof.push([side + Math.cos(a) * 0.08, Math.sin(a) * 0.08]) } railsG.add(new THREE.Mesh(sweep(track, segs, prof, true), railM)) }
+    railsG.add(new THREE.Mesh(sweep(track, segs, [[-0.16, -0.25], [0.16, -0.25], [0.16, -0.55], [-0.16, -0.55]], true), steelM))
+    // Ties and supports.
+    const nTie = Math.floor(TL / 1.4)
+    const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(1.3, 0.08, 0.16), steelM, nTie)
+    const supports: THREE.Matrix4[] = []
+    const mm = new THREE.Matrix4(), nn = new THREE.Vector3(), bb = new THREE.Vector3(), upv = new THREE.Vector3(0, 1, 0)
+    for (let k = 0; k < nTie; k++) {
+      const f = frameAt(track, k / nTie)
+      nn.crossVectors(upv, f.t).normalize(); bb.crossVectors(f.t, nn).normalize()
+      mm.makeBasis(nn, bb, f.t).setPosition(f.p.x - bb.x * 0.12, f.p.y - bb.y * 0.12, f.p.z - bb.z * 0.12)
+      ties.setMatrixAt(k, mm)
+      if (k % 3 === 0 && f.p.y > 2.2) supports.push(new THREE.Matrix4().makeScale(1, f.p.y - 0.5, 1).setPosition(f.p.x, 0, f.p.z))
+    }
+    const sup = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.22, 1, 8).translate(0, 0.5, 0), std(0xf2f2ee, 0.5, 0.3), supports.length)
+    supports.forEach((m, k) => { sup.setMatrixAt(k, m); A.block(0, R(m.elements[12] - 0.35, m.elements[14] - 0.35, m.elements[12] + 0.35, m.elements[14] + 0.35)) })
+    for (const o of [ties, sup]) { o.castShadow = true; railsG.add(o) }
+    railsG.traverse((o) => { o.castShadow = true })
+    A.add(0, railsG)
+    const stationDeck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.4, 14), std(0xd8d1c3, 0.8)); stationDeck.position.set(-173.4, 0.7, 116); A.add(0, stationDeck)
+    const stationRoof = new THREE.Mesh(new THREE.BoxGeometry(6, 0.2, 15), std(0xd8263a, 0.6)); stationRoof.position.set(-175, 4.6, 116); A.add(0, stationRoof)
+    for (const z of [109.5, 122.5]) for (const x of [-172, -178]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4.6, 0.2), steelM); c.position.set(x, 2.3, z); A.add(0, c) }
+    A.block(0, R(-178.2, 108, -171.8, 124))
+    // The train: three cars with high backs and lap bars.
+    const carCols = [0xf2c230, 0x2f7ae5, 0x2bd46b]
+    const cars: THREE.Object3D[] = []
+    for (let k = 0; k < 3; k++) {
+      const c = new THREE.Group()
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 1.9), std(carCols[k]!, 0.35, 0.3)); body.position.y = 0.45; c.add(body)
+      const back = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 0.18), std(0x1b1c1f, 0.6)); back.position.set(0, 0.95, -0.7); c.add(back)
+      const bar = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 6, 16, Math.PI), steelM); bar.position.set(0, 0.85, 0.35); bar.rotation.y = Math.PI / 2; c.add(bar)
+      if (k === 0) { const nose = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.9, 4), std(carCols[0]!, 0.35, 0.3)); nose.rotation.x = Math.PI / 2; nose.rotation.y = Math.PI / 4; nose.position.set(0, 0.45, 1.3); c.add(nose) }
+      c.matrixAutoUpdate = false
+      c.traverse((o) => { o.castShadow = true; o.userData.ghost = true })
+      root!.add(c); cars.push(c)
+    }
+    const coaster = runTable(track, { v0: 1.5, lift: [TL * 0.06, TL * 0.24], liftV: 3.2, brakeFrom: TL * 0.88, friction: 0.93, minV: 3 })
+    const DWELL = 6
+    let coasterT0 = time
+    const coasterS = (t: number) => { const c = (((t - coasterT0) % (coaster.T + DWELL)) + coaster.T + DWELL) % (coaster.T + DWELL); return c < DWELL ? 0 : coaster.at(c - DWELL) }
+    const placeCars = (t: number) => {
+      const s0 = coasterS(t)
+      cars.forEach((c, k) => {
+        const u = (((s0 - k * 2.2) / TL) % 1 + 1) % 1
+        const f = frameAt(track, u)
+        nn.crossVectors(upv, f.t).normalize(); bb.crossVectors(f.t, nn).normalize()
+        c.matrix.makeBasis(nn, bb, f.t).setPosition(f.p.x + bb.x * 0.05, f.p.y + bb.y * 0.05, f.p.z + bb.z * 0.05)
+        c.matrixWorldNeedsUpdate = true
+      })
+    }
+    animated.push({ tick: (t) => placeCars(t) })
+    const coasterSpot: Hotspot = { id: 'park-coaster', x: -171, z: 116, r: 2.0, title: 'Roller coaster', body: 'A chain lift to 22 m, a big first drop, a climb, a tight turn and a camel hump. Hold on.', enter: '', use: () => {
+      const paid = charge(5, 'Roller coaster ride')
+      if (!paid.ok) { deps.toast(paid.message); return }
+      // The train waits in the station for you, then leaves at once.
+      coasterT0 = time - DWELL + 1.2
+      const t0 = time
+      startMove({
+        cam: 6.8,
+        view: () => { const f = frameAt(track, ((coasterS(time) / TL) % 1 + 1) % 1); return { heading: f.heading, pitch: Math.max(0.22, Math.min(0.55, -f.pitch * 0.5 + 0.26)) } },
+        path: () => { const f = frameAt(track, (((coasterS(time) - 0.9) / TL) % 1 + 1) % 1); nn.crossVectors(upv, f.t).normalize(); bb.crossVectors(f.t, nn).normalize(); const sp = coaster.at(Math.max(0, time - t0 - 1.2) + 0.016) - coaster.at(Math.max(0, time - t0 - 1.2)); wind(sp * 60); return { x: f.p.x + bb.x * 0.55, z: f.p.z + bb.z * 0.55, y: f.p.y + bb.y * 0.55 } },
+        from: { x: -175, z: 112, y: 0 }, to: { x: -171, z: 116, y: 0 }, t: 0, dur: coaster.T + 1.2, toLv: 0,
+        done: () => { wind(0); deps.toast(adjust({ social: 8 }, 'quiet') || 'What a ride!') },
+      })
+      deps.toast('Lap bar down. Here comes the lift hill.')
+    } }
+    fareSpots.push({ u: coasterSpot, words: 'Ride the roller coaster', usd: 5 })
+    L0.uses.push(coasterSpot)
+
+    // --- Water slides from a 14 m tower into a splash pool: a straight speed slide and a winding tube slide.
+    const TW = { x: -150, z: 182, top: 14.2 }
+    const tower = new THREE.Group()
+    for (const [dx, dz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]] as const) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, TW.top + 1.2, 0.3), std(0xf2f2ee, 0.5)); p.position.set(TW.x + dx, (TW.top + 1.2) / 2, TW.z + dz); tower.add(p) }
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, 4), std(0x2f7ae5, 0.5)); deck.position.set(TW.x, TW.top - 0.15, TW.z); tower.add(deck)
+    const roofT = new THREE.Mesh(new THREE.ConeGeometry(3.2, 1.8, 4), std(0xf2c230, 0.6)); roofT.rotation.y = Math.PI / 4; roofT.position.set(TW.x, TW.top + 2.4, TW.z); tower.add(roofT)
+    const steps = new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.1, 0.5), std(0xd8d1c3, 0.7), 48)
+    for (let k = 0; k < 48; k++) { const a = (k / 48) * Math.PI * 4; steps.setMatrixAt(k, new THREE.Matrix4().makeRotationY(-a).setPosition(TW.x + Math.cos(a) * 2.4, (k / 48) * TW.top, TW.z + Math.sin(a) * 2.4)) }
+    tower.add(steps)
+    tower.traverse((o) => { o.castShadow = true })
+    A.add(0, tower)
+    A.block(0, R(TW.x - 1.9, TW.z - 1.9, TW.x + 1.9, TW.z + 1.9))
+    const pool = R(-146, 184, -130, 197)
+    A.pool(0, pool, 'z1')
+    L0.pools.push(pool)
+    const speed = new THREE.CatmullRomCurve3([[-148.2, 14.25, 182.4], [-146, 11, 183.4], [-144.4, 6.5, 184.6], [-142.6, 2.4, 186], [-141.2, 0.6, 187], [-139.6, 0.25, 188]].map(([x, y, z]) => new THREE.Vector3(x, y, z)), false, 'centripetal')
+    const tube = new THREE.CatmullRomCurve3([[-151.6, 14.25, 180.3], [-156, 13.4, 178.6], [-160.4, 12.2, 182], [-161, 10.8, 188.6], [-157, 9.4, 195], [-150, 8, 199.6], [-142, 6.4, 201], [-135, 4.6, 199], [-131.6, 2.8, 194.6], [-132.6, 1.2, 191.4], [-135.6, 0.3, 190.2]].map(([x, y, z]) => new THREE.Vector3(x, y, z)), false, 'centripetal')
+    const chuteM = std(0xffffff, 0.25, 0.1, { side: THREE.DoubleSide })
+    const speedMesh = new THREE.Mesh(sweep(speed, 60, [[-0.7, 0.55], [-0.66, 0.12], [-0.4, -0.04], [0, -0.1], [0.4, -0.04], [0.66, 0.12], [0.7, 0.55]], false), std(0xe0457b, 0.3, 0.1, { side: THREE.DoubleSide }))
+    const tubeProf: Array<[number, number]> = []; for (let k = 0; k < 16; k++) { const a = (k / 16) * Math.PI * 2; tubeProf.push([Math.cos(a) * 0.9, 0.45 + Math.sin(a) * 0.9]) }
+    const tubeMesh = new THREE.Mesh(sweep(tube, 160, tubeProf, true), std(0x2f9be0, 0.2, 0.1, { side: THREE.DoubleSide, transparent: true, opacity: 0.5, depthWrite: false }))
+    tubeMesh.renderOrder = 3
+    for (const o of [speedMesh, tubeMesh]) { o.castShadow = true; A.add(0, o) }
+    void chuteM
+    // Slide supports.
+    const slideSup: THREE.Matrix4[] = []
+    for (const [c, n] of [[speed, 4], [tube, 12]] as const) for (let k = 1; k < n; k++) { const p = c.getPointAt(k / n); if (p.y > 1.2) slideSup.push(new THREE.Matrix4().makeScale(1, p.y - 0.4, 1).setPosition(p.x, 0, p.z)) }
+    const ss = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.16, 1, 8).translate(0, 0.5, 0), std(0xf2f2ee, 0.5, 0.3), slideSup.length)
+    slideSup.forEach((m, k) => { ss.setMatrixAt(k, m); if (!(m.elements[12] > pool.x0 && m.elements[12] < pool.x1 && m.elements[14] > pool.z0 && m.elements[14] < pool.z1)) A.block(0, R(m.elements[12] - 0.3, m.elements[14] - 0.3, m.elements[12] + 0.3, m.elements[14] + 0.3)) })
+    A.add(0, ss)
+    // A ride: climb the tower stairs, then slide down into the pool.
+    const slideRide = (curve: THREE.CatmullRomCurve3, words: string, usd: number, startA: number) => {
+      const run = runTable(curve, { v0: 1.2, friction: 0.82, minV: 1.5 })
+      const CLIMB = 4
+      return () => {
+        const paid = charge(usd, words)
+        if (!paid.ok) { deps.toast(paid.message); return }
+        const t0 = time
+        startMove({
+          cam: 5.6,
+          camFn: () => (time - t0 < CLIMB ? 10 : 5.6),
+          view: () => { const tt = time - t0; if (tt < CLIMB) return { heading: Math.atan2(TW.x - (-138), TW.z - 190), pitch: 0.5 }; const f = frameAt(curve, run.at(tt - CLIMB) / run.L); return { heading: f.heading, pitch: Math.max(-0.4, Math.min(0.5, -f.pitch * 0.5 + 0.18)) } },
+          path: () => {
+            const tt = time - t0
+            if (tt < CLIMB) { const a = (tt / CLIMB) * Math.PI * 4 + startA; return { x: TW.x + Math.cos(a) * 2.4, z: TW.z + Math.sin(a) * 2.4, y: (tt / CLIMB) * TW.top } }
+            const s = run.at(tt - CLIMB), f = frameAt(curve, s / run.L)
+            const sp = run.at(tt - CLIMB + 0.016) - s
+            wind(sp * 60)
+            return { x: f.p.x, z: f.p.z, y: f.p.y + 0.05 }
+          },
+          from: { x: TW.x, z: TW.z, y: 0 }, to: { x: TW.x, z: TW.z, y: 0 }, t: 0, dur: CLIMB + run.T, toLv: 0,
+          done: () => { wind(0); deps.toast(adjust({ hygiene: 12, social: 6 }, 'quiet') || 'Splash!') },
+        })
+        deps.toast('Up the tower stairs…')
+      }
+    }
+    const sp1: Hotspot = { id: 'park-speedslide', x: TW.x + 2.6, z: TW.z - 2.6, r: 1.6, title: 'Speed slide', body: 'Fourteen metres, nearly straight down, into the splash pool.', enter: '', use: slideRide(speed, 'Speed slide', 3, 0) }
+    const sp2: Hotspot = { id: 'park-tubeslide', x: TW.x - 2.6, z: TW.z - 2.6, r: 1.6, title: 'Tube slide', body: 'A long winding tunnel from the top of the tower to the splash pool.', enter: '', use: slideRide(tube, 'Tube slide', 3, Math.PI) }
+    fareSpots.push({ u: sp1, words: 'Ride the speed slide', usd: 3 }, { u: sp2, words: 'Ride the tube slide', usd: 3 })
+    L0.uses.push(sp1, sp2)
+    // Loungers round the splash pool.
+    for (const [x, z] of [[-150, 190], [-150, 193], [-127, 186], [-127, 189]] as const) { const lg = piece('lounger', M); lg.position.set(x, 0, z); lg.rotation.y = x < -140 ? Math.PI / 2 : -Math.PI / 2; lg.traverse((o) => { o.userData.ghost = true }); A.add(0, lg) }
+    // The Ferris wheel and the carousel follow the day pass too.
+    for (const [id, words, usd] of [['park-wheel', 'Ride the Ferris wheel', 3], ['park-carousel', 'Ride the carousel', 2]] as const) { const u = L0.uses.find((x) => x.id === id); if (u) fareSpots.push({ u, words, usd }) }
+    relabel()
+  }
+  let relabelExtra = () => {}
+
   /** The Ferris wheel and the carousel: they turn all the time; the gold button rides one round. */
   const parkRides = (A: Arch) => {
     const M = A.M
@@ -710,8 +977,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     const cabinAt = (k: number, t: number) => { const a = wheelAngle(t) + (k / W.n) * Math.PI * 2; return { x: W.x, y: W.hub - Math.cos(a) * W.r, z: W.z + Math.sin(a) * W.r } }
     animated.push({ tick: (t) => { wheel.rotation.x = -wheelAngle(t); cabins.forEach((c, k) => { const p = cabinAt(k, t); c.position.set(p.x, p.y, p.z) }) } })
     A.block(0, R(W.x - 3.5, W.z - 5, W.x + 3.5, W.z + 5))
-    levels[0]!.uses.push({ id: 'park-wheel', x: W.x + 4.6, z: W.z, r: 1.8, title: 'Ferris wheel', body: 'One slow turn, 29 m up at the top, with the whole city in view.', enter: 'Ride the Ferris wheel · $3', use: () => {
-      const paid = spendInGame(3, 'Ferris wheel ride', 'Grind Park')
+    levels[0]!.uses.push({ id: 'park-wheel', x: W.x + 4.6, z: W.z, r: 1.8, title: 'Ferris wheel', body: 'One slow turn, 29 m up at the top, with the whole city in view.', enter: `Ride the Ferris wheel · ${fare(3)}`, use: () => {
+      const paid = charge(3, 'Ferris wheel ride')
       if (!paid.ok) { deps.toast(paid.message); return }
       // Board the cabin nearest the bottom; ride it once round, standing in it.
       let k0 = 0, best = Infinity
@@ -746,8 +1013,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     const caroAngle = (t: number) => (t / C.period) * Math.PI * 2
     animated.push({ tick: (t) => { spin.rotation.y = -caroAngle(t); horses.forEach((h, k) => { h.position.y = 1.5 + Math.sin(t * 2.2 + k) * 0.25 }) } })
     A.block(0, R(C.x - 6.4, C.z - 6.4, C.x + 6.4, C.z + 6.4))
-    levels[0]!.uses.push({ id: 'park-carousel', x: C.x, z: C.z - 7.6, r: 1.8, title: 'Carousel', body: 'Two turns on a painted horse.', enter: 'Ride the carousel · $2', use: () => {
-      const paid = spendInGame(2, 'Carousel ride', 'Grind Park')
+    levels[0]!.uses.push({ id: 'park-carousel', x: C.x, z: C.z - 7.6, r: 1.8, title: 'Carousel', body: 'Two turns on a painted horse.', enter: `Ride the carousel · ${fare(2)}`, use: () => {
+      const paid = charge(2, 'Carousel ride')
       if (!paid.ok) { deps.toast(paid.message); return }
       const k = 3
       startMove({ cam: 8.5, path: () => { const a = (k / 12) * Math.PI * 2 + caroAngle(time); return { x: C.x + Math.cos(a) * C.r, z: C.z - Math.sin(a) * C.r, y: 1.15 + Math.sin(time * 2.2 + k) * 0.25 } }, from: { x: C.x, z: C.z, y: 0 }, to: { x: C.x, z: C.z - 7.4, y: 0 }, t: 0, dur: C.period * 2, toLv: 0 })
@@ -818,7 +1085,9 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     floorY(x: number, z: number): number { return levelY(x, z) },
     get moving() { return !!move },
     /** How far back the camera sits during a ride (the Ferris wheel, the carousel). */
-    get rideCam(): number | null { return move?.cam ?? null },
+    get rideCam(): number | null { return move?.camFn?.() ?? move?.cam ?? null },
+    /** On the coaster and the slides the camera rides just behind you, looking where you are going. */
+    get rideView(): { heading: number; pitch: number } | null { return move?.view?.() ?? null },
     /** Animate the home; while a lift or escalator ride is on, return where the player is. */
     tick(dt: number, x: number, z: number): { x: number; z: number; y: number } | null {
       time += dt
@@ -835,7 +1104,9 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       if (move.car && move.carY0 !== undefined && move.carY1 !== undefined) move.car.position.y = move.carY0 + (move.carY1 - move.carY0) * e
       if (u >= 1) {
         level = move.toLv
+        const done = move.done
         move = null
+        done?.()
         showLevels(p.x, p.z)
       }
       return p

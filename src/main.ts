@@ -1499,6 +1499,7 @@ const apiAgents = createRemoteAgents(scene)
   let homes: Homes | null = null
   let levelY = 0
   let homeCam = { dist: 0, pitch: 0 }
+  let ridePitchSaved: number | null = null
   const loadHomes = async (): Promise<Homes> => {
     if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), parkTrain: () => boardMetro('park') }); parkPillars() }
     return homes
@@ -2109,6 +2110,15 @@ const apiAgents = createRemoteAgents(scene)
 
     // After a longer pause without manual look, ease the camera behind the walking direction (phones: less auto-swing).
     const coarseCam = matchMedia('(pointer: coarse)').matches
+    // Coaster and water slides: the camera rides just behind you, looking where you are going.
+    const rv = homes?.inside ? homes.rideView : null
+    if (rv) {
+      if (ridePitchSaved === null) ridePitchSaved = camPitch
+      const behind = rv.heading + Math.PI
+      const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
+      camYaw += delta * (1 - Math.exp(-7 * dt))
+      camPitch += (THREE.MathUtils.clamp(rv.pitch, 0.1, 0.9) - camPitch) * (1 - Math.exp(-4 * dt))
+    } else if (ridePitchSaved !== null) { camPitch = ridePitchSaved; ridePitchSaved = null }
     if (metro?.riding && lookIdle > 0.9) {
       const behind = metro.view().heading + Math.PI
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
