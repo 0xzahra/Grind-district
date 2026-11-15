@@ -24,6 +24,12 @@ export type PublicStats = {
   cloudSavesToday: number
   logouts: number
   deletions: number
+  /** Learning, counts only: players with at least one course passed, courses passed in all, server certificate
+   *  records, and players seen on two or more different days in the last seven. */
+  learners?: number
+  lessonsPassed?: number
+  certificates?: number
+  returning7d?: number
 }
 
 const STATS_TTL_MS = 45_000
@@ -34,6 +40,35 @@ type Cache<T> = { at: number; value: T }
 let statsCache: Cache<PublicStats> | null = null
 let mintCache: Cache<{ base: number; near: number; network: 'testnet' | 'mainnet'; from: 'rpc' | 'events' }> | null = null
 let privyCache: Cache<{ users: number; wallets: number } | null> | null = null
+type Learning = { learners: number; lessonsPassed: number; certificates: number; returning7d: number }
+let learnCache: Cache<Learning | null> | null = null
+
+/** Learning numbers from the synced saves, the certificate records and the visit events. Cached five minutes. */
+async function learningStats(db: SupabaseClient): Promise<Learning | null> {
+  if (learnCache && Date.now() - learnCache.at < SLOW_TTL_MS) return learnCache.value
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
+  const [skills, certs, visits] = await Promise.all([
+    db.from('player_progress').select('skills:save->skills').limit(10000),
+    db.from('certificates').select('cert_id', { count: 'exact', head: true }),
+    db.from('events').select('anon_id, created_at').gte('created_at', weekAgo).in('name', ['session_start', 'first_visit', 'sign_in']).limit(20000),
+  ])
+  if (skills.error && certs.error && visits.error) { learnCache = { at: Date.now(), value: null }; return null }
+  let learners = 0, lessonsPassed = 0
+  for (const row of (skills.data ?? []) as Array<{ skills?: Record<string, { passed?: boolean } | null> | null }>) {
+    const n = Object.values(row.skills ?? {}).filter((s) => s?.passed === true).length
+    if (n > 0) { learners += 1; lessonsPassed += n }
+  }
+  const days = new Map<string, Set<string>>()
+  for (const row of (visits.data ?? []) as Array<{ anon_id?: string; created_at?: string }>) {
+    const id = String(row.anon_id ?? ''), at = String(row.created_at ?? '')
+    if (!id || !at) continue
+    const set = days.get(id) ?? new Set<string>(); set.add(lagosDayStart(Date.parse(at))); days.set(id, set)
+  }
+  const returning7d = [...days.values()].filter((d) => d.size >= 2).length
+  const value = { learners, lessonsPassed, certificates: count(certs), returning7d }
+  learnCache = { at: Date.now(), value }
+  return value
+}
 
 const TIGHT_EVENTS = new Set(['sign_in', 'logout', 'account_deleted', 'wallet_connected', 'account_created'])
 const TIGHT_KEYS = new Set(['via', 'source'])
@@ -205,7 +240,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
   const fiveMin = new Date(Date.now() - 5 * 60_000).toISOString()
   const [
     players, agentsRegistered, agentsOnline, saves, savesToday, signIns, logouts, deletions,
-    walletEvents, activeToday, mints, privy,
+    walletEvents, activeToday, mints, privy, learning,
   ] = await Promise.all([
     db.from('players').select('id', { count: 'exact', head: true }),
     db.from('agents').select('id', { count: 'exact', head: true }),
@@ -219,6 +254,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     uniqueActiveToday(db, since),
     chainMints(db),
     privyCounts(),
+    timeout(learningStats(db).catch(() => null), FETCH_MS * 2),
   ])
   const registered = count(players)
   // Sign-ups = current game accounts plus deletions recorded from this update on (ever-created, as far as we can see).
@@ -252,6 +288,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     cloudSavesToday: count(savesToday),
     logouts,
     deletions,
+    ...(learning ?? {}),
   }
   statsCache = { at: Date.now(), value }
   return value

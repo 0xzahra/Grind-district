@@ -16,6 +16,10 @@ export type PublicStats = {
   cloudSavesToday: number
   logouts: number
   deletions: number
+  learners?: number
+  lessonsPassed?: number
+  certificates?: number
+  returning7d?: number
 }
 
 export type StatRow = { kind: 'row' | 'note' | 'title'; label: string; value?: string }
@@ -47,6 +51,12 @@ export function formatStatsRows(st: PublicStats | null, onlineNow: number): Stat
   }
   const nearLabel = st.mintsNearNetwork === 'mainnet' ? 'Mints on NEAR' : 'Mints on NEAR testnet'
   rows.push(
+    ...(typeof st.learners === 'number' ? [
+      { kind: 'row' as const, label: 'Learners (passed a course)', value: n(st.learners) },
+      { kind: 'row' as const, label: 'Courses passed', value: n(st.lessonsPassed) },
+      { kind: 'row' as const, label: 'Certificates issued', value: n(st.certificates) },
+      { kind: 'row' as const, label: 'Came back on another day (7 days)', value: n(st.returning7d) },
+    ] : []),
     { kind: 'row', label: 'Registered', value: n(st.registered) },
     { kind: 'row', label: 'Sign-ups', value: n(st.signups) },
     { kind: 'row', label: 'Sign-ins', value: n(st.signIns) },
