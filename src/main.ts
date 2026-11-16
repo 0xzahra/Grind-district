@@ -1,6 +1,7 @@
 import { nextMission } from './worlds.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
+import { nearWalletChip } from './nearWallet.ts'
 import { openFriends } from './messages.ts'
 import * as THREE from 'three'
 import { MIN_BOOM, overHead, travelBeforeWall } from './cameraBoom.ts'
@@ -904,6 +905,9 @@ const apiAgents = createRemoteAgents(scene)
     paintBig()
     const idRow = el('div', '', 'wal-id')
     const chips = gameWalletChip()
+    // Players who signed in with a NEAR wallet see that wallet here too: its account and real NEAR balance.
+    const nearChip = nearWalletChip()
+    if (nearChip) chips.push(nearChip)
     if (chips.length) idRow.append(...chips)
     else idRow.append(el('small', `Wallet ID ${save.username ? '@' + save.username : 'guest'}`))
     idRow.append(el('span', 'USD', 'wal-cur'))

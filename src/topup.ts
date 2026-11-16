@@ -279,6 +279,8 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   if (GAS_SPONSOR) fine.textContent += ' Game wallet gas is covered by Grind District while the monthly allowance lasts.'
   ethPrice().then((p) => { price = p; paint() }).catch(() => { /* USDC still works */ })
   paint()
+  // Players who signed in with a NEAR wallet start on the NEAR tab (only when NEAR top-ups are switched on).
+  try { if (nearPanel && localStorage.getItem('gd.near.account')) { asset = 'NEAR'; paint() } } catch { /* private mode */ }
   const obs = new MutationObserver(() => { if (!root.contains(box)) { stopPoll(); obs.disconnect() } })
   obs.observe(root, { childList: true, subtree: true })
 }
