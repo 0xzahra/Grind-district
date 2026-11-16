@@ -1184,12 +1184,15 @@ const apiAgents = createRemoteAgents(scene)
   onlineChip.type = 'button'; onlineChip.id = 'online-chip'; onlineChip.className = 'pill'; onlineChip.hidden = true
   let onlineNow = 1
   // The pill shows players active today (from the city stats), never fewer than are online this minute.
+  // The pill shows everyone who has ever opened the game (once per browser); until that count loads, the
+  // players active today, and never fewer than are online this minute.
   let activeToday = 0
+  let visitorsAll = 0
   const paintChip = () => {
-    const n = Math.max(activeToday, onlineNow)
+    const n = Math.max(visitorsAll || activeToday, onlineNow)
     onlineChip.textContent = String(n)
-    onlineChip.setAttribute('aria-label', `${n} active today, ${onlineNow} online now`)
-    onlineChip.title = `${n} player${n === 1 ? '' : 's'} active today · ${onlineNow} in the city right now. Tap for city stats.`
+    onlineChip.setAttribute('aria-label', visitorsAll ? `${n} visitors all time, ${onlineNow} online now` : `${n} active today, ${onlineNow} online now`)
+    onlineChip.title = `${visitorsAll ? `${n} visitors all time` : `${n} active today`} · ${onlineNow} in the city right now. Tap for city stats.`
   }
   // Tap: city stats under the pill. Stays open and refreshes on its own until you close it.
   const onlineCard = document.createElement('div'); onlineCard.id = 'online-card'; onlineCard.hidden = true
@@ -1215,7 +1218,7 @@ const apiAgents = createRemoteAgents(scene)
   const loadOnlineStats = async () => {
     const raw = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null)
     const st = isPublicStats(raw) ? raw : lastStats
-    if (st) { lastStats = st; activeToday = st.activeToday; paintChip() }
+    if (st) { lastStats = st; activeToday = st.activeToday; visitorsAll = st.visitorsAll ?? 0; paintChip() }
     if (!onlineCard.hidden) paintOnlineCard(st)
   }
   const openOnlineCard = () => {

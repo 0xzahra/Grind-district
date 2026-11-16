@@ -45,14 +45,14 @@ const n = (v: number | undefined) => String(Math.max(0, Math.round(Number(v) || 
 
 /** Build the card’s lines. Online now is passed from live presence, not the API. */
 export function formatStatsRows(st: PublicStats | null, onlineNow: number): StatRow[] {
-  // Active today leads (it is the number on the pill); Online now is who is in the city this minute.
+  // Visitors, all time leads (it is the number on the pill); Online now is who is in the city this minute.
   const rows: StatRow[] = [{ kind: 'title', label: 'City stats' }]
+  if (st && typeof st.visitorsAll === 'number') rows.push({ kind: 'row', label: 'Visitors, all time', value: n(st.visitorsAll) })
   if (st) rows.push({ kind: 'row', label: 'Active today', value: n(Math.max(st.activeToday, onlineNow)) })
   rows.push({ kind: 'row', label: 'Online now', value: n(onlineNow) })
   // Visitors: everyone who opens the game, signed up or not. "Today" starts at midnight Lagos time.
   if (st && typeof st.visitsToday === 'number') rows.push({ kind: 'row', label: 'Visits today (game opened)', value: n(st.visitsToday) })
   if (st && typeof st.newVisitorsToday === 'number') rows.push({ kind: 'row', label: 'New visitors today', value: n(st.newVisitorsToday) })
-  if (st && typeof st.visitorsAll === 'number') rows.push({ kind: 'row', label: 'Visitors, all time', value: n(st.visitorsAll) })
   if (!st) {
     rows.push({ kind: 'note', label: 'Other counts could not load just now. Online now still updates as people arrive.' })
     return rows
