@@ -1,17 +1,13 @@
-// Daily journal: "A day in my Web3 life". Today's activity log (lessons, trades, visits, events, jobs), grouped into
-// morning, afternoon, evening and night by the player's own clock, drawn as a 1080 x 1350 card to share, with the
-// invite code. Like the photo card it is drawn on the device and shows nothing private: no balance, no amounts,
+// Daily journal: "A day in my Web3 life". Today's activity log (lessons, trades, visits, events, jobs) as one list,
+// first thing to last (a day, not morning or evening, which differ from place to place), drawn as a 1080 x 1350
+// card to share, with the invite code. Like the photo card it is drawn on the device and shows nothing private: no balance, no amounts,
 // no wallet (money entries and anything about a balance or a top-up are left out). Loaded only when opened.
 import { getSave } from './state.ts'
 import { isWalletActivity, rankFor } from './logic.ts'
 import { drawQr, inviteLink } from './photoCard.ts'
 
-export type DayPart = 'Morning' | 'Afternoon' | 'Evening' | 'Night'
-export type JournalLine = { part: DayPart; text: string; kind: string; at: number }
+export type JournalLine = { text: string; kind: string; at: number }
 type Act = { at: number; kind: string; label: string; detail?: string }
-
-const PARTS: DayPart[] = ['Morning', 'Afternoon', 'Evening', 'Night']
-const partOf = (hour: number): DayPart => (hour >= 5 && hour < 12 ? 'Morning' : hour >= 12 && hour < 17 ? 'Afternoon' : hour >= 17 && hour < 22 ? 'Evening' : 'Night')
 
 /** A friendlier sentence for a log entry. Never adds a number of dollars. */
 function sentence(a: Act): string {
@@ -22,7 +18,7 @@ function sentence(a: Act): string {
   return l
 }
 
-/** Today's lines, oldest first, grouped by part of the day; repeats in the same part fold into "×n". Pure. */
+/** Today's lines, oldest first; repeats fold into "×n". Pure. */
 export function journalLines(activities: Act[], now = Date.now()): JournalLine[] {
   const start = new Date(now); start.setHours(0, 0, 0, 0)
   const today = activities
@@ -32,11 +28,11 @@ export function journalLines(activities: Act[], now = Date.now()): JournalLine[]
   const out: JournalLine[] = []
   const seen = new Map<string, { line: JournalLine; n: number }>()
   for (const a of today) {
-    const part = partOf(new Date(a.at).getHours()), text = sentence(a), key = `${part}|${text}`
-    const had = seen.get(key)
+    const text = sentence(a)
+    const had = seen.get(text)
     if (had) { had.n += 1; had.line.text = `${text} ×${had.n}`; continue }
-    const line = { part, text, kind: a.kind, at: a.at }
-    seen.set(key, { line, n: 1 }); out.push(line)
+    const line = { text, kind: a.kind, at: a.at }
+    seen.set(text, { line, n: 1 }); out.push(line)
   }
   return out
 }
@@ -52,15 +48,14 @@ export function journalCloser(lines: JournalLine[]): string {
   return 'A quiet day in the district. Tomorrow: Campus.'
 }
 
-/** The text for a post: the first line of each part, the closer and the invite link (fits one post on X). */
+/** The text for a post: the day's first lines, the closer and the invite link (fits one post on X). */
 export function journalPost(lines: JournalLine[], link: string): string {
   const head = 'A day in my Web3 life in Grind District 🏙️'
-  const body: string[] = []
-  for (const p of PARTS) { const first = lines.find((l) => l.part === p); if (first) body.push(`${p}: ${first.text}.`) }
-  let text = [head, '', ...body, '', journalCloser(lines)].join('\n')
+  const body = lines.slice(0, 4).map((l) => `• ${l.text}`)
+  const compose = () => [head, '', ...body, '', journalCloser(lines)].join('\n')
   // X counts a link as 23 characters; keep the whole post within 280.
-  while (text.length + 24 > 280 && body.length > 1) { body.pop(); text = [head, '', ...body, '', journalCloser(lines)].join('\n') }
-  return `${text}\n${link}`
+  while (compose().length + 24 > 280 && body.length > 1) body.pop()
+  return `${compose()}\n${link}`
 }
 
 const F = '"Inter Variable", Inter, system-ui, sans-serif'
@@ -72,26 +67,6 @@ function wrap(g: CanvasRenderingContext2D, text: string, maxW: number): string[]
   for (const w of words) { const next = cur ? `${cur} ${w}` : w; if (g.measureText(next).width <= maxW || !cur) cur = next; else { out.push(cur); cur = w } }
   if (cur) out.push(cur)
   return out
-}
-/** Small drawn icons (fonts do not all carry the sun and moon symbols): rising sun, full sun, crescent, star. */
-function icon(g: CanvasRenderingContext2D, p: DayPart, x: number, y: number): void {
-  g.save(); g.fillStyle = '#06ee74'; g.strokeStyle = '#06ee74'; g.lineWidth = 3; g.lineCap = 'round'
-  const cx = x + 13, cy = y - 9
-  if (p === 'Morning' || p === 'Afternoon') {
-    const r = p === 'Morning' ? 7 : 8
-    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill()
-    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * (r + 4), cy + Math.sin(a) * (r + 4)); g.lineTo(cx + Math.cos(a) * (r + 8), cy + Math.sin(a) * (r + 8)); g.stroke() }
-    if (p === 'Morning') { g.strokeStyle = '#0d1611'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 16, cy + 6); g.lineTo(cx + 16, cy + 6); g.stroke() }
-  } else if (p === 'Evening') {
-    // A crescent: the moon's disc minus an offset disc, clipped to the moon (never cuts through the card).
-    g.beginPath(); g.arc(cx, cy, 11, 0, Math.PI * 2); g.clip()
-    g.beginPath(); g.arc(cx, cy, 11, 0, Math.PI * 2); g.arc(cx + 6, cy - 4, 10, 0, Math.PI * 2); g.fill('evenodd')
-  } else {
-    g.beginPath()
-    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i / 10) * Math.PI * 2, r = i % 2 ? 5 : 12; i ? g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r) : g.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r) }
-    g.closePath(); g.fill()
-  }
-  g.restore()
 }
 
 /** Draw the journal card for today. */
@@ -119,31 +94,28 @@ export async function drawJournal(now = Date.now()): Promise<HTMLCanvasElement> 
   g.fillStyle = '#f7f3ea'; g.font = `800 66px ${F}`; g.fillText('A day in my Web3 life', X, 312)
   const who = `${s.name || 'Player'}${s.username ? `  ·  @${s.username}` : ''}  ·  ${rankFor(s.xp).label}`
   g.fillStyle = '#b9c3bc'; g.font = `600 28px ${F}`; g.fillText(who, X, 362)
-  // The day, part by part.
+  // The day, first thing to last.
   let y = 440
   const maxY = 1040
-  const groups = PARTS.map((p) => ({ p, ls: lines.filter((l) => l.part === p) })).filter((x) => x.ls.length)
-  if (!groups.length) {
+  if (!lines.length) {
     g.fillStyle = '#dfe6e1'; g.font = `500 36px ${F}`
     for (const t of wrap(g, 'Nothing logged yet today. Walk to Campus: Zahra’s first lesson takes a minute and goes on your CV.', W - X * 2)) { g.fillText(t, X, y); y += 50 }
   }
-  for (const { p, ls } of groups) {
-    if (y > maxY - 90) break
-    g.fillStyle = '#06ee74'; g.font = `800 24px ${F}`
-    icon(g, p, X, y); g.fillText(p.toUpperCase(), X + 40, y); y += 46
-    const show = ls.slice(0, 3)
-    g.font = `500 34px ${F}`
-    for (const l of show) {
-      for (const [i, t] of wrap(g, l.text, W - X * 2 - 40).entries()) {
-        if (y > maxY) break
-        g.fillStyle = i ? '#dfe6e1' : '#f7f3ea'
-        if (!i) { g.fillStyle = '#06ee74'; g.beginPath(); g.arc(X + 8, y - 11, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = '#f7f3ea' }
-        g.fillText(t, X + 32, y); y += 46
-      }
+  g.fillStyle = '#06ee74'; g.font = `800 24px ${F}`
+  if (lines.length) { g.fillText('TODAY', X, y); y += 52 }
+  let shown = 0
+  g.font = `500 36px ${F}`
+  for (const l of lines) {
+    const parts = wrap(g, l.text, W - X * 2 - 40)
+    if (y + (parts.length - 1) * 48 > maxY) break
+    for (const [i, t] of parts.entries()) {
+      if (!i) { g.fillStyle = '#06ee74'; g.beginPath(); g.arc(X + 8, y - 12, 6, 0, Math.PI * 2); g.fill() }
+      g.fillStyle = i ? '#dfe6e1' : '#f7f3ea'; g.fillText(t, X + 32, y); y += 48
     }
-    if (ls.length > show.length && y <= maxY) { g.fillStyle = '#8f9b93'; g.font = `500 26px ${F}`; g.fillText(`and ${ls.length - show.length} more`, X + 32, y); y += 40 }
-    y += 26
+    y += 8; shown += 1
   }
+  if (lines.length > shown) { g.fillStyle = '#8f9b93'; g.font = `500 28px ${F}`; g.fillText(`and ${lines.length - shown} more`, X + 32, y); y += 44 }
+  y += 10
   // Closer.
   g.fillStyle = '#e8d29a'; g.font = `italic 600 34px ${F}`
   let cy = Math.min(Math.max(y + 6, 1000), 1080)
@@ -198,6 +170,6 @@ export function journalNodes(h: H, say: (m: string) => void): HTMLElement {
       box.append(img, row, h.para('Made from today’s activity log, by your phone’s clock. No balance, amounts or wallet are shown. The code is your invite link.', 'muted'))
     }).catch(() => { wait.textContent = 'Could not draw the card just now. Try again in a moment.' })
   })
-  box.append(h.para('Your day in the district as a card: lessons, trades, visits and events, morning to night.', 'muted'), make)
+  box.append(h.para('Your day in the district as a card: lessons, trades, visits and events.', 'muted'), make)
   return box
 }
