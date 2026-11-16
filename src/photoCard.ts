@@ -10,7 +10,7 @@ const W = 1080, H = 1350
 /** The short invite link in the code (fewer modules, so it scans from a phone screen or a print). */
 export const inviteLink = (username: string): string => `https://www.grinddistrict.app/?src=invite${username ? `&ref=${encodeURIComponent(username.toLowerCase())}` : ''}`
 /** A QR code on a white rounded tile with the four-module quiet zone scanners expect; whole-pixel modules. */
-function drawQr(g: CanvasRenderingContext2D, link: string, x: number, y: number, size: number): void {
+export function drawQr(g: CanvasRenderingContext2D, link: string, x: number, y: number, size: number): void {
   const q = qrcode(0, 'M'); q.addData(link); q.make()
   const n = q.getModuleCount(), cell = Math.floor(size / (n + 8)), inner = cell * n, pad = (size - inner) / 2
   g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x, y, size, size, Math.round(size * 0.07)); g.fill()

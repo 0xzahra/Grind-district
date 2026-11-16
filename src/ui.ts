@@ -408,6 +408,20 @@ export function mountUi(
     share.append(
       head('Invite and share'),
       photoCardNodes({ para, button }, () => hooks.portrait?.(0, undefined, true) ?? null, (m) => toast(m)),
+      // Today's journal: "A day in my Web3 life" as a card (journal.ts, loaded only when asked for).
+      (() => {
+        const slot = document.createElement('div'); slot.className = 'journal-slot'
+        const go = button('Make today’s journal card', 'ghost', () => {
+          go.remove()
+          void import('./journal.ts').then((j) => {
+            const nodes = j.journalNodes({ para, button }, (t) => toast(t))
+            slot.replaceChildren(nodes)
+            nodes.querySelector<HTMLButtonElement>('button')?.click()
+          }).catch(() => toast('Could not open the journal just now.'))
+        })
+        slot.append(para('A day in my Web3 life: today’s lessons, trades, visits and events as a card to share.', 'muted'), go)
+        return slot
+      })(),
       // Two actions only: post to X, or copy the one invite link.
       strip(
       // X shows the photo card (avatar, rank, reputation, invite code) under the link, never the balance.
