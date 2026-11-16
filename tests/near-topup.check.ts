@@ -93,5 +93,16 @@ x = out(); await nearRoute({ method: 'GET', query: { near: '-price' } }, x.res, 
 ok(x.o.code === 200 && x.o.body.price8 === '333120424' && x.o.body.receiver === R, 'price endpoint')
 ok(x.o.code === 200 && list.length === 1 && list[0]!.hash === `near:${H}` && list[0]!.credit > 0.32, 'sync lists the credited NEAR top-up')
 
+// Network follows the receiving account: .testnet means testnet RPC, otherwise mainnet.
+{
+  const m = await import('../api/_nearTopup.ts')
+  const keep = process.env.NEAR_TOPUP_ACCOUNT
+  process.env.NEAR_TOPUP_ACCOUNT = 'grinddistrict-cert.testnet'
+  ok(m.nearTopupNetwork() === 'testnet' && m.nearRpcUrl() === 'https://rpc.testnet.near.org', 'a .testnet receiver uses NEAR testnet')
+  process.env.NEAR_TOPUP_ACCOUNT = 'grinddistrict.near'
+  ok(m.nearTopupNetwork() === 'mainnet' && m.nearRpcUrl() === 'https://rpc.mainnet.near.org', 'a .near receiver uses NEAR mainnet')
+  if (keep === undefined) delete process.env.NEAR_TOPUP_ACCOUNT; else process.env.NEAR_TOPUP_ACCOUNT = keep
+}
+
 console.log(`near-topup: ${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

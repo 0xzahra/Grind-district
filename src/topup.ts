@@ -1,7 +1,7 @@
 // Automatic top-up: pick amount → Pay in wallet → server detects & credits. No copy/paste of address or hash.
 import { GRIND_TREASURY_VAULT, BASE_USDC, breakdown, ethToUsdMicro } from './grindConfig.ts'
 import { applyTopup } from './state.ts'
-import { nearTopupOn, renderNearTopup } from './topupNear.ts'
+import { nearTopupOn, renderNearTopup, NEAR_TOPUP_NET } from './topupNear.ts'
 import { ethPrice } from './topupPrice.ts'
 import { gameWalletAddress, payUsdcFromGameWallet, checkGameWalletUsdc, WalletNotSent, GAS_SPONSOR } from './privyWallet.ts'
 import { track, flushTracking } from './track.ts'
@@ -84,7 +84,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const tabs = el('div', '', 'topup-tabs')
   const tUsdc = el('button', 'USDC', 'on') as HTMLButtonElement
   const tEth = el('button', 'ETH') as HTMLButtonElement
-  const tNear = el('button', 'NEAR') as HTMLButtonElement
+  const tNear = el('button', NEAR_TOPUP_NET === 'testnet' ? 'NEAR testnet' : 'NEAR') as HTMLButtonElement
   tUsdc.type = tEth.type = tNear.type = 'button'
   tabs.append(tUsdc, tEth)
   if (nearTopupOn()) tabs.append(tNear)

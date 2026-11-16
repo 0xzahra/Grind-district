@@ -1,11 +1,12 @@
-// NEAR mainnet top-up panel. Shown only when VITE_NEAR_TOPUP_ACCOUNT is set at build time.
-// The player connects a NEAR mainnet wallet, sends NEAR to the Grind District account, and the server
+// NEAR top-up panel. Shown only when VITE_NEAR_TOPUP_ACCOUNT is set at build time. The network follows that
+// account: a .testnet account means NEAR testnet (free test NEAR, for testing the game). The player connects a NEAR wallet, sends NEAR to the Grind District account, and the server
 // checks the payment on NEAR before crediting in-game $ (2% fee, same as Base). Nothing is withdrawable.
 import { applyTopup } from './state.ts'
 import { breakdown } from './grindConfig.ts'
 
 export const NEAR_TOPUP_ACCOUNT: string = (import.meta.env.VITE_NEAR_TOPUP_ACCOUNT as string | undefined)?.trim() ?? ''
 export const nearTopupOn = () => /^[a-z0-9._-]{2,64}$/.test(NEAR_TOPUP_ACCOUNT)
+export const NEAR_TOPUP_NET: 'testnet' | 'mainnet' = NEAR_TOPUP_ACCOUNT.endsWith('.testnet') ? 'testnet' : 'mainnet'
 const ACCOUNT_KEY = 'gd.topup.near'
 const isAccount = (a: string) => /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(a) && a.length >= 2 && a.length <= 64
 const savedAccount = () => { try { const s = localStorage.getItem(ACCOUNT_KEY) ?? ''; return isAccount(s) ? s : '' } catch { return '' } }
@@ -15,7 +16,7 @@ const usd = (micro: bigint) => `$${(Number(micro) / 1e6).toFixed(2)}`
 /** Same maths as the server: yocto * price(8 dp) / 1e26 = micro-dollars. */
 export const nearUsdMicro = (near: number, price8: bigint) => (BigInt(Math.round(near * 100)) * 10n ** 22n * price8) / 10n ** 26n
 
-// Own storage prefix so this mainnet wallet never touches the NEAR sign-in's saved wallet.
+// Own storage prefix so this top-up wallet never touches the NEAR sign-in's saved wallet.
 const prefixed = {
   get: async (k: string) => { try { return localStorage.getItem(`gd.neartopup.${k}`) } catch { return null } },
   set: async (k: string, v: string) => { try { localStorage.setItem(`gd.neartopup.${k}`, v) } catch { /* private mode */ } },
@@ -23,7 +24,7 @@ const prefixed = {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let conn: Promise<any> | null = null
-const connector = () => (conn ??= import('@hot-labs/near-connect').then(({ NearConnector }) => new NearConnector({ network: 'mainnet', storage: prefixed, features: { signAndSendTransaction: true } } as never)))
+const connector = () => (conn ??= import('@hot-labs/near-connect').then(({ NearConnector }) => new NearConnector({ network: NEAR_TOPUP_NET, storage: prefixed, features: { signAndSendTransaction: true } } as never)))
 
 async function api(path: string, init?: RequestInit): Promise<Response> {
   let token: string | null = null
@@ -60,7 +61,7 @@ export function renderNearTopup(root: HTMLElement, onCredited: () => void, opts:
   const pay = el('button', 'Pay with NEAR wallet', 'topup-go') as HTMLButtonElement
   pay.type = 'button'
   const status = el('p', '', 'topup-status')
-  const fine = el('p', `Sends NEAR on NEAR mainnet to ${NEAR_TOPUP_ACCOUNT}, the Grind District account. You pay the tiny NEAR network fee. In-game $ is a game balance, not withdrawable.`, 'cc-muted')
+  const fine = el('p', `Sends NEAR on NEAR ${NEAR_TOPUP_NET} to ${NEAR_TOPUP_ACCOUNT}, the Grind District account.${NEAR_TOPUP_NET === 'testnet' ? ' Testnet NEAR is free test money with no value: this top-up is for trying the game.' : ''} You pay the tiny NEAR network fee. In-game $ is a game balance, not withdrawable.`, 'cc-muted')
   box.append(el('label', 'Amount', 'topup-label'), presets, table, pay, status, fine)
   root.append(box)
   const stop = () => { if (timer) { clearInterval(timer); timer = null } }
@@ -121,7 +122,7 @@ export function renderNearTopup(root: HTMLElement, onCredited: () => void, opts:
       let w = await c.wallet().catch(() => null)
       let account: string = w ? (await w.getAccounts())[0]?.accountId ?? '' : ''
       if (!account) { w = await c.connect(); account = (await w.getAccounts())[0]?.accountId ?? '' }
-      if (!isAccount(account)) throw new Error('No NEAR mainnet account connected')
+      if (!isAccount(account)) throw new Error(`No NEAR ${NEAR_TOPUP_NET} account connected`)
       try { localStorage.setItem(ACCOUNT_KEY, account) } catch { /* private mode */ }
       const cr = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify({ op: 'near-create', sender: account, near }) })
       const order = (await cr.json().catch(() => ({}))) as Reply

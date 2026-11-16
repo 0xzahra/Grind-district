@@ -1,4 +1,4 @@
-// NEAR mainnet top-ups: the player sends NEAR from their own wallet to the Grind District account; the server
+// NEAR top-ups: the player sends NEAR from their own wallet to the Grind District account; the server
 // checks the transaction over NEAR RPC and credits in-game $ once (same 2% fee as Base). Underscore = not a
 // Vercel function. Off until NEAR_TOPUP_ACCOUNT is set. No contract, no token: a plain NEAR transfer.
 import { breakdown } from '../src/grindConfig.js'
@@ -15,7 +15,11 @@ export const nearTopupAccount = () => {
   const a = (process.env.NEAR_TOPUP_ACCOUNT ?? '').trim().toLowerCase()
   return isNearAccountId(a) ? a : ''
 }
-export const nearRpcUrl = () => process.env.NEAR_MAINNET_RPC_URL || 'https://rpc.mainnet.near.org'
+/** The network follows the receiving account: a .testnet account means NEAR testnet everywhere (RPC, explorer API). */
+export const nearTopupNetwork = (): 'testnet' | 'mainnet' => (nearTopupAccount().endsWith('.testnet') ? 'testnet' : 'mainnet')
+export const nearRpcUrl = () => (nearTopupNetwork() === 'testnet'
+  ? process.env.NEAR_TESTNET_RPC_URL || 'https://rpc.testnet.near.org'
+  : process.env.NEAR_MAINNET_RPC_URL || 'https://rpc.mainnet.near.org')
 export const arbRpcUrl = () => process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc'
 
 export const isNearAccountId = (a: string) => a.length >= 2 && a.length <= 64 && /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(a)
@@ -154,7 +158,8 @@ export const nearRpcDeps = (store: NearStore): NearDeps => ({
 export async function recentIncoming(receiver: string): Promise<Array<{ hash: string; heightMs?: number }>> {
   const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000)
   try {
-    const r = await fetch(process.env.NEAR_TX_API_URL || 'https://tx.main.fastnear.com/v0/account', { method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: receiver, max_block_height: null }) })
+    const api = process.env.NEAR_TX_API_URL || (nearTopupNetwork() === 'testnet' ? 'https://tx.test.fastnear.com/v0/account' : 'https://tx.main.fastnear.com/v0/account')
+    const r = await fetch(api, { method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: receiver, max_block_height: null }) })
     const j = (await r.json()) as { account_txs?: Array<{ transaction_hash: string; is_real_receiver?: boolean; is_success?: boolean; tx_block_timestamp?: string }> }
     return (j.account_txs ?? []).filter((t) => t.is_real_receiver && t.is_success !== false).slice(0, 60)
       .map((t) => ({ hash: t.transaction_hash, heightMs: t.tx_block_timestamp ? Number(BigInt(t.tx_block_timestamp) / 1_000_000n) : undefined }))

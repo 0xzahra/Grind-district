@@ -1,4 +1,4 @@
-// NEAR mainnet top-up routes, served from /api/topup-confirm (GET ?near=<account> or ?near=-price, POST op near-create /
+// NEAR top-up routes (mainnet, or testnet when the receiving account is a .testnet one), served from /api/topup-confirm (GET ?near=<account> or ?near=-price, POST op near-create /
 // near-confirm / near-scan). Underscore = not a Vercel function.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
