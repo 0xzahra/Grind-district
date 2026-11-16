@@ -3760,3 +3760,17 @@ html[data-ui='light'] body #sheet .hunt-link { color: #04803f !important; }
 
 /* With four round keys (a new player), they sit as a 2 x 2 square beside the quick keys, not in a row below. */
 html body #nav.cc .cc-grid.few { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+/* Desktop (mouse and a wide screen): panels open as a side panel on the right, below the top-right keys, so the
+   city stays in view; a lesson or a quick check opens as a focused window in the middle with the city dimmed
+   away, so learners see only the lesson; Campus tiles and lesson photos are smaller. Phones keep the bottom sheet. */
+@media (min-width: 821px) and (hover: hover) and (pointer: fine) {
+  html body #sheet { justify-items: end !important; align-items: stretch !important; padding: 124px 16px 16px 16px !important; background: linear-gradient(90deg, rgba(4, 8, 7, 0) 0%, rgba(4, 8, 7, 0.16) 50%, rgba(4, 8, 7, 0.5) 100%) !important; }
+  html body #sheet .sheet-card { width: min(470px, 42vw) !important; max-width: 470px !important; height: 100% !important; max-height: none !important; border-radius: 20px !important; }
+  html body #sheet:has(.bite), html body #sheet:has(.ex-head) { justify-items: center !important; align-items: center !important; padding: 24px !important; background: rgba(3, 6, 5, 0.9) !important; z-index: 70 !important; }
+  html body #sheet:has(.bite) .sheet-card, html body #sheet:has(.ex-head) .sheet-card { width: min(720px, 92vw) !important; max-width: 720px !important; height: auto !important; max-height: calc(100vh - 48px) !important; }
+  html body #sheet .lx-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)) !important; gap: 8px !important; }
+  html body #sheet .lx-card .lx-art { aspect-ratio: 16 / 7 !important; }
+  html body #sheet .lx-card-b { padding: 6px 8px 8px !important; }
+  html body #sheet .lx-card-b b { font-size: 12.5px !important; }
+  html body #sheet .lx-photo img { max-height: 150px !important; }
+}

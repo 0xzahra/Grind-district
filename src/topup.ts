@@ -86,7 +86,10 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const tEth = el('button', 'ETH') as HTMLButtonElement
   const tNear = el('button', NEAR_TOPUP_NET === 'testnet' ? 'NEAR testnet' : 'NEAR') as HTMLButtonElement
   tUsdc.type = tEth.type = tNear.type = 'button'
-  tabs.append(tUsdc, tEth)
+  // During the NEAR hackathon judging (results by 18 Nov) the top-up is NEAR only; USDC and ETH on Base come back
+  // on their own on 19 Nov 00:00 UTC. If NEAR top-ups are not switched on, Base stays, so there is always a top-up.
+  const baseHidden = nearTopupOn() && Date.now() < Date.parse('2026-11-19T00:00:00Z')
+  if (!baseHidden) tabs.append(tUsdc, tEth)
   if (nearTopupOn()) tabs.append(tNear)
   const amtLabel = el('label', 'Amount', 'topup-label')
   const presets = el('div', '', 'topup-presets')
@@ -279,8 +282,9 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   if (GAS_SPONSOR) fine.textContent += ' Game wallet gas is covered by Grind District while the monthly allowance lasts.'
   ethPrice().then((p) => { price = p; paint() }).catch(() => { /* USDC still works */ })
   paint()
-  // Players who signed in with a NEAR wallet start on the NEAR tab (only when NEAR top-ups are switched on).
-  try { if (nearPanel && localStorage.getItem('gd.near.account')) { asset = 'NEAR'; paint() } } catch { /* private mode */ }
+  // Players who signed in with a NEAR wallet start on the NEAR tab (only when NEAR top-ups are switched on), and
+  // everyone does while Base is hidden.
+  try { if (nearPanel && (baseHidden || localStorage.getItem('gd.near.account'))) { asset = 'NEAR'; paint() } } catch { /* private mode */ }
   const obs = new MutationObserver(() => { if (!root.contains(box)) { stopPoll(); obs.disconnect() } })
   obs.observe(root, { childList: true, subtree: true })
 }
