@@ -26,6 +26,11 @@ export type PublicStats = {
   deletions: number
   /** Learning, counts only: players with at least one course passed, courses passed in all, server certificate
    *  records, and players who saved progress in the last seven days on a later day than they joined. */
+  /** Visitors, counts only: browsers that ever opened the game (first_visit fires once per browser), new
+   *  ones since midnight Lagos time, and page opens today (session_start, title screen included). */
+  visitorsAll?: number
+  newVisitorsToday?: number
+  visitsToday?: number
   /** Accounts made by signing in with a NEAR wallet (players rows keyed near:<account>). */
   nearAccounts?: number
   learners?: number
@@ -110,6 +115,11 @@ export async function insertAnalyticsEvent(db: SupabaseClient, name: (typeof STA
 async function eventCount(db: SupabaseClient, name: string): Promise<number> {
   const r = await db.from('events').select('id', { count: 'exact', head: true }).eq('name', name)
   return count(r)
+}
+
+async function eventCountSince(db: SupabaseClient, name: string, since: string): Promise<number | null> {
+  const r = await db.from('events').select('id', { count: 'exact', head: true }).eq('name', name).gte('created_at', since)
+  return r.error ? null : count(r)
 }
 
 async function uniqueActiveToday(db: SupabaseClient, since: string): Promise<number> {
@@ -241,7 +251,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
   const fiveMin = new Date(Date.now() - 5 * 60_000).toISOString()
   const [
     players, agentsRegistered, agentsOnline, saves, savesToday, signIns, logouts, deletions,
-    walletEvents, activeToday, mints, privy, learning, nearPlayers,
+    walletEvents, activeToday, mints, privy, learning, nearPlayers, visitorsAll, newVisitorsToday, visitsToday,
   ] = await Promise.all([
     db.from('players').select('id', { count: 'exact', head: true }),
     db.from('agents').select('id', { count: 'exact', head: true }),
@@ -257,6 +267,9 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     privyCounts(),
     timeout(learningStats(db).catch(() => null), FETCH_MS * 2),
     db.from('players').select('id', { count: 'exact', head: true }).like('privy_user_id', 'near:%'),
+    eventCountSince(db, 'first_visit', '2000-01-01T00:00:00Z'),
+    eventCountSince(db, 'first_visit', since),
+    eventCountSince(db, 'session_start', since),
   ])
   const registered = count(players)
   // Sign-ups = current game accounts plus deletions recorded from this update on (ever-created, as far as we can see).
@@ -292,6 +305,9 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     deletions,
     ...(learning ?? {}),
     ...(nearPlayers.error ? {} : { nearAccounts: count(nearPlayers) }),
+    ...(visitorsAll == null ? {} : { visitorsAll }),
+    ...(newVisitorsToday == null ? {} : { newVisitorsToday }),
+    ...(visitsToday == null ? {} : { visitsToday }),
   }
   statsCache = { at: Date.now(), value }
   return value

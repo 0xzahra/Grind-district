@@ -54,6 +54,11 @@ const withNear = formatStatsRows({ ...sample, nearAccounts: 6 }, 4)
 check(withNear.some((r) => r.kind === 'row' && r.label === 'Signed up with a NEAR wallet' && r.value === '6'), 'NEAR wallet sign-ups get their own line')
 check(!rows.some((r) => r.label === 'Signed up with a NEAR wallet'), 'no NEAR line when the count is unavailable')
 
+const withVisits = formatStatsRows({ ...sample, visitorsAll: 640, newVisitorsToday: 12, visitsToday: 31 }, 4)
+const vb = Object.fromEntries(withVisits.filter((r) => r.kind === 'row').map((r) => [r.label, r.value]))
+check(vb['Visitors, all time'] === '640' && vb['New visitors today'] === '12' && vb['Visits today (game opened)'] === '31', 'visitor lines show when counted')
+check(!labels.includes('Visitors, all time'), 'no visitor lines when the counts are unavailable')
+
 const fallback = formatStatsRows(null, 1)
 check(fallback.some((r) => r.kind === 'row' && r.label === 'Online now' && r.value === '1'), 'online now still shows when the API fails')
 check(fallback.some((r) => r.kind === 'note' && /could not load/i.test(r.label)), 'load failure is honest')

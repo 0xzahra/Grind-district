@@ -16,6 +16,9 @@ export type PublicStats = {
   cloudSavesToday: number
   logouts: number
   deletions: number
+  visitorsAll?: number
+  newVisitorsToday?: number
+  visitsToday?: number
   nearAccounts?: number
   learners?: number
   lessonsPassed?: number
@@ -46,6 +49,10 @@ export function formatStatsRows(st: PublicStats | null, onlineNow: number): Stat
   const rows: StatRow[] = [{ kind: 'title', label: 'City stats' }]
   if (st) rows.push({ kind: 'row', label: 'Active today', value: n(Math.max(st.activeToday, onlineNow)) })
   rows.push({ kind: 'row', label: 'Online now', value: n(onlineNow) })
+  // Visitors: everyone who opens the game, signed up or not. "Today" starts at midnight Lagos time.
+  if (st && typeof st.visitsToday === 'number') rows.push({ kind: 'row', label: 'Visits today (game opened)', value: n(st.visitsToday) })
+  if (st && typeof st.newVisitorsToday === 'number') rows.push({ kind: 'row', label: 'New visitors today', value: n(st.newVisitorsToday) })
+  if (st && typeof st.visitorsAll === 'number') rows.push({ kind: 'row', label: 'Visitors, all time', value: n(st.visitorsAll) })
   if (!st) {
     rows.push({ kind: 'note', label: 'Other counts could not load just now. Online now still updates as people arrive.' })
     return rows
@@ -71,7 +78,7 @@ export function formatStatsRows(st: PublicStats | null, onlineNow: number): Stat
     { kind: 'row', label: 'Logouts', value: n(st.logouts) },
     { kind: 'row', label: 'Account deletions', value: n(st.deletions) },
   )
-  const bits = ['Sign-ins, logouts and deletions count from this update onward.']
+  const bits = ['Today counts from midnight Lagos time (WAT), so the day\'s numbers start low each morning. Active today is people who opened the game today; Visitors count each browser once.', 'Sign-ins, logouts and deletions count from this update onward.']
   if (st.walletsFrom === 'privy') bits.push('Wallet connections use linked wallets from sign-in (historical). New browser-only connects are not added on top, so the same person is not counted twice.')
   else if (st.walletsFrom === 'events') bits.push('Wallet connections count from this update (browser connects).')
   else bits.push('Wallet connections will show once a source is available.')
