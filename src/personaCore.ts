@@ -355,7 +355,7 @@ export function niches(r: PersonaRecord, f: PersonaFacts): Fit[] {
     ]),
     fit('nfts', 'NFTs and collectibles', 'Mint your course certificate on NEAR after the exam.', [
       { n: passedIn(f, ['nfts']), w: 4, why: coursesWhy },
-      { n: tr('nfts') + pl('lounge') + a('mint'), w: 1.2, why: (n) => `${plural(n, 'visit')} to NFT tracks and the holders’ lounge.` },
+      { n: tr('nfts') + pl('lounge') + pl('gallery') + a('mint'), w: 1.2, why: (n) => `${plural(n, 'visit')} to the art gallery, NFT tracks and the holders’ lounge.` },
     ]),
     fit('ai', 'AI agents', 'Open the Agents page and pass “Agents”.', [
       { n: passedIn(f, ['agents']), w: 5, why: coursesWhy },

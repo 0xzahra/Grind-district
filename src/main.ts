@@ -1690,6 +1690,7 @@ const apiAgents = createRemoteAgents(scene)
   const fadeScreen = () => { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
   let homeBusy = false
   const enterHome = async (id: AreaId, viewing: boolean, at?: [number, number]) => {
+    notePlace(id)
     if (homeBusy) return
     if (ride?.driving) { ui.toast('Park the car first.'); return }
     if (interiors.inside) { ui.toast('Step outside first.'); return }
@@ -1701,7 +1702,7 @@ const apiAgents = createRemoteAgents(scene)
       const s = h.enter(id, viewing)
       // From the map: arrive at a particular place inside the area (the zoo, the golf course, the cliffs).
       if (at && (id === 'park' || id === 'airport')) { s.x = at[0]; s.z = at[1]; s.y = 0 }
-      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' || id === 'surf' ? null : id)
+      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' || id === 'surf' || id === 'gallery' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
       pos.x = s.x; pos.z = s.z; levelY = s.y
@@ -1711,7 +1712,7 @@ const apiAgents = createRemoteAgents(scene)
       camYaw = s.heading + Math.PI
       cameraReady = false
       avatar.object.position.set(pos.x, levelY, pos.z)
-      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'surf' ? 'Grind Surf School. Walk up to the shack and grab a board: paddle out, pop up, ride one in.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : id === 'grad' ? 'The Great Hall. Cap and gown on: take your seat with the class.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'surf' ? 'Grind Surf School. Walk up to the shack and grab a board: paddle out, pop up, ride one in.' : id === 'gallery' ? 'Grind Art Gallery: ON-CHAIN. Every work here is read live from Ethereum. Walk up to one and look closer.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : id === 'grad' ? 'The Great Hall. Cap and gown on: take your seat with the class.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
     } finally { homeBusy = false }
   }
   const leaveHome = () => {
@@ -2459,6 +2460,8 @@ const apiAgents = createRemoteAgents(scene)
     if (safe.y < 0.4) safe.y = 0.4
     if (!indoors) keepOutOfBuildings(lookTarget, safe)
     if (indoors) cutAway(safe)
+    // The art gallery is a closed hall: keep the camera inside its walls (it would look in from outside).
+    if (!indoors && homes?.inside === 'gallery') { const b = homes.bounds(); if (b) { safe.x = THREE.MathUtils.clamp(safe.x, b.x - b.hw - 0.35, b.x + b.hw + 0.35); safe.z = THREE.MathUtils.clamp(safe.z, b.z - b.hd - 0.35, b.z + b.hd + 0.35); safe.y = Math.min(safe.y, 6.1) } }
     camera.position.copy(safe)
     { // Very subtle walk sway (off with reduced motion).
       const sp = Math.hypot(vel.x, vel.z)
@@ -2468,8 +2471,8 @@ const apiAgents = createRemoteAgents(scene)
       camera.position.x += Math.cos(bob) * amp * 0.5
     }
     // No leaves or snow indoors (the Great Hall, the mall) or up in a plane.
-    seasons.tick(dt, camera, !interiors.inside && !homes?.flying && homes?.inside !== 'grad' && homes?.inside !== 'mall')
-    { const pulse = weather.tick(dt, camera, !interiors.inside, calmSky())
+    seasons.tick(dt, camera, !interiors.inside && !homes?.flying && homes?.inside !== 'grad' && homes?.inside !== 'mall' && homes?.inside !== 'gallery')
+    { const pulse = weather.tick(dt, camera, !interiors.inside && homes?.inside !== 'gallery', calmSky())
       world.hemi.intensity = hemiBase * (1 - 0.18 * weather.rain()) + pulse * 0.9
       post.setFocus(camera.position.distanceTo(lookTarget)) }
     // Cinematic intro: a high crane sweep over the skyline that settles behind the player.

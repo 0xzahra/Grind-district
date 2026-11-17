@@ -135,6 +135,9 @@ export function buildSurf(A: Arch, X: TravelCtx): void {
     }
     X.startMove(m)
   }
+  // The way back up: steps from the sand to the promenade.
+  cube(g, 3.2, 0.18, 0.6, std(0xd9cdb4, 0.9), -24, 0.09, -62.9); cube(g, 3.2, 0.36, 0.6, std(0xd9cdb4, 0.9), -24, 0.18, -62.4)
+  A.use(0, { id: 'home-exit', x: -24, z: -63.6, r: 1.3, title: 'Steps', body: 'Back up to the promenade.', enter: 'Back to the promenade', use: () => undefined })
   A.use(0, {
     id: 'surf-go', x: SHACK.x + 3.2, z: SHACK.z - 2.4, r: 2.0, title: 'Grind Surf School',
     body: 'A board, a leash and a coach. Paddle out past the break, wait for a set, pop up and ride a wave all the way in. About half a minute.',

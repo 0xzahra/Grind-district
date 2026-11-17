@@ -3857,3 +3857,12 @@ details.pfold .pfold-body > section { padding: 0 !important; border: 0 !importan
 details.pfold .pfold-body > section > h3:first-child { margin-top: 4px !important; }
 html[data-ui='light'] details.pfold:not([open]) .pfold-chev { background: var(--key-ivory); color: #1d1b17; border-color: rgba(70, 56, 34, 0.45); box-shadow: inset 0 1px 0 #fff, 0 2px 0 #b9b09e, 0 6px 14px rgba(20, 16, 10, 0.18); }
 @media (prefers-reduced-motion: reduce) { details.pfold .pfold-chev::before { transition: none; } }
+
+/* Grind Art Gallery work card (gallery.ts): the work large, its label facts, the Etherscan link. */
+#gd-modal .gm-art { width: min(560px, 100%); }
+#gd-modal .gm-art-img { display: block; width: 100%; max-height: 52vh; object-fit: contain; margin: 12px 0 8px; border-radius: 6px; background: #0e0f11; box-shadow: 0 0 0 10px #f7f6f2, 0 0 0 14px #1c1a18, 0 12px 30px rgba(0, 0, 0, 0.45); margin-inline: auto; max-width: calc(100% - 28px); }
+#gd-modal .gm-art-by { margin: 18px 0 0; font-weight: 700; font-size: 14px; }
+#gd-modal .gm-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 12px 0 0; font-size: 13px; }
+#gd-modal .gm-facts dt { color: rgba(246, 241, 230, 0.6); } #gd-modal .gm-facts dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-word; }
+#gd-modal .gm-small { margin: 10px 0 0; font-size: 11.5px; color: rgba(246, 241, 230, 0.55); }
+html[data-ui='light'] #gd-modal .gm-facts dt, html[data-ui='light'] #gd-modal .gm-small { color: #6b655a; }

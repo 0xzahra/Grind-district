@@ -84,6 +84,23 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   // The harbour launch: a day cruiser out on the bay, free for everyone (ride.ts).
   o.hotspots.push({ id: 'cruise', x: 36, z: -45.2, r: 2.4, title: 'Harbour launch', body: 'Take the day cruiser out on the bay, round the buoys and the lighthouse. Free.', enter: 'Cast off',
     use: () => window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'boat', model: 'cruiser', label: 'Day cruiser', mode: 'cruise', temp: true } })) })
+  // Grind Art Gallery: the door to ON-CHAIN, NFTs read live from Ethereum (gallery.ts).
+  {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128
+    const g = c.getContext('2d')!
+    g.fillStyle = '#16181b'; g.fillRect(0, 0, 512, 128)
+    g.fillStyle = '#ffffff'; g.font = '800 46px "Inter Variable", Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    g.fillText('ART GALLERY', 256, 46)
+    g.fillStyle = '#c9a96a'; g.font = '600 28px "Inter Variable", Inter, system-ui, sans-serif'; g.fillText('ON-CHAIN · NFTs from Ethereum', 256, 98)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.58), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35 }))
+    sign.position.set(10, 1.75, -59.78)
+    const back = sign.clone(); back.rotation.y = Math.PI; back.position.z = -59.82
+    scene.add(sign, back)
+    box(M.dark, 0.1, 2.0, 0.1, 8.9, 0, -59.8); box(M.dark, 0.1, 2.0, 0.1, 11.1, 0, -59.8)
+  }
+  o.hotspots.push({ id: 'art-gallery', x: 10, z: -58.2, r: 1.8, title: 'Grind Art Gallery', body: 'ON-CHAIN: Beeple, Bored Apes, CryptoPunks, Art Blocks and more, read live from Ethereum and hung like real art. Free.', enter: 'Visit the gallery',
+    use: () => window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'gallery', viewing: true } })) })
   // Grind Surf School: steps from the promenade down to the shack on the sand (surf.ts).
   {
     const c = document.createElement('canvas'); c.width = 512; c.height = 128

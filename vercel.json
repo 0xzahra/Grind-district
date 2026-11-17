@@ -154,6 +154,9 @@
   "functions": {
     "api/page.ts": {
       "includeFiles": "{api/_fonts/**,public/brand/lockup.png,public/brand/shrimp.png}"
+    },
+    "api/track.ts": {
+      "maxDuration": 30
     }
   }
 }
