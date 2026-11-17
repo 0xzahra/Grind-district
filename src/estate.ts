@@ -84,6 +84,24 @@ export function createEstate(scene: THREE.Scene, o: { graphics: Graphics; obstac
   // The harbour launch: a day cruiser out on the bay, free for everyone (ride.ts).
   o.hotspots.push({ id: 'cruise', x: 36, z: -45.2, r: 2.4, title: 'Harbour launch', body: 'Take the day cruiser out on the bay, round the buoys and the lighthouse. Free.', enter: 'Cast off',
     use: () => window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'boat', model: 'cruiser', label: 'Day cruiser', mode: 'cruise', temp: true } })) })
+  // Grind Surf School: steps from the promenade down to the shack on the sand (surf.ts).
+  {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128
+    const g = c.getContext('2d')!
+    g.fillStyle = '#0d4a5c'; g.fillRect(0, 0, 512, 128)
+    g.fillStyle = '#ffe7a3'; g.font = '800 50px "Inter Variable", Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    g.fillText('SURF SCHOOL', 256, 46)
+    g.fillStyle = '#ffffff'; g.font = '600 30px "Inter Variable", Inter, system-ui, sans-serif'; g.fillText('boards · coach · waves', 256, 98)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+    // Readable from both sides: a front face and a turned back face (one double-sided plane reads mirrored).
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.58), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35 }))
+    sign.position.set(-24, 1.75, -59.78)
+    const back = sign.clone(); back.rotation.y = Math.PI; back.position.z = -59.82
+    scene.add(sign, back)
+    box(M.dark, 0.1, 2.0, 0.1, -25.1, 0, -59.8); box(M.dark, 0.1, 2.0, 0.1, -22.9, 0, -59.8)
+  }
+  o.hotspots.push({ id: 'surf-school', x: -24, z: -58.2, r: 1.8, title: 'Grind Surf School', body: 'Down the steps to the sand: grab a board, paddle out past the break and ride a wave back in. $20 a session.', enter: 'Go to the surf school',
+    use: () => window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'surf' } })) })
   // Party cruises: a board by the harbour; the yacht itself waits at a jetty off the beach (travel.ts).
   box(M.dark, 0.1, 2.0, 0.1, 29.4, 0, -46.6); box(M.dark, 0.1, 2.0, 0.1, 31.6, 0, -46.6)
   {

@@ -15,12 +15,13 @@ import { buildParkPlus } from './parkPlus.ts'
 import { buildHotel, buildMall, HOTEL, MALL } from './venues.ts'
 import { buildGraduation, HALL } from './graduation.ts'
 import { buildAdventures } from './adventure.ts'
+import { buildSurf } from './surf.ts'
 
 export type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
-export type AreaId = HomeId | 'park' | 'airport' | 'yacht' | 'hotel' | 'mall' | 'grad'
+export type AreaId = HomeId | 'park' | 'airport' | 'yacht' | 'hotel' | 'mall' | 'grad' | 'surf'
 /** Places anyone can visit (not homes you own): no styles, no arranging, nothing saved. */
-export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht', 'hotel', 'mall', 'grad']
+export const PUBLIC_AREAS: AreaId[] = ['park', 'airport', 'yacht', 'hotel', 'mall', 'grad', 'surf']
 const isPublic = (id: AreaId) => PUBLIC_AREAS.includes(id)
 /** Outside pieces that hide while you're in that place (so the camera isn't boxed in). */
 const SHELLS = ['shell-penthouse', 'shell-skyhouse', 'shell-hotel', 'shell-mall']
@@ -350,6 +351,16 @@ function plans(): Record<AreaId, Plan> {
       levels: [{ y: 0, walk: R(HALL.x - 17, HALL.z - 13, HALL.x + 17, HALL.z + 21), pools: [] }],
       spawn: { x: HALL.x - 1.2, z: HALL.z - 7, heading: Math.PI, lv: 0 },
       exitTo: { x: 2.6, z: -39.6 },
+      house: null,
+      pieces: [],
+      build: () => {},
+    },
+    // Grind Surf School on the sand west of the jetty (surf.ts): a shack, boards and the sea.
+    surf: {
+      id: 'surf',
+      levels: [{ y: 0, walk: R(-36, -79.5, -14, -62.5), pools: [] }],
+      spawn: { x: -24, z: -63.5, heading: Math.PI, lv: 0 },
+      exitTo: { x: -24, z: -57.6 },
       house: null,
       pieces: [],
       build: () => {},
@@ -713,6 +724,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     if (plan.id === 'airport') { buildAirport(A, travel); buildAdventures(A, travel) }
     if (plan.id === 'grad') buildGraduation(A, travel)
     if (plan.id === 'yacht') buildYacht(A, travel)
+    if (plan.id === 'surf') buildSurf(A, travel)
     if (plan.id === 'hotel') buildHotel(A, travel)
     if (plan.id === 'mall') buildMall(A, travel)
     // Everything in an area is scenery to the camera (people load in later and mark themselves).
@@ -1133,7 +1145,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get inside() { return inside },
     get viewing() { return viewing },
     get arranging() { return arranging },
-    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : plan.id === 'hotel' ? 'The Grind Grand' : plan.id === 'mall' ? 'Grind Mall' : plan.id === 'grad' ? 'The Great Hall' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
+    get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : plan.id === 'surf' ? 'Grind Surf School' : plan.id === 'hotel' ? 'The Grind Grand' : plan.id === 'mall' ? 'Grind Mall' : plan.id === 'grad' ? 'The Great Hall' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },
     /** On a flight: the camera sees much further, the haze thins and the sky follows you up. */
     get flying() { return flying },
     /** Tests only: run rides and flights faster. */

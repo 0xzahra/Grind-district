@@ -1701,7 +1701,7 @@ const apiAgents = createRemoteAgents(scene)
       const s = h.enter(id, viewing)
       // From the map: arrive at a particular place inside the area (the zoo, the golf course, the cliffs).
       if (at && (id === 'park' || id === 'airport')) { s.x = at[0]; s.z = at[1]; s.y = 0 }
-      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' ? null : id)
+      setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' || id === 'surf' ? null : id)
       fadeScreen()
       await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
       pos.x = s.x; pos.z = s.z; levelY = s.y
@@ -1711,7 +1711,7 @@ const apiAgents = createRemoteAgents(scene)
       camYaw = s.heading + Math.PI
       cameraReady = false
       avatar.object.position.set(pos.x, levelY, pos.z)
-      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : id === 'grad' ? 'The Great Hall. Cap and gown on: take your seat with the class.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
+      ui.toast(id === 'park' ? 'Grind Park: the Ferris wheel, the carousel, the lake and an ice cream. The train back is at the gate.' : id === 'airport' ? 'Grind International Airport. Check in for flight GA 101 over the city, or charter the party jet in the Grind One Lounge.' : id === 'yacht' ? 'All aboard the party yacht. The DJ\'s on, and we cast off in a moment.' : id === 'surf' ? 'Grind Surf School. Walk up to the shack and grab a board: paddle out, pop up, ride one in.' : id === 'hotel' ? 'The Grind Grand. Book a suite at reception, or take the lift to the rooftop pool and sky bar.' : id === 'mall' ? 'Grind Mall: Grind Fresh supermarket at the back, shops on the right, the food court and cinema upstairs.' : id === 'grad' ? 'The Great Hall. Cap and gown on: take your seat with the class.' : viewing ? `A free viewing of the ${h.title.toLowerCase()}. Try a look on, then buy at Grind Realty.` : `Welcome home to your ${h.title.toLowerCase()}.`)
     } finally { homeBusy = false }
   }
   const leaveHome = () => {
@@ -1738,6 +1738,11 @@ const apiAgents = createRemoteAgents(scene)
       const paid = spendInGame(150, 'Party yacht cruise', 'DJ, guests and the bay at sunset')
       if (!paid.ok) { ui.toast(paid.message); return }
       void enterHome('yacht', true)
+    }
+    else if (d.op === 'surf') {
+      // Surfing: free to walk down to the school; a session is paid at the shack.
+      if (ride?.driving) { ui.toast('Park the car first.'); return }
+      void enterHome('surf', true)
     }
   })
   ;(window as unknown as { __homes?: () => Homes | null }).__homes = import.meta.env.DEV ? () => homes : undefined
