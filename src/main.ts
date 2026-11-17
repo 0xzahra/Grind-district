@@ -834,7 +834,8 @@ const apiAgents = createRemoteAgents(scene)
     document.body.classList.toggle('rail-shut', !open)
     nav.inert = !open // keyboard and screen readers skip the shut menu too
     railToggle.setAttribute('aria-expanded', String(open))
-    if (open) { paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
+    // One layer at a time: opening the menu shuts any open panel, so the two never stack.
+    if (open) { if (ui.isOpen()) ui.close(); paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
     else closeSheet()
   }
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
@@ -1449,7 +1450,8 @@ const apiAgents = createRemoteAgents(scene)
     const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement
     if (typing || event.repeat || event.ctrlKey || event.metaKey) return
     if ((event.key === 'h' || event.key === 'H') && !ui.isOpen()) goHome()
-    if (event.key === 'm' || event.key === 'M') must<HTMLButtonElement>('#nav-city').click()
+    // M opens the map on its own: shut the menu first so the map does not open on top of it.
+    if (event.key === 'm' || event.key === 'M') { if (!document.body.classList.contains('rail-shut')) setCC(false); must<HTMLButtonElement>('#nav-city').click() }
   })
   let busyFor = 0
   let exitCooldown = 0
