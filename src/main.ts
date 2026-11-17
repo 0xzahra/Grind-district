@@ -1392,6 +1392,7 @@ const apiAgents = createRemoteAgents(scene)
 
   // Start at a 3/4-front angle so the player's face is visible.
   let camYaw = Math.PI + 0.45
+  let moveBasisYaw: number | null = null // phones: the walk direction is held while the stick is held (see update)
   let faceYaw = Math.PI
   let stillFor = 0
   let camPitch = 0.42
@@ -2134,11 +2135,16 @@ const apiAgents = createRemoteAgents(scene)
       }
     }
 
-    const forwardX = -Math.sin(camYaw)
-    const forwardZ = -Math.cos(camYaw)
-    const rightX = Math.cos(camYaw)
-    const rightZ = -Math.sin(camYaw)
     directed = !paused && Math.hypot(frame.x, frame.y) > 0.06
+    // Phones: while the stick is held, the walking direction stays the one it was pressed in, so the camera can
+    // come round behind the player (below) without bending the path. Looking around by drag still steers.
+    if (!directed) moveBasisYaw = null
+    else if (moveBasisYaw === null || lookIdle < 0.3 || !matchMedia('(pointer: coarse)').matches) moveBasisYaw = camYaw
+    const basisYaw = moveBasisYaw ?? camYaw
+    const forwardX = -Math.sin(basisYaw)
+    const forwardZ = -Math.cos(basisYaw)
+    const rightX = Math.cos(basisYaw)
+    const rightZ = -Math.sin(basisYaw)
     // A person's card goes as soon as you walk on.
     if (npcCard && directed) { npcCard.remove(); npcCard = null }
     let wishX = 0
@@ -2311,6 +2317,13 @@ const apiAgents = createRemoteAgents(scene)
       const behind = ride.heading + Math.PI
       const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
       camYaw += delta * (1 - Math.exp(-(Math.abs(ride.speed) > 1 ? 3.2 : 1.2) * dt))
+    }
+    // Phones, stick held: the camera comes round behind the walking direction, so a player who walks toward the
+    // camera soon sees their character's back instead of walking face-first at the screen ("walking backward").
+    if (coarseCam && directed && lookIdle > 0.6 && Math.hypot(vel.x, vel.z) > 1 && !paused && !ride?.driving) {
+      const behind = Math.atan2(-vel.x, -vel.z)
+      const delta = Math.atan2(Math.sin(behind - camYaw), Math.cos(behind - camYaw))
+      camYaw += delta * (1 - Math.exp(-1.6 * dt))
     }
     if (lookIdle > (coarseCam ? 2.8 : 1.6) && directed === false && Math.hypot(vel.x, vel.z) > 1 && !paused) {
       const behind = Math.atan2(-vel.x, -vel.z)
