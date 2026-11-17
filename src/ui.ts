@@ -365,7 +365,28 @@ export function mountUi(
     btns.forEach((b, i) => { b.setAttribute('aria-label', labels[i] ?? ''); b.title = labels[i] ?? '' })
     s.append(...btns); return s
   }
-  const renderProfile = (): HTMLElement => {
+  // Profile sections fold away under their titles so the sheet is not overwhelming: only the portrait, name and
+  // username stay open. Each fold remembers whether the player left it open (this device only).
+  const fold = (title: string, open: boolean, ...nodes: Node[]): HTMLElement => {
+    const d = document.createElement('details'); d.className = 'pfold glass'
+    const k = `gd.pfold.${title}`
+    try { const v = localStorage.getItem(k); d.open = v === null ? open : v === '1' } catch { d.open = open }
+    const s = document.createElement('summary'); s.className = 'pfold-head'
+    const t = document.createElement('span'); t.className = 'pfold-title'; t.textContent = title
+    const chev = document.createElement('span'); chev.className = 'pfold-chev'; chev.setAttribute('aria-hidden', 'true')
+    s.append(t, chev)
+    const body = document.createElement('div'); body.className = 'pfold-body'; body.append(...nodes)
+    d.append(s, body)
+    d.addEventListener('toggle', () => { try { localStorage.setItem(k, d.open ? '1' : '0') } catch { /* private mode */ } })
+    return d
+  }
+  /** A section that brings its own heading: the heading becomes the fold's title. */
+  const foldOwn = (sec: HTMLElement, fallback: string): HTMLElement => {
+    const h = sec.querySelector(':scope > h3'); const title = h?.textContent?.trim() || fallback
+    h?.remove(); sec.classList.remove('glass')
+    return fold(title, false, sec)
+  }
+  const renderProfile = (cvFirst = false): HTMLElement => {
     const save = getSave()
     const hero = document.createElement('div')
     hero.className = 'profile-hero'
@@ -387,27 +408,18 @@ export function mountUi(
     plate.append(pn, pu)
     markPlate(plate)
     hero.append(plate, renderBadges())
-    const glass = document.createElement('section')
-    glass.className = 'glass'
-    const head = (text: string) => { const h = document.createElement('h3'); h.textContent = text; return h }
     const certIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
-    // The core loop's payoff comes first: the CV and its certificates, right under the name card.
-    glass.append(
-      head('CV'), (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length >= 3) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (certIds.length < 3) wrap.append(para(`Pass ${3 - certIds.length} more course${certIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted')); return wrap })(),
-      // Certificates sit with the CV they belong to.
-      head('Certificates'), (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })(), document.createElement('hr'),
-    )
-    const more = document.createElement('section')
-    more.className = 'glass'
-    more.append(renderLuxury(), head('Birthday and calendar'), renderCalendar(), head('Books'), renderBooks())
+    // The core loop's payoff comes first: the CV and its certificates, right under the name card. The CV opens by
+    // itself the first time a player comes to see their first course on it.
+    const cvFold = fold('CV', cvFirst && certIds.length > 0, (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length >= 3) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (certIds.length < 3) wrap.append(para(`Pass ${3 - certIds.length} more course${certIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted')); return wrap })())
+    // Certificates sit with the CV they belong to.
+    const certFold = fold('Certificates', false, (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })())
     // Certificates minted on NEAR are read back from the chain and marked Verified (CV, list, nameplate).
-    if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(glass) })
-    const share = document.createElement('section')
-    share.className = 'glass'
+    if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(cvFold); void m.markVerified(certFold) })
+    const share = document.createElement('div')
     const link = (src: 'profile' | 'invite') => src === 'profile' ? profileLink(save.username) : shareLink('/', 'invite', save.username)
     const status = para('', 'muted')
     share.append(
-      head('Invite and share'),
       photoCardNodes({ para, button }, () => hooks.portrait?.(0, undefined, true) ?? null, (m) => toast(m)),
       // Today's journal: "A day in my Web3 life" as a card (journal.ts, loaded only when asked for).
       (() => {
@@ -437,7 +449,17 @@ export function mountUi(
     // Your Web3 personality: traits, roles and niche read from how you play (persona.ts).
     let persona: HTMLElement
     try { persona = personaNodes({ para, button }, (m) => toast(m)) } catch { persona = document.createElement('div') }
-    const card = frame(save.name, stack(hero, glass, renderToday(save), persona, more, share, renderRewardWallet(), advice()))
+    const card = frame(save.name, stack(
+      hero, cvFold, certFold,
+      fold('Today: balance, streak and quests', false, renderToday(save)),
+      foldOwn(persona, 'Your Web3 personality'),
+      foldOwn(renderLuxury(), 'Status & unlocks'),
+      fold('Birthday and calendar', false, renderCalendar()),
+      fold('Books', false, renderBooks()),
+      fold('Invite and share', false, share),
+      foldOwn(renderRewardWallet(), 'Rewards wallet (Base)'),
+      advice(),
+    ))
     card.classList.add('glass-sheet')
     return card
   }
@@ -1425,9 +1447,11 @@ export function mountUi(
           para('Your first step: follow the gold marker north to Campus. Zahra gives you a 1-minute lesson.'),
           button("Let's go", 'primary', close),
         ])
-      case 'profile':
-        try { if (Object.values(getSave().skills).some((k) => k?.passed)) localStorage.setItem('gd.cvSeen', '1') } catch { /* private mode */ }
-        return renderProfile()
+      case 'profile': {
+        let cvFirst = false
+        try { cvFirst = !localStorage.getItem('gd.cvSeen'); if (Object.values(getSave().skills).some((k) => k?.passed)) localStorage.setItem('gd.cvSeen', '1') } catch { /* private mode */ }
+        return renderProfile(cvFirst)
+      }
       case 'learn':
         return renderLearn()
       case 'trade':
