@@ -1393,6 +1393,25 @@ const apiAgents = createRemoteAgents(scene)
   // Start at a 3/4-front angle so the player's face is visible.
   let camYaw = Math.PI + 0.45
   let moveBasisYaw: number | null = null // phones: the walk direction is held while the stick is held (see update)
+  // Swimming (see the pool block in update): state, and the swimwear chosen in the Boutique (gd.swimwear).
+  let swimming = false, swimMove = 0, swimY = 0, swimPosed = false, outOfWater = 0
+  let swimSaved: Record<string, unknown> | null = null
+  const swimwearOn = () => {
+    const apply = avatar.object.userData.applyLook as ((l: Record<string, unknown>) => void) | undefined
+    const cur = avatar.object.userData.look as Record<string, unknown> | undefined
+    if (swimSaved || !apply || !cur) return
+    swimSaved = cur
+    let w: { kind?: string; color?: number; color2?: number } = {}
+    try { w = JSON.parse(localStorage.getItem('gd.swimwear') ?? '{}') as typeof w } catch { /* default */ }
+    const color = typeof w.color === 'number' ? w.color : 0x1f6fb2
+    const second = w.kind === 'set' ? (typeof w.color2 === 'number' ? w.color2 : 0x1c2230) : color
+    apply({ ...cur, top: color, bottom: second, shoes: 0x1c2230, robe: false, figure: undefined })
+  }
+  const swimwearOff = () => {
+    const apply = avatar.object.userData.applyLook as ((l: Record<string, unknown>) => void) | undefined
+    if (swimSaved && apply) apply(swimSaved)
+    swimSaved = null
+  }
   let faceYaw = Math.PI
   let stillFor = 0
   let camPitch = 0.42
@@ -1436,6 +1455,7 @@ const apiAgents = createRemoteAgents(scene)
   let exitCooldown = 0
   performance.mark('gd:ui-net')
   const interiors = createInteriors(scene, {
+    player: () => pos,
     rankIndex: () => RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id),
     toast: (text) => ui.toast(text),
     openPanel: (panel) => ui.open(panel),
@@ -1944,7 +1964,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -2175,9 +2195,10 @@ const apiAgents = createRemoteAgents(scene)
     const dirZ = wishLen > 0.001 ? wishZ / wishLen : 0
     // Walking to a tapped spot is always a walk; only the joystick and keys run.
     const tapWalk = !directed && target !== null
-    const running = !tapWalk && (frame.run || frame.stick > 0.88)
+    const running = !tapWalk && !swimming && (frame.run || frame.stick > 0.88)
     sprinting = running && mag > 0.2
-    const speed = tapWalk ? TAP_WALK * mag : (running ? RUN : WALK) * mag
+    // In a pool the player swims: slower than walking.
+    const speed = (tapWalk ? TAP_WALK * mag : (running ? RUN : WALK) * mag) * (swimming ? 0.55 : 1)
     // Accelerate briskly, brake harder, and settle to an exact stop so the body never drifts.
     const rate = 1 - Math.exp(-(speed > 0.01 ? 10 : 16) * dt)
     vel.x += (dirX * speed - vel.x) * rate
@@ -2224,6 +2245,30 @@ const apiAgents = createRemoteAgents(scene)
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     seating.apply(avatar.object, dt)
+    // Pools (homes, the hotel and the indoor pool at home): tread water when still, swim face down when moving.
+    {
+      const waterY = homes?.inside ? homes.waterY(pos.x, pos.z) : interiors.waterY(pos.x, pos.z)
+      const inWater = waterY !== null && !seating.sitting
+      swimming = inWater
+      swimMove += ((inWater && moving ? 1 : 0) - swimMove) * (1 - Math.exp(-4 * dt))
+      const baseY = homes?.inside ? levelY : 0
+      const bob = inWater ? Math.sin(elapsed * 2.2) * 0.03 : 0
+      const wantY = inWater ? waterY - (1.32 - 0.34 * swimMove) + bob : baseY
+      swimY = Math.abs(swimY - wantY) > 3 ? wantY : swimY + (wantY - swimY) * (1 - Math.exp(-8 * dt))
+      if (inWater || Math.abs(swimY - baseY) > 0.01) avatar.object.position.y = swimY
+      else swimY = baseY
+      const person = avatar.object.userData.person as THREE.Object3D | undefined
+      if (person && !seating.sitting && (inWater || swimPosed)) {
+        // Lie forward about the hips (0.9 m up) so the body stays where the player is, not out in front.
+        const th = 1.35 * swimMove
+        person.rotation.x = th
+        person.position.set(0, 0.9 * (1 - Math.cos(th)), -0.9 * Math.sin(th))
+        swimPosed = th > 0.002 || inWater
+        if (!swimPosed) { person.rotation.x = 0; person.position.set(0, 0, 0) }
+      }
+      // Swimwear goes on in the water and the day's clothes come back a moment after climbing out.
+      if (inWater) { outOfWater = 0; swimwearOn() } else if (swimSaved && (outOfWater += dt) > 1.2) swimwearOff()
+    }
     }
     if (firstMarker.parent) {
       // Slow spin + tiny bob so it reads as a Campus waypoint, not a clipping toy.

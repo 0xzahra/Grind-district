@@ -21,7 +21,7 @@ import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers,
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
 export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
-type Hooks = { toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
+type Hooks = { player?: () => { x: number; z: number }; toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
 const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2, lounge: -3 }
@@ -53,6 +53,7 @@ function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
 
 export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[] }>()
+  let housePool: { x0: number; x1: number; z0: number; z1: number } | null = null
   const lamp = new THREE.PointLight(0xffd29a, 0, 18, 1.6)
   lamp.position.set(0, -50, 0)
   scene.add(lamp)
@@ -395,13 +396,13 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         m.castShadow = true
       }
       for (const y of [0.09]) box(0.6, 0.02, 0.08, chrome, 7.6, 1.84, y, false)
-      // Slightly inside the water edge so the player can stand right at the rim on the narrow deck.
-      obstacles.push({ kind: 'box', x: o.x + 7.6, z: o.z + 4.0, hx: 1.15, hz: 2.15 })
+      // The basin is a real pool: walk in and you swim (main.ts reads waterY). Its rectangle, in world space.
+      housePool = { x0: o.x + 6.4, x1: o.x + 8.8, z0: o.z + 1.8, z1: o.z + 6.2 }
       seat('pool', 'Pool edge', 6.3, 4.0, Math.PI / 2, 0.1)
       // Windows.
       for (const x of [-0.5, 7.0]) northWall.attach(box(1.8, 1.2, 0.04, new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.12, roughness: 0.1 }), x, -d / 2 + 0.02, 1.4, false))
       // Daily life: gas cooker, fridge, utensils and food, doors, bathroom, laundry, garden, lounger (homeLife.ts).
-      buildHomeLife({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, wall: part, walls: { north: northWall, east: eastWall, bath: bathWall } })
+      buildHomeLife({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, player: hooks.player, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, wall: part, walls: { north: northWall, east: eastWall, bath: bathWall } })
       // Switches, ceiling lights, the plasma and the appliances (homeTech.ts). The room lamp follows the switches.
       buildHomeTech({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, setLights: (f) => { houseLight = f; if (inside === 'house') { lamp.intensity = 5.5 * (0.18 + 0.82 * f); roomFill.intensity = 0.22 * (0.4 + 0.6 * f) } } })
     }
@@ -1001,6 +1002,11 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   }
   return {
     get inside() { return inside },
+    /** The water's surface height when (x, z) is in the home's indoor pool, else null. */
+    waterY(x: number, z: number): number | null {
+      const p = housePool
+      return inside === 'house' && floorLevel === 0 && p && x > p.x0 && x < p.x1 && z > p.z0 && z < p.z1 ? 0.1 : null
+    },
     roomFor(spotId: string): RoomId | null {
       for (const id of Object.keys(STREET) as RoomId[]) if (STREET[id].spot === spotId) return id
       return null

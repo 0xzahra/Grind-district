@@ -637,6 +637,8 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
   }
 
   const first = (root.userData.look as Look | undefined) ?? opts.look
+  // Remember the starting look too, so a temporary outfit (swimwear in a pool) can be put on and taken off again.
+  if (first && !root.userData.look) root.userData.look = first
   root.userData.applyLook = (next: Look) => {
     root.userData.look = next
     const want = figure(model, next)

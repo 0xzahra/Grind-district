@@ -18,6 +18,8 @@ export type HomeCtx = {
   obstacles: Obstacle[]
   use: (u: UseSpec) => void
   toast: (m: string) => void
+  /** The player's world position, for doors that open as they come near (left open without it). */
+  player?: () => { x: number; z: number }
   sit: (s: Seat) => void
   busy: (seconds: number, x: number, z: number, yaw: number) => void
   wall: THREE.Material
@@ -239,6 +241,19 @@ export function buildHomeLife(c: HomeCtx): void {
       const leaf = solid(leafMat, mergeGeometries(slab)!, 0, 0, 0, pivot)
       const lever = mergeGeometries([-1, 1].flatMap((s) => [new THREE.CylinderGeometry(0.011, 0.011, 0.05, 8).rotateX(Math.PI / 2).translate(lw - 0.09, 1.02, s * 0.045), new THREE.BoxGeometry(0.12, 0.018, 0.014).translate(lw - 0.14, 1.02, s * 0.07)]))!
       solid(M.chrome, lever, 0, 0, 0, leaf).raycast = () => undefined
+      // A real door: it hangs closed across the opening and swings open (to where it used to stand) as the player
+      // comes within a couple of steps, then closes behind them. Animated only while it is on screen.
+      const closed = Math.atan2(-(along === 'z' ? z - pz : 0), along === 'x' ? x - px : 0)
+      const swing = Math.atan2(Math.sin(yaw - closed), Math.cos(yaw - closed))
+      let opened = c.player ? 0 : 1, last = performance.now()
+      pivot.rotation.y = closed + swing * opened
+      leaf.onBeforeRender = () => {
+        const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now
+        const p = c.player?.()
+        const near = !p || Math.hypot(p.x - (c.ox + x), p.z - (c.oz + z)) < 1.8
+        opened += ((near ? 1 : 0) - opened) * Math.min(1, dt * 5)
+        pivot.rotation.y = closed + swing * opened
+      }
       return leaf
     }
     // The bedroom's open north-east corner gets a post, so its two doorways are real openings.

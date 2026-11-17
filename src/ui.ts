@@ -976,6 +976,23 @@ export function mountUi(
       `${slot!.collection}: ${isLicensed(id as MaskId) ? 'licensed face live' : 'awaiting permission (original placeholder)'}`)
     wrap.append(para(slotRows.length ? slotRows.join(' · ') : 'Collection slots load with the city.', 'muted'))
     }
+    // Swimwear: free, worn automatically in any pool and swapped back for your clothes when you climb out (main.ts).
+    {
+      let sw: { kind?: string; color?: number; color2?: number } = {}
+      try { sw = JSON.parse(localStorage.getItem('gd.swimwear') ?? '{}') as typeof sw } catch { /* default */ }
+      const kind = sw.kind === 'set' ? 'set' : 'suit'
+      const color = typeof sw.color === 'number' ? sw.color : 0x1f6fb2
+      const keep = (next: typeof sw) => { try { localStorage.setItem('gd.swimwear', JSON.stringify(next)) } catch { /* this visit only */ } toast('Swimwear saved. You change into it in any pool.'); open('boutique') }
+      const cuts = document.createElement('div'); cuts.className = 'tabs'
+      for (const [id, label] of [['suit', 'Full swimsuit'], ['set', 'Swim top and leggings']] as const) cuts.append(button(label, kind === id ? 'primary' : 'ghost', () => keep({ ...sw, kind: id, color })))
+      const shades = document.createElement('div'); shades.className = 'tabs swatches'
+      for (const [hex, name] of [[0x1f6fb2, 'Ocean'], [0xe0654f, 'Coral'], [0x16181c, 'Black'], [0x169b62, 'Emerald'], [0xf2c230, 'Sunshine'], [0xd9468f, 'Rose']] as const) {
+        const b = button('', color === hex ? 'primary' : 'ghost', () => keep({ ...sw, kind, color: hex }))
+        b.style.setProperty('background', `#${hex.toString(16).padStart(6, '0')}`, 'important'); b.title = name; b.setAttribute('aria-label', `Swimwear colour ${name}`)
+        shades.append(b)
+      }
+      wrap.append(para('Swimwear · free', 'kicker'), cuts, shades, para('You change into it as soon as you get into a pool (at home, in the luxury homes and on the hotel roof) and back into your clothes when you climb out.', 'muted'))
+    }
     return frame('Boutique', wrap)
   }
 

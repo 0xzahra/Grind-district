@@ -1177,6 +1177,13 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     },
     /** The height to stand at here (lower in a pool). */
     floorY(x: number, z: number): number { return levelY(x, z) },
+    /** The water's surface height when (x, z) is in a pool on the current level, else null. */
+    waterY(x: number, z: number): number | null {
+      const L = levels[level]
+      if (!inside || !L) return null
+      for (const p of L.pools) if (x > p.x0 + 0.2 && x < p.x1 - 0.2 && z > p.z0 + 0.2 && z < p.z1 - 0.2) return L.y - 0.06
+      return null
+    },
     get moving() { return !!move },
     /** How far back the camera sits during a ride (the Ferris wheel, the carousel). */
     get rideCam(): number | null { return move?.camFn?.() ?? move?.cam ?? null },
