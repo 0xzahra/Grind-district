@@ -22,6 +22,7 @@ async function nearToken(): Promise<string | null> {
   return proof ? nearSession(proof).catch(() => null) : null
 }
 import { notify } from './notify.ts'
+import { note as personaNote } from './persona.ts'
 import './messages.css'
 
 type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null; media?: { kind: 'image' | 'voice'; url: string } }
@@ -213,6 +214,7 @@ export async function openThread(withUser: string): Promise<void> {
   const deliver = async (media?: Attachment) => {
     const text = ta.value.trim()
     if (!text && !media) return
+    personaNote('message')
     send.disabled = true; status.textContent = media ? (media.type.startsWith('image') ? 'Sending photo…' : 'Sending voice note…') : ''
     const s = await api<{ line: Line }>('send', { post: { to: u, text, ...(media ? { media } : {}) } })
     send.disabled = false

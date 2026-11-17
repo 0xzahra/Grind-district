@@ -12,6 +12,7 @@ import { RANKS, rankFor } from './logic.ts'
 import { certNftContract, certNftNetwork, certNftOn, certNfts, type HeldCert } from './nftAccess.ts'
 import { buildHomeFurniture } from './homeFurniture.ts'
 import { buildHomeLife } from './homeLife.ts'
+import { mountStaff } from './staff.ts'
 import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
@@ -20,7 +21,7 @@ import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers,
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
 export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
-export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean }
+export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean; /** Offered only while this is true (hired staff). */ when?: () => boolean }
 type Hooks = { player?: () => { x: number; z: number }; toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
@@ -403,6 +404,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const x of [-0.5, 7.0]) northWall.attach(box(1.8, 1.2, 0.04, new THREE.MeshStandardMaterial({ color: 0xbfd8ea, emissive: 0x8fb4cf, emissiveIntensity: 0.12, roughness: 0.1 }), x, -d / 2 + 0.02, 1.4, false))
       // Daily life: gas cooker, fridge, utensils and food, doors, bathroom, laundry, garden, lounger (homeLife.ts).
       buildHomeLife({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, player: hooks.player, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, wall: part, walls: { north: northWall, east: eastWall, bath: bathWall } })
+      // Hired staff at their posts, and the staff intercom in the hall (staff.ts).
+      mountStaff({ group, ox: o.x, oz: o.z, obstacles, use, wallMat: part })
       // Switches, ceiling lights, the plasma and the appliances (homeTech.ts). The room lamp follows the switches.
       buildHomeTech({ group, ox: o.x, oz: o.z, w, d, H, obstacles, use, toast: hooks.toast, sit: hooks.sit, busy: hooks.busy, setLights: (f) => { houseLight = f; if (inside === 'house') { lamp.intensity = 5.5 * (0.18 + 0.82 * f); roomFill.intensity = 0.22 * (0.4 + 0.6 * f) } } })
     }
@@ -1055,7 +1058,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (inside === 'house' && floorLevel === 1 && upper) return upper.obstacles
       return inside === 'house' && homeFurn ? [...built.get(inside)!.obstacles, ...homeFurn.obstacles] : built.get(inside)!.obstacles
     },
-    uses() { return inside ? (inside === 'house' && floorLevel === 1 && upper ? upper.uses : inside === 'house' && homeFurn ? [...built.get(inside)!.uses, ...homeFurn.uses] : built.get(inside)!.uses).map((u) => ({ ...u, use: u.exit ? undefined : u.run })) : [] },
+    uses() { return inside ? (inside === 'house' && floorLevel === 1 && upper ? upper.uses : inside === 'house' && homeFurn ? [...built.get(inside)!.uses, ...homeFurn.uses] : built.get(inside)!.uses).filter((u) => !u.when || u.when()).map((u) => ({ ...u, use: u.exit ? undefined : u.run })) : [] },
     bounds(): { x: number; z: number; hw: number; hd: number } | null {
       if (!inside) return null
       if (inside === 'house' && floorLevel === 1) return { x: UP.x, z: UP.z, hw: UP.w / 2 - 0.5, hd: UP.d / 2 - 0.5 }

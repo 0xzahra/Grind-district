@@ -76,6 +76,8 @@ import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
 import { installLayers } from './layers.ts'
 import { formatStatsRows, isPublicStats, type PublicStats } from './statsPanel.ts'
+import { startPersona, note as personaNote, notePlace, notePanel } from './persona.ts'
+import { initStaff } from './staff.ts'
 watchUpdates()
 
 // Faster to get around (owner request, 8 Nov): walk 2.7 -> 3.0, run 5.5 -> 7.2 m/s. Both stay inside the
@@ -254,6 +256,7 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   greetBtn.type = 'button'; greetBtn.id = 'greet'; greetBtn.className = 'glass-fab greet-fab'; greetBtn.textContent = 'Greet'; greetBtn.hidden = true
   document.body.append(greetBtn)
   greetBtn.addEventListener('click', () => {
+    personaNote('greet')
     // Greetings are player-to-player flavour. With no real reply yet, keep lines neutral —
     // never event/announcement copy tied to the moment you tap Greet.
     const tips = [
@@ -678,6 +681,7 @@ const apiAgents = createRemoteAgents(scene)
   const shotBtn = document.querySelector<HTMLButtonElement>('#shot')
   shotBtn?.addEventListener('pointerdown', () => { shotFile = capture() })
   shotBtn?.addEventListener('click', () => {
+    personaNote('photo')
     const pending = shotFile ?? capture()
     shotFile = null
     const download = (f: File) => {
@@ -800,6 +804,10 @@ const apiAgents = createRemoteAgents(scene)
   const careerOpeners: Record<'career' | 'feed', () => void> = { career: () => {}, feed: () => {} }
   initCareer({ toast: (m) => ui.toast(m), rankUp: feedRankUp })
   startNeeds((m) => ui.toast(m))
+  // The long-term play record behind the personality reading (persona.ts), and home staff (staff.ts).
+  startPersona()
+  initStaff({ toast: (m) => ui.toast(m), openPanel: (p) => ui.open(p), openMap: () => ui.open('city') })
+  { const open = ui.open; ui.open = (p, extra) => { notePanel(p); open(p, extra) } }
   startPass((m) => ui.toast(m))
   startCashAlert()
   startReputation()
@@ -1540,6 +1548,7 @@ const apiAgents = createRemoteAgents(scene)
   const enterRoom = (doorSpot: Hotspot) => {
     const room = interiors.roomFor(doorSpot.id)
     if (!room) return false
+    notePlace(room)
     streetDoor = { x: doorSpot.x, z: doorSpot.z }
     const at = interiors.enter(room)
     pos.x = at.x
@@ -2251,6 +2260,7 @@ const apiAgents = createRemoteAgents(scene)
     {
       const waterY = homes?.inside ? homes.waterY(pos.x, pos.z) : interiors.waterY(pos.x, pos.z)
       const inWater = waterY !== null && !seating.sitting
+      if (inWater && !swimming) personaNote('swim')
       swimming = inWater
       swimMove += ((inWater && moving ? 1 : 0) - swimMove) * (1 - Math.exp(-4 * dt))
       const baseY = homes?.inside ? levelY : 0

@@ -1,4 +1,5 @@
 import { itemPic } from './itemPics.ts'
+import { personaNodes, note as personaNote } from './persona.ts'
 import { getMorph, setMorph, HAIRS, SKIN_TONES } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
@@ -413,6 +414,7 @@ export function mountUi(
         const slot = document.createElement('div'); slot.className = 'journal-slot'
         const go = button('Make today’s journal card', 'ghost', () => {
           go.remove()
+          personaNote('journal')
           void import('./journal.ts').then((j) => {
             const nodes = j.journalNodes({ para, button }, (t) => toast(t))
             slot.replaceChildren(nodes)
@@ -425,14 +427,17 @@ export function mountUi(
       // Two actions only: post to X, or copy the one invite link.
       strip(
       // X shows the photo card (avatar, rank, reputation, invite code) under the link, never the balance.
-      button('Share on 𝕏', 'ghost', () => shareCardToX(() => hooks.portrait?.(0, undefined, true) ?? null, (t) => toast(t))),
+      button('Share on 𝕏', 'ghost', () => (personaNote('share'), shareCardToX(() => hooks.portrait?.(0, undefined, true) ?? null, (t) => toast(t)))),
       button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
       ),
       status,
       // Referrals: link opens, friends who joined and how far they got, rewards to collect, top inviters.
       referralNodes({ para, button }, (m) => toast(m)),
     )
-    const card = frame(save.name, stack(hero, glass, renderToday(save), more, share, renderRewardWallet(), advice()))
+    // Your Web3 personality: traits, roles and niche read from how you play (persona.ts).
+    let persona: HTMLElement
+    try { persona = personaNodes({ para, button }, (m) => toast(m)) } catch { persona = document.createElement('div') }
+    const card = frame(save.name, stack(hero, glass, renderToday(save), persona, more, share, renderRewardWallet(), advice()))
     card.classList.add('glass-sheet')
     return card
   }
