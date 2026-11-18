@@ -14,8 +14,13 @@ export const nearStore = (db: SupabaseClient): NearStore => ({
   async claim(row) { const { error } = await db.from('near_topups').insert(row); return !error },
 })
 
+// yocto is numeric(40,0): PostgREST would send it as a JSON number (5e+23), which loses digits and breaks BigInt.
+// Every read asks for it as text too, and this picks the exact value.
+const ORDER_COLS = '*, yocto_text:yocto::text'
+export const yoctoOf = (o: Record<string, unknown>): bigint => BigInt(typeof o.yocto_text === 'string' ? o.yocto_text : typeof o.yocto === 'string' ? o.yocto : BigInt(Math.round(Number(o.yocto))).toString())
+
 const orderOut = (o: Record<string, unknown>, receiver: string) => ({
-  orderId: o.id, asset: 'NEAR', receiver, sender: o.sender, amountYocto: String(o.yocto), amountLabel: `${formatNear(BigInt(String(o.yocto)))} NEAR`,
+  orderId: o.id, asset: 'NEAR', receiver, sender: o.sender, amountYocto: yoctoOf(o).toString(), amountLabel: `${formatNear(yoctoOf(o))} NEAR`,
   status: o.status, txHash: o.tx_hash ?? null, creditUsd: o.credit_micro == null ? null : Number(o.credit_micro) / 1e6, expiresAt: o.expires_at,
 })
 
@@ -46,7 +51,7 @@ export async function nearRoute(req: Req, res: Res, db: SupabaseClient, userId: 
   const loadOrder = async () => {
     const id = String(body.orderId ?? '')
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null
-    const { data } = await db.from('near_topup_orders').select('*').eq('id', id).maybeSingle()
+    const { data } = await db.from('near_topup_orders').select(ORDER_COLS).eq('id', id).maybeSingle()
     return data as Record<string, unknown> | null
   }
 
@@ -57,7 +62,7 @@ export async function nearRoute(req: Req, res: Res, db: SupabaseClient, userId: 
     let yocto: bigint
     try { yocto = encodeNear(Number(body.near)) } catch (e) { return res.status(400).json({ error: (e as Error).message }) }
     const row = { privy_user_id: userId, sender, yocto: yocto.toString(), status: 'waiting', expires_at: new Date(Date.now() + NEAR_ORDER_TTL_MS).toISOString() }
-    const { data, error } = await db.from('near_topup_orders').insert(row).select('*').single()
+    const { data, error } = await db.from('near_topup_orders').insert(row).select(ORDER_COLS).single()
     // A missing table (the NEAR top-up migration not run yet) says so, so it can be fixed from the dashboard.
     if (error && /42P01|PGRST205|does not exist|schema cache/i.test(`${error.code ?? ''} ${error.message ?? ''}`)) return res.status(503).json({ error: 'NEAR top-ups are not set up yet: the near_topup_orders table is missing (run supabase/migrations/20261115010000_near_topups.sql)' })
     if (error || !data) return res.status(500).json({ error: 'could not create order' })
@@ -91,7 +96,7 @@ export async function nearRoute(req: Req, res: Res, db: SupabaseClient, userId: 
       const tx = await d.txStatus(t.hash, String(order.sender)).catch(() => null)
       const signer = tx?.transaction?.signer_id
       const sent = (tx?.transaction?.actions ?? []).reduce<bigint>((a, x) => a + BigInt((x as { Transfer?: { deposit?: string } })?.Transfer?.deposit ?? '0'), 0n)
-      if (signer !== order.sender || sent !== BigInt(String(order.yocto))) continue
+      if (signer !== order.sender || sent !== yoctoOf(order)) continue
       const r = await credit(t.hash, order)
       if (r.ok) return res.status(200).json({ ...r, txHash: `near:${t.hash}`, orderId: order.id })
     }
