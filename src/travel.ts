@@ -12,7 +12,7 @@ import type { Hotspot } from './world.ts'
 import type { Arch, Move } from './homes.ts'
 import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
-import { posedHuman, MEN, WOMEN, type HumanModel } from './humans.ts'
+import { posedHuman, MEN, WOMEN, type HumanModel, type Look } from './humans.ts'
 import { lighthouse } from './ride.ts'
 import { musicOn, musicVolume, duckMusic } from './music.ts'
 import { buildSpaceport, ORBIT_USD } from './space.ts'
@@ -31,6 +31,8 @@ export type TravelCtx = {
   /** 0 in our sky, 0.5 climbing high (see further, thinner haze), 1 in space (black sky, no haze). */
   space: (v: number) => void
   onLeave: (f: () => void) => void
+  /** The player's own figure and clothes, for posed stand-ins (the climber, the skydiver); null before it loads. */
+  you: () => { model: HumanModel; look: Look; height: number } | null
 }
 
 const FLIGHT_USD = 40

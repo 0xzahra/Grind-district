@@ -637,6 +637,8 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
   }
 
   const first = (root.userData.look as Look | undefined) ?? opts.look
+  // Scenes that use a posed stand-in for the player (the cliff climber, the skydiver) dress it from this.
+  root.userData.ownFigure = () => { const look = (root.userData.look as Look | undefined) ?? opts.look ?? {}; return { model: figure(model, look), look, height: opts.height ?? 1.74 } }
   // Remember the starting look too, so a temporary outfit (swimwear in a pool) can be put on and taken off again.
   if (first && !root.userData.look) root.userData.look = first
   root.userData.applyLook = (next: Look) => {
@@ -673,7 +675,8 @@ function mixerLod(root: THREE.Object3D): number {
   // Computers animate everyone near and mid-distance at full rate (choppy runners read as lag on a big screen);
   // phones keep the lighter schedule.
   if (!COARSE) return d > 2500 ? 0.1 : d > 1225 ? 0.033 : 0
-  return d > 900 ? 0.12 : d > 324 ? 0.06 : 0
+  // Phones: full rate to 25 m, 30 fps to 40 m, then 12 fps (8 fps from 18 m out read as the game freezing).
+  return d > 1600 ? 0.08 : d > 625 ? 0.033 : 0
 }
 
 type Limbs = { sides: Array<{ upper: THREE.Object3D; fore: THREE.Object3D; hand: THREE.Object3D; thigh: THREE.Object3D; knee: THREE.Object3D; foot: THREE.Object3D; side: number }> }

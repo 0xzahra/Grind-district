@@ -3,6 +3,7 @@
 // Every type is instanced (body, glass, lamps), all wheels share one instanced mesh, so a full street
 // of mixed traffic stays at a few dozen draw calls on phones. Paint is a per-instance colour.
 import * as THREE from 'three'
+import { fineCar } from './finecars.ts'
 import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export const CAR_KINDS = ['hatchback', 'sedan', 'suv', 'taxi', 'minibus', 'pickup', 'van', 'sports'] as const
@@ -165,7 +166,9 @@ function wheelGeometry(): THREE.BufferGeometry {
 export type Fleet = ReturnType<typeof createFleet>
 
 /** One instanced fleet. `kinds` gives each car's body type (index = car id). */
-export function createFleet(scene: THREE.Scene, kinds: CarKind[], opts: { shadows: boolean; colours?: number[] }) {
+export function createFleet(scene: THREE.Scene, kinds: CarKind[], opts: { shadows: boolean; colours?: number[]; fine?: Map<number, string> }) {
+  // A few cars are the showroom's detailed models (saloons, a GT, an electric coupé, a supercar): the rest stay
+  // instanced. A detailed car keeps its slot in the instanced fleet, hidden there, and drives as its own model.
   // Car paint: smooth, glossy and a little metallic, so the sky slides over the panels.
   const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.32, envMapIntensity: 1.05 })
   const glassMat = new THREE.MeshStandardMaterial({ color: 0x1c2830, roughness: 0.04, metalness: 0.85, envMapIntensity: 1.7 })
@@ -225,10 +228,38 @@ export function createFleet(scene: THREE.Scene, kinds: CarKind[], opts: { shadow
   const q = new THREE.Quaternion(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), Y = new THREE.Vector3(0, 1, 0)
   const zero = new THREE.Matrix4().makeScale(0, 0, 0)
   const touched = new Set<THREE.InstancedMesh>()
+  const fine = new Map<number, { g: THREE.Group; wheels: Array<{ w: THREE.Object3D; flip: number }>; r: number }>()
+  for (const [id, model] of opts.fine ?? []) {
+    if (id >= kinds.length) continue
+    const g = fineCar(model)
+    g.visible = false
+    g.traverse((o) => { o.userData.ghost = true; o.raycast = () => undefined; if ((o as THREE.Mesh).isMesh) { o.castShadow = opts.shadows; o.receiveShadow = false } })
+    const rims = g.children.filter((c) => (c as THREE.Group).isGroup && !(c as THREE.Mesh).isMesh).map((rim) => { rim.rotation.order = 'YXZ'; return { w: rim, flip: rim.rotation.y } })
+    const r = rims[0] ? rims[0].w.position.y : 0.35
+    scene.add(g)
+    fine.set(id, { g, wheels: rims, r })
+    // Its instanced slot stays empty.
+    const s = slot[id]!, k = meshes.get(s.kind)!
+    for (const mesh of [k.body, k.glass, k.lamps]) mesh.setMatrixAt(s.i, zero)
+    for (let j = 0; j < 4; j++) wheels.setMatrixAt(id * 4 + j, zero)
+    if (signs && signSlot[id] !== undefined) signs.setMatrixAt(signSlot[id]!, zero)
+  }
   return {
     length: (id: number) => meshes.get(slot[id]!.kind)!.geo.length,
     /** Place car `id`; `dist` is how far it moved this frame (spins the wheels). */
     set(id: number, x: number, z: number, heading: number, dist: number, visible = true) {
+      const f = fine.get(id)
+      if (f) {
+        f.g.visible = visible
+        if (!visible) { shadows.setMatrixAt(id, zero); touched.add(shadows); return }
+        f.g.position.set(x, 0, z); f.g.rotation.y = heading
+        spin[id] = (spin[id]! + dist / f.r) % (Math.PI * 2)
+        for (const rim of f.wheels) rim.w.rotation.x = rim.flip ? -spin[id]! : spin[id]!
+        q.setFromAxisAngle(Y, heading)
+        shadows.setMatrixAt(id, w.compose(v.set(x, 0.02, z), q, shadowScale.set(2.4, 1, 5.2)))
+        touched.add(shadows)
+        return
+      }
       const s = slot[id]!
       const k = meshes.get(s.kind)!
       if (!visible) {

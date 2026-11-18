@@ -12,7 +12,7 @@ import { createWeather } from './weather.ts'
 import { createSeasons } from './seasons.ts'
 import { canGraduate, graduatedOn } from './diploma.ts'
 import { foliageMaterial as seasonFoliage } from './trees.ts'
-import { setMixerViewer, posedHuman } from './humans.ts'
+import { setMixerViewer, posedHuman, type HumanModel, type Look } from './humans.ts'
 import { createMentorCard, tourSeen } from './mentor.ts'
 import { nextStep } from './objective.ts'
 import { FREE_WILL_PRICE, buyFreeWill, ownsFreeWill, settleAway, markSeen } from './freeWill.ts'
@@ -84,9 +84,9 @@ watchUpdates()
 // range the walk/run clips can match without feet sliding (walk clip up to ~3.0 m/s, run clip up to ~7.3 m/s).
 const WALK = 3.0
 const RUN = 7.2
-// Tap the ground and you walk there: a brisk walking pace that keeps the walk animation (its clips are
-// about 1.0 to 1.2 m/s and stay a walk up to about 1.75 m/s). The joystick and keys still jog and run.
-const TAP_WALK = 1.65
+// Tap the ground and you go there at a light jog (2.4 m/s): a stroll at 1.65 m/s read as slow on screen.
+// The joystick and keys still walk, jog and run by how far they are pushed.
+const TAP_WALK = 2.4
 
 let snapNext = false
 let topupChunk: Promise<typeof import('./topup.ts')> | null = null
@@ -571,7 +571,7 @@ const apiAgents = createRemoteAgents(scene)
       || ui.isOpen() || document.body.classList.contains('sheet-open') || !!document.getElementById('login-dlg')
       || !!document.querySelector('.gdesk, #cert-dlg, .login-dlg') || !!interiors.inside || !!homes?.inside || mentor.isOpen()
     const tryNow = () => {
-      if (!force && tourSeen()) { tourWaiting = false; return }
+      if (!force && (tourSeen() || mentor.dismissed())) { tourWaiting = false; return }
       calm = busy() ? 0 : calm + 1
       if (calm < 2) { window.setTimeout(tryNow, 1000); return }
       tourWaiting = false
@@ -1687,7 +1687,7 @@ const apiAgents = createRemoteAgents(scene)
   const rideSeat: Seat = { x: 0, z: 0, yaw: 0, y: 0.45 }
   let rideHid = false
   const loadHomes = async (): Promise<Homes> => {
-    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), train: (id) => boardMetro(id), fade: () => fadeScreen() }); parkPillars() }
+    if (!homes) { const m = await import('./homes.ts'); homes ??= m.createHomes(scene, { toast: (t) => ui.toast(t), openPanel: () => ui.open('homes'), leave: () => leaveHome(), train: (id) => boardMetro(id), fade: () => fadeScreen(), you: () => (avatar.object.userData.ownFigure as (() => { model: HumanModel; look: Look; height: number }) | undefined)?.() ?? null }); parkPillars() }
     return homes
   }
   const fadeScreen = () => { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
@@ -1980,7 +1980,7 @@ const apiAgents = createRemoteAgents(scene)
   bakeWhenStill = () => { if (!satelliteUrl() && !indoors() && !document.body.classList.contains('rail-shut')) { try { bake() } catch { /* vector map */ } } }
   let debugView: [number[], number[]] | null = null
   let clearAir = 1
-  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __res: () => +renderer.getPixelRatio().toFixed(3), __facing: () => { const p = (avatar.object.userData.person as THREE.Object3D | undefined) ?? avatar.object; const v = new THREE.Vector3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())); return { root: +avatar.object.rotation.y.toFixed(3), body: +Math.atan2(v.x, v.z).toFixed(3), move: Math.hypot(vel.x, vel.z) > 0.3 ? +Math.atan2(vel.x, vel.z).toFixed(3) : null, speed: +Math.hypot(vel.x, vel.z).toFixed(2) } }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __res: () => +renderer.getPixelRatio().toFixed(3), __scene: () => scene, __facing: () => { const p = (avatar.object.userData.person as THREE.Object3D | undefined) ?? avatar.object; const v = new THREE.Vector3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())); return { root: +avatar.object.rotation.y.toFixed(3), body: +Math.atan2(v.x, v.z).toFixed(3), move: Math.hypot(vel.x, vel.z) > 0.3 ? +Math.atan2(vel.x, vel.z).toFixed(3) : null, speed: +Math.hypot(vel.x, vel.z).toFixed(2) } }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
@@ -2124,7 +2124,9 @@ const apiAgents = createRemoteAgents(scene)
       if (rf !== null) avatar.face(Math.sin(rf), Math.cos(rf), dt, true)
       // Following a golf ball: the player steps out of the picture until it stops.
       if (homes!.rideHidden) { avatar.object.visible = false; rideHid = true }
-      avatar.step(dt, false, 0)
+      // Stairs and ladders on a ride are stepped up, not floated up.
+      const gait = rs ? 0 : homes!.rideGait
+      avatar.step(dt, gait > 0.1, gait)
       seating.apply(avatar.object, dt)
     } else if (metro?.riding) {
       const v = metro.view()
@@ -2306,7 +2308,7 @@ const apiAgents = createRemoteAgents(scene)
       if (!needsFirstCourse()) scene.remove(firstMarker)
       else if (!interiors.inside) {
         const near = Math.hypot(pos.x, pos.z + 40.4) < 3.2 || Math.hypot(pos.x - ada.position.x, pos.z - ada.position.z) < 2.4
-        if (near && !firstOpened && !ui.isOpen()) { firstOpened = true; mentor.start(nextMission() ?? 'internet') }
+        if (near && !firstOpened && !ui.isOpen() && !mentor.dismissed()) { firstOpened = true; mentor.start(nextMission() ?? 'internet') }
         else if (!near && Math.hypot(pos.x, pos.z + 40.4) > 6) firstOpened = false
       }
     }

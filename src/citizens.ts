@@ -100,6 +100,8 @@ export function bootCitizens(): CitizenSim[] {
   })
 }
 
+/** Everyone walks this much faster than their listed pace (the animation follows the real speed). */
+export const BRISK = 1.25
 const pairHash = (a: number, b: number) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x) }
 
 /** A point `t` (0..1) of the way along a walker's route, with the route's direction there. */
@@ -162,7 +164,7 @@ export function stepCitizens(people: CitizenSim[], dt: number, solids: Solid[] =
           person.inside = focus && Math.hypot(person.x - focus.x, person.z - focus.z) > 14 ? 8 + Math.random() * 20 : undefined
           if (person.inside !== undefined) continue
         }
-        if (Math.random() < 0.4) person.wait = 1.5 + Math.random() * 6
+        if (Math.random() < 0.3) person.wait = 1 + Math.random() * 3.5
         nextLeg(person, focus)
         continue
       }
@@ -177,7 +179,7 @@ export function stepCitizens(people: CitizenSim[], dt: number, solids: Solid[] =
           // Idle a varied while (chat, look around), sometimes a long stop; partners share the same numbers.
           const v = person.visits ?? 0
           const h = pairHash(person.spec.pair ?? 0, v)
-          person.wait = h < 0.25 ? 14 + h * 40 : 4 + h * 8
+          person.wait = h < 0.25 ? 7 + h * 24 : 2.5 + h * 5
           person.rested = true
           continue
         }
@@ -205,7 +207,8 @@ export function stepCitizens(people: CitizenSim[], dt: number, solids: Solid[] =
         ux = nx / l; uz = nz / l
       }
     }
-    const step = Math.min(dist, speed * dt)
+    // A brisk city pace: people get where they are going (a stroll at 1.2 m/s read as slow motion on screen).
+    const step = Math.min(dist, speed * BRISK * dt)
     person.x += ux * step
     person.z += uz * step
   }

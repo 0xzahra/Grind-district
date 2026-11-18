@@ -79,7 +79,11 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   const kinds = Array.from({ length: count }, (_, i) => ORDER[i % ORDER.length]!)
   let lux = 0
   const colours = kinds.map((k, i) => (k === 'sports' ? LUXURY[lux++ % LUXURY.length]! : carColour(k, i)))
-  const fleet = createFleet(scene, kinds, { shadows: graphics !== 'low', colours })
+  // The showroom's detailed models drive too: the sports slots first, then saloons (two on Low, five on High).
+  const FINE = ['supercar', 'tourer', 'evcoupe', 'hypercar', 'sportsaloon', 'executive']
+  const fineIds = [...kinds.keys()].filter((i) => kinds[i] === 'sports').concat([...kinds.keys()].filter((i) => kinds[i] === 'sedan'))
+  const fine = new Map<number, string>(fineIds.slice(0, graphics === 'high' ? 5 : graphics === 'medium' ? 4 : 2).map((id, k) => [id, FINE[k % FINE.length]!]))
+  const fleet = createFleet(scene, kinds, { shadows: graphics !== 'low', colours, fine })
   const cars: Car[] = []
   // Start every car in its own spot: at most as many per leg as fit with a car-length gap, the rest wait off the
   // map and drive in from the side road one by one (they used to be clamped onto the same spot and overlap).

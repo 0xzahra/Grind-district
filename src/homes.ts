@@ -29,7 +29,7 @@ const SHELLS = ['shell-penthouse', 'shell-skyhouse', 'shell-hotel', 'shell-mall'
 type Kind = 'lamppost' | 'bench' | 'tree' | 'swings' | 'slide' | 'kiosk' | 'sofaL' | 'sofa' | 'arm' | 'coffee' | 'rug' | 'lamp' | 'dining' | 'island' | 'kitchen' | 'bed' | 'tv' | 'plant' | 'art' | 'lounger' | 'tub' | 'desk' | 'recliners' | 'screen' | 'heli'
   | 'piano' | 'chandelier' | 'lounge' | 'sculpture' | 'painting' | 'aquarium' | 'winewall' | 'cinema' | 'fireplace' | 'telescope' | 'palms' | 'barcart'
 type Piece = { key: string; kind: Kind; x: number; z: number; r: number; lv: number; obj?: THREE.Group }
-export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; exit?: { x: number; z: number }; hide?: boolean; hidden?: () => boolean; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
+export type Move = { seat?: () => { yaw: number; y: number } | null; face?: () => number | null; gait?: () => number; exit?: { x: number; z: number }; hide?: boolean; hidden?: () => boolean; camFn?: () => number; done?: () => void; view?: () => { heading: number; pitch: number }; cam?: number; path?: (u: number) => { x: number; z: number; y: number }; from: { x: number; z: number; y: number }; to: { x: number; z: number; y: number }; t: number; dur: number; toLv: number; car?: THREE.Object3D; carY0?: number; carY1?: number }
 
 // Footprints (width along local x, depth along local z) for the walking player; 0 = walk over it.
 const FOOT: Record<Kind, [number, number]> = {
@@ -244,7 +244,7 @@ function piece(kind: Kind, M: Mats): THREE.Group {
     case 'bench': box(g, 1.8, 0.06, 0.45, M.wood, 0, 0.44, 0.05); box(g, 1.8, 0.4, 0.05, M.wood, 0, 0.55, -0.2); for (const sx of [-0.8, 0.8]) { box(g, 0.06, 0.44, 0.5, M.black, sx, 0, 0); box(g, 0.06, 0.45, 0.06, M.black, sx, 0.44, -0.2) } break
     case 'tree': { cyl(g, 0.22, 0.32, 3.2, M.wood); for (const [x, y, z, r] of [[0, 4.4, 0, 2.2], [1.1, 3.8, 0.4, 1.5], [-1, 3.9, -0.5, 1.6], [0.2, 5.4, -0.3, 1.5]] as const) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), M.leaf); c.position.set(x, y, z); c.castShadow = true; g.add(c) } break }
     case 'swings': { for (const x of [-1.5, 1.5]) for (const z of [-0.7, 0.7]) { const l = cyl(g, 0.05, 0.05, 2.6, M.metal, x, 0, z); l.rotation.x = z > 0 ? -0.25 : 0.25 } const top = cyl(g, 0.06, 0.06, 3.2, M.metal, 0, 0, 0); top.rotation.z = Math.PI / 2; top.position.set(0, 2.5, 0); for (const x of [-0.7, 0.7]) { cyl(g, 0.01, 0.01, 1.9, M.black, x - 0.2, 0.6, 0); cyl(g, 0.01, 0.01, 1.9, M.black, x + 0.2, 0.6, 0); box(g, 0.5, 0.04, 0.2, M.accent, x, 0.56, 0) } break }
-    case 'slide': { box(g, 1.0, 0.1, 1.0, M.wood, 0, 1.6, -1.6); for (const [x, z] of [[-0.45, -2.05], [0.45, -2.05], [-0.45, -1.15], [0.45, -1.15]] as const) box(g, 0.08, 1.6, 0.08, M.metal, x, 0, z); const sl = box(g, 0.7, 0.05, 3.0, M.accent, 0, 0, 0.3); sl.rotation.x = 0.5; sl.position.set(0, 0.85, 0.3); for (let k = 0; k < 5; k++) box(g, 0.6, 0.04, 0.12, M.metal, 0, k * 0.32, -2.3); break }
+    case 'slide': { box(g, 1.0, 0.1, 1.0, M.wood, 0, 1.6, -1.6); for (const [x, z] of [[-0.45, -2.05], [0.45, -2.05], [-0.45, -1.15], [0.45, -1.15]] as const) box(g, 0.08, 1.6, 0.08, M.metal, x, 0, z); const sl = box(g, 0.7, 0.05, 3.0, M.accent, 0, 0, 0.3); sl.rotation.x = 0.5; sl.position.set(0, 0.85, 0.3); for (let k = 0; k < 5; k++) box(g, 0.6, 0.04, 0.12, M.metal, 0, 0.3 + k * 0.32, -2.3); for (const x of [-0.33, 0.33]) box(g, 0.05, 1.85, 0.06, M.metal, x, 0, -2.3); break }
     case 'kiosk': { box(g, 2.4, 1.0, 1.4, M.white, 0, 0, 0); box(g, 2.6, 0.06, 1.6, M.marble, 0, 1.0, 0); for (const x of [-1.1, 1.1]) box(g, 0.08, 1.4, 0.08, M.metal, x, 1.06, 0.6); const awn = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 1.9), std(0xf06292, 0.7)); awn.position.set(0, 2.5, 0.2); awn.rotation.x = 0.15; awn.castShadow = true; g.add(awn); for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), std([0xf7c6d9, 0xfff1c1, 0x7a4a2a, 0xb6e3c6][k]!, 0.6)); c.position.set(-0.6 + k * 0.4, 1.12, 0.3); g.add(c) } break }
     case 'barcart': box(g, 0.85, 0.02, 0.45, M.glass, 0, 0.82, 0); box(g, 0.85, 0.02, 0.45, M.glass, 0, 0.35, 0); for (const [x, z] of [[-0.4, -0.2], [0.4, -0.2], [-0.4, 0.2], [0.4, 0.2]] as const) cyl(g, 0.012, 0.012, 0.85, M.metal, x, 0, z); for (let k = 0; k < 4; k++) cyl(g, 0.04, 0.045, 0.26, std([0x7a3d12, 0x2a5a2a, 0xd8d0b0, 0x5a1218][k]!, 0.15, 0.1, { transparent: true, opacity: 0.85 }), -0.3 + k * 0.2, 0.84, 0); break
   }
@@ -528,7 +528,7 @@ function plans(): Record<AreaId, Plan> {
 
 // ---------------------------------------------------------------- runtime
 
-export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => void; openPanel: () => void; leave: () => void; train: (id: 'park' | 'airport') => void; fade: () => void }) {
+export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => void; openPanel: () => void; leave: () => void; train: (id: 'park' | 'airport') => void; fade: () => void; you?: TravelCtx['you'] }) {
   const P = plans()
   let inside: AreaId | null = null
   let extraObs: Obstacle[] = []
@@ -989,6 +989,15 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     const steps = new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.1, 0.5), std(0xd8d1c3, 0.7), 48)
     for (let k = 0; k < 48; k++) { const a = (k / 48) * Math.PI * 4; steps.setMatrixAt(k, new THREE.Matrix4().makeRotationY(-a).setPosition(TW.x + Math.cos(a) * 2.4, (k / 48) * TW.top, TW.z + Math.sin(a) * 2.4)) }
     tower.add(steps)
+    // A handrail up the outside of the stairs, on posts every third step, so it reads as a staircase.
+    {
+      const R = 2.85, H = 0.95
+      const rail = new THREE.CatmullRomCurve3(Array.from({ length: 97 }, (_, i) => { const t = i / 96, a = t * Math.PI * 4; return new THREE.Vector3(TW.x + Math.cos(a) * R, t * TW.top + H, TW.z + Math.sin(a) * R) }))
+      tower.add(new THREE.Mesh(new THREE.TubeGeometry(rail, 260, 0.035, 6, false), std(0xf2f2ee, 0.35, 0.4)))
+      const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.025, 0.025, H, 6).translate(0, H / 2, 0), std(0xf2f2ee, 0.35, 0.4), 16)
+      for (let k = 0; k < 16; k++) { const a = ((k * 3) / 48) * Math.PI * 4; posts.setMatrixAt(k, new THREE.Matrix4().setPosition(TW.x + Math.cos(a) * R, ((k * 3) / 48) * TW.top + 0.05, TW.z + Math.sin(a) * R)) }
+      tower.add(posts)
+    }
     tower.traverse((o) => { o.castShadow = true })
     A.add(0, tower)
     A.block(0, R(TW.x - 1.9, TW.z - 1.9, TW.x + 1.9, TW.z + 1.9))
@@ -1013,16 +1022,21 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     // A ride: climb the tower stairs, then slide down into the pool.
     const slideRide = (curve: THREE.CatmullRomCurve3, words: string, usd: number, startA: number) => {
       const run = runTable(curve, { v0: 1.2, friction: 0.82, minV: 1.5 })
-      const CLIMB = 4
+      // Up two turns of stairs at a brisk jog (about 8 s), then down the slide.
+      const CLIMB = 8
+      const climbPace = Math.hypot(2 * Math.PI * 2.4 * 2, TW.top) / CLIMB
       return () => {
         const paid = charge(usd, words)
         if (!paid.ok) { deps.toast(paid.message); return }
         const t0 = time
         startMove({
           cam: 5.6,
-          camFn: () => (time - t0 < CLIMB ? 10 : 5.6),
+          // On the stairs the camera stands inside the tower looking out at you, clear of the slides.
+          camFn: () => (time - t0 < CLIMB ? 2.6 : 5.6),
+          face: () => { const tt = time - t0; if (tt >= CLIMB) return null; const a = (tt / CLIMB) * Math.PI * 4 + startA; return Math.atan2(-Math.sin(a), Math.cos(a)) },
+          gait: () => (time - t0 < CLIMB ? climbPace : 0),
           seat: () => { const tt = time - t0; if (tt < CLIMB) return null; const f = frameAt(curve, run.at(tt - CLIMB) / run.L); return { yaw: f.heading, y: 0.35 } },
-          view: () => { const tt = time - t0; if (tt < CLIMB) return { heading: Math.atan2(TW.x - (-138), TW.z - 190), pitch: 0.5 }; const f = frameAt(curve, run.at(tt - CLIMB) / run.L); return { heading: f.heading, pitch: Math.max(-0.4, Math.min(0.5, -f.pitch * 0.5 + 0.18)) } },
+          view: () => { const tt = time - t0; if (tt < CLIMB) { const a = (tt / CLIMB) * Math.PI * 4 + startA; return { heading: Math.atan2(Math.cos(a), Math.sin(a)), pitch: 0.3 } } const f = frameAt(curve, run.at(tt - CLIMB) / run.L); return { heading: f.heading, pitch: Math.max(-0.4, Math.min(0.5, -f.pitch * 0.5 + 0.18)) } },
           path: () => {
             const tt = time - t0
             if (tt < CLIMB) { const a = (tt / CLIMB) * Math.PI * 4 + startA; return { x: TW.x + Math.cos(a) * 2.4, z: TW.z + Math.sin(a) * 2.4, y: (tt / CLIMB) * TW.top } }
@@ -1141,6 +1155,7 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     train: () => deps.train(plan?.id === 'airport' ? 'airport' : 'park'),
     wind: (v) => wind(v), animate: (f) => { animated.push({ tick: f }) }, light,
     flying: (on) => { flying = on }, space: (v) => { space = v }, onLeave: (f) => { cleanups.push(f) },
+    you: () => deps.you?.() ?? null,
   }
 
   const levelY = (x: number, z: number): number => {
@@ -1217,6 +1232,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     get rideView(): { heading: number; pitch: number } | null { return move?.view?.() ?? null },
     /** Standing on a moving ride (the party jet's dance floor): which way to face. */
     get rideFace(): number | null { return move?.face?.() ?? null },
+    /** Climbing stairs or a ladder on a ride: the walking pace to step at (0 = stand still). */
+    get rideGait(): number { return move?.gait?.() ?? 0 },
     /** Following something else (a golf ball): the player is out of sight until it stops. */
     get rideHidden(): boolean { return move?.hidden ? move.hidden() : !!move?.hide },
     /** 0 in our sky, 0.5 high up, 1 in space. */

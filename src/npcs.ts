@@ -2,7 +2,7 @@ import { speak } from './speech.ts'
 import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
 import { createAvatar, type Avatar } from './avatars.ts'
-import { CITIZENS, stepCitizens, type CitizenSim, type Solid } from './citizens.ts'
+import { BRISK, CITIZENS, stepCitizens, type CitizenSim, type Solid } from './citizens.ts'
 import { createDrone, spinDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
 import { createSeating, kioskSeats, plazaSeats, workoutSpots, type Seat } from './seating.ts'
@@ -340,7 +340,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         }
         person.avatar.object.userData.chat = chatting
         const seated = posed.some((o) => o.p === person)
-        person.avatar.step(dt, moving && !seated, person.sim.spec.speed)
+        person.avatar.step(dt, moving && !seated, (person.sim.pace ?? person.sim.spec.speed) * BRISK)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
         const q = posed.find((o) => o.p === person)
         if (q) q.seating.apply(person.avatar.object, dt)

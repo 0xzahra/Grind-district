@@ -55,15 +55,20 @@ export function buildParkLife(A: Arch, X: ParkCtx): void {
     const Z = 158, LADDER = -118.35, TOPX = -117.02, TOPY = 1.62, BOTX = -114.3, BOTY = 0.16
     A.use(0, { id: 'park-slide', x: -119.4, z: Z, r: 1.3, title: 'Slide', body: 'Up the ladder, down the slide.', enter: 'Go down the slide', use: () => {
       const lerp = (a: number, b: number, k: number) => a + (b - a) * Math.max(0, Math.min(1, k))
-      let sliding = false
+      let sliding = false, uu = 0
       X.startMove({
         cam: 6,
-        // Standing on the ladder and the platform, sitting on the way down.
+        // Standing on the ladder and the platform, sitting on the way down; facing the ladder and stepping up it.
         seat: () => (sliding ? { yaw: Math.PI / 2, y: 0.45 } : null),
+        face: () => (sliding ? null : Math.PI / 2),
+        gait: () => (uu < 0.06 || (uu >= 0.4 && uu < 0.5) || uu >= 0.86 ? 1.3 : uu < 0.4 ? 1.1 : 0),
         path: (u: number) => {
+          uu = u
           sliding = u >= 0.5 && u < 0.86
-          if (u < 0.4) { const k = u / 0.4; return { x: lerp(-118.9, LADDER, k), z: Z, y: lerp(0, 1.62, k) } }
-          if (u < 0.5) { const k = (u - 0.4) / 0.1; return { x: lerp(LADDER, TOPX - 0.3, k), z: Z, y: 1.66 } }
+          // Walk up to the foot of the ladder, climb it rung by rung (just in front of the rungs), step onto the top.
+          if (u < 0.06) { const k = u / 0.06; return { x: lerp(-119.1, LADDER - 0.3, k), z: Z, y: 0 } }
+          if (u < 0.4) { const k = (u - 0.06) / 0.34; return { x: lerp(LADDER - 0.3, LADDER - 0.12, k), z: Z, y: lerp(0, 1.7, k) } }
+          if (u < 0.5) { const k = (u - 0.4) / 0.1; return { x: lerp(LADDER - 0.12, TOPX - 0.3, k), z: Z, y: 1.7 } }
           if (u < 0.86) { const k = ((u - 0.5) / 0.36) ** 1.6; return { x: lerp(TOPX, BOTX, k), z: Z, y: lerp(TOPY, BOTY, k) - 0.32 } }
           const k = (u - 0.86) / 0.14; return { x: lerp(BOTX, BOTX + 1.1, k), z: Z, y: lerp(BOTY - 0.32, 0, k) }
         },

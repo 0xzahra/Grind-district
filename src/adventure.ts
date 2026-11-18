@@ -47,6 +47,20 @@ function guideHud() {
 }
 
 export function buildAdventures(A: Arch, X: Ctx): void {
+  // The climber and the skydiver are posed stand-ins for the player, so they wear the player's own figure and
+  // clothes (taken when the adventure starts). Until the player's figure has loaded, the stand-in stays as built.
+  const dressedAs = new WeakMap<THREE.Object3D, string>()
+  const asYou = (old: THREE.Group): THREE.Group => {
+    const f = X.you()
+    if (!f || !old.parent) return old
+    const key = JSON.stringify([f.model, f.look, f.height])
+    if (dressedAs.get(old) === key) return old
+    const n = person(f.model, { pose: 'cheer', height: f.height, look: { ...f.look, sharp: false } })
+    n.position.copy(old.position); n.rotation.copy(old.rotation); n.visible = old.visible
+    old.parent.add(n); old.removeFromParent()
+    dressedAs.set(n, key)
+    return n
+  }
   const g = new THREE.Group(); A.add(0, g)
   const hud = guideHud()
   X.onLeave(() => hud.remove())
@@ -61,10 +75,15 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   }, [3, 4])
   const rock = std(0xffffff, 0.92, 0, { map: rockTex })
   // The face: a subdivided plane pushed in and out so it reads as real rock, facing west (-x).
-  const FW = 22
+  const FW = 22, FACE_Y = (CLIFF.h + 2) / 2 - 1
+  const bulge = (x: number, y: number) => Math.sin(x * 0.9) * 0.35 + Math.sin(y * 0.55 + x * 0.3) * 0.5 + Math.sin(x * 2.3 + y * 1.7) * 0.15
+  /** Where the rock surface is (world x) at a height and a point along the face: it bulges up to 1 m out. */
+  const faceX = (y: number, z: number) => CLIFF.x - bulge(z - CLIFF.z, y - FACE_Y)
+  /** Where the climber's feet go so no part of the body (feet to raised hands) is inside the rock. */
+  const climbX = (y: number, z: number) => { let m = Infinity; for (const dy of [0.1, 0.6, 1.1, 1.6, 2.05]) for (const dz of [-0.22, 0, 0.22]) m = Math.min(m, faceX(y + dy, z + dz)); return m - 0.34 }
   const faceGeo = new THREE.PlaneGeometry(FW, CLIFF.h + 2, 44, 70)
   const fp = faceGeo.getAttribute('position') as THREE.BufferAttribute
-  for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), y = fp.getY(i); fp.setZ(i, Math.sin(x * 0.9) * 0.35 + Math.sin(y * 0.55 + x * 0.3) * 0.5 + Math.sin(x * 2.3 + y * 1.7) * 0.15) }
+  for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), y = fp.getY(i); fp.setZ(i, bulge(x, y)) }
   faceGeo.computeVertexNormals()
   const face = put(g, faceGeo, rock, CLIFF.x, (CLIFF.h + 2) / 2 - 1, CLIFF.z); face.rotation.y = -Math.PI / 2
   cube(g, 30, CLIFF.h, FW, rock, CLIFF.x + 15.6, CLIFF.h / 2, CLIFF.z)
@@ -74,15 +93,15 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   // The route: holds zigzagging up, a bolt with a quickdraw every other hold, the anchor at the top.
   const N = 11
   const holds: THREE.Vector3[] = []
-  for (let k = 0; k <= N; k++) holds.push(new THREE.Vector3(CLIFF.x - 0.42, 0.2 + (k / N) * (CLIFF.h - 1.6), CLIFF.z + Math.sin(k * 1.3) * 1.3))
+  for (let k = 0; k <= N; k++) { const y = 0.2 + (k / N) * (CLIFF.h - 1.6), z = CLIFF.z + Math.sin(k * 1.3) * 1.3; holds.push(new THREE.Vector3(climbX(y, z), y, z)) }
   const holdM = std(0x5a4f44, 0.9, 0, { flatShading: true }), metal = std(0xcfd4da, 0.25, 0.9)
-  for (const h of holds) { put(g, new THREE.DodecahedronGeometry(0.13, 0), holdM, CLIFF.x - 0.05, h.y + 1.9, h.z + 0.35); put(g, new THREE.DodecahedronGeometry(0.11, 0), holdM, CLIFF.x - 0.05, h.y + 0.2, h.z - 0.3) }
-  holds.forEach((h, k) => { if (k % 2 === 1) { put(g, new THREE.TorusGeometry(0.05, 0.012, 6, 12), metal, CLIFF.x - 0.06, h.y + 1.2, h.z).rotation.y = Math.PI / 2; put(g, new THREE.CylinderGeometry(0.012, 0.012, 0.16, 5), std(0x1fb85a, 0.5), CLIFF.x - 0.1, h.y + 1.08, h.z) } })
+  for (const h of holds) { put(g, new THREE.DodecahedronGeometry(0.13, 0), holdM, faceX(h.y + 1.9, h.z + 0.35) - 0.05, h.y + 1.9, h.z + 0.35); put(g, new THREE.DodecahedronGeometry(0.11, 0), holdM, faceX(h.y + 0.2, h.z - 0.3) - 0.05, h.y + 0.2, h.z - 0.3) }
+  holds.forEach((h, k) => { if (k % 2 === 1) { put(g, new THREE.TorusGeometry(0.05, 0.012, 6, 12), metal, faceX(h.y + 1.2, h.z) - 0.06, h.y + 1.2, h.z).rotation.y = Math.PI / 2; put(g, new THREE.CylinderGeometry(0.012, 0.012, 0.16, 5), std(0x1fb85a, 0.5), faceX(h.y + 1.08, h.z) - 0.1, h.y + 1.08, h.z) } })
   put(g, new THREE.TorusGeometry(0.08, 0.02, 6, 14), metal, CLIFF.x + 0.4, CLIFF.h + 0.1, CLIFF.z)
   const sgn = sign('SEA CLIFF · GUIDED CLIMBS', 4, 0.6, { bg: '#2b3b22', fg: '#f3e6c4' }); sgn.position.set(CLIFF.x - 7, 1.9, CLIFF.z - 4); sgn.rotation.y = Math.PI / 2; g.add(sgn)
   for (const dz of [-1.6, 1.6]) cube(g, 0.1, 1.9, 0.1, std(0x5a4632, 0.9), CLIFF.x - 7, 0.95, CLIFF.z - 4 + dz)
   // The climber (you) and the rope from the anchor.
-  const climber = person('woman3', { pose: 'cheer', height: 1.7, look: { top: 0xe05a2b, bottom: 0x2b2e33, shoes: 0x1a1a1a } })
+  let climber = person('woman3', { pose: 'cheer', height: 1.7, look: { top: 0xe05a2b, bottom: 0x2b2e33, shoes: 0x1a1a1a } })
   climber.visible = false; climber.rotation.y = Math.PI / 2; g.add(climber)
   const ropeM = std(0x2bd46b, 0.6)
   const rope = put(g, new THREE.CylinderGeometry(0.018, 0.018, 1, 5), ropeM, 0, 0, 0, false); rope.visible = false
@@ -115,6 +134,7 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   }
   const startClimb = () => {
     let hold = 0, from = holds[0]!.clone(), to = holds[0]!.clone(), moveT = 1, phase: 'climb' | 'top' | 'abseil' | 'done' = 'climb', abseilT = 0
+    climber = asYou(climber)
     climber.visible = true; rope.visible = true
     const p = new THREE.Vector3()
     const showStep = () => {
@@ -134,9 +154,9 @@ export function buildAdventures(A: Arch, X: Ctx): void {
       path: () => {
         // Real time since the last frame (the move's own clock), so every phone climbs at the same pace.
         const dt = Math.min(0.1, Math.max(0, m.t - lastC)); lastC = m.t
-        if (phase === 'climb') { moveT = Math.min(1, moveT + dt / 0.9); const e = moveT * moveT * (3 - 2 * moveT); p.lerpVectors(from, to, e); p.y += Math.sin(moveT * Math.PI) * 0.15 }
+        if (phase === 'climb') { moveT = Math.min(1, moveT + dt / 0.9); const e = moveT * moveT * (3 - 2 * moveT); p.lerpVectors(from, to, e); p.y += Math.sin(moveT * Math.PI) * 0.15; p.x = climbX(p.y, p.z) }
         else if (phase === 'top') p.set(CLIFF.x + 1.2, CLIFF.h, CLIFF.z)
-        else if (phase === 'abseil') { abseilT = Math.min(1, abseilT + dt / 7); p.set(CLIFF.x - 0.9, (1 - abseilT) * (CLIFF.h - 1), CLIFF.z); if (abseilT >= 1 && phase === 'abseil') { phase = 'done'; m.dur = m.t + 0.05 } }
+        else if (phase === 'abseil') { abseilT = Math.min(1, abseilT + dt / 7); p.set(0, (1 - abseilT) * (CLIFF.h - 1), CLIFF.z); p.x = climbX(p.y, p.z) - 0.45; if (abseilT >= 1 && phase === 'abseil') { phase = 'done'; m.dur = m.t + 0.05 } }
         climber.position.copy(p); climber.rotation.set(phase === 'abseil' ? -0.4 : 0, Math.PI / 2, 0)
         climber.visible = phase !== 'top'
         ropeTo(p.clone().add(new THREE.Vector3(0, 1.0, 0)))
@@ -157,21 +177,63 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   A.use(0, { id: 'adv-climb', x: CLIFF.x - 5, z: CLIFF.z - 1, r: 1.8, title: 'Sea cliff · guided climb', body: 'A 34 m rock face over the sea, roped from the top with a guide. Harness, knot and helmet first; then hold by hold to the top, and an abseil down. Your guide talks you through every move.', enter: 'Climb the sea cliff · $35', use: () => climb() })
 
   // ---------------------------------------------------------------- the skydive
-  // The jump plane: a high-wing single engine in white and green.
+  // The jump plane: a high-wing turboprop in white with a green cheatline (nose toward +z). A lofted fuselage a
+  // little taller than wide, a cowling with exhaust stacks, tapered wings with rounded tips on struts, a swept fin,
+  // cabin windows and a windscreen, the open jump door, wheel spats and a three-blade prop.
   const plane = new THREE.Group()
-  const white = std(0xf4f4f2, 0.35, 0.2), green = std(0x14a058, 0.5)
-  put(plane, new THREE.CylinderGeometry(0.75, 0.55, 7, 16).rotateX(Math.PI / 2), white, 0, 1.5, 0)
-  put(plane, new THREE.ConeGeometry(0.55, 1.4, 16).rotateX(Math.PI / 2), white, 0, 1.5, 4.1)
-  put(plane, new THREE.ConeGeometry(0.55, 2.6, 16).rotateX(-Math.PI / 2), white, 0, 1.6, -4.7)
-  cube(plane, 11, 0.14, 1.6, white, 0, 2.35, 0.6)
-  cube(plane, 11.05, 0.05, 0.3, green, 0, 2.43, 0.6, false)
-  cube(plane, 0.12, 1.6, 1.4, green, 0, 2.5, -5.4)
-  cube(plane, 3.4, 0.08, 0.9, white, 0, 1.75, -5.4)
-  for (const s of [-1, 1]) { const st = cube(plane, 0.06, 1.2, 0.06, std(0x9aa1a8, 0.4, 0.7), s * 2.2, 1.8, 0.6); st.rotation.z = s * 0.7; put(plane, new THREE.CylinderGeometry(0.28, 0.28, 0.16, 14).rotateZ(Math.PI / 2), std(0x16171a, 0.85), s * 1.1, 0.28, 0.6) }
-  put(plane, new THREE.CylinderGeometry(0.18, 0.18, 0.16, 12).rotateZ(Math.PI / 2), std(0x16171a, 0.85), 0, 0.2, 3.6)
-  const prop = new THREE.Group(); prop.position.set(0, 1.5, 4.85); cube(prop, 0.12, 2.2, 0.05, std(0x1a1a1a, 0.4), 0, 0, 0); plane.add(prop)
-  cube(plane, 0.05, 1.0, 1.1, std(0x1a2129, 0.2, 0.4), -0.76, 1.55, -0.6, false) // the open door on the left
-  const ps = sign('GRIND SKYDIVE', 3.2, 0.42, { fg: '#14a058', weight: 900 }); ps.position.set(0.77, 1.6, -1.2); ps.rotation.y = Math.PI / 2; plane.add(ps)
+  const white = std(0xf4f4f2, 0.28, 0.25), green = std(0x14a058, 0.42, 0.15), glassM = std(0x14202b, 0.08, 0.7)
+  const dark = std(0x16171a, 0.8), alloy = std(0x9aa1a8, 0.32, 0.85)
+  // Fuselage: radius along the length, tail (-z) to nose (+z), turned on a lathe.
+  const hull: Array<[number, number]> = [[0.04, -5.95], [0.16, -5.7], [0.28, -5.0], [0.46, -4.0], [0.66, -2.8], [0.8, -1.6], [0.84, -0.6], [0.84, 1.2], [0.8, 2.4], [0.7, 3.2], [0.62, 3.9], [0.5, 4.3], [0.3, 4.6], [0.04, 4.78]]
+  put(plane, new THREE.LatheGeometry(hull.map(([r, y]) => new THREE.Vector2(r, y)), 28).rotateX(Math.PI / 2).scale(0.92, 1.08, 1), white, 0, 1.5, 0)
+  // A wing-like planform in the x-y plane (x across, y fore-aft: -y is the leading edge), laid flat afterwards.
+  const planform = (half: number, rootHalf: number, le: [number, number], te: [number, number], depth: number) => {
+    const sh = new THREE.Shape()
+    const tipMid = (le[1] + te[1]) / 2
+    sh.moveTo(-rootHalf, le[0]); sh.lineTo(rootHalf, le[0]); sh.lineTo(half - 0.4, le[1])
+    sh.quadraticCurveTo(half, le[1] + 0.05, half, tipMid); sh.quadraticCurveTo(half, te[1], half - 0.4, te[1])
+    sh.lineTo(rootHalf, te[0]); sh.lineTo(-rootHalf, te[0]); sh.lineTo(-half + 0.4, te[1])
+    sh.quadraticCurveTo(-half, te[1], -half, tipMid); sh.quadraticCurveTo(-half, le[1] + 0.05, -half + 0.4, le[1]); sh.lineTo(-rootHalf, le[0])
+    return new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: depth * 0.45, bevelSize: 0.05, bevelSegments: 3, curveSegments: 10 }).translate(0, 0, -depth / 2).rotateX(-Math.PI / 2)
+  }
+  put(plane, planform(6.35, 1.2, [-0.85, -0.55], [0.85, 0.7], 0.08), white, 0, 2.42, 0.55)
+  put(plane, planform(2.15, 0.45, [-0.5, -0.32], [0.5, 0.4], 0.05), white, 0, 1.78, -5.25)
+  // Swept fin, green, with the name on both sides.
+  {
+    const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(2.05, 0); sh.lineTo(2.35, 1.75); sh.lineTo(1.55, 1.8); sh.quadraticCurveTo(0.8, 0.9, 0, 0)
+    const fin = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 }).translate(0, 0, -0.035).rotateY(Math.PI / 2)
+    put(plane, fin, green, 0, 1.92, -3.95)
+    for (const s of [-1, 1]) { const n = sign('GRIND', 1.2, 0.3, { bg: '#14a058', fg: '#ffffff', weight: 900 }); n.position.set(s * 0.075, 2.55, -5.05); n.rotation.y = s * Math.PI / 2; plane.add(n) }
+  }
+  // Cheatline, cabin windows, windscreen and the open door (left side).
+  for (const s of [-1, 1]) {
+    cube(plane, 0.02, 0.12, 3.8, green, s * 0.785, 1.4, 0.4, false)
+    for (const z of [1.55, 0.8, 0.05, -0.7, -1.45]) { const w = cube(plane, 0.03, 0.27, 0.36, glassM, s * 0.775, 1.78, z, false); w.rotation.y = s * 0.04 }
+  }
+  { const ws = cube(plane, 1.1, 0.42, 0.04, glassM, 0, 2.1, 2.62, false); ws.rotation.x = -0.95 }
+  cube(plane, 0.04, 1.05, 1.05, std(0x0d1116, 0.3, 0.3), -0.79, 1.55, -0.6, false)
+  // Cowling details: exhaust stacks and an air intake.
+  for (const s of [-1, 1]) { const ex = put(plane, new THREE.CylinderGeometry(0.07, 0.09, 0.32, 10).rotateZ(Math.PI / 2), dark, s * 0.66, 1.45, 3.35); ex.rotation.y = s * 0.3 }
+  cube(plane, 0.5, 0.14, 0.5, dark, 0, 0.98, 3.9)
+  // Struts from the lower fuselage to the wing.
+  for (const s of [-1, 1]) { const st = put(plane, new THREE.CylinderGeometry(0.035, 0.035, 2.25, 8), alloy, s * 1.55, 1.75, 0.55); st.rotation.z = s * 0.98 }
+  // Gear: sprung main legs with spatted wheels, and a nose leg.
+  const spat = new THREE.SphereGeometry(1, 18, 12)
+  for (const s of [-1, 1]) {
+    const leg = cube(plane, 0.08, 0.95, 0.12, alloy, s * 0.95, 0.7, 0.3); leg.rotation.z = s * 0.7
+    put(plane, new THREE.CylinderGeometry(0.28, 0.28, 0.16, 18).rotateZ(Math.PI / 2), dark, s * 1.28, 0.28, 0.3)
+    put(plane, spat, white, s * 1.28, 0.36, 0.3).scale.set(0.13, 0.26, 0.55)
+  }
+  cube(plane, 0.07, 0.75, 0.07, alloy, 0, 0.55, 3.55)
+  put(plane, new THREE.CylinderGeometry(0.2, 0.2, 0.13, 16).rotateZ(Math.PI / 2), dark, 0, 0.2, 3.6)
+  put(plane, spat, white, 0, 0.27, 3.6).scale.set(0.1, 0.2, 0.4)
+  // The prop: a green spinner and three twisted blades (this group spins).
+  const prop = new THREE.Group(); prop.position.set(0, 1.5, 4.82); plane.add(prop)
+  put(prop, new THREE.ConeGeometry(0.2, 0.42, 18).rotateX(Math.PI / 2), green, 0, 0, 0.12)
+  for (let k = 0; k < 3; k++) { const arm = new THREE.Group(); arm.rotation.z = (k * Math.PI * 2) / 3; prop.add(arm); const bl = cube(arm, 0.15, 1.15, 0.035, std(0x1a1a1a, 0.4), 0, 0.68, 0, false); bl.rotation.y = 0.32; cube(arm, 0.151, 0.12, 0.036, std(0xf2c230, 0.5), 0, 1.2, 0, false).rotation.y = 0.32 }
+  // The name across the top of the wing, readable from behind the plane.
+  { const top = sign('GRIND SKYDIVE', 5.2, 0.7, { bg: '#f4f4f2', fg: '#14a058', weight: 900 }); top.position.set(0, 2.53, 0.55); top.rotation.set(-Math.PI / 2, 0, Math.PI); plane.add(top) }
+  plane.traverse((o) => { o.userData.ghost = true })
   plane.position.set(PLANE_AT.x, 0, PLANE_AT.z); plane.rotation.order = 'YXZ'; plane.rotation.y = Math.PI
   g.add(plane)
   // The landing target, and the desk by the hangar.
@@ -181,7 +243,7 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   const ds = sign('GRIND SKYDIVE · TANDEM JUMPS', 4.6, 0.6, { bg: '#123524', fg: '#ffffff', glowing: true }); ds.position.set(251, 2.6, 97.2); ds.rotation.y = Math.PI; g.add(ds)
   A.block(0, { x0: 249.8, z0: 97.2, x1: 252.2, z1: 98 })
   // You and your instructor (tandem), and the canopy.
-  const you = person('woman3', { pose: 'cheer', height: 1.7, look: { top: 0xe05a2b, bottom: 0xe05a2b, shoes: 0x1a1a1a } })
+  let you = person('woman3', { pose: 'cheer', height: 1.7, look: { top: 0xe05a2b, bottom: 0xe05a2b, shoes: 0x1a1a1a } })
   const inst = person('man1', { pose: 'cheer', height: 1.8, look: { top: 0x101114, bottom: 0x101114, shoes: 0x1a1a1a } })
   const pair = new THREE.Group(); pair.add(you, inst); inst.position.set(0, 0.25, -0.32); pair.visible = false; g.add(pair)
   const canopy = new THREE.Group()
@@ -209,6 +271,7 @@ export function buildAdventures(A: Arch, X: Ctx): void {
     nextBrief()
   }
   const jump = () => {
+    you = asYou(you)
     let phase: 'climb' | 'door' | 'free' | 'canopy' | 'landed' = 'climb'
     let doorT = 0, jumpNow = false, vy = 0, vh = 0, pullAt = 0, flare = false, flareTried = false
     const p = new THREE.Vector3(), dir = new THREE.Vector3(), w = new THREE.Vector3()

@@ -65,6 +65,10 @@ export function createMentorCard(hooks: MentorHooks) {
 
   let faceUrl: string | null | undefined
   const close = () => { open = false; root.hidden = true; root.replaceChildren(); document.body.classList.remove('mentor-on') }
+  // X means "not now": once the player closes Zahra, she does not pop up again by herself this visit (no tour
+  // straight after, no card each time they pass Campus). Tapping her, or the Next step, still brings her.
+  let dismissed = false
+  const dismiss = () => { dismissed = true; close() }
   const shell = (step: string, total: number, at: number) => {
     const head = h('div', 'mentor-head')
     const face = h('span', 'mentor-face', 'Z'); face.setAttribute('aria-hidden', 'true')
@@ -72,7 +76,7 @@ export function createMentorCard(hooks: MentorHooks) {
     if (faceUrl) { face.style.backgroundImage = `url(${faceUrl})`; face.classList.add('has-photo') }
     face.append(h('i', 'mentor-wave'))
     const who = h('div', 'mentor-who'); who.append(h('b', '', 'Zahra'), h('small', '', step))
-    const x = h('button', 'mentor-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.onclick = close
+    const x = h('button', 'mentor-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.onclick = dismiss
     head.append(face, who, x)
     const dots = h('div', 'mentor-dots')
     for (let i = 0; i < total; i++) dots.append(h('i', i < at ? 'on' : i === at ? 'now' : ''))
@@ -176,7 +180,7 @@ export function createMentorCard(hooks: MentorHooks) {
     const show = (i: number) => {
       const step = TOUR[i]!
       const [head, dots] = shell(`Welcome tour \u00b7 ${i + 1} of ${TOUR.length}`, TOUR.length, i)
-      head.querySelector('.mentor-x')?.addEventListener('click', () => end(false))
+      head.querySelector('.mentor-x')?.addEventListener('click', () => { dismissed = true; end(false) })
       light(step.spot)
       root.classList.toggle('tour-up', step.spot === '#stick') // keep the joystick she points at in view
       const nav = h('div', 'mentor-nav')
@@ -208,5 +212,5 @@ export function createMentorCard(hooks: MentorHooks) {
     root.replaceChildren(head, h('p', 'mentor-say', due ? LINES.hello : LINES.helloDone), nav)
     ;(nav.lastElementChild as HTMLButtonElement | null)?.focus({ preventScroll: true })
   }
-  return { start, tour, hello, close, isOpen: () => open }
+  return { start, tour, hello, close, isOpen: () => open, dismissed: () => dismissed }
 }
