@@ -3866,3 +3866,11 @@ html[data-ui='light'] details.pfold:not([open]) .pfold-chev { background: var(--
 #gd-modal .gm-facts dt { color: rgba(246, 241, 230, 0.6); } #gd-modal .gm-facts dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-word; }
 #gd-modal .gm-small { margin: 10px 0 0; font-size: 11.5px; color: rgba(246, 241, 230, 0.55); }
 html[data-ui='light'] #gd-modal .gm-facts dt, html[data-ui='light'] #gd-modal .gm-small { color: #6b655a; }
+
+/* Title: a still of the whole district, rendered from the real city at retina resolution (phones get a tall
+   860x1864 frame, wide screens 1920 or 2560 wide). The old small poster sits underneath until the sharp one loads. */
+#menu > #menu-poster { background-image: url('/brand/title-p-hd.webp'), url('/brand/title-p.jpg'); background-size: cover; background-position: center; }
+@media (min-width: 821px) and (orientation: landscape) {
+  #menu > #menu-poster { background-image: url('/brand/title-l-1920.webp'), url('/brand/title-l.jpg'); }
+  @media (min-resolution: 1.5dppx), (min-width: 1700px) { #menu > #menu-poster { background-image: url('/brand/title-l-hd.webp'), url('/brand/title-l.jpg'); } }
+}

@@ -191,14 +191,18 @@ const schedulePreview = () => {
     bootTitlePreview()
   }
 }
-schedulePreview()
+// The title is a still now: a sharp, retina-resolution picture of the whole district (#menu-poster), rendered from
+// the real city. The moving 3D fly-over lagged on phones, so it is off; the city still loads quietly behind the card.
+const TITLE_3D = false
+if (TITLE_3D) schedulePreview()
+else settlePreview() // the empty canvas stays transparent under the poster
 // Phones: signing up with 𝕏 (or Google, or a wallet) opens another window over this tab. Let go of the 3D preview
 // while the tab is out of sight so the phone has the memory for that window (Chrome on Android crashed with both
 // open), and bring it back when the player returns to the title card.
 if (matchMedia('(pointer: coarse)').matches) {
   let dropped = false
   document.addEventListener('visibilitychange', () => {
-    if (opening) return
+    if (opening || !TITLE_3D) return
     if (document.hidden) {
       try { stopPreview() } catch { /* none running */ }
       stopPreview = () => {}
