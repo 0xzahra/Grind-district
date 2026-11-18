@@ -212,5 +212,6 @@ export function createMentorCard(hooks: MentorHooks) {
     root.replaceChildren(head, h('p', 'mentor-say', due ? LINES.hello : LINES.helloDone), nav)
     ;(nav.lastElementChild as HTMLButtonElement | null)?.focus({ preventScroll: true })
   }
-  return { start, tour, hello, close, isOpen: () => open, dismissed: () => dismissed }
+  // Asking for her (Learn, the Next step) clears "not now": the lesson opens when the player reaches Campus.
+  return { start, tour, hello, close, isOpen: () => open, dismissed: () => dismissed, undismiss: () => { dismissed = false } }
 }

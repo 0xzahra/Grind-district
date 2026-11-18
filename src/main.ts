@@ -563,7 +563,10 @@ const apiAgents = createRemoteAgents(scene)
   // It waits, however long sign-up takes, until the player is actually standing in the city: title screen gone,
   // no sign-in dialog, card or panel open, not inside a room. Then it starts after two calm seconds.
   let tourWaiting = false
+  // A tour the player asks for (from the menu) also takes over one that is already waiting to start.
+  let tourAsked = false
   const startTour = (force = false) => {
+    if (force) tourAsked = true
     if ((!force && tourSeen()) || mentor.isOpen() || tourWaiting) return
     tourWaiting = true
     let calm = 0
@@ -571,10 +574,11 @@ const apiAgents = createRemoteAgents(scene)
       || ui.isOpen() || document.body.classList.contains('sheet-open') || !!document.getElementById('login-dlg')
       || !!document.querySelector('.gdesk, #cert-dlg, .login-dlg') || !!interiors.inside || !!homes?.inside || mentor.isOpen()
     const tryNow = () => {
-      if (!force && (tourSeen() || mentor.dismissed())) { tourWaiting = false; return }
+      if (!force && !tourAsked && (tourSeen() || mentor.dismissed())) { tourWaiting = false; return }
       calm = busy() ? 0 : calm + 1
       if (calm < 2) { window.setTimeout(tryNow, 1000); return }
       tourWaiting = false
+      tourAsked = false
       mentor.tour()
     }
     tryNow()
@@ -1077,6 +1081,7 @@ const apiAgents = createRemoteAgents(scene)
   let goalGo = ''
   const runStep = (go: string) => {
     if (go === 'mentor') {
+      mentor.undismiss()
       if (interiors.inside) leaveRoom()
       if (Math.hypot(pos.x, pos.z + 40.4) < 4) { firstOpened = true; mentor.start(nextMission() ?? 'internet') }
       else { firstOpened = false; travelHook('Campus', false) }
