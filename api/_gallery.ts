@@ -87,6 +87,9 @@ async function metadata(uri: string): Promise<Record<string, unknown> | null> {
   return null
 }
 
+/** The token's page on OpenSea (checked for every piece: each resolves to the right collection and number). */
+export const openseaUrl = (contract: string, token: string) => `https://opensea.io/item/ethereum/${contract.toLowerCase()}/${token}`
+
 /** An SVG data URL safe for an <img> (raw '#' colours would end the URL early). */
 export function svgUrl(s: string): string {
   if (!s.startsWith('data:image/svg+xml')) return s
@@ -97,13 +100,13 @@ export function svgUrl(s: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(/%[0-9a-f]{2}/i.test(body) ? decodeURIComponent(body) : body)}`
 }
 
-export type Shown = Omit<Piece, 'kind'> & { name: string; desc: string; owner: string | null; img: string | null; raw: string | null; svg: string | null; onchain: boolean; chain: 'Ethereum'; etherscan: string }
+export type Shown = Omit<Piece, 'kind'> & { name: string; desc: string; owner: string | null; img: string | null; raw: string | null; svg: string | null; onchain: boolean; chain: 'Ethereum'; etherscan: string; opensea: string }
 
 async function resolve(p: Piece): Promise<Shown> {
   const base = { id: p.id, room: p.room, title: p.title, artist: p.artist, year: p.year, collection: p.collection, contract: p.contract, token: p.token, note: p.note, chain: 'Ethereum' as const }
   if (p.kind === 'punk') {
     const [svg, owner] = await Promise.all([call(p.contract, 'punkImageSvg', Number(p.token)), call(PUNK_MARKET, 'punkIndexToAddress', BigInt(p.token))])
-    return { ...base, name: p.title, desc: '', owner, img: null, raw: null, svg: svg && svg.startsWith('data:image/svg') ? svgUrl(svg) : null, onchain: true, etherscan: `https://etherscan.io/address/${PUNK_MARKET}` }
+    return { ...base, name: p.title, desc: '', owner, img: null, raw: null, svg: svg && svg.startsWith('data:image/svg') ? svgUrl(svg) : null, onchain: true, etherscan: `https://etherscan.io/address/${PUNK_MARKET}`, opensea: openseaUrl(PUNK_MARKET, p.token) }
   }
   const [uri, owner] = await Promise.all([call(p.contract, 'tokenURI', BigInt(p.token)), call(p.contract, 'ownerOf', BigInt(p.token))])
   const meta = uri ? await metadata(uri) : null
@@ -114,6 +117,7 @@ async function resolve(p: Piece): Promise<Shown> {
     ...base, name: String(meta?.name ?? p.title), desc: String(meta?.description ?? '').replace(/\s+/g, ' ').slice(0, 240), owner, onchain,
     img: urls?.img ?? null, raw: urls?.raw ?? null, svg: src.startsWith('data:image/svg') ? svgUrl(src) : null,
     etherscan: `https://etherscan.io/nft/${p.contract.toLowerCase()}/${p.token}`,
+    opensea: openseaUrl(p.contract, p.token),
   }
 }
 

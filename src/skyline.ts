@@ -215,10 +215,13 @@ export function createSkyline(scene: THREE.Scene, graphics: Graphics) {
     mesh.raycast = () => undefined
     scene.add(mesh)
   }
+  const all = [...bodies, parapets, plant, spires, beacons]
   return {
     tick(t: number, night: number) {
       for (const mt of mats) mt.emissiveIntensity = 0.01 + night * 0.32
       beacons.visible = Math.sin(t * 2.4) > 0.2 && night > 0.2
     },
+    /** Show or hide the whole skyline (used for poster stills taken from the air). */
+    show(on: boolean) { for (const m of all) m.visible = on },
   }
 }

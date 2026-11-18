@@ -14,7 +14,7 @@ const HX = 16, HZ = 11, H = 6.6
 
 type Item = {
   id: string; room: string; title: string; artist: string; year: number; collection: string; contract: string; token: string; note: string
-  name: string; desc?: string; owner: string | null; img: string | null; raw: string | null; svg: string | null; onchain: boolean; chain: string; etherscan: string
+  name: string; desc?: string; owner: string | null; img: string | null; raw: string | null; svg: string | null; onchain: boolean; chain: string; etherscan: string; opensea?: string
 }
 type Slot = { id: string; x: number; z: number; ry: number; w: number; h: number; y: number; label: string }
 
@@ -118,6 +118,7 @@ function openArt(it: Item | null, fallback: string): void {
     const scan = el('button', 'View the token on Etherscan', 'gm-key gm-go'); scan.type = 'button'
     scan.onclick = () => window.open(it.etherscan, '_blank', 'noopener')
     keys.append(scan)
+    if (it.opensea) { const os = el('button', 'View on OpenSea', 'gm-key gm-ghost'); os.type = 'button'; os.onclick = () => window.open(it.opensea, '_blank', 'noopener'); keys.append(os) }
     card.append(keys, el('p', 'Shown for education, read live from Ethereum, as any NFT viewer shows it. The work belongs to its artist and its holder; Grind District is not affiliated with them.', 'gm-small'))
   }
   shade.append(card)
@@ -154,7 +155,8 @@ export function buildGallery(A: Arch, X: TravelCtx): void {
   const g = new THREE.Group(); A.add(0, g)
   const C = GAL
   // The hall, seen from inside: warm white walls, a pale ceiling, an oak floor.
-  const wall = std(0xf3f0ea, 0.92), ceil = std(0xfbfaf8, 0.95)
+  // The ceiling glows softly (lit from the light boxes), as in a real white-cube gallery, not a grey lid.
+  const wall = std(0xf3f0ea, 0.92), ceil = std(0xfbfaf8, 0.95, 0, { emissive: 0xece7de, emissiveIntensity: 0.62 })
   const oak = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = 256; c.height = 256; const q = c.getContext('2d')!; q.fillStyle = '#b48a5e'; q.fillRect(0, 0, 256, 256); for (let i = 0; i < 16; i++) { q.fillStyle = `rgba(${90 + (i * 37) % 40},${60 + (i * 23) % 30},${35},0.18)`; q.fillRect(0, i * 16, 256, 15) } for (let i = 0; i < 900; i++) { q.fillStyle = `rgba(70,45,25,${Math.random() * 0.12})`; q.fillRect(Math.random() * 256, Math.random() * 256, 18 + Math.random() * 40, 1) } return c })())
   oak.wrapS = oak.wrapT = THREE.RepeatWrapping; oak.repeat.set(8, 6); oak.colorSpace = THREE.SRGBColorSpace
   const floor = std(0xffffff, 0.45, 0, { map: oak })

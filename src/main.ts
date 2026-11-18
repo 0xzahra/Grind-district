@@ -1976,7 +1976,8 @@ const apiAgents = createRemoteAgents(scene)
   // still draws it on demand if it is not there yet.
   bakeWhenStill = () => { if (!satelliteUrl() && !indoors() && !document.body.classList.contains('rail-shut')) { try { bake() } catch { /* vector map */ } } }
   let debugView: [number[], number[]] | null = null
-  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
+  let clearAir = 1
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
@@ -2047,6 +2048,7 @@ const apiAgents = createRemoteAgents(scene)
       world.setDaylight(dayPhase)
       seasons.apply(scene.fog instanceof THREE.FogExp2 ? scene.fog : null, world.sun, world.hemi, nightLevel)
       if (homes?.flying && scene.fog instanceof THREE.FogExp2) scene.fog.density *= 0.45 // clearer air up high
+      if (clearAir !== 1 && scene.fog instanceof THREE.FogExp2) scene.fog.density *= clearAir // dev only: poster stills
       hemiBase = world.hemi.intensity
       physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)

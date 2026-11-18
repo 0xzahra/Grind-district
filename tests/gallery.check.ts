@@ -2,7 +2,7 @@
 // with the original as a fallback, and the exhibition list is well formed (unique pieces, real contract addresses,
 // every room on a wall in src/gallery.ts). No network: the live chain reads are checked by hand.
 import { readFileSync } from 'node:fs'
-import { PIECES, ipfsPath, imageUrls } from '../api/_gallery.ts'
+import { PIECES, ipfsPath, imageUrls, openseaUrl } from '../api/_gallery.ts'
 
 let pass = 0, fail = 0
 const check = (c: boolean, m: string) => { if (c) pass++; else { fail++; console.log('  FAIL', m) } }
@@ -17,6 +17,7 @@ check(a.raw === 'https://gateway.pinata.cloud/ipfs/QmTtM1G6GNodp6u4sENHkeirgR3aC
 const b = imageUrls('https://nft.beeple-collect.com/humanone/x.png', 640)
 check(b.raw === 'https://nft.beeple-collect.com/humanone/x.png' && b.img.includes('&w=640&'), 'http image resized at the asked width, original kept')
 
+check(openseaUrl('0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', '8817') === 'https://opensea.io/item/ethereum/0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d/8817', 'OpenSea item link')
 const ids = new Set(PIECES.map((p) => p.id))
 check(ids.size === PIECES.length, 'unique piece ids')
 check(PIECES.every((p) => /^0x[0-9a-fA-F]{40}$/.test(p.contract) && /^\d+$/.test(p.token)), 'contracts and token ids are well formed')
