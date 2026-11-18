@@ -2511,7 +2511,8 @@ const apiAgents = createRemoteAgents(scene)
     const wantFar = space >= 1 ? 60000 : space > 0 ? 3000 : flying ? 900 : 260
     if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix() }
     if (flying) physSky.sky.position.copy(camera.position)
-    if (space > 0 && scene.fog instanceof THREE.FogExp2) scene.fog.density = space >= 1 ? 0 : 0.0009
+    // High up (the skydive's climb, the rocket's first minute) the air is thin: the ground 1-2 km below stays clear.
+    if (space > 0 && scene.fog instanceof THREE.FogExp2) scene.fog.density = space >= 1 ? 0 : 0.00025
     if (space >= 1) { physSky.sky.visible = false; if (scene.background instanceof THREE.Color) scene.background.setHex(0x000004) }
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
     camera.updateMatrixWorld()

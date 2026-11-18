@@ -39,8 +39,10 @@ function guideHud() {
   let onTap: (() => void) | null = null
   btn.onclick = (e) => { e.stopPropagation(); const f = onTap; if (f) f() }
   return {
-    show(title: string, text: string, label?: string, tap?: () => void) { box.style.display = 'block'; h.textContent = title; p.textContent = text; onTap = tap ?? null; btn.style.display = label ? 'block' : 'none'; btn.textContent = label ?? '' },
-    hide() { box.style.display = 'none'; onTap = null },
+    /** Game time (seconds) after which the card closes by itself; Infinity while a step waits for the player. */
+    until: Infinity,
+    show(title: string, text: string, label?: string, tap?: () => void) { box.style.display = 'block'; h.textContent = title; p.textContent = text; onTap = tap ?? null; btn.style.display = label ? 'block' : 'none'; btn.textContent = label ?? ''; this.until = Infinity },
+    hide() { box.style.display = 'none'; onTap = null; this.until = Infinity },
     big(text: string | null) { big.style.display = text ? 'block' : 'none'; big.textContent = text ?? '' },
     remove() { box.remove(); big.remove() },
   }
@@ -64,6 +66,9 @@ export function buildAdventures(A: Arch, X: Ctx): void {
   const g = new THREE.Group(); A.add(0, g)
   const hud = guideHud()
   X.onLeave(() => hud.remove())
+  // The last card of an adventure ("Down safe", "You did it") closes by itself after a few seconds, so it never
+  // hangs over the next thing the player does if they walk off without tapping Done.
+  X.animate(() => { if (X.now() > hud.until) hud.hide() })
   const lite = matchMedia('(pointer: coarse)').matches
 
   // ---------------------------------------------------------------- the sea cliff
@@ -168,7 +173,7 @@ export function buildAdventures(A: Arch, X: Ctx): void {
       exit: { x: CLIFF.x - 5, z: CLIFF.z - 2 },
       done: () => {
         X.wind(0); climber.visible = false; rope.visible = false
-        hud.show('Down safe', 'Untie your knot, then coil the rope for the next climber. That was 34 m of real rock.', 'Done', () => hud.hide())
+        hud.show('Down safe', 'Untie your knot, then coil the rope for the next climber. That was 34 m of real rock.', 'Done', () => hud.hide()); hud.until = X.now() + 9
         X.toast(adjust({ social: 10, energy: -12 }, 'quiet') || 'You climbed a sea cliff.')
       },
     }
@@ -358,7 +363,7 @@ export function buildAdventures(A: Arch, X: Ctx): void {
         hud.big(null)
         pair.visible = false; canopy.visible = false
         plane.visible = true; plane.position.set(PLANE_AT.x, 0, PLANE_AT.z); plane.rotation.set(0, Math.PI, 0)
-        hud.show('You did it', 'Feet on the ground. Gather the canopy, high-five your instructor. That was a real skydive.', 'Done', () => hud.hide())
+        hud.show('You did it', 'Feet on the ground. Gather the canopy, high-five your instructor. That was a real skydive.', 'Done', () => hud.hide()); hud.until = X.now() + 9
         X.toast(adjust({ social: 18, energy: -8 }, 'quiet') || 'What a jump.')
       },
     }
