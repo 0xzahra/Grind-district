@@ -167,10 +167,16 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let base = 1
   let avg = 1 / 60
   let cool = 3
+  // The resolution never drops below this share of the screen's sharpness: lower reads as a haze over the city.
+  const FLOOR = 0.8
+  // A step down that did not make frames faster means the phone itself caps them (battery saver, heat, a 30 Hz
+  // screen while idle): the step is undone and no new one is tried for a while, so the picture stays sharp.
+  let probe: { before: number; t: number } | null = null
+  let holdSharp = 0
   let w = 1
   let h = 1
   let sized = false
-  const recall = (g: Graphics) => { try { const v = Number(localStorage.getItem(`gd.res.${g}`)); return v >= 0.6 && v <= 1 ? Math.round(v * 10) / 10 : 1 } catch { return 1 } }
+  const recall = (g: Graphics) => { try { const v = Number(localStorage.getItem(`gd.res.${g}`)); return v >= FLOOR && v <= 1 ? Math.round(v * 10) / 10 : 1 } catch { return 1 } }
   const remember = (g: Graphics, v: number) => { try { localStorage.setItem(`gd.res.${g}`, String(v)) } catch { /* private mode */ } }
   const build = () => {
     // MSAA target keeps edges clean through the composer (WebGL2).
@@ -266,13 +272,25 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
      */
     frame(dt: number, t: number) {
       if (grade) grade.uniforms.time.value = t % 100
-      if (!Number.isFinite(dt) || dt <= 0 || dt > 0.5) return
+      // A hidden tab or a long hitch says nothing about how hard the scene is to draw.
+      if (document.hidden) { cool = Math.max(cool, 2); return }
+      if (!Number.isFinite(dt) || dt <= 0 || dt > 0.25) return
       avg += (dt - avg) * 0.05
       cool -= dt
+      holdSharp = Math.max(0, holdSharp - dt)
       if (cool <= 0) {
-        // Under about 45 fps: step down (two steps when far under). A steady 60: step back up, slowly.
-        if (avg > 0.0225 && want > 0.6) { want = Math.max(0.6, want - (avg > 0.034 ? 0.2 : 0.1)); cool = 1.4 }
-        else if (avg < 0.0172 && want < 1) { want = Math.min(1, want + 0.1); cool = 5 }
+        if (probe && t - probe.t > 2.5) {
+          // Judge the last step down: frames no faster means the cap is not ours, so put the sharpness back.
+          if (avg > probe.before * 0.92) { want = Math.min(1, want + 0.1); holdSharp = 90; cool = 3 }
+          probe = null
+        } else if (avg > 0.026 && want > FLOOR && holdSharp === 0 && !probe) {
+          // Clearly under about 38 fps: step down one notch and see whether it helps.
+          probe = { before: avg, t }
+          want = Math.max(FLOOR, Math.round((want - 0.1) * 10) / 10); cool = 2.6
+        } else if (avg < 0.02 && want < 1) {
+          // A steady 50 fps or better: step back up.
+          want = Math.min(1, Math.round((want + 0.1) * 10) / 10); cool = 4
+        }
       }
       if (want !== scale) {
         scale = want

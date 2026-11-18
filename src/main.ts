@@ -1477,7 +1477,10 @@ const apiAgents = createRemoteAgents(scene)
       pos.x = x
       pos.z = z
       faceYaw = yaw
-      avatar.object.rotation.y = yaw
+      // Face the counter by turning the body, as walking does. (This used to turn the whole figure and never turned
+      // it back, so after cooking, a shower or the stairs the player walked sideways or backward.) Twice: the second
+      // call settles the lean the first big turn would leave.
+      for (let i = 0; i < 2; i++) avatar.face(Math.sin(yaw), Math.cos(yaw), 1, true)
     },
     sit: (s) => sitOn(s),
     openCareer: (tab) => { setCC(true); openCareer(tab) },
@@ -1977,7 +1980,7 @@ const apiAgents = createRemoteAgents(scene)
   bakeWhenStill = () => { if (!satelliteUrl() && !indoors() && !document.body.classList.contains('rail-shut')) { try { bake() } catch { /* vector map */ } } }
   let debugView: [number[], number[]] | null = null
   let clearAir = 1
-  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __res: () => +renderer.getPixelRatio().toFixed(3), __facing: () => { const p = (avatar.object.userData.person as THREE.Object3D | undefined) ?? avatar.object; const v = new THREE.Vector3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())); return { root: +avatar.object.rotation.y.toFixed(3), body: +Math.atan2(v.x, v.z).toFixed(3), move: Math.hypot(vel.x, vel.z) > 0.3 ? +Math.atan2(vel.x, vel.z).toFixed(3) : null, speed: +Math.hypot(vel.x, vel.z).toFixed(2) } }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
@@ -2261,6 +2264,13 @@ const apiAgents = createRemoteAgents(scene)
     const faceZ = groundSpeed > 0.3 ? vel.z / groundSpeed : dirZ
     if (groundSpeed > 0.3) faceYaw = Math.atan2(faceX, faceZ)
     stillFor = groundSpeed > 0.2 ? 0 : stillFor + dt
+    // Only a seat turns the whole figure (seating.ts), and it turns it back on standing. Any other turn left on it
+    // would add to the walking direction and make the player walk sideways or backward, so it is folded away here.
+    if (!seating.sitting && avatar.object.rotation.y !== 0) {
+      const left = avatar.object.rotation.y
+      avatar.object.rotation.y = 0
+      if (!(wishLen > 0.05 || groundSpeed > 0.3)) for (let i = 0; i < 2; i++) avatar.face(Math.sin(faceYaw + left), Math.cos(faceYaw + left), 1, true)
+    }
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     seating.apply(avatar.object, dt)
