@@ -1160,7 +1160,9 @@ export function createWorld(options: {
     // horizon instead of sinking into a flat orange wash.
     const afterglow = elev >= 0 ? 1 : THREE.MathUtils.smoothstep(elev, -0.12, 0)
     fog.color.copy(tmpB).lerp(nightLow, (1 - afterglow) * 0.6)
-    fog.density = 0.0054 - day * 0.0031 + dusk * 0.0008 // light aerial haze: crisp by day, a little more at dusk
+    // Clear air: the city is sharp to the edge by day; only the far horizon fades a little (it hides where the
+    // world ends). A touch more at dusk and night for depth.
+    fog.density = 0.003 - day * 0.0021 + dusk * 0.0004
     // Day: softer sun (Zahra: too bright). Night: lamps. Dusk: warm amber.
     const up = Math.max(0.35, Math.abs(elev))
     const side = Math.cos(angle) * (elev >= 0 ? 1 : -1)

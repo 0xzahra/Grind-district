@@ -167,7 +167,7 @@ export function createSeasons(scene: THREE.Scene, o: { foliage: THREE.Material; 
       hemi.intensity *= 0.96 + S.snow * 0.02
       if (fog) {
         fog.color.lerp(tmp.setHex(S.fogTint), 0.18 * (1 - night)).lerp(tmp2.setHex(0xd9b27a), C.heat * 0.4 * (1 - night * 0.6)).lerp(tmp2.setHex(0xc4d4e4), E.cool * 0.25 * (1 - night))
-        fog.density *= 1 + S.snow * 0.08 + C.heat * 0.7
+        fog.density *= 1 + S.snow * 0.08 + C.heat * 0.25 // heat haze kept faint: the air stays clear
       }
     },
     /** Falling petals, leaves or snow round the camera; storms in the hotter futures. */

@@ -187,10 +187,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     composer.addPass(new RenderPass(scene, camera))
     bloom = null
     depth = null
-    if (level === 'high' && gl2 && (camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
-      depth = new DepthBlurPass(camera as THREE.PerspectiveCamera)
-      composer.addPass(depth)
-    }
+    // No depth blur: it softened everything behind the player into a haze. The city stays sharp to the horizon.
+    void DepthBlurPass
     // Ambient occlusion on High, desktop only (too heavy for phone GPUs).
     if (level === 'high' && !coarse && gl2) {
       try {
