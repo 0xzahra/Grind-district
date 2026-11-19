@@ -122,6 +122,28 @@ async function eventCountSince(db: SupabaseClient, name: string, since: string):
   return r.error ? null : count(r)
 }
 
+/** Browsers, each counted once: the first-visit and opened-page events both fire once per browser (the first
+ *  visit went missing from 9 to 19 Nov, while opened-page kept firing), so their visitor ids are merged. */
+async function distinctVisitors(db: SupabaseClient, since?: string): Promise<number | null> {
+  const ids = new Set<string>()
+  for (let page = 0; page < 40; page++) {
+    let q = db.from('events').select('anon_id').in('name', ['first_visit', 'opened_page'])
+    if (since) q = q.gte('created_at', since)
+    const r = await q.order('id', { ascending: true }).range(page * 1000, page * 1000 + 999)
+    if (r.error) return page ? ids.size : null
+    for (const row of r.data ?? []) { const a = String((row as { anon_id?: string }).anon_id ?? ''); if (a && a !== 'unknown') ids.add(a) }
+    if ((r.data ?? []).length < 1000) break
+  }
+  return ids.size
+}
+let visitorsCache: Cache<number | null> | null = null
+async function visitorsAllTime(db: SupabaseClient): Promise<number | null> {
+  if (visitorsCache && Date.now() - visitorsCache.at < SLOW_TTL_MS) return visitorsCache.value
+  const value = await distinctVisitors(db).catch(() => null)
+  visitorsCache = { at: Date.now(), value }
+  return value
+}
+
 async function uniqueActiveToday(db: SupabaseClient, since: string): Promise<number> {
   const r = await db.from('events').select('anon_id').gte('created_at', since).in('name', ['session_start', 'first_visit', 'sign_in']).limit(5000)
   return new Set((r.data ?? []).map((row) => String((row as { anon_id?: string }).anon_id ?? '')).filter(Boolean)).size
@@ -267,8 +289,8 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     privyCounts(),
     timeout(learningStats(db).catch(() => null), FETCH_MS * 2),
     db.from('players').select('id', { count: 'exact', head: true }).like('privy_user_id', 'near:%'),
-    eventCountSince(db, 'first_visit', '2000-01-01T00:00:00Z'),
-    eventCountSince(db, 'first_visit', since),
+    timeout(visitorsAllTime(db), FETCH_MS * 2).then((v) => v ?? eventCountSince(db, 'first_visit', '2000-01-01T00:00:00Z')),
+    timeout(distinctVisitors(db, since).catch(() => null), FETCH_MS).then((v) => v ?? eventCountSince(db, 'first_visit', since)),
     eventCountSince(db, 'session_start', since),
   ])
   const registered = count(players)

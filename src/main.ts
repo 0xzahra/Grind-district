@@ -854,7 +854,17 @@ const apiAgents = createRemoteAgents(scene)
       ['u1115b-grad', 'New: graduation 🎓', 'Pass every course in the six Campus worlds to graduate in the Great Hall: cap and gown, your name called, a diploma to download and share.', 'panel:diploma'],
       ['u1115b-enso', 'New: El Niño and La Niña', 'Every few in-game years the Pacific warms or cools and the weather shifts. See either one now in Seasons.', 'panel:seasons'],
       ['u1115b-adventure', 'New: cliff climbing and skydiving', 'At the airport: a guided 34 m sea-cliff climb past the spaceport, and a tandem skydive from the Grind Skydive desk by the hangar. Every step explained.', undefined],
+      ['u1117-places', 'New: Grind Surf School and the Art Gallery', 'Learn to surf on the city beach. The Grind Art Gallery hangs famous NFTs read live from Ethereum, free to visit.', undefined],
+      ['u1117-you', 'New: your Web3 personality', 'Profile reads how you play: your traits, best-fit roles and niches. Hire home staff, swim in pools, and share "A day in my Web3 life".', 'panel:profile'],
+      ['u1119-pitch', 'New: The Pitch', 'A promoter is selling a hot new coin outside the Conference Centre. Learn how a rug pull works, on practice money.', undefined],
+      ['u1119-social', 'New: invite players home', 'See who is online, invite them to your home, chill, chat and dance together. Tap any resident to see their profile.', 'players'],
+      ['u1119-gallery', 'New: My Gallery, selfies and skits', 'The picture key beside the menu opens My Gallery: take screenshots and selfies, record skits with friends, then download or share them.', 'gallery'],
+      ['u1119-trade', 'New: live prices and the DeFi desk', 'Coins, tokens and memecoins at real-time prices. Practise swaps, vaults, bridges, lending, borrowing and DAO votes with cash you earned.', 'panel:trade'],
+      ['u1119-couture', 'New: Couture in the Boutique', 'Hand-beaded pearl and gold mini dresses, and jewelled bralettes with beaded mini skirts. Premium pieces.', 'panel:boutique'],
+      ['u1119-smooth', 'Smoother and sharper', 'Fewer freezes, a lighter load on phones (steady 30 frames a second where a phone needs it), new cars and 4K on big screens.', undefined],
     ]
+    // The same release as a phone alert, once, for everyone who turned phone alerts on (sent by the server).
+    try { if (localStorage.getItem('gd.newsPing') !== 'u1119') window.setTimeout(() => { void fetch('/api/messages?op=news-ping&id=u1119').then((r) => { if (r.ok) localStorage.setItem('gd.newsPing', 'u1119') }).catch(() => undefined) }, 30_000) } catch { /* private mode */ }
     // Extras wait: a new player hears about them only after passing a first lesson (the core loop comes first).
     const send = () => { for (const [k, t, b, go] of UPDATES) notify(t, b, k, go) }
     if (!needsFirstCourse()) send()
@@ -943,6 +953,7 @@ const apiAgents = createRemoteAgents(scene)
     if (go === 'feed' || go === 'career') { setCC(true); careerOpeners[go](); return true }
     if (go.startsWith('place:')) { travelHook(go.slice(6), true); return true }
     if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
+    if (go === 'gallery' || go === 'players') { window.dispatchEvent(new Event(`gd:${go}`)); return true }
     return false
   }
   setNoteFollow(follow)
@@ -2784,10 +2795,34 @@ const apiAgents = createRemoteAgents(scene)
     return !cls.contains('rail-shut') && !cls.contains('cc-peek')
   }
   let last = performance.now()
+  // Frame pacing on phones. A phone that cannot hold 60 frames a second spends every last bit of its graphics
+  // chip trying, and then the whole phone stutters (the notification shade, the keyboard, other apps). Such a
+  // phone is locked to a steady 30 (remembered on the device), which leaves it room to breathe; and any phone
+  // drops to 20 while nobody touches the screen and nothing moves. Computers draw every display frame.
+  const coarseLoop = matchMedia('(pointer: coarse)').matches
+  const FPS_KEY = 'gd.fps30'
+  let lock30 = coarseLoop && (() => { try { return localStorage.getItem(FPS_KEY) === '1' } catch { return false } })()
+  let lastInput = performance.now(), paceT = 0, paceN = 0, paceSum = 0
+  for (const ev of ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel'] as const) window.addEventListener(ev, () => { lastInput = performance.now() }, { passive: true, capture: true })
   const frame = (now: number) => {
     if (abandoned) return
     requestAnimationFrame(frame)
     if (failed) return
+    if (revealed && coarseLoop) {
+      const still = now - lastInput > 9000 && Math.hypot(vel.x, vel.z) < 0.05 && !ride
+      const budget = still ? 50 : lock30 ? 1000 / 30 : 0
+      // A few ms early, so a 60 Hz screen's 33.3 ms rhythm is not missed by a hair (which would make it 25).
+      if (budget && now - last < budget - 4) return
+      post.setBudget(budget || 1000 / 60)
+      if (!lock30 && !still) {
+        // Judge the phone over 4 s of play: under about 45 a second on average, lock to 30.
+        paceSum += now - last; paceN++; paceT += now - last
+        if (paceT > 4000) {
+          if (paceSum / paceN > 22) { lock30 = true; try { localStorage.setItem(FPS_KEY, '1') } catch { /* private mode */ } }
+          paceT = paceSum = paceN = 0
+        }
+      }
+    }
     // Clamp to 50 ms: a GC/compile hitch must not teleport the player or kick the camera spring.
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
     last = now

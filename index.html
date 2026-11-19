@@ -39,7 +39,9 @@
     // First paint: keep ?src= / ?ref= / utm_* so guests and later sign-ins keep their source (no PII).
     (function () {
       try {
-        if (!localStorage.getItem('gd.guestId')) localStorage.setItem('gd.guestId', (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()));
+        // A browser seen for the first time: flagged here, because this script writes gd.attribution before the
+        // game's own tracking runs (which used to take that as "seen before" and never count the first visit).
+        if (!localStorage.getItem('gd.guestId')) { localStorage.setItem('gd.guestId', (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())); localStorage.setItem('gd.fresh', '1'); }
         var q = new URLSearchParams(location.search), got = {}, k, v;
         q.forEach(function (val, key) { if ((key === 'src' || key === 'ref' || key.indexOf('utm_') === 0) && val) got[key] = String(val).slice(0, 80); });
         var raw = localStorage.getItem('gd.attribution');

@@ -166,6 +166,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let want = 1
   let base = 1
   let avg = 1 / 60
+  // The frame time aimed for (phones may be paced to 30 or 20 a second, see main.ts): the scaler judges against it.
+  let budget = 1 / 60
   let cool = 3
   // The resolution never drops below this share of the tier's sharpness: lower reads as a haze over the city.
   // High renders at the screen's own density (up to 4K, see main.ts), so there it may step further down, never
@@ -259,6 +261,11 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       bloom?.resolution.set(width / 2, height / 2)
       grade!.uniforms.grain.value = 0
     },
+    /** The frame time being aimed for, in ms (paced phones: 33 or 50). */
+    setBudget(ms: number) {
+      const b = ms / 1000
+      if (Math.abs(b - budget) > 1e-4) { budget = b; avg = b; cool = Math.max(cool, 2) }
+    },
     /** Distance from the camera to what it is looking at (the player): the depth effect starts well behind it. */
     setFocus(d: number) {
       if (depth && Number.isFinite(d)) depth.focus = d
@@ -291,11 +298,11 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
           // Judge the last step down: frames no faster means the cap is not ours, so put the sharpness back.
           if (avg > probe.before * 0.92) { want = Math.min(cap, want + 0.1); holdSharp = 90; cool = 3 }
           probe = null
-        } else if (avg > 0.026 && want > floor() && holdSharp === 0 && !probe) {
+        } else if (avg > budget * 1.56 && want > floor() && holdSharp === 0 && !probe) {
           // Clearly under about 38 fps: step down one notch and see whether it helps.
           probe = { before: avg, t }
           want = Math.max(floor(), Math.round((want - 0.1) * 10) / 10); cool = 2.6
-        } else if (avg < 0.02 && want < cap) {
+        } else if (avg < budget * 1.2 && want < cap) {
           // A steady 50 fps or better: step back up.
           want = Math.min(cap, Math.round((want + 0.1) * 10) / 10); cool = 4
         }

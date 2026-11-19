@@ -29,9 +29,13 @@ export function captureAttribution(): void {
     const got: Record<string, string> = {}
     for (const [k, v] of q) if ((k === 'src' || k === 'ref' || k.startsWith('utm_')) && v) got[k] = v.slice(0, 80)
     const cur = read<Record<string, string> | null>(ATTR, null)
-    if (!cur) {
-      localStorage.setItem(ATTR, JSON.stringify({ ...got, landing: location.pathname, at: new Date().toISOString() }))
-      track('first_visit', got)
+    // index.html's first-paint script saves the attribution (and flags a brand-new browser with gd.fresh) before
+    // this runs, so a new visitor is the flag, or no attribution at all.
+    const fresh = localStorage.getItem('gd.fresh') === '1'
+    if (!cur || fresh) {
+      if (!cur) localStorage.setItem(ATTR, JSON.stringify({ ...got, landing: location.pathname, at: new Date().toISOString() }))
+      localStorage.removeItem('gd.fresh')
+      track('first_visit', { ...(cur ?? {}), ...got })
     } else if (got.src && !cur.src) {
       // URL brought a source that the first landing lacked — keep it for later signup / NEAR.
       localStorage.setItem(ATTR, JSON.stringify({ ...cur, ...got }))

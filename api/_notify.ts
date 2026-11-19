@@ -121,3 +121,47 @@ export async function notifyMessage(db: SupabaseClient, from: string, to: string
   }
   await Promise.race([Promise.allSettled(jobs), new Promise((r) => setTimeout(r, 4000))])
 }
+
+// ---- Game updates: one phone alert per release to every player who turned phone alerts on ----
+// Only push (people chose phone alerts in the game); never email. Each release has an id: the first game session
+// that opens after a deploy asks the server (?op=news-ping&id=...), and the server sends that release's alert once.
+// A lock file created without overwrite makes sure two pings never send it twice.
+export const LATEST_UPDATE = {
+  id: 'u1119',
+  title: 'New in Grind District',
+  body: 'Couture in the Boutique, the DeFi desk with live prices, My Gallery with selfies and skits, home invites to dance together, and a smoother city on phones.',
+  url: `${ORIGIN}/?src=push-update`,
+}
+export async function broadcastUpdate(db: SupabaseClient, id: string): Promise<{ sent: number; devices: number } | { skipped: string }> {
+  if (id !== LATEST_UPDATE.id) return { skipped: 'not the current update' }
+  const lock = await db.storage.from(BUCKET).upload(`broadcast/${id}.json`, new Blob([JSON.stringify({ at: new Date().toISOString() })], { type: 'application/json' }), { upsert: false, contentType: 'application/json' })
+  if (lock.error) return { skipped: 'already sent' }
+  const files: string[] = []
+  for (let offset = 0; offset < 5000; offset += 100) {
+    const r = await db.storage.from(BUCKET).list('push', { limit: 100, offset })
+    if (r.error || !r.data?.length) break
+    for (const f of r.data) if (f.name.endsWith('.json')) files.push(f.name)
+    if (r.data.length < 100) break
+  }
+  const webpush = (await import('web-push')).default
+  const k = vapidKeys()
+  webpush.setVapidDetails('mailto:noreply@grinddistrict.app', k.pub, k.priv)
+  const payload = JSON.stringify({ title: LATEST_UPDATE.title, body: LATEST_UPDATE.body, url: LATEST_UPDATE.url, tag: `update:${id}` })
+  let sent = 0, devices = 0
+  // A few players at a time, so the function stays well inside its time limit.
+  for (let i = 0; i < files.length; i += 8) {
+    await Promise.all(files.slice(i, i + 8).map(async (name) => {
+      const path = `push/${name}`
+      const subs = (await readJson<Sub[]>(db, path)) ?? []
+      if (!subs.length) return
+      const dead: string[] = []
+      await Promise.all(subs.map((s) => {
+        devices++
+        return webpush.sendNotification(s, payload, { TTL: 24 * 3600 }).then(() => { sent++ }, (e: { statusCode?: number }) => { if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.endpoint) })
+      }))
+      if (dead.length) await writeJson(db, path, subs.filter((s) => !dead.includes(s.endpoint)))
+    }))
+  }
+  await writeJson(db, `broadcast/${id}.json`, { at: new Date().toISOString(), players: files.length, devices, sent })
+  return { sent, devices }
+}
