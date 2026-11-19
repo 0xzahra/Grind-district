@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { createFleet, type CarKind } from './cars.ts'
+import { type CarKind } from './cars.ts'
+import { createFineFleet } from './fineFleet.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
 import { RING_IN, RING_OUT, ROAD_END, ROAD_HALF } from './lanes.ts'
@@ -182,7 +183,7 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     for (const [dx, dz] of arms) { const p = along(dx, dz, 31, ROAD_HALF + 2.6); if (free(p.x, p.z, 1.3)) bays.push({ ...p, ry: (dx ? Math.PI / 2 : 0) }) }
     const kinds: CarKind[] = ['sedan', 'suv', 'hatchback', 'van']
     const go = () => {
-      const fleet = createFleet(scene, bays.map((_, i) => kinds[i % kinds.length]!), { shadows: graphics === 'high', colours: [0x2b2e33, 0xc8b48f, 0x8e1b22, 0xf1f1ee] })
+      const fleet = createFineFleet(scene, bays.map((_, i) => kinds[i % kinds.length]!), { shadows: graphics === 'high', colours: bays.map((_, i) => [0x2b2e33, 0xc8b48f, 0x8e1b22, 0xf1f1ee, 0x1b2a4a][i % 5]!) })
       bays.forEach((b, i) => fleet.set(i, b.x, b.z, b.ry!, 0))
       fleet.commit()
       for (const b of bays) obstacles.push({ kind: 'box', x: b.x, z: b.z, hx: b.ry ? 2.3 : 1.0, hz: b.ry ? 1.0 : 2.3 })

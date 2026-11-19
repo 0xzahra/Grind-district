@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { ARMS, lanePoint, uturnPoint, sidePoint, ringRoute, insideFootprint, ROAD_HALF, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS } from './lanes.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
-import { carColour, carLength, createFleet, type CarKind } from './cars.ts'
+import { type CarKind } from './cars.ts'
+import { createFineFleet } from './fineFleet.ts'
 
 /**
  * Ambient traffic. Every car follows a leg (a polyline): out along an arm, U-turn in the bay, back in,
@@ -16,6 +17,8 @@ const COUNTS: Record<Graphics, number> = { low: 10, medium: 16, high: 22 }
 const ORDER: CarKind[] = ['sedan', 'sports', 'hatchback', 'suv', 'taxi', 'sports', 'van', 'hatchback', 'pickup', 'sports', 'sedan', 'suv', 'minibus', 'sports', 'taxi', 'hatchback', 'van', 'sports', 'sedan', 'suv', 'pickup', 'sports']
 // Sports coupes wear loud luxury paint (rosso, jet, giallo, lime, deep blue, pearl); the rest keep the street palette.
 const LUXURY = [0xc8102e, 0x14161a, 0xf5c400, 0x7cc242, 0x1f3f8f, 0xf4f1ea, 0xe0561b]
+/** Everyday paint for the saloons and coupés: pearl, graphite, midnight, burgundy, champagne, racing green, silver. */
+const CHIC = [0xeeece6, 0x2e3236, 0x1b2a4a, 0x5e1622, 0xc9b590, 0x1f4a36, 0xb9bec4, 0x101215]
 const HIDE = 50 // cars only leave or re-enter the city edge when the player is this far away
 
 type LegKind = 'out' | 'u' | 'in' | 'ring' | 'sideOut' | 'sideU' | 'sideIn'
@@ -78,19 +81,16 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
   // --- Fleet ------------------------------------------------------------------------------------------
   const kinds = Array.from({ length: count }, (_, i) => ORDER[i % ORDER.length]!)
   let lux = 0
-  const colours = kinds.map((k, i) => (k === 'sports' ? LUXURY[lux++ % LUXURY.length]! : carColour(k, i)))
-  // The showroom's detailed models drive too: the sports slots first, then saloons (two on Low, five on High).
-  const FINE = ['supercar', 'tourer', 'evcoupe', 'hypercar', 'sportsaloon', 'executive']
-  const fineIds = [...kinds.keys()].filter((i) => kinds[i] === 'sports').concat([...kinds.keys()].filter((i) => kinds[i] === 'sedan'))
-  const fine = new Map<number, string>(fineIds.slice(0, graphics === 'high' ? 5 : graphics === 'medium' ? 4 : 2).map((id, k) => [id, FINE[k % FINE.length]!]))
-  const fleet = createFleet(scene, kinds, { shadows: graphics !== 'low', colours, fine })
+  const colours = kinds.map((k, i) => (k === 'taxi' ? 0xf2c230 : k === 'sports' ? LUXURY[lux++ % LUXURY.length]! : CHIC[i % CHIC.length]!))
+  // Every car on the street is one of the showroom's detailed designs (fineFleet.ts), batched per design.
+  const fleet = createFineFleet(scene, kinds, { shadows: graphics !== 'low', colours })
   const cars: Car[] = []
   // Start every car in its own spot: at most as many per leg as fit with a car-length gap, the rest wait off the
   // map and drive in from the side road one by one (they used to be clamped onto the same spot and overlap).
   const spawnLegs = [...outLegs.flat(), ...inLegs.flat()]
   const fill = new Map<Leg, number>()
   kinds.forEach((kind, i) => {
-    const len = carLength(kind)
+    const len = fleet.length(i)
     let leg: Leg | null = null, s = 0
     for (let k = 0; k < spawnLegs.length && !leg; k++) {
       const L = spawnLegs[(i + k) % spawnLegs.length]!
