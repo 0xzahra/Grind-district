@@ -307,7 +307,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
   on('#pill-ledger', () => ui.open('profile', { tab: 'books' }))
   on('#pill-season', () => ui.open('season'))
   on('#pill-place', () => ui.open('city'))
-  document.querySelector('#shot')?.addEventListener('click', () => {
+  // The round key beside the menu is My Gallery; a screenshot is taken from there.
+  const shot = () => {
     try {
       const link = document.createElement('a')
       link.href = canvas.toDataURL('image/png')
@@ -317,7 +318,8 @@ export async function startFlat(onReady: () => void): Promise<void> {
     } catch {
       ui.toast('This browser blocked the shot.')
     }
-  })
+  }
+  document.querySelector('#shot')?.addEventListener('click', () => { void import('./myGallery.ts').then((g) => g.openMyGallery({ toast: (t) => ui.toast(t), shot })) })
 
   const input = createInput(canvas, stick, nub)
   act.addEventListener('click', () => input.requestInteract())

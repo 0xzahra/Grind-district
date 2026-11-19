@@ -10,7 +10,7 @@ const key = (label: string, cls: string, on: () => void) => { const b = el('butt
 const when = (at: number) => new Date(at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
-export type GalleryDeps = { toast: (m: string) => void; selfie?: () => void; skit?: () => void }
+export type GalleryDeps = { toast: (m: string) => void; shot?: () => void; selfie?: () => void; skit?: () => void }
 
 let filter: MediaKind | 'all' = 'all'
 export function openMyGallery(d: GalleryDeps): void {
@@ -24,7 +24,8 @@ export function openMyGallery(d: GalleryDeps): void {
   t.append(el('p', 'Saved on this device', 'gm-kick'), el('h3', 'My Gallery', 'gm-title'))
   head.append(t, key('Close', 'gm-ghost', close))
   const make = el('div', '', 'gm-keys mg-make')
-  if (d.selfie) make.append(key('📸 Take a selfie', 'gm-go', () => { close(); d.selfie!() }))
+  if (d.shot) make.append(key('📷 Take a screenshot', 'gm-go', () => { close(); d.shot!() }))
+  if (d.selfie) make.append(key('🤳 Take a selfie', 'gm-go', () => { close(); d.selfie!() }))
   if (d.skit) make.append(key('🎬 Record a skit', 'gm-go', () => { close(); d.skit!() }))
   const tabs = el('div', '', 'mg-tabs')
   const grid = el('div', '', 'mg-grid')
@@ -53,7 +54,7 @@ export function openMyGallery(d: GalleryDeps): void {
       return b
     }))
     empty.textContent = shown.length ? '' : filter === 'all'
-      ? 'Nothing here yet. Tap the camera button for a screenshot, take a selfie, use the photo booth at Grind Park, or record a skit with friends.'
+      ? 'Nothing here yet. Take a screenshot or a selfie above, use the photo booth at Grind Park, or record a skit with friends.'
       : `No ${KINDS.find(([k]) => k === filter)![1].toLowerCase()} yet.`
   }
   window.addEventListener('gd:media', refresh)
@@ -88,7 +89,7 @@ export function openMyGallery(d: GalleryDeps): void {
   }
 }
 
-/** A small "Saved to My Gallery" pill by the camera button that opens the gallery when tapped. */
+/** A small "Saved to My Gallery" pill by the Gallery key that opens the gallery when tapped. */
 export function flashSaved(what: string, open: () => void): void {
   document.getElementById('mg-saved')?.remove()
   const b = el('button', `${what} saved to My Gallery · View`, 'mg-saved'); b.id = 'mg-saved'; b.type = 'button'

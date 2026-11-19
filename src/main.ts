@@ -450,6 +450,30 @@ const apiAgents = createRemoteAgents(scene)
     // browser can, instead of one by one (a freeze each) as each comes into view.
     if (performance.getEntriesByName('gd:revealed').length) void renderer.compileAsync(scene, camera).catch(() => undefined)
   }
+  // The browser can drop the 3D view's GPU context (phones under memory pressure, a driver reset). three.js asks
+  // for it back; once it returns, the effects stack is rebuilt at a lower resolution and the shaders recompiled.
+  // Until then a small note says so, and if it does not come back, a key reloads the city (the game is saved).
+  let gpuNote: HTMLElement | null = null, gpuTimer = 0, gpuDropped = false
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault()
+    gpuDropped = true
+    window.clearTimeout(gpuTimer)
+    gpuTimer = window.setTimeout(() => {
+      gpuNote?.remove()
+      gpuNote = document.createElement('div'); gpuNote.className = 'gpu-note'; gpuNote.setAttribute('role', 'status')
+      const t = document.createElement('p'); t.textContent = 'Your phone paused the 3D view to free memory. Bringing it back…'
+      const k = document.createElement('button'); k.type = 'button'; k.className = 'glass-btn primary'; k.textContent = 'Reload the city'; k.hidden = true
+      k.onclick = () => location.reload()
+      gpuNote.append(t, k); document.body.append(gpuNote)
+      gpuTimer = window.setTimeout(() => { k.hidden = false }, 5000)
+    }, 1200)
+  })
+  canvas.addEventListener('webglcontextrestored', () => {
+    window.clearTimeout(gpuTimer); gpuNote?.remove(); gpuNote = null
+    // The reflected light every surface gets (an environment map drawn on the GPU) went with the context: without
+    // it the whole city turns dark under a bright sky. Draw it again, then the effects stack and the shaders.
+    try { applyEnvironment(renderer, scene); post.recover(); applyGraphics() } catch (e) { console.warn('[grind] restore', e) }
+  })
   const applyBody = () => {
     const save = getSave()
     scene.remove(avatar.object)
@@ -662,18 +686,19 @@ const apiAgents = createRemoteAgents(scene)
   must('#pill-ledger').addEventListener('click', () => ui.open('profile', { tab: 'books' }))
   must('#pill-season').addEventListener('click', () => ui.open('season'))
   must('#pill-place').addEventListener('click', () => ui.open('city'))
-  // Screenshot (camera button beside the menu): grab the next rendered frame, add a small watermark, share or download.
-  // Render and copy the frame inside the tap itself: the drawing buffer is still valid and the share sheet keeps its user activation.
-  // Screenshot: capture on pointerdown (render a frame, PNG blob, File) so the click can call navigator.share
-  // synchronously with ONLY files (Android targets drop images when text/url ride along). Fallback: download.
-  let shotFile: Promise<File | null> | null = null
+  // Screenshot (taken from My Gallery or the selfie shutter): render a frame and copy it in the same task (the
+  // drawing buffer is only valid until the frame ends), add the watermark, save it to the gallery.
   // The game's logo goes on every screenshot (the same mark as the HUD), loaded once up front.
   const shotLogo = new Image(); shotLogo.decoding = 'async'; shotLogo.src = '/brand/logo-new.webp'
   const capture = (): Promise<File | null> => {
     // Photos are 4K: this one frame is drawn with the long side at 3840 px (2560 on phones with little memory,
     // and never past what the GPU allows), copied, and the normal resolution comes straight back.
-    const lowMem = ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4 && matchMedia('(pointer: coarse)').matches
-    const side = Math.min(lowMem ? 2560 : 3840, renderer.capabilities.maxTextureSize || 4096)
+    // Phones: 2560 at most (1920 with little memory, or once the phone has dropped the 3D view this visit). A 4K
+    // frame through the effects stack needs several full-size buffers at once, and that is what made phones
+    // drop the 3D view and leave the screen black.
+    const coarse = matchMedia('(pointer: coarse)').matches
+    const lowMem = ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4 && coarse
+    const side = Math.min(gpuDropped || lowMem ? 1920 : coarse ? 2560 : 3840, renderer.capabilities.maxTextureSize || 4096)
     const r4k = side / Math.max(1, window.innerWidth, window.innerHeight)
     let big = false
     try { if (r4k > renderer.getPixelRatio() + 0.01) { post.snapshot(r4k); big = true } else post.render() } catch { /* use the last frame */ }
@@ -699,14 +724,13 @@ const apiAgents = createRemoteAgents(scene)
     const type = out.width * out.height > 4_000_000 ? 'image/jpeg' : 'image/png'
     return new Promise((ok) => out.toBlob((b) => ok(b ? new File([b], `grind-district-${Date.now()}.${type === 'image/jpeg' ? 'jpg' : 'png'}`, { type }) : null), type, 0.93))
   }
+  // The round key beside the menu opens My Gallery; screenshots, selfies and skits are taken from there.
   const shotBtn = document.querySelector<HTMLButtonElement>('#shot')
-  shotBtn?.addEventListener('pointerdown', () => { shotFile = capture() })
+  shotBtn?.addEventListener('click', () => openGallery())
   // Screenshots go to My Gallery (media.ts): download or share them from there. If the browser will not store
   // them (a private window), the old way: the share sheet, or a download.
-  shotBtn?.addEventListener('click', () => {
+  const saveShot = (pending: Promise<File | null>) => {
     personaNote('photo')
-    const pending = shotFile ?? capture()
-    shotFile = null
     const download = (f: File) => {
       const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name
       document.body.append(a); a.click(); a.remove()
@@ -722,7 +746,9 @@ const apiAgents = createRemoteAgents(scene)
         navigator.share({ files: [file] }).catch((e: Error) => { if (e.name !== 'AbortError') download(file) })
       } else download(file)
     })
-  })
+  }
+  // From the gallery: the panel closes first, so the next frame is the city alone.
+  const takeShot = () => { window.requestAnimationFrame(() => window.requestAnimationFrame(() => saveShot(capture()))) }
   // My Gallery (myGallery.ts), Selfie mode and Skits (skit.ts).
   let selfie: { angle: number; dist: number } | null = null
   let afterRender: (() => void) | null = null
@@ -733,7 +759,7 @@ const apiAgents = createRemoteAgents(scene)
       b('×', 'Leave selfie mode', () => endSelfie(), 'selfie-x'),
       b('↺', 'Turn the camera left', () => { if (selfie) selfie.angle = Math.max(-1.3, selfie.angle - 0.35) }),
       b('−', 'Closer', () => { if (selfie) selfie.dist = Math.max(0.9, selfie.dist - 0.45) }),
-      b('', 'Take the selfie', () => { shotFile = capture(); shotBtn?.click() }, 'selfie-shutter'),
+      b('', 'Take the selfie', () => saveShot(capture()), 'selfie-shutter'),
       b('+', 'Further away', () => { if (selfie) selfie.dist = Math.min(4.6, selfie.dist + 0.45) }),
       b('↻', 'Turn the camera right', () => { if (selfie) selfie.angle = Math.min(1.3, selfie.angle + 0.35) }),
     )
@@ -752,8 +778,7 @@ const apiAgents = createRemoteAgents(scene)
     sounds: async () => { const [a, mu] = await Promise.all([import('./ambient-audio.ts'), import('./music.ts')]); return [a.ambientTap(), mu.musicTap()].filter((x): x is MediaStream => !!x) },
     saved: (id) => { if (id) void import('./myGallery.ts').then((g) => g.flashSaved('Skit', openGallery)); else ui.toast('The skit could not be saved on this device (storage full or a private window).') },
   }))
-  const openGallery = () => { setCC(false); void import('./myGallery.ts').then((g) => g.openMyGallery({ toast: (t) => ui.toast(t), selfie: startSelfie, skit: startSkit })) }
-  document.getElementById('nav-gallery')?.addEventListener('click', openGallery)
+  const openGallery = () => { setCC(false); void import('./myGallery.ts').then((g) => g.openMyGallery({ toast: (t) => ui.toast(t), shot: takeShot, selfie: startSelfie, skit: startSkit })) }
   window.addEventListener('gd:gallery', openGallery)
 
 
@@ -2791,7 +2816,7 @@ const apiAgents = createRemoteAgents(scene)
       post.render()
       if (DEV_PERF) { const te = performance.now(); perfStat.n++; perfStat.upd += tr - tu; perfStat.ren += te - tr; perfStat.dt += dt }
       afterRender?.()
-      if (snapNext) { snapNext = false; shotBtn?.click() }
+      if (snapNext) { snapNext = false; takeShot() }
       if (revealed) probe(dt)
       if (!revealed) {
         revealed = true

@@ -176,6 +176,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   // screen while idle): the step is undone and no new one is tried for a while, so the picture stays sharp.
   let probe: { before: number; t: number } | null = null
   let holdSharp = 0
+  // The highest share it may climb back to (lowered for the visit after the GPU context was lost).
+  let cap = 1
   let w = 1
   let h = 1
   let sized = false
@@ -287,15 +289,15 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       if (cool <= 0) {
         if (probe && t - probe.t > 2.5) {
           // Judge the last step down: frames no faster means the cap is not ours, so put the sharpness back.
-          if (avg > probe.before * 0.92) { want = Math.min(1, want + 0.1); holdSharp = 90; cool = 3 }
+          if (avg > probe.before * 0.92) { want = Math.min(cap, want + 0.1); holdSharp = 90; cool = 3 }
           probe = null
         } else if (avg > 0.026 && want > floor() && holdSharp === 0 && !probe) {
           // Clearly under about 38 fps: step down one notch and see whether it helps.
           probe = { before: avg, t }
           want = Math.max(floor(), Math.round((want - 0.1) * 10) / 10); cool = 2.6
-        } else if (avg < 0.02 && want < 1) {
+        } else if (avg < 0.02 && want < cap) {
           // A steady 50 fps or better: step back up.
-          want = Math.min(1, Math.round((want + 0.1) * 10) / 10); cool = 4
+          want = Math.min(cap, Math.round((want + 0.1) * 10) / 10); cool = 4
         }
       }
       if (want !== scale) {
@@ -305,6 +307,16 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         renderer.setSize(w, h, false)
         if (composer && level !== 'low') { composer.setPixelRatio(base * scale); composer.setSize(w, h) }
       }
+    },
+    /**
+     * After the browser drops the GPU context and gives it back (phones do this under memory pressure): every
+     * render target is gone, so the stack is rebuilt on the next configure, at a lower resolution that stays put
+     * for the rest of the visit (less GPU memory, the usual reason it was dropped).
+     */
+    recover() {
+      if (composer) { try { for (const p of composer.passes) p.dispose?.(); composer.dispose() } catch { /* already gone */ } }
+      composer = null; builtFor = null; broken = false; checks = 0; blackRuns = 0; probe = null
+      want = scale = floor(); cap = scale; remember(level, scale)
     },
     /** Draw one frame at `ratio` pixels per CSS pixel (a 4K photo); call restore() once it is copied. */
     snapshot(ratio: number) {
