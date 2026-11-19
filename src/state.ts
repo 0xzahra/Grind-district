@@ -1,4 +1,5 @@
 import { attribution, track, trackFunnelOnce } from './track.ts'
+import { ensurePrices, livePrice } from './livePrices.ts'
 import { grade, courseById } from './courses.ts'
 import {
   BOUNTY_USD,
@@ -312,7 +313,8 @@ export function rememberPlace(x: number, z: number): void {
 export function tickMarket(dt: number, now = Date.now()): void {
   applyDay(save, lagosDay(new Date()))
   stepPrices(save, dt, seasonAt(now))
-  stepCoins(save, dt, seasonAt(now))
+  ensurePrices()
+  stepCoins(save, dt, seasonAt(now), Math.random, livePrice)
   sample += dt
   if (sample >= 0.8) {
     sample = 0

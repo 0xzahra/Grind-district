@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { stocksHandler } from './_stocks.js'
 import { newsHandler } from './_news.js'
+import { pricesHandler } from './_prices.js'
 import { galleryHandler } from './_gallery.js'
 import { STATS_EVENT_NAMES, collectPublicStats, publicEventProps } from './_stats.js'
 
@@ -14,6 +15,8 @@ export default async function handler(req: Req, res: Res) {
   if (req.query?.op === 'stocks') return stocksHandler(req, res)
   // Live market and crypto news for the TVs in the game (see _news.ts).
   if (req.query?.op === 'news') return newsHandler(req, res)
+  // Live coin prices and 48-hour charts for the trading centre (see _prices.ts).
+  if (req.query?.op === 'prices' || req.query?.op === 'candles') return pricesHandler(req, res as never)
   // The Grind Art Gallery's exhibition, read live from Ethereum (see _gallery.ts).
   if (req.query?.op === 'gallery') return galleryHandler(req, res as never)
   if (req.method === 'GET' && req.query?.op === 'stats') {

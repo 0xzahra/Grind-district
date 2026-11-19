@@ -4,9 +4,10 @@ import { COINS, COIN_CATEGORIES, RANKS, SKILL_META, TOKEN_IDS, cents, coinPrice,
 import { lockReason } from './worlds.ts'
 import { convertCoin, getSave, trade, tradeCoin } from './state.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
+import { hourly, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
-const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', link: '#3d6fe6', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', wif: '#b98a5e', bonk: '#f5a623' }
+const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', xrp: '#8a96a3', link: '#3d6fe6', near: '#00c08b', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', shib: '#e8761c', pepe: '#4c9a2a', wif: '#b98a5e', bonk: '#f5a623' }
 // The game has Coins and Tokens, nothing else. A coin is the money of its own chain (BTC, ETH, SOL, and the
 // city's own District Coin); a token is issued on top of one (LINK, the Meme Token and the other meme tokens).
 const listed = COINS.map((c): Asset => ({ id: c.id, sym: c.label.split(' · ')[0]!, name: c.label.split(' · ')[1] ?? c.label, tint: TINT[c.id] ?? '#9aa3ad', group: TOKEN_IDS.has(c.id) ? 'Tokens' : 'Coins', minRank: c.minRank }))
@@ -55,8 +56,12 @@ function startTape(): void {
   }
   taping = window.setInterval(() => { for (const c of COINS) { const list = tape.get(c.id)!; list.push(markPrice(c.id)); if (list.length > TAPE) list.shift() } }, 1500)
 }
-const series = (a: Asset): number[] => { const s = getSave(); return a.desk === 'unit' ? s.unitHist : a.desk === 'meme' ? s.memeHist : tape.get(a.id) ?? [] }
-const change = (a: Asset): number => { const s = series(a); const first = s[0] ?? priceOf(a); return first > 0 ? (priceOf(a) / first - 1) * 100 : 0 }
+// Listed coins chart the real market: the last 48 hourly closes (livePrices.ts) and the price now; the 24-hour
+// change is the real one. District Coin and the Meme Token are the city's own and keep their practice tape.
+const isLive = (a: Asset): boolean => !a.desk && a.id !== 'usd' && livePrice(a.id) !== undefined
+const series = (a: Asset): number[] => { const s = getSave(); if (a.desk === 'unit') return s.unitHist; if (a.desk === 'meme') return s.memeHist; const h48 = isLive(a) ? hourly(a.id) : []; return h48.length > 6 ? h48 : tape.get(a.id) ?? [] }
+const change = (a: Asset): number => { const real = isLive(a) ? liveChange(a.id) : undefined; if (real !== undefined) return real; const s = series(a); const first = s[0] ?? priceOf(a); return first > 0 ? (priceOf(a) / first - 1) * 100 : 0 }
+const ago = (t: number): string => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `${s}s ago` : `${Math.round(s / 60)}m ago` }
 
 // Chart sizes come from a ResizeObserver, so a repaint never forces a layout to read the canvas size.
 const chartSize = new WeakMap<HTMLCanvasElement, { w: number; h: number }>()
@@ -101,6 +106,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   startTape()
   const root = h('div', 'xch')
   let tab: 'spot' | 'perps' | 'convert' | 'p2p' = 'spot'
+  wantFast()
   let live: Array<() => void> = []
   // What each tab has selected; kept while the screen is open so switching tabs loses nothing.
   let spotId: string = desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
@@ -139,15 +145,17 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     const head = h('div', 'xch-qhead'), names = h('div', 'xch-names')
     names.append(h('b', '', title), h('small', '', sub))
     head.append(icon(a), names)
-    const price = h('div', 'xch-price'), chg = h('div', 'xch-chg'), canvas = h('canvas', 'xch-chart')
+    const price = h('div', 'xch-price'), chg = h('div', 'xch-chg'), canvas = h('canvas', 'xch-chart'), stamp = h('p', 'xch-live')
     canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', `${a.sym} recent price`)
-    wrap.append(head, price, chg, canvas)
+    wrap.append(head, price, chg, canvas, stamp)
     live.push(() => {
-      const d = change(a)
+      const d = change(a), real = isLive(a)
       price.textContent = coinPrice(priceOf(a))
-      chg.textContent = `${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}% recent`
+      chg.textContent = `${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}% ${real ? '24h' : 'recent'}`
       chg.dataset.dir = dir(d)
       drawChart(canvas, [...series(a), priceOf(a)], d >= 0)
+      stamp.textContent = real ? `● Live market price · Coinbase · updated ${ago(liveAt())}. You trade it with in-game money only.` : a.desk ? 'The city\'s own token: a practice market.' : 'Live prices are loading. Showing practice prices.'
+      stamp.dataset.live = String(real)
     })
     return wrap
   }
@@ -455,9 +463,12 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   const body = h('div', 'xch-body')
   const show = () => { live = []; body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : p2pPane()); paintNow() }
   root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
+  // New prices (or a chart's hourly closes) landed: repaint what is on screen.
+  const onPrices = () => { if (!root.isConnected) { window.removeEventListener('gd:prices', onPrices); return } paintNow() }
+  window.addEventListener('gd:prices', onPrices)
   show()
   // The chart measures its box: draw again once the card is in the page.
   requestAnimationFrame(paintNow)
   let last = 0
-  return { el: root, paint: () => { const t = performance.now(); if (t - last < 450) return; last = t; paintNow() } }
+  return { el: root, paint: () => { const t = performance.now(); if (t - last < 450) return; last = t; wantFast(); paintNow() } }
 }

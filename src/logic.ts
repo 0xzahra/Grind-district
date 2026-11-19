@@ -246,28 +246,37 @@ export const COIN_CATEGORIES: { id: CoinCategory; label: string; note: string; v
   { id: 'alt', label: 'Altcoins', note: 'Mid caps. Bigger swings both ways.', vol: 0.006 },
   { id: 'meme', label: 'Meme coins', note: 'Hype-driven. Size small or not at all.', vol: 0.014 },
 ]
-/** Practice prices only. Nothing here touches a chain or a real exchange. */
+/** Practice trades only: nothing here touches a chain or a real exchange. The listed coins' prices follow the
+ * real market (livePrices.ts, from Coinbase) whenever it can be reached; `base` is the fallback (about where each
+ * coin traded in November 2026) and the centre of the practice range when offline. */
 export const COINS: { id: string; cat: CoinCategory; label: string; base: number; minRank: RankId }[] = [
   { id: 'btc', cat: 'big', label: 'BTC · Bitcoin', base: 64000, minRank: 'shrimp' },
-  { id: 'eth', cat: 'big', label: 'ETH · Ether', base: 3200, minRank: 'shrimp' },
-  { id: 'sol', cat: 'big', label: 'SOL · Solana', base: 150, minRank: 'shrimp' },
-  { id: 'link', cat: 'alt', label: 'LINK · Chainlink', base: 15, minRank: 'shrimp' },
-  { id: 'avax', cat: 'alt', label: 'AVAX · Avalanche', base: 30, minRank: 'crab' },
-  { id: 'dot', cat: 'alt', label: 'DOT · Polkadot', base: 6, minRank: 'crab' },
-  { id: 'doge', cat: 'meme', label: 'DOGE · Dogecoin', base: 0.15, minRank: 'crab' },
-  { id: 'wif', cat: 'meme', label: 'WIF · dogwifhat', base: 2.1, minRank: 'fish' },
-  { id: 'bonk', cat: 'meme', label: 'BONK · Bonk', base: 0.00003, minRank: 'fish' },
+  { id: 'eth', cat: 'big', label: 'ETH · Ether', base: 1800, minRank: 'shrimp' },
+  { id: 'sol', cat: 'big', label: 'SOL · Solana', base: 75, minRank: 'shrimp' },
+  { id: 'xrp', cat: 'big', label: 'XRP · XRP', base: 0.99, minRank: 'shrimp' },
+  { id: 'link', cat: 'alt', label: 'LINK · Chainlink', base: 9.2, minRank: 'shrimp' },
+  { id: 'near', cat: 'alt', label: 'NEAR · NEAR Protocol', base: 3.4, minRank: 'shrimp' },
+  { id: 'avax', cat: 'alt', label: 'AVAX · Avalanche', base: 7.1, minRank: 'crab' },
+  { id: 'dot', cat: 'alt', label: 'DOT · Polkadot', base: 0.72, minRank: 'crab' },
+  { id: 'doge', cat: 'meme', label: 'DOGE · Dogecoin', base: 0.06, minRank: 'crab' },
+  { id: 'shib', cat: 'meme', label: 'SHIB · Shiba Inu', base: 0.0000039, minRank: 'crab' },
+  { id: 'pepe', cat: 'meme', label: 'PEPE · Pepe', base: 0.000004, minRank: 'fish' },
+  { id: 'wif', cat: 'meme', label: 'WIF · dogwifhat', base: 0.136, minRank: 'fish' },
+  { id: 'bonk', cat: 'meme', label: 'BONK · Bonk', base: 0.0000024, minRank: 'fish' },
 ]
 export function coinPrice(value: number): string {
   if (value >= 1) return money(value)
   return `$${value.toPrecision(3)}`
 }
-export function stepCoins(save: Save, dt: number, season: Season, rand: () => number = Math.random): void {
+export function stepCoins(save: Save, dt: number, season: Season, rand: () => number = Math.random, live?: (id: string) => number | undefined): void {
   const step = Math.min(0.1, Math.max(0, dt))
   const drift = season === 'bull' ? 0.0006 : -0.0006
   for (const coin of COINS) {
     const vol = COIN_CATEGORIES.find((c) => c.id === coin.cat)!.vol
     const now = save.coinPrices[coin.id] ?? coin.base
+    // Real market price known: follow it (a quick glide, no invented moves and no practice range).
+    const real = live?.(coin.id)
+    if (real && real > 0) { save.coinPrices[coin.id] = Math.abs(now / real - 1) > 0.2 ? real : now + (real - now) * Math.min(1, step * 3); continue }
     let next = now * (1 + (drift + (rand() - 0.5) * 2 * vol) * step * 10)
     next = Math.min(coin.base * 4, Math.max(coin.base * 0.2, next))
     save.coinPrices[coin.id] = next
@@ -1103,7 +1112,7 @@ export function publicDoc(text: string): string {
 export type BookRow = { section: 'Assets' | 'Liabilities' | 'Coins' | 'Tokens' | 'Stocks'; label: string; value: string }
 /** Coins run on their own chain; tokens are issued on another chain (or are this city's practice tokens). */
 /** Listed assets that are tokens (issued on another chain); the rest are coins of their own chain. */
-export const TOKEN_IDS = new Set(['link', 'wif', 'bonk'])
+export const TOKEN_IDS = new Set(['link', 'shib', 'pepe', 'wif', 'bonk'])
 
 /** Books: assets, liabilities (luxury rewards with upkeep), investments (coins, new coins, stocks).
  *  isPublic hides family requests and spending wants. */
