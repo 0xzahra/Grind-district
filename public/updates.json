@@ -115,6 +115,12 @@
       "body": "Edit or delete your own messages (tap ⋯), drag through voice notes, and see a photo before you send it. Player profiles have a fresh look, and the joystick now sits bottom right.",
       "go": "messages",
       "push": false
+    },
+    {
+      "id": "u1119-badge",
+      "title": "Never miss a notification",
+      "body": "A red number on the menu key shows what is unread, and new notifications slide in at the top. Tap to open them.",
+      "push": false
     }
   ]
 }

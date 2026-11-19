@@ -1254,14 +1254,42 @@ const apiAgents = createRemoteAgents(scene)
   // Camera zoom/turn: external #cam-dock buttons + pinch/scroll (input.ts).
   const dot = railToggle.querySelector('.cc-dot') as HTMLElement
   const bellBadge = must<HTMLElement>('#cc-bell-badge')
+  // Unread things are hard to miss: a red count on the menu key (notifications and messages together), and a
+  // banner that slides in when notifications arrive (once per visit for what was already waiting). Tap it to open.
+  const menuCount = document.createElement('span'); menuCount.className = 'cc-count'; menuCount.hidden = true; railToggle.append(menuCount)
+  let banner: HTMLElement | null = null, bannerTimer = 0, seenUnread = -1
+  const openNotes = () => { setCC(true); openSheet('Notifications', renderNotes) }
+  const showBanner = (n: number) => {
+    banner?.remove(); window.clearTimeout(bannerTimer)
+    const first = getNotes().find((x) => !x.read)
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'note-banner'
+    b.setAttribute('aria-label', `${n} new notification${n === 1 ? '' : 's'}. Open them.`)
+    const bell = el('span', '🔔', 'nb-bell')
+    const text = el('span', '', 'nb-text')
+    text.append(el('b', n === 1 ? '1 new notification' : `${n > 9 ? '9+' : n} new notifications`), el('span', first?.title ?? 'Tap to see what is new', 'nb-line'))
+    const go = el('span', 'Open', 'nb-go')
+    b.append(bell, text, go)
+    b.onclick = () => { b.remove(); banner = null; openNotes() }
+    document.body.append(b); banner = b
+    requestAnimationFrame(() => b.classList.add('in'))
+    bannerTimer = window.setTimeout(() => { b.classList.remove('in'); window.setTimeout(() => { b.remove(); if (banner === b) banner = null }, 400) }, 7000)
+  }
   window.setInterval(() => {
     const n = unreadCount()
     const msgUnread = must('#msg-btn').classList.contains('unread')
-    dot.hidden = !(n || msgUnread)
+    const total = n + dmUnread()
+    menuCount.hidden = total === 0
+    menuCount.textContent = total > 9 ? '9+' : String(total)
+    dot.hidden = total > 0 || !msgUnread
     bellBadge.hidden = n === 0
     bellBadge.textContent = n > 9 ? '9+' : String(n)
     must('#cc-msg').classList.toggle('has-unread', msgUnread || dmUnread() > 0)
-    if (dmUnread() > 0) dot.hidden = false
+    // The banner: only in the open city (not over the menu, a panel, the title, a selfie or a skit).
+    const clear = performance.getEntriesByName('gd:revealed').length > 0 && document.body.classList.contains('rail-shut') && !ui.isOpen() && ccSheet.hidden
+      && !document.body.classList.contains('selfie-mode') && !document.getElementById('sk-bar') && !document.querySelector('.mentor:not([hidden])')
+    if (!clear) return
+    if (n > 0 && (seenUnread < 0 || n > seenUnread)) showBanner(n)
+    seenUnread = n
   }, 800)
   const msgBtn = must<HTMLButtonElement>('#msg-btn')
   must('#chat-close').addEventListener('click', () => { if (!chat.hidden) msgBtn.click() })

@@ -4107,3 +4107,15 @@ html[data-ui='light'] body #cc-sheet-body .dm-menu { background: #ffffff; box-sh
 html[data-ui='light'] body #cc-sheet-body .dm-menu button:active { background: rgba(0, 0, 0, 0.05) !important; }
 html body #cc-sheet-body .dm-menu { min-width: 180px; }
 html body #cc-sheet-body .dm-menu button { white-space: nowrap; }
+
+/* Unread at a glance: a red count on the menu key, and a banner that slides in when notifications arrive. */
+html body #rail-toggle .cc-count { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #e5484d; color: #fff; font: 800 12px/22px var(--sys, system-ui), sans-serif; text-align: center; box-shadow: 0 0 0 2px #ffffff, 0 3px 8px rgba(229, 72, 77, 0.45); pointer-events: none; z-index: 2; animation: cc-pop 0.35s ease-out; }
+html body #rail-toggle .cc-count[hidden] { display: none; }
+@keyframes cc-pop { 0% { transform: scale(0.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.note-banner { position: fixed; z-index: 7200; left: 50%; top: calc(max(14px, env(safe-area-inset-top)) + 62px); width: min(420px, calc(100vw - 24px)); display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid rgba(233, 207, 142, 0.45); border-radius: 18px; background: linear-gradient(135deg, rgba(12, 28, 20, 0.96), rgba(22, 52, 37, 0.96)); color: #f5f2ea; text-align: left; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); transform: translate(-50%, -140%); opacity: 0; transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.25s ease; cursor: pointer; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.note-banner.in { transform: translate(-50%, 0); opacity: 1; }
+.note-banner .nb-bell { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(233, 207, 142, 0.18); font-size: 20px; }
+.note-banner .nb-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.note-banner .nb-text b { font: 800 15px/1.2 var(--sys, system-ui), sans-serif; color: #ffffff; }
+.note-banner .nb-line { font: 500 13px/1.3 var(--sys, system-ui), sans-serif; color: #c9d3cc; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.note-banner .nb-go { flex: none; padding: 8px 14px; border-radius: 999px; background: linear-gradient(180deg, #3bfaa4, #12c873); color: #04160e; font: 800 13px/1 var(--sys, system-ui), sans-serif; }
