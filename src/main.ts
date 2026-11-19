@@ -841,35 +841,29 @@ const apiAgents = createRemoteAgents(scene)
   const chatStatus = must<HTMLParagraphElement>('#chat-status')
   // Message icon: the chat stays folded until tapped. Type, or record a voice note indoors.
   mountNotifications()
-  // What's new: each update lands once in the notifications (newest on top), with a link where there is one.
+  // What's new: public/updates.json, one list of release notes. Each entry lands once in the notifications (newest
+  // on top, with a link where there is one); the newest is also sent once as a phone alert by the server to players
+  // who turned phone alerts on (api/_notify.ts, broadcastUpdate). Adding an entry to that file is all it takes.
   window.setTimeout(() => {
-    const UPDATES: Array<[string, string, string, string | undefined]> = [
-      ['u1115-hotel', 'New: the Grind Grand hotel and Grind Mall', 'A suite for the night and a rooftop infinity pool on the west street; the Grind Fresh supermarket, a food court and a cinema on the east street.', undefined],
-      ['u1115-seasons', 'New: the four seasons and climate change', 'Snow in winter, orange trees in autumn. Open Seasons in the menu to see 2050 and 2100 on low and high emissions.', 'panel:seasons'],
-      ['u1115-park', 'New in Grind Park', 'A roller coaster, two water slides, Grind Zoo with a safari tram, three holes of golf and a picnic lawn. Take the metro to Grind Park.', undefined],
-      ['u1115-orbit', 'New: a trip to orbit', 'Grind Orbital flies from the coast past the runway. Book at the desk at the north end of the airport terminal.', undefined],
-      ['u1115-party', 'New: the party jet and the party yacht', 'Charter Grind One in the airport lounge, or board the party yacht from the board by the harbour.', 'place:Party yacht'],
-      ['u1115-air', 'New: Grind International Airport', 'Take the metro to the Airport stop. Fly GA 101 in Economy, Business or First, out over the sea and across the whole city.', undefined],
-      ['u1115b-masterclass', 'New: Society Masterclasses', 'Eight premium masterclasses at the Etiquette House: the wealth mindset, quiet luxury, signal and larping, fine dining, working the room, presence, first-class travel and negotiation.', 'panel:society'],
-      ['u1115b-grad', 'New: graduation 🎓', 'Pass every course in the six Campus worlds to graduate in the Great Hall: cap and gown, your name called, a diploma to download and share.', 'panel:diploma'],
-      ['u1115b-enso', 'New: El Niño and La Niña', 'Every few in-game years the Pacific warms or cools and the weather shifts. See either one now in Seasons.', 'panel:seasons'],
-      ['u1115b-adventure', 'New: cliff climbing and skydiving', 'At the airport: a guided 34 m sea-cliff climb past the spaceport, and a tandem skydive from the Grind Skydive desk by the hangar. Every step explained.', undefined],
-      ['u1117-places', 'New: Grind Surf School and the Art Gallery', 'Learn to surf on the city beach. The Grind Art Gallery hangs famous NFTs read live from Ethereum, free to visit.', undefined],
-      ['u1117-you', 'New: your Web3 personality', 'Profile reads how you play: your traits, best-fit roles and niches. Hire home staff, swim in pools, and share "A day in my Web3 life".', 'panel:profile'],
-      ['u1119-pitch', 'New: The Pitch', 'A promoter is selling a hot new coin outside the Conference Centre. Learn how a rug pull works, on practice money.', undefined],
-      ['u1119-social', 'New: invite players home', 'See who is online, invite them to your home, chill, chat and dance together. Tap any resident to see their profile.', 'players'],
-      ['u1119-gallery', 'New: My Gallery, selfies and skits', 'The picture key beside the menu opens My Gallery: take screenshots and selfies, record skits with friends, then download or share them.', 'gallery'],
-      ['u1119-trade', 'New: live prices and the DeFi desk', 'Coins, tokens and memecoins at real-time prices. Practise swaps, vaults, bridges, lending, borrowing and DAO votes with cash you earned.', 'panel:trade'],
-      ['u1119-couture', 'New: Couture in the Boutique', 'Hand-beaded pearl and gold mini dresses, and jewelled bralettes with beaded mini skirts. Premium pieces.', 'panel:boutique'],
-      ['u1119-smooth', 'Smoother and sharper', 'Fewer freezes, a lighter load on phones (steady 30 frames a second where a phone needs it), new cars and 4K on big screens.', undefined],
-    ]
-    // The same release as a phone alert, once, for everyone who turned phone alerts on (sent by the server).
-    try { if (localStorage.getItem('gd.newsPing') !== 'u1119') window.setTimeout(() => { void fetch('/api/messages?op=news-ping&id=u1119').then((r) => { if (r.ok) localStorage.setItem('gd.newsPing', 'u1119') }).catch(() => undefined) }, 30_000) } catch { /* private mode */ }
-    // Extras wait: a new player hears about them only after passing a first lesson (the core loop comes first).
-    const send = () => { for (const [k, t, b, go] of UPDATES) notify(t, b, k, go) }
-    if (!needsFirstCourse()) send()
-    else { const wait = window.setInterval(() => { if (!needsFirstCourse()) { window.clearInterval(wait); window.setTimeout(send, 20_000) } }, 5000) }
+    type Update = { id: string; title: string; body: string; go?: string; push?: boolean }
+    void fetch('/updates.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((d: { updates?: Update[] } | null) => {
+      const list = (d?.updates ?? []).filter((u) => u && typeof u.id === 'string' && typeof u.title === 'string')
+      if (!list.length) return
+      // Extras wait: a new player hears about them only after passing a first lesson (the core loop comes first).
+      const send = () => { for (const u of list) notify(u.title, u.body ?? '', u.id, u.go) }
+      if (!needsFirstCourse()) send()
+      else { const wait = window.setInterval(() => { if (!needsFirstCourse()) { window.clearInterval(wait); window.setTimeout(send, 20_000) } }, 5000) }
+      // The newest note as a phone alert: the server sends it once, to everyone with alerts on (at most one a day).
+      const latest = list[list.length - 1]!
+      try {
+        if (latest.push !== false && localStorage.getItem('gd.newsPing') !== latest.id) {
+          window.setTimeout(() => { void fetch(`/api/messages?op=news-ping&id=${encodeURIComponent(latest.id)}`).then((r) => { if (r.ok) localStorage.setItem('gd.newsPing', latest.id) }).catch(() => undefined) }, 30_000)
+        }
+      } catch { /* private mode */ }
+    }).catch(() => undefined)
   }, 4000)
+  // A newer version of the game, live since this tab opened: offered (or loaded on the title screen).
+  void import('./freshness.ts').then((m) => m.watchForUpdates({ notify, onTitle: () => !document.getElementById('menu')?.hidden }))
   installLayers()
   if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Start at Campus: Zahra teaches a five-minute lesson, and it goes on your CV with a certificate you keep. Tap the gold Next step button any time.', 'welcome', 'place:Campus')
   localStorage.setItem('gd.welcomed', '1')
@@ -954,6 +948,7 @@ const apiAgents = createRemoteAgents(scene)
     if (go.startsWith('place:')) { travelHook(go.slice(6), true); return true }
     if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
     if (go === 'gallery' || go === 'players') { window.dispatchEvent(new Event(`gd:${go}`)); return true }
+    if (go === 'reload') { location.reload(); return true }
     return false
   }
   setNoteFollow(follow)

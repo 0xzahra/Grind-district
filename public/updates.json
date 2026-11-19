@@ -1,0 +1,106 @@
+{
+  "about": "Player-facing release notes, oldest first. Every entry shows once in each player's notifications (after their first lesson). The newest entry is also sent as a phone alert to players who turned phone alerts on, at most once a day, unless it has \"push\": false. To announce an update, add an entry at the END with a new unique id. Optional \"go\": where tapping it leads: panel:<id> (trade, boutique, profile, seasons...), place:<name>, gallery, players, messages, balance.",
+  "updates": [
+    {
+      "id": "u1115-hotel",
+      "title": "New: the Grind Grand hotel and Grind Mall",
+      "body": "A suite for the night and a rooftop infinity pool on the west street; the Grind Fresh supermarket, a food court and a cinema on the east street."
+    },
+    {
+      "id": "u1115-seasons",
+      "title": "New: the four seasons and climate change",
+      "body": "Snow in winter, orange trees in autumn. Open Seasons in the menu to see 2050 and 2100 on low and high emissions.",
+      "go": "panel:seasons"
+    },
+    {
+      "id": "u1115-park",
+      "title": "New in Grind Park",
+      "body": "A roller coaster, two water slides, Grind Zoo with a safari tram, three holes of golf and a picnic lawn. Take the metro to Grind Park."
+    },
+    {
+      "id": "u1115-orbit",
+      "title": "New: a trip to orbit",
+      "body": "Grind Orbital flies from the coast past the runway. Book at the desk at the north end of the airport terminal."
+    },
+    {
+      "id": "u1115-party",
+      "title": "New: the party jet and the party yacht",
+      "body": "Charter Grind One in the airport lounge, or board the party yacht from the board by the harbour.",
+      "go": "place:Party yacht"
+    },
+    {
+      "id": "u1115-air",
+      "title": "New: Grind International Airport",
+      "body": "Take the metro to the Airport stop. Fly GA 101 in Economy, Business or First, out over the sea and across the whole city."
+    },
+    {
+      "id": "u1115b-masterclass",
+      "title": "New: Society Masterclasses",
+      "body": "Eight premium masterclasses at the Etiquette House: the wealth mindset, quiet luxury, signal and larping, fine dining, working the room, presence, first-class travel and negotiation.",
+      "go": "panel:society"
+    },
+    {
+      "id": "u1115b-grad",
+      "title": "New: graduation 🎓",
+      "body": "Pass every course in the six Campus worlds to graduate in the Great Hall: cap and gown, your name called, a diploma to download and share.",
+      "go": "panel:diploma"
+    },
+    {
+      "id": "u1115b-enso",
+      "title": "New: El Niño and La Niña",
+      "body": "Every few in-game years the Pacific warms or cools and the weather shifts. See either one now in Seasons.",
+      "go": "panel:seasons"
+    },
+    {
+      "id": "u1115b-adventure",
+      "title": "New: cliff climbing and skydiving",
+      "body": "At the airport: a guided 34 m sea-cliff climb past the spaceport, and a tandem skydive from the Grind Skydive desk by the hangar. Every step explained."
+    },
+    {
+      "id": "u1117-places",
+      "title": "New: Grind Surf School and the Art Gallery",
+      "body": "Learn to surf on the city beach. The Grind Art Gallery hangs famous NFTs read live from Ethereum, free to visit."
+    },
+    {
+      "id": "u1117-you",
+      "title": "New: your Web3 personality",
+      "body": "Profile reads how you play: your traits, best-fit roles and niches. Hire home staff, swim in pools, and share \"A day in my Web3 life\".",
+      "go": "panel:profile"
+    },
+    {
+      "id": "u1119-pitch",
+      "title": "New: The Pitch",
+      "body": "A promoter is selling a hot new coin outside the Conference Centre. Learn how a rug pull works, on practice money."
+    },
+    {
+      "id": "u1119-social",
+      "title": "New: invite players home",
+      "body": "See who is online, invite them to your home, chill, chat and dance together. Tap any resident to see their profile.",
+      "go": "players"
+    },
+    {
+      "id": "u1119-gallery",
+      "title": "New: My Gallery, selfies and skits",
+      "body": "The picture key beside the menu opens My Gallery: take screenshots and selfies, record skits with friends, then download or share them.",
+      "go": "gallery"
+    },
+    {
+      "id": "u1119-trade",
+      "title": "New: live prices and the DeFi desk",
+      "body": "Coins, tokens and memecoins at real-time prices. Practise swaps, vaults, bridges, lending, borrowing and DAO votes with cash you earned.",
+      "go": "panel:trade"
+    },
+    {
+      "id": "u1119-couture",
+      "title": "New: Couture in the Boutique",
+      "body": "Hand-beaded pearl and gold mini dresses, and jewelled bralettes with beaded mini skirts. Premium pieces.",
+      "go": "panel:boutique"
+    },
+    {
+      "id": "u1119-smooth",
+      "title": "Smoother and sharper",
+      "body": "Fewer freezes, a lighter load on phones (steady 30 frames a second where a phone needs it), new cars and 4K on big screens.",
+      "push": false
+    }
+  ]
+}

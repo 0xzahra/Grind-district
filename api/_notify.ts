@@ -123,19 +123,24 @@ export async function notifyMessage(db: SupabaseClient, from: string, to: string
 }
 
 // ---- Game updates: one phone alert per release to every player who turned phone alerts on ----
-// Only push (people chose phone alerts in the game); never email. Each release has an id: the first game session
-// that opens after a deploy asks the server (?op=news-ping&id=...), and the server sends that release's alert once.
-// A lock file created without overwrite makes sure two pings never send it twice.
-export const LATEST_UPDATE = {
-  id: 'u1119',
-  title: 'New in Grind District',
-  body: 'Couture in the Boutique, the DeFi desk with live prices, My Gallery with selfies and skits, home invites to dance together, and a smoother city on phones.',
-  url: `${ORIGIN}/?src=push-update`,
-}
+// The release notes live in public/updates.json (served at /updates.json). Each game session pings
+// ?op=news-ping&id=<newest id>; the server reads the live list, and if that id is the newest entry (and it does not
+// say "push": false) sends it once as a phone alert. Only push (people chose phone alerts in the game); never
+// email. At most one alert a day: a newer note that comes sooner waits for the next ping after the day is up.
+// A lock file created without overwrite makes sure two pings never send the same note twice.
+type Update = { id: string; title: string; body?: string; push?: boolean }
+const DAY_GAP_MS = 20 * 3600_000
 export async function broadcastUpdate(db: SupabaseClient, id: string): Promise<{ sent: number; devices: number } | { skipped: string }> {
-  if (id !== LATEST_UPDATE.id) return { skipped: 'not the current update' }
+  if (!/^[\w.-]{1,64}$/.test(id)) return { skipped: 'bad id' }
+  const list = await fetch(`${ORIGIN}/updates.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as { updates?: Update[] } | null
+  const latest = list?.updates?.[list.updates.length - 1]
+  if (!latest || latest.id !== id) return { skipped: 'not the newest update' }
+  if (latest.push === false) return { skipped: 'no alert for this one' }
+  const last = await readJson<{ at?: string }>(db, 'broadcast/last.json')
+  if (last?.at && Date.now() - Date.parse(last.at) < DAY_GAP_MS) return { skipped: 'one alert a day' }
   const lock = await db.storage.from(BUCKET).upload(`broadcast/${id}.json`, new Blob([JSON.stringify({ at: new Date().toISOString() })], { type: 'application/json' }), { upsert: false, contentType: 'application/json' })
   if (lock.error) return { skipped: 'already sent' }
+  await writeJson(db, 'broadcast/last.json', { at: new Date().toISOString(), id })
   const files: string[] = []
   for (let offset = 0; offset < 5000; offset += 100) {
     const r = await db.storage.from(BUCKET).list('push', { limit: 100, offset })
@@ -146,7 +151,7 @@ export async function broadcastUpdate(db: SupabaseClient, id: string): Promise<{
   const webpush = (await import('web-push')).default
   const k = vapidKeys()
   webpush.setVapidDetails('mailto:noreply@grinddistrict.app', k.pub, k.priv)
-  const payload = JSON.stringify({ title: LATEST_UPDATE.title, body: LATEST_UPDATE.body, url: LATEST_UPDATE.url, tag: `update:${id}` })
+  const payload = JSON.stringify({ title: latest.title.slice(0, 80), body: String(latest.body ?? '').slice(0, 200), url: `${ORIGIN}/?src=push-update`, tag: `update:${id}` })
   let sent = 0, devices = 0
   // A few players at a time, so the function stays well inside its time limit.
   for (let i = 0; i < files.length; i += 8) {
