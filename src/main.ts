@@ -72,6 +72,8 @@ import { createEstate } from './estate.ts'
 import { createBeach } from './beach.ts'
 import './style.css'
 import './glass.css'
+import { createCamRays } from './camRays.ts'
+import { sweepScene } from './batch.ts'
 import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
 import { installLayers } from './layers.ts'
@@ -441,6 +443,9 @@ const apiAgents = createRemoteAgents(scene)
     }
     renderer.setSize(window.innerWidth, window.innerHeight, false)
     post.configure(graphics, window.innerWidth, window.innerHeight, ratio)
+    // Shadows on or off change every material's shader: compile them all now, in the background where the
+    // browser can, instead of one by one (a freeze each) as each comes into view.
+    if (performance.getEntriesByName('gd:revealed').length) void renderer.compileAsync(scene, camera).catch(() => undefined)
   }
   const applyBody = () => {
     const save = getSave()
@@ -1914,12 +1919,21 @@ const apiAgents = createRemoteAgents(scene)
     ui.toast(`${metro ? '' : ''}You are at the ${id === 'skytower' ? 'Sky Tower' : id[0]!.toUpperCase() + id.slice(1)} station.`)
   }
   const STATIONS_AT: Record<StationId, [number, number]> = { beach: [-8, -59.5], marina: [59, 8], raceway: [6, 59.5], park: [-118, 123], skytower: [-59, 10], airport: [141, 16] }
+  // Places that load after the city opens are built hidden, their shaders compiled in the background
+  // (compileAsync; in parallel on browsers that can), and only then shown, so they never freeze a frame by
+  // compiling on the spot as they first come into view.
+  const staged = (build: (into: THREE.Scene) => void) => {
+    const holder = new THREE.Group(); holder.name = 'staged'; holder.visible = false
+    scene.add(holder)
+    build(holder as unknown as THREE.Scene)
+    void renderer.compileAsync(holder, camera, scene).catch(() => undefined).finally(() => { holder.visible = true })
+  }
   window.addEventListener('gd:revealed', () => window.setTimeout(() => {
     void import('./metro.ts').then((m) => {
-      metro = m.createMetro(scene, { onArrive: (id) => metroArrive(id) })
-      void import('./venues.ts').then((v) => { streetSpots.push(...v.cityVenues(scene, (id) => void enterHome(id, true))) })
+      staged((into) => { metro = m.createMetro(into, { onArrive: (id) => metroArrive(id) }) })
+      void import('./venues.ts').then((v) => { staged((into) => { streetSpots.push(...v.cityVenues(into, (id) => void enterHome(id, true))) }) })
       // The Pitch: a promoter's coin booth beside the Conference Centre (scam awareness, practice money only).
-      void import('./pitch.ts').then((p) => { streetSpots.push(p.buildPitch(scene, { obstacles: world.obstacles, at: { x: 21.8, z: -48.8 }, toast: (t) => ui.toast(t), openCourse: (c) => window.dispatchEvent(new CustomEvent('gd:course', { detail: c })) }).spot) })
+      void import('./pitch.ts').then((p) => { staged((into) => streetSpots.push(p.buildPitch(into, { obstacles: world.obstacles, at: { x: 21.8, z: -48.8 }, toast: (t) => ui.toast(t), openCourse: (c) => window.dispatchEvent(new CustomEvent('gd:course', { detail: c })) }).spot)) })
       for (const st of m.STATIONS) if (st.id !== 'park' && st.id !== 'airport') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
       parkPillars()
     })
@@ -1987,6 +2001,17 @@ const apiAgents = createRemoteAgents(scene)
       }
     }
   }
+  // Signboards and other boxes with a material per face draw once per material, not once per face (batch.ts).
+  // Places that load later are picked up by the repeat; each mesh is only ever done once.
+  window.addEventListener('gd:revealed', () => { const run = () => { sweepScene(scene) }; run(); window.setInterval(run, 4000) }, { once: true })
+  // Camera rays test solid static meshes only, each with a bounding-volume hierarchy (camRays.ts).
+  const camRays = createCamRays(scene, (o) => {
+    if (o === avatar.object || o.userData.camPass) return 'tree'
+    if (o.userData.ghost) return 'self'
+    const mat = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
+    if (mat && !Array.isArray(mat) && mat.userData?.foliage) return 'self'
+    return false
+  })
   const pullCamera = (origin: THREE.Vector3, desired: THREE.Vector3) => {
     rayDirection.subVectors(desired, origin)
     const dist = rayDirection.length()
@@ -1994,7 +2019,7 @@ const apiAgents = createRemoteAgents(scene)
     rayDirection.multiplyScalar(1 / dist)
     raycaster.set(origin, rayDirection)
     raycaster.far = dist
-    const hits = raycaster.intersectObjects(scene.children, true)
+    const hits = camRays.hits(raycaster)
     for (const hit of hits) {
       if (hit.object.userData.ghost) continue
       // Only solid meshes stop the camera. Rain/dust Points have a 1 m pick radius, so they used to yank the
@@ -2015,7 +2040,7 @@ const apiAgents = createRemoteAgents(scene)
       if (climb > 0.05) {
         raycaster.set(origin, liftDir.multiplyScalar(1 / climb))
         raycaster.far = climb
-        const blocker = raycaster.intersectObjects(scene.children, true).find((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))
+        const blocker = camRays.hits(raycaster).find((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))
         if (!blocker) return pulledCam.set(up.x, up.y, up.z)
       }
       // Something overhead too: stay in front of the wall (close, but never on the far side of it).
@@ -2039,7 +2064,7 @@ const apiAgents = createRemoteAgents(scene)
       if (len < 0.05) continue
       raycaster.set(cam, rayDirection.multiplyScalar(1 / len))
       raycaster.far = Math.max(0.05, len - 0.15)
-      for (const h of raycaster.intersectObjects(scene.children, true)) {
+      for (const h of camRays.hits(raycaster)) {
         const o = h.object as THREE.Mesh
         // Whole instanced sets (benches, books) are never hidden; only single tall pieces: walls, partitions, shelves.
         if (!o.isMesh || (o as unknown as THREE.InstancedMesh).isInstancedMesh || o.userData.ghost || isUnder(avatar.object, o)) continue
@@ -2101,6 +2126,42 @@ const apiAgents = createRemoteAgents(scene)
   // still draws it on demand if it is not there yet.
   bakeWhenStill = () => { if (!satelliteUrl() && !indoors() && !document.body.classList.contains('rail-shut')) { try { bake() } catch { /* vector map */ } } }
   let debugView: [number[], number[]] | null = null
+  // Dev only (?debugmap): how long the game logic and the draw submission take per frame, and one frame's draw calls.
+  const DEV_PERF = import.meta.env.DEV && location.search.includes('debugmap')
+  const perfStat = { n: 0, upd: 0, ren: 0, dt: 0 }
+  if (DEV_PERF) Object.assign(window, {
+    __camRays: () => ({ size: camRays.size(), pending: camRays.pending() }),
+    __drawBreakdown: (limit = 30) => {
+      // Meshes that would be drawn now (visible chain, in the view frustum), grouped by their top-level parent.
+      const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
+      const sph = new THREE.Sphere(), groups = new Map<string, { draws: number; tris: number; shadow: number; kids: string[] }>()
+      for (const top of scene.children) {
+        const key = `${top.name || top.type}#${top.id}`
+        const walk = (o: THREE.Object3D) => {
+          if (!o.visible) return
+          const m = o as THREE.Mesh
+          if ((m.isMesh || (o as THREE.Points).isPoints || (o as THREE.Sprite).isSprite) && m.geometry) {
+            if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere()
+            sph.copy(m.geometry.boundingSphere!).applyMatrix4(m.matrixWorld)
+            if (!m.frustumCulled || (m as THREE.InstancedMesh).isInstancedMesh || fr.intersectsSphere(sph)) {
+              const g = groups.get(key) ?? { draws: 0, tris: 0, shadow: 0, kids: [] as string[] }
+              if (g.kids.length < 4) g.kids.push(`${m.geometry.type.replace('Geometry', '')}/${Array.isArray(m.material) ? `${m.material.length}mats` : (m.material as THREE.Material).type.replace('Mesh', '').replace('Material', '')}${m.name ? `:${m.name}` : ''}@${sph.center.x.toFixed(0)},${sph.center.z.toFixed(0)}`)
+              const mats = Array.isArray(m.material) ? m.material.length : 1
+              g.draws += mats; g.tris += ((m.geometry.index ? m.geometry.index.count : m.geometry.getAttribute('position')?.count ?? 0) / 3) * ((m as THREE.InstancedMesh).count ?? 1)
+              if (m.castShadow) g.shadow += mats
+              groups.set(key, g)
+            }
+          }
+          for (const c of o.children) walk(c)
+        }
+        walk(top)
+      }
+      return [...groups.entries()].sort((a, b) => b[1].draws - a[1].draws).slice(0, limit).map(([k, v]) => `${v.draws}d ${v.shadow}s ${Math.round(v.tris / 1000)}k ${k} | ${v.kids.join(' ')}`)
+    },
+    __rayCost: () => { const rc = new THREE.Raycaster(); const o = new THREE.Vector3(pos.x, 1.6, pos.z); camRays.hits(rc); const t0 = performance.now(); let n = 0; for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; rc.set(o, new THREE.Vector3(Math.sin(a), 0.25, Math.cos(a))); rc.far = 8; n += camRays.hits(rc).length } return { msPerRay: +((performance.now() - t0) / 40).toFixed(3), n } },
+    __perf: () => { const r = { frames: perfStat.n, fps: perfStat.dt ? +(perfStat.n / perfStat.dt).toFixed(1) : 0, updMs: +(perfStat.upd / Math.max(1, perfStat.n)).toFixed(2), renMs: +(perfStat.ren / Math.max(1, perfStat.n)).toFixed(2) }; perfStat.n = perfStat.upd = perfStat.ren = perfStat.dt = 0; return r },
+    __drawStats: () => { const i = renderer.info; i.autoReset = false; i.reset(); post.render(); const r = { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, progs: i.programs?.length ?? 0, ratio: +renderer.getPixelRatio().toFixed(2) }; i.autoReset = true; return r },
+  })
   let clearAir = 1
   if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __res: () => +renderer.getPixelRatio().toFixed(3), __scene: () => scene, __facing: () => { const p = (avatar.object.userData.person as THREE.Object3D | undefined) ?? avatar.object; const v = new THREE.Vector3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())); return { root: +avatar.object.rotation.y.toFixed(3), body: +Math.atan2(v.x, v.z).toFixed(3), move: Math.hypot(vel.x, vel.z) > 0.3 ? +Math.atan2(vel.x, vel.z).toFixed(3) : null, speed: +Math.hypot(vel.x, vel.z).toFixed(2) } }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __tapNpc: (i: number) => { const n = crowd.debug()[i]; if (!n) return null; const rc = new THREE.Raycaster(new THREE.Vector3(n.x + 3, 1.1, n.z), new THREE.Vector3(-1, 0, 0)); const hit = crowd.pick(rc); if (hit) openResident(hit); return hit?.name ?? null }, __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
@@ -2552,7 +2613,7 @@ const apiAgents = createRemoteAgents(scene)
     if (offLen > 0.05) {
       raycaster.set(headPt, rayDirection.multiplyScalar(1 / offLen))
       raycaster.far = offLen + 0.3
-      if (raycaster.intersectObjects(scene.children, true).some((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))) lookTarget.copy(headPt)
+      if (camRays.hits(raycaster).some((h) => (h.object as THREE.Mesh).isMesh && !h.object.userData.ghost && !isUnder(avatar.object, h.object))) lookTarget.copy(headPt)
     }
     boomBlocked = false
     const ideal = indoors ? desiredCam : pullCamera(lookTarget, desiredCam)
@@ -2569,7 +2630,7 @@ const apiAgents = createRemoteAgents(scene)
         liftDir.set(Math.sin(a), 0, Math.cos(a))
         raycaster.set(headPt, liftDir)
         raycaster.far = reach
-        const h = raycaster.intersectObjects(scene.children, true).find((x) => (x.object as THREE.Mesh).isMesh && !x.object.userData.ghost && !isUnder(avatar.object, x.object))
+        const h = camRays.hits(raycaster).find((x) => (x.object as THREE.Mesh).isMesh && !x.object.userData.ghost && !isUnder(avatar.object, x.object))
         const room = h ? h.distance : reach
         if (room > bestRoom + 0.3) { bestRoom = room; steerYaw = a }
       }
@@ -2708,10 +2769,13 @@ const apiAgents = createRemoteAgents(scene)
     elapsed += dt
     if (revealed) tickNeeds(dt)
     try {
+      const tu = DEV_PERF ? performance.now() : 0
       update(dt)
       if (!revealed) performance.mark('gd:first-update')
+      const tr = DEV_PERF ? performance.now() : 0
       post.frame(dt, elapsed)
       post.render()
+      if (DEV_PERF) { const te = performance.now(); perfStat.n++; perfStat.upd += tr - tu; perfStat.ren += te - tr; perfStat.dt += dt }
       afterRender?.()
       if (snapNext) { snapNext = false; shotBtn?.click() }
       if (revealed) probe(dt)

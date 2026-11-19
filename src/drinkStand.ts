@@ -2,6 +2,7 @@
 // bar with shelves, bottles, jars and an espresso machine, a striped canvas awning with a scalloped valance,
 // warm bulb pendants, three stools and a small fascia sign. The drink on the counter is a still prop.
 import * as THREE from 'three'
+import { mergeStatic } from './batch.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export function createDrinkStand(scene: THREE.Scene, anisotropy: number): { setNight: (n: number) => void } {
@@ -178,6 +179,8 @@ export function createDrinkStand(scene: THREE.Scene, anisotropy: number): { setN
     mesh.receiveShadow = true
     root.add(mesh)
   }
+  // One draw per material for the whole stand (it never moves; the night glow lives on the shared materials).
+  mergeStatic(root)
   scene.add(root)
   return {
     setNight(n: number) {

@@ -4,6 +4,7 @@
 // sell button never works (a honeypot) and then the creator pulls the liquidity. A closing card goes through every
 // red flag, found or missed, and links to the scams course. Reputation once a day; nothing touches real money.
 import * as THREE from 'three'
+import { mergeStatic } from './batch.ts'
 import { posedHuman } from './humans.ts'
 import { spendInGame, addReputation } from './state.ts'
 import { speak, stopSpeaking } from './speech.ts'
@@ -142,6 +143,8 @@ export function buildPitch(scene: THREE.Scene, o: { obstacles: Obstacle[]; at: {
   const fanA: THREE.Group = posedHuman('woman3', { pose: 'cheer', height: 1.66, look: { top: 0x25e07a }, onReady: () => withGlass(fanA)() }); fanA.position.set(-1.75, 0, 1.75); fanA.rotation.y = Math.PI + 0.5; g.add(fanA)
   const fanB: THREE.Group = posedHuman('man2', { pose: 'cheer', height: 1.78, look: { top: 0xff3dd6 }, onReady: () => withGlass(fanB)() }); fanB.position.set(1.6, 0, 1.95); fanB.rotation.y = Math.PI - 0.5; g.add(fanB)
   g.traverse((n) => { n.userData.ghost = true })
+  // The stall, counter and drinks never move: one draw per material (people, bulbs and the screen stay their own).
+  mergeStatic(g, { skip: (n) => n === dex || n === fanA || n === fanB || n === screen || n === bulbs, byLook: true })
   o.obstacles.push({ kind: 'box', x: o.at.x, z: o.at.z + 0.12, hx: 1.62, hz: 1.1 }, { kind: 'circle', x: o.at.x + tx, z: o.at.z + tz, r: 0.42 })
 
   const spot: Hotspot = { id: 'pitch', x: o.at.x, z: o.at.z + 2.0, r: 1.7, title: 'The Pitch', body: '', enter: '', use: () => open() }
