@@ -31,9 +31,13 @@ const BUBBLE_MS = 7000
 const MAX_TEXT = 140
 
 export type Me = { name: string; username: string; body: BodyId; tint: number }
-type Wire = { id: string; name: string; username: string; body: BodyId; tint: number; x: number; z: number; yaw: number; moving: boolean; act?: Seat | null; vx?: number; vz?: number }
-type Peer = Wire & { seating?: ReturnType<typeof createSeating>; actKey?: string; avatar: Avatar; tx: number; tz: number; vx: number; vz: number; seen: number; lastX: number; lastZ: number }
-export type MeNow = { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null; vx?: number; vz?: number }
+type Wire = { id: string; name: string; username: string; body: BodyId; tint: number; x: number; z: number; yaw: number; moving: boolean; act?: Seat | null; vx?: number; vz?: number; room?: string; emote?: string }
+type Peer = Wire & { room?: string; emote?: string; seating?: ReturnType<typeof createSeating>; actKey?: string; avatar: Avatar; tx: number; tz: number; vx: number; vz: number; seen: number; lastX: number; lastZ: number }
+/** room: '' in the city, else the shared room you are in ('room:gym', 'area:park') or one person's home
+ * ('house:<host>', 'home:duplex:<host>'). You only see, hear and tap players in the same room. */
+export type MeNow = { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null; vx?: number; vz?: number; room?: string; emote?: string }
+export type Visit = { from: string; name: string; room: string; home: string; label: string }
+export type OnlinePlayer = { id: string; username: string; name: string; room: string; here: boolean }
 
 export type Net = {
   online: () => boolean
@@ -50,6 +54,12 @@ export type Net = {
   pick: (ray: THREE.Raycaster, maxAlong?: number) => { id: string; name: string; username: string; object: THREE.Object3D } | null
   /** Ask a peer for their public profile (encodeShare payload). Resolves null after 4 s. */
   requestProfile: (peerId: string) => Promise<string | null>
+  /** Everyone in the city right now (presence), with where they are; `here` = in your room. */
+  players: () => OnlinePlayer[]
+  /** Invite a signed-in player (by username) to the room you are in (your home). */
+  invite: (username: string, v: Omit<Visit, 'from' | 'name'>) => boolean
+  /** This session's id (guests' homes are keyed by it). */
+  id: () => string
 }
 
 function bubble(text: string): THREE.Sprite {
@@ -130,6 +140,8 @@ export function createNet(options: {
   onCount?: (n: number) => void
   /** Public profile payload (encodeShare: no emails, wallets, family requests or location). */
   getProfile?: () => string
+  /** Someone invited you to their home. */
+  onVisit?: (v: Visit) => void
 }): Net {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -167,7 +179,8 @@ export function createNet(options: {
       peers.set(wire.id, peer)
     }
     if (peer.tint !== wire.tint) peer.avatar.setStyle(wire.tint, false)
-    Object.assign(peer, { name: wire.name, username: wire.username, tint: wire.tint, yaw: wire.yaw, moving: wire.moving })
+    Object.assign(peer, { name: wire.name, username: wire.username, tint: wire.tint, yaw: wire.yaw, moving: wire.moving, room: typeof wire.room === 'string' ? wire.room.slice(0, 80) : '', emote: wire.emote === 'dance' ? 'dance' : '' })
+    peer.avatar.object.userData.dance = peer.emote === 'dance' ? 1 : 0
     // Synced actions: sit / lie / workout pose on the peer's rig.
     const act = wire.act && typeof wire.act.x === 'number' ? { x: +wire.act.x, z: +wire.act.z, yaw: +wire.act.yaw || 0, y: Math.min(1.2, Math.max(0, +wire.act.y || 0)), pose: (['sit', 'lie', 'workout'] as const).find((k) => k === wire.act!.pose) ?? 'sit' } : null
     const key = act ? `${act.x.toFixed(2)},${act.z.toFixed(2)},${act.pose}` : ''
@@ -203,8 +216,8 @@ export function createNet(options: {
         room
           .on('broadcast', { event: 'pos' }, ({ payload }) => upsert(payload as Wire))
           .on('broadcast', { event: 'chat' }, ({ payload }) => {
-            const message = payload as { id: string; text: string; x: number; z: number; name: string }
-            if (!near(message.x, message.z)) return
+            const message = payload as { id: string; text: string; x: number; z: number; name: string; room?: string }
+            if (!near(message.x, message.z) || (message.room ?? '') !== (pos.room ?? '')) return
             const text = clean(String(message.text ?? ''))
             if (!text) return
             const peer = peers.get(message.id)
@@ -231,6 +244,17 @@ export function createNet(options: {
             if (m.to !== id || typeof m.d !== 'string') return
             waiting.get(m.from)?.(m.d)
             waiting.delete(m.from)
+          })
+          .on('broadcast', { event: 'visit' }, ({ payload }) => {
+            const m = payload as { to?: string; from?: string; name?: string; room?: string; home?: string; label?: string }
+            const mine = clean(me.username).toLowerCase()
+            if (!mine || mine === 'guest' || clean(String(m.to ?? '')).toLowerCase() !== mine) return
+            const from = clean(String(m.from ?? '')).slice(0, 20), room = String(m.room ?? '').slice(0, 80)
+            if (!from || !/^(house|home):/.test(room)) return
+            const now = Date.now()
+            if (now - (answered.get(`v:${from}`) ?? 0) < 8000) return // one invite per sender every 8 s
+            answered.set(`v:${from}`, now)
+            options.onVisit?.({ from, name: clean(String(m.name ?? '')).slice(0, 24) || from, room, home: String(m.home ?? '').slice(0, 20), label: clean(String(m.label ?? 'home')).slice(0, 40) })
           })
           .on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
           .on('presence', { event: 'sync' }, () => { options.onCount?.(Object.keys(room.presenceState()).length) })
@@ -281,12 +305,30 @@ export function createNet(options: {
     setMe(next) {
       me = next
     },
+    id: () => id,
+    players() {
+      const out: OnlinePlayer[] = []
+      const state = (channel?.presenceState() ?? {}) as Record<string, Array<{ id?: string; u?: string }>>
+      for (const [key, metas] of Object.entries(state)) {
+        if (key === id) continue
+        const peer = peers.get(key), u = clean(String(metas[0]?.u ?? peer?.username ?? '')).toLowerCase()
+        out.push({ id: key, username: u, name: clean(peer?.name ?? '') || (u && u !== 'guest' ? u : 'Guest'), room: peer?.room ?? '', here: !!peer && (peer.room ?? '') === (pos.room ?? '') })
+      }
+      return out.sort((a, b) => Number(b.here) - Number(a.here) || a.name.localeCompare(b.name))
+    },
+    invite(username, v) {
+      if (!connected || !channel) return false
+      const to = clean(username).toLowerCase()
+      if (!to || to === 'guest') return false
+      void channel.send({ type: 'broadcast', event: 'visit', payload: { to, from: me.username, name: me.name, ...v } })
+      return true
+    },
     say(raw) {
       const text = clean(raw)
       if (!text) return
       showBubble(options.getSelf(), text)
       options.onLine({ from: me.name || 'You', text, self: true })
-      if (connected && channel) void channel.send({ type: 'broadcast', event: 'chat', payload: { id, text, x: pos.x, z: pos.z, name: me.name } })
+      if (connected && channel) void channel.send({ type: 'broadcast', event: 'chat', payload: { id, text, x: pos.x, z: pos.z, name: me.name, room: pos.room ?? '' } })
     },
     canVoice: () => VOICE && connected && !!storage,
     async sayVoice(blob, seconds) {
@@ -306,7 +348,7 @@ export function createNet(options: {
       if (connected && channel && sendAcc > 1 / SEND_HZ) {
         sendAcc = 0
         // Moving: every tick. Standing: only when the pose, seat or facing changed, or as a heartbeat.
-        const key = `${pos.moving ? 1 : 0}|${pos.act ? `${pos.act.x},${pos.act.z},${pos.act.pose}` : ''}|${Math.round(pos.yaw * 4)}|${Math.round(pos.x * 2)},${Math.round(pos.z * 2)}`
+        const key = `${pos.moving ? 1 : 0}|${pos.act ? `${pos.act.x},${pos.act.z},${pos.act.pose}` : ''}|${Math.round(pos.yaw * 4)}|${Math.round(pos.x * 2)},${Math.round(pos.z * 2)}|${pos.room ?? ''}|${pos.emote ?? ''}`
         if (pos.moving || key !== sentKey || sinceSent > IDLE_BEAT) {
           sentKey = key; sinceSent = 0
           void channel.send({ type: 'broadcast', event: 'pos', payload: wire() })
@@ -337,8 +379,8 @@ export function createNet(options: {
         else if (!peer.actKey) peer.avatar.face(Math.sin(peer.yaw), Math.cos(peer.yaw), dt, true)
         peer.avatar.step(dt, moving, speed)
         peer.seating?.apply(object, dt)
-        // Far players stay drawn, but their plate and bubble only show within earshot.
-        object.visible = Math.hypot(object.position.x - pos.x, object.position.z - pos.z) < 60
+        // Only players in the same room (the city, a venue, or the same person's home) are drawn, out to 60 m.
+        object.visible = (peer.room ?? '') === (pos.room ?? '') && Math.hypot(object.position.x - pos.x, object.position.z - pos.z) < 60
       }
     },
   }

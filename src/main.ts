@@ -1268,6 +1268,9 @@ const apiAgents = createRemoteAgents(scene)
       else if (item.kind === 'note') { const n = document.createElement('p'); n.className = 'stat-note'; n.textContent = item.label; nodes.push(n) }
       else nodes.push(row(item.label, item.value ?? '0'))
     }
+    const who = document.createElement('button'); who.type = 'button'; who.className = 'stat-players'; who.textContent = 'See who is online · invite them home'
+    who.onclick = () => { closeOnlineCard(); window.dispatchEvent(new Event('gd:players')) }
+    nodes.push(who)
     onlineCard.replaceChildren(...nodes)
   }
   const loadOnlineStats = async () => {
@@ -1305,6 +1308,7 @@ const apiAgents = createRemoteAgents(scene)
   const net = createNet({
     scene,
     me: identity(),
+    onVisit: (v) => void import('./players.ts').then((m) => m.showVisitInvite(v, () => acceptVisit(v))),
     getSelf: () => avatar.object,
     onLine: ({ from, text, self, audio }) => {
       const item = document.createElement('li')
@@ -1350,6 +1354,68 @@ const apiAgents = createRemoteAgents(scene)
     return null
   }))
   setPresence({ find: (u) => net.findPeer(u) })
+  // Rooms (net.ts): who you can see. The city, a shared venue, or one person's own home: your house on the home
+  // row, or a home you own. Visiting someone keeps you in their room until you leave.
+  const PRIVATE_HOMES = new Set(['duplex', 'mansion', 'penthouse', 'skyhouse'])
+  const HOME_LABEL: Record<string, string> = { house: 'home', duplex: 'garden duplex', mansion: 'hillside mansion', penthouse: 'crown penthouse', skyhouse: 'sky house' }
+  let visiting: { room: string; kind: string } | null = null
+  const hostKey = () => { const u = getSave().username; return u && u !== 'guest' ? u : `guest-${net.id().slice(0, 8)}` }
+  const myRoom = (): string => {
+    if (interiors.inside === 'house') return visiting?.kind === 'house' ? visiting.room : `house:${hostKey()}`
+    if (interiors.inside) return `room:${interiors.inside}`
+    const hi = homes?.inside
+    if (hi && PRIVATE_HOMES.has(hi)) return visiting?.kind === hi ? visiting.room : `home:${hi}:${hostKey()}`
+    if (hi) return `area:${hi}`
+    return ''
+  }
+  const atHome = () => {
+    const r = myRoom()
+    if (visiting || !(r.startsWith('house:') || r.startsWith('home:'))) return null
+    const kind = interiors.inside === 'house' ? 'house' : homes!.inside!
+    return { room: r, home: kind, label: HOME_LABEL[kind] ?? 'home' }
+  }
+  const acceptVisit = (v: { room: string; home: string; from: string }) => {
+    if (ride?.driving) { ui.toast('Park the car first, then accept again.'); return }
+    if (homes?.inside) { ui.toast('Leave where you are first, then accept the invite.'); return }
+    if (v.home === 'house') {
+      if (interiors.inside && interiors.inside !== 'house') leaveRoom()
+      const door = world.hotspots.find((h) => h.id === 'yours')
+      if (!door) return
+      visiting = { room: v.room, kind: 'house' }
+      if (interiors.inside !== 'house') enterRoom(door)
+      ui.toast(`You are at @${v.from}'s home.`)
+    } else if (PRIVATE_HOMES.has(v.home)) {
+      if (interiors.inside) leaveRoom()
+      visiting = { room: v.room, kind: v.home }
+      void enterHome(v.home as AreaId, true).then(() => ui.toast(`You are at @${v.from}'s ${HOME_LABEL[v.home]}.`))
+    }
+  }
+  const openPlayersPanel = () => { setCC(false); void import('./players.ts').then((m) => m.openPlayers({
+    me: () => ({ username: getSave().username, signedIn: !!localStorage.getItem('gd.privy.username') }),
+    players: () => net.players(), online: () => net.online(), myRoom, atHome,
+    invite: (u, v) => net.invite(u, v),
+    profile: (u) => { setCC(true); void openProfile(u) },
+    message: (u) => { setCC(true); void openThread(u) },
+    find: (u) => { const at = net.findPeer(u); if (at) window.dispatchEvent(new CustomEvent('gd-find', { detail: { u, x: at.x, z: at.z } })); else ui.toast(`@${u} is somewhere else right now.`) },
+    toast: (t) => ui.toast(t),
+  })) }
+  document.getElementById('nav-players')?.addEventListener('click', openPlayersPanel)
+  window.addEventListener('gd:players', openPlayersPanel)
+  // Dance: one tap to dance, any move to stop. Everyone in the room sees it (net.ts emote), and skits film it.
+  let dancing = false
+  const danceBtn = document.createElement('button')
+  danceBtn.type = 'button'; danceBtn.id = 'dance'; danceBtn.className = 'glass-fab dance-fab'; danceBtn.textContent = '💃 Dance'; danceBtn.hidden = true
+  danceBtn.setAttribute('aria-pressed', 'false')
+  const setDance = (on: boolean) => {
+    if (dancing === on) return
+    dancing = on
+    avatar.object.userData.dance = on ? 1 : 0
+    danceBtn.textContent = on ? '■ Stop' : '💃 Dance'
+    danceBtn.setAttribute('aria-pressed', String(on))
+    if (on) { target = null; personaNote('dance') }
+  }
+  danceBtn.onclick = () => { if (seating.sitting) seating.stand(); setDance(!dancing) }
+  document.body.append(danceBtn)
   // Tapped city resident: a small card (name, persona, what they are doing). Auto-hides; never blocks play.
   const showNpcCard = (n: { name: string; trait: string; routine: string; doing: string }) => {
     npcCard?.remove()
@@ -2587,7 +2653,14 @@ const apiAgents = createRemoteAgents(scene)
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-6 * dt))
       camera.updateProjectionMatrix()
     }
-    net.tick(dt, { x: pos.x, z: pos.z, yaw: faceYaw, moving, act: seating.sitting, vx: vel.x, vz: vel.z })
+    if (visiting && !interiors.inside && !homes?.inside) visiting = null // left their home
+    if (dancing && (moving || seating.sitting || ride)) setDance(false)
+    {
+      // The Dance button: wherever people hang out (indoors, at home, a venue) or with another player close by.
+      const show = !ride && !ui.isOpen() && !document.body.classList.contains('selfie-mode') && (dancing || !!interiors.inside || !!homes?.inside || net.peers().some((q) => Math.hypot(q.x - pos.x, q.z - pos.z) < 12))
+      if (danceBtn.hidden === show) danceBtn.hidden = !show
+    }
+    net.tick(dt, { x: pos.x, z: pos.z, yaw: faceYaw, moving, act: seating.sitting, vx: vel.x, vz: vel.z, room: myRoom(), emote: dancing ? 'dance' : '' })
     mapAcc += dt
     if (mapAcc > 0.1) { mapAcc = 0; drawMap() } // minimap at 10 Hz is plenty
     saveAcc += dt

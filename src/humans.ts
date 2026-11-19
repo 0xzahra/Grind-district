@@ -622,6 +622,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       if (talk) talk.time = Math.random() * talk.getClip().duration
       idle?.setEffectiveWeight(1)
       const w = [1, 0, 0, 0, 0]
+      let danceT = 0, rig: Limbs | null = null
       const pace = { walk: t.speed.Walk || 1.1, jog: t.speed.Jog || 2.8, run: t.speed.Run || 5.6 }
       mixer.update(0)
       step = (dt, moving, speed) => {
@@ -643,6 +644,10 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         if (root.userData.acc < lod) return
         mixer.update(root.userData.acc)
         root.userData.acc = 0
+        // Dancing (root.userData.dance, the player's Dance button or a friend's synced emote): posed on top
+        // of the idle clip right after each update, so it never builds up between frames.
+        if (root.userData.dance && !moving) { danceT += Math.max(0.016, dt); rig ??= limbs(person); if (rig) dancePose(person, rig, danceT) }
+        else if (danceT) { danceT = 0; person.rotation.z = 0 }
       }
     }).catch(() => { if (pending === name) pending = null; if (!root.userData.person) bodyRef.visible = true })
   }
@@ -732,6 +737,28 @@ const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vDir = new THREE.Vecto
 const vUp = new THREE.Vector3(0, 1, 0)
 const qWorld = new THREE.Quaternion(), qParent = new THREE.Quaternion(), qTurn = new THREE.Quaternion()
 /** Turn `bone` so that the segment from it to `child` points along the world direction `want`. */
+/** One frame of a dance at time t (s): about 132 beats a minute, alternating eight beats of pumping fists with
+ * eight of hands up and waving; the body sways and the head nods on the beat. */
+const dQ = new THREE.Quaternion(), dR = new THREE.Vector3(), dF = new THREE.Vector3(), dD = new THREE.Vector3()
+function dancePose(person: THREE.Object3D, rig: Limbs, t: number): void {
+  const beat = t * 2.2, sway = Math.sin(beat * Math.PI)
+  person.rotation.z = sway * 0.06
+  person.updateMatrixWorld(true)
+  person.getWorldQuaternion(dQ)
+  dR.set(1, 0, 0).applyQuaternion(dQ).normalize(); dF.set(0, 0, 1).applyQuaternion(dQ).normalize()
+  const dir = (r: number, u: number, f: number) => dD.set(0, 0, 0).addScaledVector(dR, r).addScaledVector(vUp, u).addScaledVector(dF, f).normalize().clone()
+  const handsUp = Math.floor(beat / 8) % 2 === 1
+  for (const s of rig.sides) {
+    const pump = Math.max(0, Math.sin(beat * Math.PI + (s.side > 0 ? 0 : Math.PI)))
+    if (handsUp) {
+      aim(s.upper, s.fore, dir(s.side * 0.45, 0.88, 0.1))
+      aim(s.fore, s.hand, dir(s.side * (0.15 + 0.4 * Math.sin(beat * Math.PI * 0.5 + s.side)), 0.95, 0.06))
+    } else {
+      aim(s.upper, s.fore, dir(s.side * 0.32, -0.6 + 0.55 * pump, 0.5))
+      aim(s.fore, s.hand, dir(-s.side * 0.12, 0.35 + 0.55 * pump, 0.75))
+    }
+  }
+}
 function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): void {
   bone.getWorldPosition(vA); child.getWorldPosition(vB)
   vDir.subVectors(vB, vA).normalize()
