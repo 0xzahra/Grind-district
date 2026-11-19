@@ -1611,7 +1611,7 @@ export function mountUi(
           para('Learn', 'kicker'),
           para('Zahra meets you at Campus and places you as a Normie or a Homie. Six worlds take you from what the internet is, through scams and wallet safety, blockchain basics, layers and real uses, to the earning map and your career. Every course you pass is filed to your CV with a certificate, and certificates can be minted on Base or NEAR.'),
           para('Practise', 'kicker'),
-          para('The trading screen has Spot, Perps and Convert for the District Coin, the major coins and tokens. Prices are simulated and no real order is ever placed. Take a job in Careers, do its task each day, and rise from Curious to Mentor.'),
+          para('The trading screen has Spot, Perps, Convert, P2P and a DeFi desk for the major coins, tokens and memecoins. Prices are live from the market; trades use in-game money and no real order is ever placed. Take a job in Careers, do its task each day, and rise from Curious to Mentor.'),
           para('Live', 'kicker'),
           para('Claim your home and use it: cook, shower, do the laundry, tend the garden, work at the desk, sleep. Dress at the Boutique, train at the gym, sit in the masjid or the church, read at the café, hear a talk at the conference centre, and meet other players. Search any player by username in Messages, add friends, party up, or talk to people standing near you.'),
           para('Money', 'kicker'),

@@ -5,14 +5,14 @@ import { lockReason } from './worlds.ts'
 import { convertCoin, getSave, trade, tradeCoin } from './state.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
 import { hourly, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
+import { renderDefi } from './defi.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
 const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', xrp: '#8a96a3', link: '#3d6fe6', near: '#00c08b', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', shib: '#e8761c', pepe: '#4c9a2a', wif: '#b98a5e', bonk: '#f5a623' }
 // The game has Coins and Tokens, nothing else. A coin is the money of its own chain (BTC, ETH, SOL, and the
-// city's own District Coin); a token is issued on top of one (LINK, the Meme Token and the other meme tokens).
+// listed coins); a token is issued on top of one (LINK, the Meme Token and the other meme tokens).
 const listed = COINS.map((c): Asset => ({ id: c.id, sym: c.label.split(' · ')[0]!, name: c.label.split(' · ')[1] ?? c.label, tint: TINT[c.id] ?? '#9aa3ad', group: TOKEN_IDS.has(c.id) ? 'Tokens' : 'Coins', minRank: c.minRank }))
 const ASSETS: Asset[] = [
-  { id: 'unit', sym: 'COIN', name: 'District Coin', tint: '#d9b26a', group: 'Coins', minRank: 'shrimp', desk: 'unit' },
   ...listed.filter((a) => a.group === 'Coins'),
   { id: 'meme', sym: 'MEME', name: 'Meme Token', tint: '#8fd0a6', group: 'Tokens', minRank: 'shrimp', desk: 'meme' },
   ...listed.filter((a) => a.group === 'Tokens'),
@@ -57,7 +57,7 @@ function startTape(): void {
   taping = window.setInterval(() => { for (const c of COINS) { const list = tape.get(c.id)!; list.push(markPrice(c.id)); if (list.length > TAPE) list.shift() } }, 1500)
 }
 // Listed coins chart the real market: the last 48 hourly closes (livePrices.ts) and the price now; the 24-hour
-// change is the real one. District Coin and the Meme Token are the city's own and keep their practice tape.
+// change is the real one. The Meme Token is the city's own and keeps its practice tape.
 const isLive = (a: Asset): boolean => !a.desk && a.id !== 'usd' && livePrice(a.id) !== undefined
 const series = (a: Asset): number[] => { const s = getSave(); if (a.desk === 'unit') return s.unitHist; if (a.desk === 'meme') return s.memeHist; const h48 = isLive(a) ? hourly(a.id) : []; return h48.length > 6 ? h48 : tape.get(a.id) ?? [] }
 const change = (a: Asset): number => { const real = isLive(a) ? liveChange(a.id) : undefined; if (real !== undefined) return real; const s = series(a); const first = s[0] ?? priceOf(a); return first > 0 ? (priceOf(a) / first - 1) * 100 : 0 }
@@ -105,11 +105,12 @@ const icon = (a: Asset): HTMLElement => { const n = h('span', 'xch-ico', a.id ==
 export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message: string, rankedUp?: RankId) => void }): { el: HTMLElement; paint: () => void } {
   startTape()
   const root = h('div', 'xch')
-  let tab: 'spot' | 'perps' | 'convert' | 'p2p' = 'spot'
+  let tab: 'spot' | 'perps' | 'convert' | 'p2p' | 'defi' = 'spot'
   wantFast()
   let live: Array<() => void> = []
   // What each tab has selected; kept while the screen is open so switching tabs loses nothing.
-  let spotId: string = desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
+  // District Coin is no longer listed (only a sell-all for anyone who still holds some): open on Bitcoin instead.
+  let spotId: string = desk === 'unit' ? 'btc' : desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
   let perpId = 'btc', perpSide: 'long' | 'short' = 'long', perpLev = 5, perpFrac = 0.25
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
   let p2pSide: 'buy' | 'sell' = 'buy', p2pCoin = 'btc', p2pFrac = 0.25, p2pOrder: { offer: Offer; stage: 'open' | 'bank' | 'releasing' } | null = null
@@ -264,6 +265,14 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         chg.dataset.dir = lock ? '' : dir(d)
       })
       list.append(item)
+    }
+    // District Coin was delisted: anyone still holding some can sell it all at its last price, once.
+    if (getSave().unit.qty > 0) {
+      const card = h('div', 'xch-delisted'), go = cta('sell')
+      go.textContent = 'Sell all District Coin'
+      go.onclick = () => done(trade('unit', 'sell', 1, false), true)
+      card.append(h('p', 'xch-note', `District Coin is delisted. You still hold ${formatQty(getSave().unit.qty)} (about ${money(getSave().unit.qty * getSave().unitPrice)}): sell it back to cash.`), go)
+      pane.append(card)
     }
     pane.append(list, courses(['spot', 'risk', 'memes']))
     return pane
@@ -461,8 +470,8 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   }
 
   const body = h('div', 'xch-body')
-  const show = () => { live = []; body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : p2pPane()); paintNow() }
-  root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
+  const show = () => { live = []; body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : tab === 'defi' ? renderDefi({ done: (m) => hooks.finish(m), live: (f) => live.push(f) }) : p2pPane()); paintNow() }
+  root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P', 'DeFi'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p', 'defi'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
   // New prices (or a chart's hourly closes) landed: repaint what is on screen.
   const onPrices = () => { if (!root.isConnected) { window.removeEventListener('gd:prices', onPrices); return } paintNow() }
   window.addEventListener('gd:prices', onPrices)
