@@ -1803,6 +1803,8 @@ const apiAgents = createRemoteAgents(scene)
     void import('./metro.ts').then((m) => {
       metro = m.createMetro(scene, { onArrive: (id) => metroArrive(id) })
       void import('./venues.ts').then((v) => { streetSpots.push(...v.cityVenues(scene, (id) => void enterHome(id, true))) })
+      // The Pitch: a promoter's coin booth beside the Conference Centre (scam awareness, practice money only).
+      void import('./pitch.ts').then((p) => { streetSpots.push(p.buildPitch(scene, { obstacles: world.obstacles, at: { x: 21.8, z: -48.8 }, toast: (t) => ui.toast(t), openCourse: (c) => window.dispatchEvent(new CustomEvent('gd:course', { detail: c })) }).spot) })
       for (const st of m.STATIONS) if (st.id !== 'park' && st.id !== 'airport') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
       parkPillars()
     })
