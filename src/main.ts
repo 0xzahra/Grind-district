@@ -426,7 +426,10 @@ const apiAgents = createRemoteAgents(scene)
     // Cap phone DPR harder so mid-range stays ~30+ FPS (High phone was 1.5× — still heavy with post).
     // Sharpness caps per tier. Phones used to draw the city at 1x on a 3x screen, which is what looked soft;
     // the post stack's resolution scaler (quality.ts) now steps down from these caps whenever frames run long.
-    const ratio = Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : graphics === 'medium' ? (coarseDev ? 1.75 : 1.5) : 2)
+    // High: the screen's own density, up to 4K (3840x2160 worth of pixels) and 3x. The scaler (quality.ts) starts it
+    // at the old 2x and climbs only while frames stay easy, so a 4K monitor gets true 4K when the GPU can hold it.
+    const native4k = Math.max(1, Math.min(dpr, 3, Math.sqrt((3840 * 2160) / Math.max(1, window.innerWidth * window.innerHeight))))
+    const ratio = graphics === 'high' ? native4k : Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : (coarseDev ? 1.75 : 1.5))
     renderer.setPixelRatio(ratio)
     // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
     // Every point light is paid for in every lit pixel, so this is the biggest lever on mid-range phones.
@@ -667,10 +670,17 @@ const apiAgents = createRemoteAgents(scene)
   // The game's logo goes on every screenshot (the same mark as the HUD), loaded once up front.
   const shotLogo = new Image(); shotLogo.decoding = 'async'; shotLogo.src = '/brand/logo-new.webp'
   const capture = (): Promise<File | null> => {
-    try { post.render() } catch { /* use the last frame */ }
+    // Photos are 4K: this one frame is drawn with the long side at 3840 px (2560 on phones with little memory,
+    // and never past what the GPU allows), copied, and the normal resolution comes straight back.
+    const lowMem = ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4 && matchMedia('(pointer: coarse)').matches
+    const side = Math.min(lowMem ? 2560 : 3840, renderer.capabilities.maxTextureSize || 4096)
+    const r4k = side / Math.max(1, window.innerWidth, window.innerHeight)
+    let big = false
+    try { if (r4k > renderer.getPixelRatio() + 0.01) { post.snapshot(r4k); big = true } else post.render() } catch { /* use the last frame */ }
     const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height
     const g = out.getContext('2d')!
     g.drawImage(canvas, 0, 0)
+    if (big) { try { post.restore() } catch { /* the next frame resizes anyway */ } }
     const s = Math.max(1, out.width / 1200)
     if (shotLogo.complete && shotLogo.naturalWidth > 0) {
       // Bottom right, a quarter of the shorter side wide, with a soft shadow so it reads on sky or floor.
@@ -685,7 +695,9 @@ const apiAgents = createRemoteAgents(scene)
       g.fillStyle = 'rgba(11,10,8,0.55)'; g.beginPath(); g.roundRect(out.width - w - 44 * s, out.height - 52 * s, w + 28 * s, 34 * s, 10 * s); g.fill()
       g.fillStyle = '#d9b26a'; g.fillText(label, out.width - w - 30 * s, out.height - 29 * s)
     }
-    return new Promise((ok) => out.toBlob((b) => ok(b ? new File([b], `grind-district-${Date.now()}.png`, { type: 'image/png' }) : null), 'image/png'))
+    // A 4K PNG is 15-20 MB: big photos are high-quality JPEG (about 2-3 MB) so the gallery and sharing stay quick.
+    const type = out.width * out.height > 4_000_000 ? 'image/jpeg' : 'image/png'
+    return new Promise((ok) => out.toBlob((b) => ok(b ? new File([b], `grind-district-${Date.now()}.${type === 'image/jpeg' ? 'jpg' : 'png'}`, { type }) : null), type, 0.93))
   }
   const shotBtn = document.querySelector<HTMLButtonElement>('#shot')
   shotBtn?.addEventListener('pointerdown', () => { shotFile = capture() })

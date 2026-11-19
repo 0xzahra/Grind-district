@@ -167,8 +167,11 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let base = 1
   let avg = 1 / 60
   let cool = 3
-  // The resolution never drops below this share of the screen's sharpness: lower reads as a haze over the city.
+  // The resolution never drops below this share of the tier's sharpness: lower reads as a haze over the city.
+  // High renders at the screen's own density (up to 4K, see main.ts), so there it may step further down, never
+  // below 1.6x, which is what High drew before it went native.
   const FLOOR = 0.8
+  const floor = () => (base > 2 ? Math.max(0.5, Math.min(FLOOR, 1.6 / base)) : FLOOR)
   // A step down that did not make frames faster means the phone itself caps them (battery saver, heat, a 30 Hz
   // screen while idle): the step is undone and no new one is tried for a while, so the picture stays sharp.
   let probe: { before: number; t: number } | null = null
@@ -176,8 +179,11 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   let w = 1
   let h = 1
   let sized = false
-  const recall = (g: Graphics) => { try { const v = Number(localStorage.getItem(`gd.res.${g}`)); return v >= FLOOR && v <= 1 ? Math.round(v * 10) / 10 : 1 } catch { return 1 } }
-  const remember = (g: Graphics, v: number) => { try { localStorage.setItem(`gd.res.${g}`, String(v)) } catch { /* private mode */ } }
+  // High's remembered sharpness is kept under a new name: it now means a share of native (up to 4K), and starts
+  // from the old 2x, climbing only while frames stay easy.
+  const resKey = (g: Graphics) => (g === 'high' ? 'gd.res.high.v2' : `gd.res.${g}`)
+  const recall = (g: Graphics) => { try { const raw = localStorage.getItem(resKey(g)); const v = Number(raw); if (raw !== null && v >= 0.5 && v <= 1) return Math.round(v * 10) / 10 } catch { /* private mode */ } return g === 'high' && base > 2 ? Math.max(floor(), Math.round((2 / base) * 10) / 10) : 1 }
+  const remember = (g: Graphics, v: number) => { try { localStorage.setItem(resKey(g), String(v)) } catch { /* private mode */ } }
   const build = () => {
     // MSAA target keeps edges clean through the composer (WebGL2).
     // Phones: plain 8-bit target with no MSAA (HalfFloat+MSAA renders black on some Android GPUs).
@@ -228,11 +234,11 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     configure(graphics: Graphics, width: number, height: number, ratio: number) {
       // A tier remembers the sharpness this device held last time, so it does not start too sharp and stutter
       // down again on every visit (kept beside the settings on this device; not part of the save).
+      base = ratio
       if (graphics !== level || !sized) { want = scale = recall(graphics); avg = 1 / 60; cool = 2.5 }
       sized = true
       level = graphics
       setSurfaceTier(graphics)
-      base = ratio
       w = width
       h = height
       if (scale !== 1) { renderer.setPixelRatio(base * scale); renderer.setSize(w, h, false) }
@@ -283,10 +289,10 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
           // Judge the last step down: frames no faster means the cap is not ours, so put the sharpness back.
           if (avg > probe.before * 0.92) { want = Math.min(1, want + 0.1); holdSharp = 90; cool = 3 }
           probe = null
-        } else if (avg > 0.026 && want > FLOOR && holdSharp === 0 && !probe) {
+        } else if (avg > 0.026 && want > floor() && holdSharp === 0 && !probe) {
           // Clearly under about 38 fps: step down one notch and see whether it helps.
           probe = { before: avg, t }
-          want = Math.max(FLOOR, Math.round((want - 0.1) * 10) / 10); cool = 2.6
+          want = Math.max(floor(), Math.round((want - 0.1) * 10) / 10); cool = 2.6
         } else if (avg < 0.02 && want < 1) {
           // A steady 50 fps or better: step back up.
           want = Math.min(1, Math.round((want + 0.1) * 10) / 10); cool = 4
@@ -299,6 +305,18 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         renderer.setSize(w, h, false)
         if (composer && level !== 'low') { composer.setPixelRatio(base * scale); composer.setSize(w, h) }
       }
+    },
+    /** Draw one frame at `ratio` pixels per CSS pixel (a 4K photo); call restore() once it is copied. */
+    snapshot(ratio: number) {
+      renderer.setPixelRatio(ratio)
+      renderer.setSize(w, h, false)
+      if (composer && level !== 'low' && !broken) { composer.setPixelRatio(ratio); composer.setSize(w, h) }
+      this.render()
+    },
+    restore() {
+      renderer.setPixelRatio(base * scale)
+      renderer.setSize(w, h, false)
+      if (composer && level !== 'low' && !broken) { composer.setPixelRatio(base * scale); composer.setSize(w, h) }
     },
     render() {
       if (level === 'low' || !composer || broken) {
