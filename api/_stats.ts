@@ -122,26 +122,40 @@ async function eventCountSince(db: SupabaseClient, name: string, since: string):
   return r.error ? null : count(r)
 }
 
-/** Browsers, each counted once: the first-visit and opened-page events both fire once per browser (the first
- *  visit went missing from 9 to 19 Nov, while opened-page kept firing), so their visitor ids are merged. */
-async function distinctVisitors(db: SupabaseClient, since?: string): Promise<number | null> {
+/** Browsers, each counted once by their random visitor id, across every visit event (first visit, opened page,
+ *  session start). The first-visit event went missing from 9 to 19 Nov, so it cannot be counted on alone. */
+const VISIT_EVENTS = ['first_visit', 'opened_page', 'session_start']
+async function visitorIds(db: SupabaseClient, since?: string): Promise<Set<string> | null> {
   const ids = new Set<string>()
-  for (let page = 0; page < 40; page++) {
-    let q = db.from('events').select('anon_id').in('name', ['first_visit', 'opened_page'])
+  for (let page = 0; page < 60; page++) {
+    let q = db.from('events').select('anon_id').in('name', VISIT_EVENTS)
     if (since) q = q.gte('created_at', since)
     const r = await q.order('id', { ascending: true }).range(page * 1000, page * 1000 + 999)
-    if (r.error) return page ? ids.size : null
+    if (r.error) return page ? ids : null
     for (const row of r.data ?? []) { const a = String((row as { anon_id?: string }).anon_id ?? ''); if (a && a !== 'unknown') ids.add(a) }
     if ((r.data ?? []).length < 1000) break
   }
-  return ids.size
+  return ids
 }
 let visitorsCache: Cache<number | null> | null = null
 async function visitorsAllTime(db: SupabaseClient): Promise<number | null> {
   if (visitorsCache && Date.now() - visitorsCache.at < SLOW_TTL_MS) return visitorsCache.value
-  const value = await distinctVisitors(db).catch(() => null)
+  const value = (await visitorIds(db).catch(() => null))?.size ?? null
   visitorsCache = { at: Date.now(), value }
   return value
+}
+/** New visitors today: browsers seen today that were never seen before today. */
+async function newVisitorsSince(db: SupabaseClient, since: string): Promise<number | null> {
+  const today = await visitorIds(db, since)
+  if (!today) return null
+  const list = [...today], before = new Set<string>()
+  for (let i = 0; i < list.length; i += 60) {
+    const chunk = list.slice(i, i + 60)
+    const r = await db.from('events').select('anon_id').in('anon_id', chunk).lt('created_at', since).in('name', VISIT_EVENTS).limit(20000)
+    if (r.error) return null
+    for (const row of r.data ?? []) before.add(String((row as { anon_id?: string }).anon_id ?? ''))
+  }
+  return list.filter((a) => !before.has(a)).length
 }
 
 async function uniqueActiveToday(db: SupabaseClient, since: string): Promise<number> {
@@ -290,7 +304,7 @@ export async function collectPublicStats(): Promise<PublicStats | { error: strin
     timeout(learningStats(db).catch(() => null), FETCH_MS * 2),
     db.from('players').select('id', { count: 'exact', head: true }).like('privy_user_id', 'near:%'),
     timeout(visitorsAllTime(db), FETCH_MS * 2).then((v) => v ?? eventCountSince(db, 'first_visit', '2000-01-01T00:00:00Z')),
-    timeout(distinctVisitors(db, since).catch(() => null), FETCH_MS).then((v) => v ?? eventCountSince(db, 'first_visit', since)),
+    timeout(newVisitorsSince(db, since).catch(() => null), FETCH_MS * 2).then((v) => v ?? eventCountSince(db, 'first_visit', since)),
     eventCountSince(db, 'session_start', since),
   ])
   const registered = count(players)
