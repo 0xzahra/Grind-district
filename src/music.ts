@@ -9,6 +9,12 @@ const read = (k: string) => { try { return localStorage.getItem(k) } catch { ret
 const write = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* session only */ } }
 let volume = Math.max(0, Math.min(100, Number(read(LEVEL) ?? '40') || 0))
 export const musicOn = () => read(PREF) !== 'off'
+/** The music as a MediaStream (for the skit recorder), where the browser can capture an audio element. */
+export function musicTap(): MediaStream | null {
+  const a = audio as (HTMLAudioElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream }) | null
+  if (!a || a.paused) return null
+  try { return a.captureStream?.() ?? a.mozCaptureStream?.() ?? null } catch { return null }
+}
 export const musicVolume = () => volume
 const level = () => (volume / 100) * 0.6
 let fade = 0

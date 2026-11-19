@@ -51,6 +51,8 @@ export async function drawStrip(shots: Array<string | null>): Promise<HTMLCanvas
 export async function showBoothStrip(shots: Array<string | null>): Promise<void> {
   const canvas = await drawStrip(shots)
   const url = canvas.toDataURL('image/png')
+  // Every strip also lands in My Gallery (media.ts).
+  canvas.toBlob((blob) => { if (blob) void import('./media.ts').then((m) => m.saveMedia('booth', blob)) }, 'image/png')
   document.getElementById('booth-strip')?.remove()
   const wrap = document.createElement('div'); wrap.id = 'booth-strip'; wrap.className = 'booth-strip'
   wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-label', 'Your photo booth strip')

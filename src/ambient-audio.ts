@@ -29,6 +29,12 @@ let crossGen = 0
 let scape: Soundscape | null = null
 let scapeAsked = false
 let meter: AnalyserNode | null = null
+let tapFrom: AudioNode | null = null
+/** The city sound as a MediaStream (for the skit recorder), or null before the city sound has started. */
+export function ambientTap(): MediaStream | null {
+  if (!context || !tapFrom) return null
+  try { const d = context.createMediaStreamDestination(); tapFrom.connect(d); return d.stream } catch { return null }
+}
 const env = { night: 0, rain: 0, x: 0, z: 0, fx: 0, fz: -1 }
 
 function read(key: string): string | null { try { return localStorage.getItem(key) } catch { return null } }
@@ -364,6 +370,7 @@ function buildGraph(ctx: AudioContext): void {
   const limiter = ctx.createDynamicsCompressor()
   limiter.threshold.value = -10; limiter.knee.value = 8; limiter.ratio.value = 6; limiter.attack.value = 0.004; limiter.release.value = 0.25
   master.connect(limiter); limiter.connect(ctx.destination)
+  tapFrom = limiter
   meter = ctx.createAnalyser(); meter.fftSize = 2048; limiter.connect(meter)
 
   outBus = ctx.createGain(); outBus.gain.value = 0.0001

@@ -684,6 +684,8 @@ const apiAgents = createRemoteAgents(scene)
   }
   const shotBtn = document.querySelector<HTMLButtonElement>('#shot')
   shotBtn?.addEventListener('pointerdown', () => { shotFile = capture() })
+  // Screenshots go to My Gallery (media.ts): download or share them from there. If the browser will not store
+  // them (a private window), the old way: the share sheet, or a download.
   shotBtn?.addEventListener('click', () => {
     personaNote('photo')
     const pending = shotFile ?? capture()
@@ -694,13 +696,48 @@ const apiAgents = createRemoteAgents(scene)
       setTimeout(() => URL.revokeObjectURL(a.href), 10000)
       ui.toast('Screenshot saved to Downloads.')
     }
-    void pending.then((file) => {
+    void pending.then(async (file) => {
       if (!file) { ui.toast('This browser blocked the screenshot.'); return }
+      const [{ saveMedia }, { flashSaved }] = await Promise.all([import('./media.ts'), import('./myGallery.ts')])
+      const id = await saveMedia(selfie ? 'selfie' : 'screenshot', file)
+      if (id) { flashSaved(selfie ? 'Selfie' : 'Screenshot', openGallery); return }
       if (navigator.canShare?.({ files: [file] })) {
         navigator.share({ files: [file] }).catch((e: Error) => { if (e.name !== 'AbortError') download(file) })
       } else download(file)
     })
   })
+  // My Gallery (myGallery.ts), Selfie mode and Skits (skit.ts).
+  let selfie: { angle: number; dist: number } | null = null
+  let afterRender: (() => void) | null = null
+  const selfieBar = document.createElement('div'); selfieBar.id = 'selfie-bar'; selfieBar.className = 'selfie-bar'; selfieBar.hidden = true
+  {
+    const b = (label: string, aria: string, on: () => void, cls = '') => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.setAttribute('aria-label', aria); x.className = `selfie-key ${cls}`; x.onclick = on; return x }
+    selfieBar.append(
+      b('×', 'Leave selfie mode', () => endSelfie(), 'selfie-x'),
+      b('↺', 'Turn the camera left', () => { if (selfie) selfie.angle = Math.max(-1.3, selfie.angle - 0.35) }),
+      b('−', 'Closer', () => { if (selfie) selfie.dist = Math.max(0.9, selfie.dist - 0.45) }),
+      b('', 'Take the selfie', () => { shotFile = capture(); shotBtn?.click() }, 'selfie-shutter'),
+      b('+', 'Further away', () => { if (selfie) selfie.dist = Math.min(4.6, selfie.dist + 0.45) }),
+      b('↻', 'Turn the camera right', () => { if (selfie) selfie.angle = Math.min(1.3, selfie.angle + 0.35) }),
+    )
+    document.body.append(selfieBar)
+  }
+  const startSelfie = () => {
+    if (ride || homes?.flying) { ui.toast('Step out first, then take a selfie.'); return }
+    target = null; vel.x = 0; vel.z = 0
+    selfie = { angle: 0.35, dist: 1.5 }
+    selfieBar.hidden = false; document.body.classList.add('selfie-mode')
+    ui.toast('Selfie mode: frame it with the arrows and − +, then tap the shutter.')
+  }
+  const endSelfie = () => { selfie = null; selfieBar.hidden = true; document.body.classList.remove('selfie-mode'); cameraReady = false }
+  const startSkit = () => void import('./skit.ts').then((m) => m.openSkit({
+    canvas, logo: shotLogo, onFrame: (fn) => { afterRender = fn }, toast: (t) => ui.toast(t),
+    sounds: async () => { const [a, mu] = await Promise.all([import('./ambient-audio.ts'), import('./music.ts')]); return [a.ambientTap(), mu.musicTap()].filter((x): x is MediaStream => !!x) },
+    saved: (id) => { if (id) void import('./myGallery.ts').then((g) => g.flashSaved('Skit', openGallery)); else ui.toast('The skit could not be saved on this device (storage full or a private window).') },
+  }))
+  const openGallery = () => { setCC(false); void import('./myGallery.ts').then((g) => g.openMyGallery({ toast: (t) => ui.toast(t), selfie: startSelfie, skit: startSkit })) }
+  document.getElementById('nav-gallery')?.addEventListener('click', openGallery)
+  window.addEventListener('gd:gallery', openGallery)
 
 
   performance.mark('gd:pre-input')
@@ -2100,7 +2137,7 @@ const apiAgents = createRemoteAgents(scene)
     } catch { /* */ }
 
     const frame = input.read()
-    const paused = ui.isOpen() || mentor.isOpen()
+    const paused = ui.isOpen() || mentor.isOpen() || !!selfie
     if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
@@ -2534,6 +2571,14 @@ const apiAgents = createRemoteAgents(scene)
     if (space > 0 && scene.fog instanceof THREE.FogExp2) scene.fog.density = space >= 1 ? 0 : 0.00025
     if (space >= 1) { physSky.sky.visible = false; if (scene.background instanceof THREE.Color) scene.background.setHex(0x000004) }
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
+    else if (selfie) {
+      // Selfie: the camera in front of the player at arm's length (or further back for a full-body shot with the
+      // street behind), turned by the arrows. The player keeps facing the lens.
+      const a = faceYaw + selfie.angle, base = avatar.object.position.y
+      const lookY = base + Math.max(0.95, 1.55 - (selfie.dist - 1.2) * 0.17)
+      camera.position.set(pos.x + Math.sin(a) * selfie.dist, base + 1.62 + (selfie.dist - 1.2) * 0.1, pos.z + Math.cos(a) * selfie.dist)
+      camera.lookAt(pos.x, lookY, pos.z)
+    }
     camera.updateMatrixWorld()
     setMixerViewer(camera)
     const baseFov = (window.innerWidth < 800 ? 57 : 50) + (new URLSearchParams(location.search).has('widefov') ? 6 : 0)
@@ -2594,6 +2639,7 @@ const apiAgents = createRemoteAgents(scene)
       if (!revealed) performance.mark('gd:first-update')
       post.frame(dt, elapsed)
       post.render()
+      afterRender?.()
       if (snapNext) { snapNext = false; shotBtn?.click() }
       if (revealed) probe(dt)
       if (!revealed) {
