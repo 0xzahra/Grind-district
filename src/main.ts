@@ -426,10 +426,10 @@ const apiAgents = createRemoteAgents(scene)
     // Cap phone DPR harder so mid-range stays ~30+ FPS (High phone was 1.5× — still heavy with post).
     // Sharpness caps per tier. Phones used to draw the city at 1x on a 3x screen, which is what looked soft;
     // the post stack's resolution scaler (quality.ts) now steps down from these caps whenever frames run long.
-    // High: the screen's own density, up to 4K (3840x2160 worth of pixels) and 3x. The scaler (quality.ts) starts it
-    // at the old 2x and climbs only while frames stay easy, so a 4K monitor gets true 4K when the GPU can hold it.
+    // High: on computers the screen's own density, up to 4K (3840x2160 worth of pixels); the scaler (quality.ts)
+    // climbs there only while frames stay easy. Phones stay at 2x: smooth beats extra pixels on a small screen.
     const native4k = Math.max(1, Math.min(dpr, 3, Math.sqrt((3840 * 2160) / Math.max(1, window.innerWidth * window.innerHeight))))
-    const ratio = graphics === 'high' ? native4k : Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : (coarseDev ? 1.75 : 1.5))
+    const ratio = graphics === 'high' ? (coarseDev ? Math.min(dpr, 2) : native4k) : Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : (coarseDev ? 1.75 : 1.5))
     renderer.setPixelRatio(ratio)
     // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
     // Every point light is paid for in every lit pixel, so this is the biggest lever on mid-range phones.
@@ -2015,7 +2015,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   // Signboards and other boxes with a material per face draw once per material, not once per face (batch.ts).
   // Places that load later are picked up by the repeat; each mesh is only ever done once.
-  window.addEventListener('gd:revealed', () => { const run = () => { sweepScene(scene) }; run(); window.setInterval(run, 4000) }, { once: true })
+  window.addEventListener('gd:revealed', () => { const run = () => { sweepScene(scene) }; run(); for (const t of [4000, 10000, 25000]) window.setTimeout(run, t); window.setInterval(run, 20000) }, { once: true })
   // Camera rays test solid static meshes only, each with a bounding-volume hierarchy (camRays.ts).
   const camRays = createCamRays(scene, (o) => {
     if (o === avatar.object || o.userData.camPass) return 'tree'
@@ -2143,6 +2143,8 @@ const apiAgents = createRemoteAgents(scene)
   const perfStat = { n: 0, upd: 0, ren: 0, dt: 0 }
   if (DEV_PERF) Object.assign(window, {
     __camRays: () => ({ size: camRays.size(), pending: camRays.pending() }),
+    __programs: () => (renderer.info.programs ?? []).map((p) => `${p.id} ${(p as unknown as { type: string }).type} ${p.cacheKey.slice(0, 160)}`),
+    __still: (r: number) => { post.snapshot(r); const url = canvas.toDataURL('image/png'); post.restore(); return url },
     __drawBreakdown: (limit = 30) => {
       // Meshes that would be drawn now (visible chain, in the view frustum), grouped by their top-level parent.
       const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
@@ -2735,7 +2737,7 @@ const apiAgents = createRemoteAgents(scene)
     }
     net.tick(dt, { x: pos.x, z: pos.z, yaw: faceYaw, moving, act: seating.sitting, vx: vel.x, vz: vel.z, room: myRoom(), emote: dancing ? 'dance' : '' })
     mapAcc += dt
-    if (mapAcc > 0.1) { mapAcc = 0; drawMap() } // minimap at 10 Hz is plenty
+    if (mapAcc > 0.15) { mapAcc = 0; drawMap() } // minimap at ~7 Hz is plenty
     saveAcc += dt
     if (saveAcc > 2) {
       saveAcc = 0

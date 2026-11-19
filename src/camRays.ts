@@ -2,7 +2,7 @@
 // open-side probes and the indoor cut-away). They used to test every object in the scene, triangle by triangle,
 // several times a frame: about two thirds of all game logic time. Now they test a list of solid static meshes
 // only (no people, foliage, effects or the player), each with a bounding-volume hierarchy (three-mesh-bvh), so a
-// ray costs microseconds. The list refreshes every two seconds as places load; hierarchies are built a few at a
+// ray costs microseconds. The list refreshes every five seconds as places load; hierarchies are built a few at a
 // time in idle moments, and a mesh without one yet is tested the old way meanwhile.
 import * as THREE from 'three'
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from 'three-mesh-bvh'
@@ -69,7 +69,7 @@ export function createCamRays(scene: THREE.Scene, skip: (o: THREE.Object3D) => '
   /** Nearest-first hits along the ray, on solid things whose parents are shown (a hidden wall itself still counts). */
   const hits = (ray: THREE.Raycaster): THREE.Intersection[] => {
     const now = performance.now()
-    if (now - builtAt > 2000) { builtAt = now; rebuild() }
+    if (now - builtAt > 5000) { builtAt = now; rebuild() }
     const first = (ray as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly
     ;(ray as THREE.Raycaster & { firstHitOnly?: boolean }).firstHitOnly = true
     const out = ray.intersectObjects(list, false)

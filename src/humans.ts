@@ -8,6 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { ShrimpAvatar } from './shrimp.ts'
+import { dressPixels, hasMakeup, hexLin, shrink, type Colours, type Makeup } from './skinPaint.ts'
 
 export const MEN = ['man1', 'man2', 'man3', 'man4'] as const
 export const WOMEN = ['woman1', 'woman2', 'woman3', 'woman4'] as const
@@ -33,7 +34,7 @@ export type Look = {
   /** The player's own figure: the texture is drawn at twice the size with the face sharpened. */
   sharp?: boolean
 }
-export type Makeup = { lip?: number | null; blush?: number | null; shadow?: number | null; liner?: boolean }
+export type { Makeup } from './skinPaint.ts'
 export type Metal = 'gold' | 'rose' | 'steel'
 export type Extras = {
   chain?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean
@@ -134,14 +135,8 @@ function figure(model: HumanModel, look?: Look): HumanModel {
 }
 
 // ---- outfit colours on the texture ----
-const toLin = new Float32Array(256)
-for (let i = 0; i < 256; i++) { const c = i / 255; toLin[i] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
-const toSrgb = new Uint8Array(2049)
-for (let i = 0; i <= 2048; i++) { const c = i / 2048; toSrgb[i] = Math.round(255 * (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055)) }
-/** Roll highlights off instead of clipping them flat. */
-const soft = (x: number) => (x < 0.6 ? x : 0.6 + 0.4 * (1 - Math.exp(-(x - 0.6) / 0.4)))
-const out8 = (x: number) => toSrgb[Math.min(2048, Math.max(0, Math.round(x * 2048)))]!
-
+// The pixel work itself is in skinPaint.ts; it runs in a worker (dressWorker.ts) so the frames keep coming while
+// twenty residents and the player get dressed. Without a worker canvas it runs here instead, between frames.
 function pixels(t: Template): Promise<{ base: ImageData; mask: ImageData } | null> {
   t.pixels ??= (async () => {
     try {
@@ -156,37 +151,18 @@ function pixels(t: Template): Promise<{ base: ImageData; mask: ImageData } | nul
   })()
   return t.pixels
 }
-// Crowd figures wear their texture at half size: recolour at that size too (a quarter of the pixels; it was
-// recoloured at full size and shrunk afterwards). The mask is shrunk without smoothing so region ids stay exact.
-const smallPixels = new Map<string, Promise<{ base: ImageData; mask: ImageData } | null>>()
-function pixelsAt(t: Template, detail: number): Promise<{ base: ImageData; mask: ImageData } | null> {
-  if (detail >= 1) return pixels(t)
+// Crowd figures wear their texture at half size: recolour at that size too (a quarter of the pixels).
+const smallPixels = new Map<string, Promise<{ base: Uint8ClampedArray; mask: Uint8ClampedArray; w: number; h: number } | null>>()
+function pixelsAt(t: Template, detail: number): Promise<{ base: Uint8ClampedArray; mask: Uint8ClampedArray; w: number; h: number } | null> {
+  if (detail >= 1) return pixels(t).then((px) => (px ? { base: px.base.data, mask: px.mask.data, w: px.base.width, h: px.base.height } : null))
   const key = `${t.name}|${detail}`
   let p = smallPixels.get(key)
   if (!p) {
     p = pixels(t).then((px) => {
       if (!px) return null
-      const w = Math.max(1, Math.round(px.base.width * detail)), h = Math.max(1, Math.round(px.base.height * detail))
-      // Resampled in plain JS: drawing through a canvas and reading it back (getImageData) forced a GPU sync
-      // that stalled frames for a moment per figure on phones. Smooth = box average; mask = nearest pixel.
-      const shrink = (src: ImageData, smooth: boolean) => {
-        const out = new ImageData(w, h), d = out.data, s = src.data, sw = src.width, sh = src.height
-        const fx = sw / w, fy = sh / h
-        for (let y = 0; y < h; y++) {
-          const y0 = Math.floor(y * fy), y1 = smooth ? Math.max(y0 + 1, Math.min(sh, Math.floor((y + 1) * fy))) : y0 + 1
-          const yc = Math.min(sh - 1, Math.floor((y + 0.5) * fy))
-          for (let x = 0; x < w; x++) {
-            const o = (y * w + x) * 4
-            if (!smooth) { const i = (yc * sw + Math.min(sw - 1, Math.floor((x + 0.5) * fx))) * 4; d[o] = s[i]!; d[o + 1] = s[i + 1]!; d[o + 2] = s[i + 2]!; d[o + 3] = s[i + 3]!; continue }
-            const x0 = Math.floor(x * fx), x1 = Math.max(x0 + 1, Math.min(sw, Math.floor((x + 1) * fx)))
-            let r = 0, g = 0, b = 0, a = 0, n = 0
-            for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const i = (yy * sw + xx) * 4; r += s[i]!; g += s[i + 1]!; b += s[i + 2]!; a += s[i + 3]!; n++ }
-            d[o] = r / n; d[o + 1] = g / n; d[o + 2] = b / n; d[o + 3] = a / n
-          }
-        }
-        return out
-      }
-      return { base: shrink(px.base, true), mask: shrink(px.mask, false) }
+      const sw = px.base.width, sh = px.base.height
+      const w = Math.max(1, Math.round(sw * detail)), h = Math.max(1, Math.round(sh * detail))
+      return { base: shrink(px.base.data, sw, sh, w, h, true), mask: shrink(px.mask.data, sw, sh, w, h, false), w, h }
     })
     smallPixels.set(key, p)
   }
@@ -196,63 +172,8 @@ function pixelsAt(t: Template, detail: number): Promise<{ base: ImageData; mask:
 type Skin = { texture: THREE.Texture; users: number; key: string }
 const skins = new Map<string, Promise<Skin | null>>()
 const wants = (t: Template, look?: Look) => !!look && (REGIONS.some((r) => look[r] !== undefined && t.regions[r]) || !!look.sharp || hasMakeup(look.makeup))
-const hasMakeup = (m?: Makeup) => !!m && (m.lip != null || m.blush != null || m.shadow != null || !!m.liner)
 
-// Where the face sits in every figure's atlas (tools/pack-rocketbox.mjs packs the head at x 512..1024, y 0..512
-// of a 1024x640 sheet, and the Rocketbox heads share one layout). Atlas pixels at 1024 wide.
-const FACE = { lips: [770, 205, 32, 12], cheeks: [[710, 183], [830, 183]], eyes: [[740, 146], [800, 146]] } as const
-/** Paint makeup into RGBA data (sRGB bytes) of a w x h atlas: soft-edged, keeping the skin's own shading. */
-function paintMakeup(data: Uint8ClampedArray, w: number, h: number, m: Makeup): void {
-  const sx = w / 1024, sy = h / 640
-  const c = new THREE.Color()
-  const blend = (x0: number, y0: number, rx: number, ry: number, hex: number, amt: number, mode: 'tint' | 'shade', gate?: (r: number, g: number, b: number) => number) => {
-    c.setHex(hex)
-    const tr = c.r, tg = c.g, tb = c.b, tl = 0.2126 * tr + 0.7152 * tg + 0.0722 * tb
-    const cx = x0 * sx, cy = y0 * sy, ax = rx * sx, ay = ry * sy
-    for (let y = Math.max(0, Math.floor(cy - ay)); y <= Math.min(h - 1, Math.ceil(cy + ay)); y++) {
-      for (let x = Math.max(0, Math.floor(cx - ax)); x <= Math.min(w - 1, Math.ceil(cx + ax)); x++) {
-        const d = ((x - cx) / ax) ** 2 + ((y - cy) / ay) ** 2
-        if (d >= 1) continue
-        const o = (y * w + x) * 4
-        const r = toLin[data[o]!]!, g = toLin[data[o + 1]!]!, b = toLin[data[o + 2]!]!
-        const e = 1 - d
-        let k = amt * e * e * (3 - 2 * e) // smooth falloff to the edge
-        if (gate) k *= gate(r, g, b)
-        if (k <= 0) continue
-        const l = Math.max(0.002, 0.2126 * r + 0.7152 * g + 0.0722 * b)
-        // tint: the colour carried by the skin's own light and shade; shade: a darker wash (liner, shadow).
-        const s = mode === 'tint' ? THREE.MathUtils.clamp(l / Math.max(0.02, tl) * 0.8, 0.25, 1.2) : 1
-        const nr = mode === 'tint' ? tr * s : tr, ng = mode === 'tint' ? tg * s : tg, nb = mode === 'tint' ? tb * s : tb
-        data[o] = out8(r + (nr - r) * k); data[o + 1] = out8(g + (ng - g) * k); data[o + 2] = out8(b + (nb - b) * k)
-      }
-    }
-  }
-  // Lips: only where the skin is already lip-red, so the colour follows the real lip shape.
-  if (m.lip != null) { const [x, y, rx, ry] = FACE.lips; blend(x, y, rx, ry, m.lip, 0.85, 'tint', (r, g) => THREE.MathUtils.clamp((r / Math.max(g, 0.004) - 1.35) / 0.5, 0, 1)) }
-  if (m.blush != null) for (const [x, y] of FACE.cheeks) blend(x, y, 24, 17, m.blush, 0.3, 'tint')
-  if (m.shadow != null) for (const [x, y] of FACE.eyes) blend(x, y - 9, 20, 8, m.shadow, 0.5, 'tint')
-  if (m.liner) for (const [x, y] of FACE.eyes) blend(x, y - 4, 17, 2.6, 0x120c0a, 0.75, 'shade')
-}
-/** Unsharp mask over the face (eyes, brows, nose and lips: x 600..960, y 60..330 of the 1024 x 640 atlas). */
-function sharpenFace(data: Uint8ClampedArray, w: number, h: number, amount: number): void {
-  const sx = w / 1024, sy = h / 640
-  const x0 = Math.floor(600 * sx), x1 = Math.min(w - 1, Math.ceil(960 * sx)), y0 = Math.max(1, Math.floor(60 * sy)), y1 = Math.min(h - 1, Math.ceil(330 * sy))
-  const src = new Uint8ClampedArray(data)
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0 + 1; x < x1; x++) {
-      const o = (y * w + x) * 4
-      for (let ch = 0; ch < 3; ch++) {
-        const i = o + ch
-        const blur = (src[i - 4]! + src[i + 4]! + src[i - w * 4]! + src[i + w * 4]! + 4 * src[i]! + src[i - w * 4 - 4]! + src[i - w * 4 + 4]! + src[i + w * 4 - 4]! + src[i + w * 4 + 4]!) / 12
-        data[i] = src[i]! + (src[i]! - blur) * amount
-      }
-    }
-  }
-}
-
-/** The figure's texture with each region shifted to the look's colour. `detail` 1 = full size, 0.5 = half (crowd). */
-// Residents' outfits are recoloured after the city is on screen, one figure at a time between frames: the
-// work (about a second on a slow phone) used to run while the district was still opening, and in one burst.
+// Crowd figures go on the GPU one at a time, a few frames apart, once the city is on screen.
 let crowdLine: Promise<void> | null = null
 function crowdTurn(): Promise<void> {
   if (!crowdLine) {
@@ -266,72 +187,88 @@ function crowdTurn(): Promise<void> {
   crowdLine = mine
   return mine
 }
+
+type Wire = { data: Uint8ClampedArray<ArrayBuffer>; w: number; h: number }
+type DressJob = { colours: Colours; sharp: boolean; makeup?: Makeup }
+let dresser: Worker | null | undefined
+const jobs = new Map<number, (r: Wire | null) => void>()
+let jobN = 0
+const sentTex = new Map<string, Promise<boolean>>()
+function worker(): Worker | null {
+  if (dresser !== undefined) return dresser
+  dresser = null
+  try {
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap !== 'function') return null
+    const w = new Worker(new URL('./dressWorker.ts', import.meta.url), { type: 'module' })
+    w.onmessage = (e: MessageEvent<{ id: number; data: ArrayBuffer | null; w: number; h: number }>) => {
+      const f = jobs.get(e.data.id)
+      if (!f) return
+      jobs.delete(e.data.id)
+      f(e.data.data ? { data: new Uint8ClampedArray(e.data.data), w: e.data.w, h: e.data.h } : null)
+    }
+    w.onerror = () => { w.terminate(); dresser = null; for (const f of jobs.values()) f(null); jobs.clear() }
+    dresser = w
+  } catch { dresser = null }
+  return dresser
+}
+/** Dress in the worker: the figure's texture goes over once, as a bitmap; then only the colours. */
+function offThread(t: Template, detail: number, job: DressJob): Promise<Wire | null> {
+  const w = worker()
+  const image = t.material.map?.image as ImageBitmapSource | undefined
+  if (!w || !image) return Promise.resolve(null)
+  let sent = sentTex.get(t.name)
+  if (!sent) {
+    sent = createImageBitmap(image).then((bitmap) => {
+      w.postMessage({ type: 'tex', name: t.name, bitmap, maskUrl: new URL(`${FIGURES}${t.name}.mask.png`, location.href).href }, [bitmap])
+      return true
+    }, () => false)
+    sentTex.set(t.name, sent)
+  }
+  return sent.then((ok) => {
+    if (!ok || dresser !== w) return null
+    return new Promise<Wire | null>((done) => {
+      const id = ++jobN
+      jobs.set(id, done)
+      w.postMessage({ type: 'dress', id, name: t.name, detail, ...job })
+    })
+  })
+}
+/** The texture with each region shifted to the look's colour. `detail` 1 = full size, 0.5 = half (crowd). */
 function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
   const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}|${look.sharp && detail >= 1 ? 's' : ''}|${hasMakeup(look.makeup) ? JSON.stringify(look.makeup) : ''}`
   let p = skins.get(key)
   if (!p) {
-    p = (detail < 1 ? crowdTurn() : Promise.resolve()).then(() => pixelsAt(t, detail)).then((px) => {
-      if (!px) return null
-      const { base, mask } = px
-      const w = base.width, h = base.height
-      const data = new Uint8ClampedArray(base.data)
-      const m = mask.data
-      // Per region: the target colour and the texture's own average, both linear.
-      const target: Array<[number, number, number] | null> = [null], mean: Array<[number, number, number]> = [[1, 1, 1]], luma: number[] = [1], keep: number[] = [1]
-      const c = new THREE.Color()
-      for (const r of REGIONS) {
-        const avg = t.regions[r], hex = look[r]
-        if (!avg || hex === undefined) { target.push(null); mean.push([1, 1, 1]); luma.push(1); keep.push(1); continue }
-        c.setHex(hex)
-        target.push([c.r, c.g, c.b]); mean.push(avg)
-        const l = 0.2126 * avg[0] + 0.7152 * avg[1] + 0.0722 * avg[2]
-        luma.push(Math.max(0.004, l))
-        // Near-black cloth has no real shading in it, only noise: carry less of it over.
-        keep.push(THREE.MathUtils.clamp((l - 0.006) / 0.07, 0.3, 1))
-      }
-      for (let i = 0, n = w * h; i < n; i++) {
-        const o = i * 4
-        const id = Math.round(m[o]! / 40), wt = m[o + 1]! / 255
-        const tg = target[id]
-        if (!tg || wt <= 0) continue
-        const r = toLin[data[o]!]!, g = toLin[data[o + 1]!]!, b = toLin[data[o + 2]!]!
-        let nr: number, ng: number, nb: number
-        if (id === 1) {
-          // Skin: scale every channel so the average lands on the target; lips, shadows and freckles follow.
-          // The creator's tones are flat swatches; a lit, textured face reads lighter, so aim a little under them.
-          const a = mean[1]!
-          nr = soft(r * (tg[0] * 0.74 / a[0])); ng = soft(g * (tg[1] * 0.74 / a[1])); nb = soft(b * (tg[2] * 0.74 / a[2]))
-        } else {
-          const rel = (0.2126 * r + 0.7152 * g + 0.0722 * b) / luma[id]!
-          const shade = THREE.MathUtils.clamp(1 + (rel - 1) * keep[id]!, 0.22, 1.9)
-          nr = tg[0] * shade; ng = tg[1] * shade; nb = tg[2] * shade
-        }
-        data[o] = out8(r + (nr - r) * wt); data[o + 1] = out8(g + (ng - g) * wt); data[o + 2] = out8(b + (nb - b) * wt)
-      }
-      const full = document.createElement('canvas'); full.width = w; full.height = h
-      let canvas = full
-      if (look.sharp && detail >= 1) {
-        // The player's own figure: drawn at twice the size, makeup painted at that size, the face sharpened.
-        full.getContext('2d')!.putImageData(new ImageData(data, w, h), 0, 0)
-        const big = document.createElement('canvas'); big.width = w * 2; big.height = h * 2
-        const g = big.getContext('2d', { willReadFrequently: true })!
-        g.imageSmoothingQuality = 'high'; g.drawImage(full, 0, 0, w * 2, h * 2)
-        const id = g.getImageData(0, 0, w * 2, h * 2)
-        if (hasMakeup(look.makeup)) paintMakeup(id.data, w * 2, h * 2, look.makeup!)
-        sharpenFace(id.data, w * 2, h * 2, 0.6)
-        g.putImageData(id, 0, 0)
-        canvas = big
-      } else {
-        if (hasMakeup(look.makeup)) paintMakeup(data, w, h, look.makeup!)
-        full.getContext('2d')!.putImageData(new ImageData(data, w, h), 0, 0)
-      }
-      // (Crowd textures were recoloured at their shown size already: see pixelsAt.)
-      const texture = new THREE.CanvasTexture(canvas)
-      texture.flipY = false
-      texture.colorSpace = THREE.SRGBColorSpace
-      texture.anisotropy = look.sharp ? 8 : 4
-      return { texture, users: 0, key }
-    })
+    // Per region: the target colour and the texture's own average, both linear.
+    const target: Colours['target'] = [null], mean: Colours['mean'] = [[1, 1, 1]], luma: number[] = [1], keep: number[] = [1]
+    for (const r of REGIONS) {
+      const avg = t.regions[r], hex = look[r]
+      if (!avg || hex === undefined) { target.push(null); mean.push([1, 1, 1]); luma.push(1); keep.push(1); continue }
+      target.push(hexLin(hex)); mean.push(avg)
+      const l = 0.2126 * avg[0] + 0.7152 * avg[1] + 0.0722 * avg[2]
+      luma.push(Math.max(0.004, l))
+      // Near-black cloth has no real shading in it, only noise: carry less of it over.
+      keep.push(THREE.MathUtils.clamp((l - 0.006) / 0.07, 0.3, 1))
+    }
+    // The player's own figure is drawn at twice the size with the face sharpened.
+    const sharp = !!look.sharp && detail >= 1
+    const job: DressJob = { colours: { target, mean, luma, keep }, sharp, makeup: hasMakeup(look.makeup) ? look.makeup : undefined }
+    const turn = () => (detail < 1 ? crowdTurn() : Promise.resolve())
+    const here = () => pixelsAt(t, detail).then((px) => (px ? dressPixels(px.base, px.mask, px.w, px.h, job.colours, job) : null))
+    p = offThread(t, detail, job)
+      .then((r) => (r ? turn().then(() => r) : turn().then(here)))
+      .then((r) => {
+        if (!r) return null
+        // Straight to the GPU from the pixels: no canvas to paint and read back.
+        const texture = new THREE.DataTexture(new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength), r.w, r.h, THREE.RGBAFormat)
+        texture.flipY = false
+        texture.colorSpace = THREE.SRGBColorSpace
+        texture.magFilter = THREE.LinearFilter
+        texture.minFilter = THREE.LinearMipmapLinearFilter
+        texture.generateMipmaps = true
+        texture.anisotropy = sharp ? 8 : 4
+        texture.needsUpdate = true
+        return { texture, users: 0, key }
+      })
     skins.set(key, p)
   }
   return p

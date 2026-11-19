@@ -162,7 +162,18 @@ function startScape(ctx: AudioContext, out: GainNode, inside: GainNode): void {
   }).catch(() => { scapeAsked = false })
 }
 
+// Noise is made once per length and colour and reused: every footstep and pass-by used to fill a fresh buffer of
+// random samples on the main thread (tens of thousands of samples, a small stutter on phones each time).
+const noiseCache = new Map<string, AudioBuffer>()
 function noiseBuffer(ctx: AudioContext, seconds: number, color: 'white' | 'pink' | 'brown'): AudioBuffer {
+  const key = `${ctx.sampleRate}|${seconds}|${color}`
+  const hit = noiseCache.get(key)
+  if (hit) return hit
+  const made = makeNoise(ctx, seconds, color)
+  noiseCache.set(key, made)
+  return made
+}
+function makeNoise(ctx: AudioContext, seconds: number, color: 'white' | 'pink' | 'brown'): AudioBuffer {
   const n = Math.floor(ctx.sampleRate * seconds)
   const buffer = ctx.createBuffer(1, n, ctx.sampleRate)
   const data = buffer.getChannelData(0)

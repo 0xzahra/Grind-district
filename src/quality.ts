@@ -332,7 +332,8 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
         return
       }
       // Black-frame guard: if the composer output is pure black for ~1.5 s, drop to direct rendering.
-      if (++checks % 30 === 0 && checks < 600) {
+      // Three looks only (reading pixels back stalls the GPU: twenty of them were twenty small freezes at start).
+      if (++checks === 45 || checks === 120 || checks === 240) {
         const gl = renderer.getContext()
         const px = new Uint8Array(4)
         let lit = false
