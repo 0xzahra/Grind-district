@@ -98,7 +98,7 @@ export async function notifyMessage(db: SupabaseClient, from: string, to: string
     const webpush = (await import('web-push')).default
     const k = vapidKeys()
     webpush.setVapidDetails('mailto:noreply@grinddistrict.app', k.pub, k.priv)
-    const payload = JSON.stringify({ title, body, url, tag: `dm:${from}` })
+    const payload = JSON.stringify({ title, body, url, tag: `dm:${from}`, icon: `${ORIGIN}/icons/icon-192.png`, cta: 'Reply' })
     const dead: string[] = []
     jobs.push(Promise.all(subs.map((s) => webpush.sendNotification(s, payload, { TTL: 3600 }).catch((e: { statusCode?: number }) => { if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.endpoint) })))
       .then(() => dead.length ? writeJson(db, `push/${to}.json`, subs.filter((s) => !dead.includes(s.endpoint))) : null))
@@ -151,7 +151,7 @@ export async function broadcastUpdate(db: SupabaseClient, id: string): Promise<{
   const webpush = (await import('web-push')).default
   const k = vapidKeys()
   webpush.setVapidDetails('mailto:noreply@grinddistrict.app', k.pub, k.priv)
-  const payload = JSON.stringify({ title: latest.title.slice(0, 80), body: String(latest.body ?? '').slice(0, 200), url: `${ORIGIN}/?src=push-update`, tag: `update:${id}` })
+  const payload = JSON.stringify({ title: latest.title.slice(0, 80), body: String(latest.body ?? '').slice(0, 200), url: `${ORIGIN}/?src=push-update`, tag: `update:${id}`, image: notePicture(latest.title, String(latest.body ?? ''), 'See what is new'), cta: 'See what is new' })
   let sent = 0, devices = 0
   // A few players at a time, so the function stays well inside its time limit.
   for (let i = 0; i < files.length; i += 8) {
@@ -169,4 +169,93 @@ export async function broadcastUpdate(db: SupabaseClient, id: string): Promise<{
   }
   await writeJson(db, `broadcast/${id}.json`, { at: new Date().toISOString(), players: files.length, devices, sent })
   return { sent, devices }
+}
+
+/** The big picture for a notification: Zahra beside the words (api/og.ts, kind=note). */
+export const notePicture = (title: string, body: string, cta: string) =>
+  `${ORIGIN}/api/og?kind=note&t=${encodeURIComponent(title.slice(0, 70))}&b=${encodeURIComponent(body.slice(0, 120))}&c=${encodeURIComponent(cta.slice(0, 24))}`
+
+// ---- Come-back reminders: once a day the server looks for players who have been away ----
+// A player away two days or more gets one reminder from Zahra: their first lesson if they have not passed one,
+// otherwise the next course. By phone alert (only devices where they turned alerts on) and by email (Google or
+// email sign-ins, when email is set up on the server, and never after they turn emails off). At most one every
+// three days, and after four unanswered reminders it stops until they come back. Runs from the daily cron
+// (vercel.json); a lock file per day makes extra calls do nothing.
+type Nudge = { at: string; n: number; seen: string }
+const DAY = 86_400_000
+function reminder(passed: number, n: number): { title: string; body: string; cta: string } {
+  if (passed === 0) {
+    return n % 2 === 0
+      ? { title: 'Zahra is waiting at Campus', body: 'Your first Web3 lesson takes five minutes, and it goes on your CV with a certificate you keep.', cta: 'Start the lesson' }
+      : { title: 'Five minutes to your first certificate', body: 'Come back to Grind District: Zahra will walk you through your first lesson.', cta: 'Start the lesson' }
+  }
+  const courses = `${passed} course${passed === 1 ? '' : 's'}`
+  return n % 2 === 0
+    ? { title: 'Your next course is ready', body: `You have passed ${courses}. Pick up where you left off at Campus.`, cta: 'Continue' }
+    : { title: 'The district misses you', body: `${courses} passed and counting. Come back and finish the next one.`, cta: 'Continue' }
+}
+export async function nudgeLapsed(db: SupabaseClient, dry = false): Promise<Record<string, number | string>> {
+  const today = new Date().toISOString().slice(0, 10)
+  if (!dry) {
+    const lock = await db.storage.from(BUCKET).upload(`nudge-runs/${today}.json`, new Blob(['{}'], { type: 'application/json' }), { upsert: false, contentType: 'application/json' })
+    if (lock.error) return { skipped: 'already ran today' }
+  }
+  const [players, saves] = await Promise.all([
+    db.from('players').select('username, privy_user_id, created_at').not('username', 'is', null).limit(10000),
+    db.from('player_progress').select('privy_user_id, updated_at, skills:save->skills').limit(10000),
+  ])
+  if (players.error) return { error: 'players unavailable' }
+  const progress = new Map<string, { seen: string; passed: number }>()
+  for (const r of (saves.data ?? []) as Array<{ privy_user_id?: string; updated_at?: string; skills?: Record<string, { passed?: boolean } | null> | null }>) {
+    if (!r.privy_user_id) continue
+    progress.set(r.privy_user_id, { seen: String(r.updated_at ?? ''), passed: Object.values(r.skills ?? {}).filter((x) => x?.passed === true).length })
+  }
+  const mail = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD)
+  const webpush = (await import('web-push')).default
+  const k = vapidKeys()
+  webpush.setVapidDetails('mailto:noreply@grinddistrict.app', k.pub, k.priv)
+  let lapsed = 0, reminded = 0, pushed = 0, emailed = 0
+  const rows = (players.data ?? []) as Array<{ username: string; privy_user_id?: string; created_at?: string }>
+  for (let i = 0; i < rows.length; i += 5) {
+    await Promise.all(rows.slice(i, i + 5).map(async (p) => {
+      const pr = progress.get(String(p.privy_user_id ?? ''))
+      const seen = pr?.seen || String(p.created_at ?? '')
+      const seenAt = Date.parse(seen)
+      if (!Number.isFinite(seenAt) || Date.now() - seenAt < 2 * DAY) return
+      lapsed++
+      const past = await readJson<Nudge>(db, `nudge/${p.username}.json`)
+      const n = past && past.seen === seen ? past.n : 0 // they came back since: start counting again
+      if (past && past.seen === seen && Date.now() - Date.parse(past.at) < 3 * DAY) return
+      if (n >= 4) return
+      const msg = reminder(pr?.passed ?? 0, n)
+      const url = `${ORIGIN}/?src=reminder`
+      const image = notePicture(msg.title, msg.body, msg.cta)
+      if (dry) { reminded++; return }
+      let reached = false
+      const subs = (await readJson<Sub[]>(db, `push/${p.username}.json`)) ?? []
+      if (subs.length) {
+        const payload = JSON.stringify({ title: msg.title, body: msg.body, url, tag: 'reminder', image, cta: msg.cta })
+        const dead: string[] = []
+        await Promise.all(subs.map((s) => webpush.sendNotification(s, payload, { TTL: 12 * 3600 }).then(() => { pushed++; reached = true }, (e: { statusCode?: number }) => { if (e?.statusCode === 404 || e?.statusCode === 410) dead.push(s.endpoint) })))
+        if (dead.length) await writeJson(db, `push/${p.username}.json`, subs.filter((s) => !dead.includes(s.endpoint)))
+      }
+      if (mail && !(await emailOff(db, p.username))) {
+        const addr = await emailOf(db, p.username)
+        if (addr) {
+          const off = `${ORIGIN}/api/messages?op=email-off&u=${encodeURIComponent(p.username)}&t=${emailToken(p.username)}`
+          const text = `${msg.title}\n\n${msg.body}\n\nOpen Grind District: ${url}\n\nTurn off these emails: ${off}`
+          const html = `<div style="font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;max-width:560px;margin:auto;padding:20px;color:#1d1b17">
+<a href="${url}"><img src="${image}" width="520" alt="${esc(msg.title)}" style="width:100%;max-width:520px;border-radius:16px;display:block"></a>
+<h2 style="margin:20px 0 8px;font-size:22px">${esc(msg.title)}</h2>
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:#3a352c">${esc(msg.body)}</p>
+<a href="${url}" style="display:inline-block;padding:13px 26px;border-radius:999px;background:#1af38f;color:#04160e;font-weight:800;text-decoration:none">${esc(msg.cta)}</a>
+<p style="margin:28px 0 0;font-size:12px;color:#6b655a">You get this because you play Grind District. <a href="${off}" style="color:#6b655a">Turn off these emails</a>.</p></div>`
+          if (await sendEmail(addr, msg.title, text, html).catch(() => false)) { emailed++; reached = true }
+        }
+      }
+      if (reached) reminded++
+      await writeJson(db, `nudge/${p.username}.json`, { at: new Date().toISOString(), n: n + 1, seen })
+    }))
+  }
+  return { players: rows.length, lapsed, reminded, pushed, emailed, email: mail ? 'on' : 'not set up' }
 }

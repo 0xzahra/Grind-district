@@ -39,8 +39,30 @@ function qrImg(link: string, size: number): El {
 }
 const inviteLink = (u: string) => `${ORIGIN}/?src=invite${u ? `&ref=${u}` : ''}`
 
+/** A phone notification's big picture (1024 x 512): Zahra beside the message, in the game's colours. Android shows
+ *  it under the title when the notification is opened; it is cached hard, as the same words make the same picture. */
+function notePicture(q: URLSearchParams): Response {
+  const title = (q.get('t') ?? 'Grind District').slice(0, 70)
+  const body = (q.get('b') ?? '').slice(0, 120)
+  const cta = (q.get('c') ?? 'Tap to play').slice(0, 24)
+  const tree = h('div', { width: 1024, height: 512, position: 'relative', background: 'linear-gradient(135deg, #07130d 0%, #0f2419 50%, #183626 100%)', fontFamily: 'sans-serif', overflow: 'hidden' },
+    // A warm light behind Zahra, and a thin gold line along the foot.
+    h('div', { position: 'absolute', left: -80, top: 40, width: 520, height: 520, borderRadius: 260, background: 'radial-gradient(circle, rgba(233,207,142,0.38) 0%, rgba(233,207,142,0.08) 55%, rgba(233,207,142,0) 70%)' }),
+    h('div', { position: 'absolute', left: 0, bottom: 0, width: 1024, height: 6, background: 'linear-gradient(90deg, #b8923f 0%, #e9cf8e 50%, #b8923f 100%)' }),
+    { type: 'img', props: { src: `${ORIGIN}/notify/zahra.png`, width: 262, height: 512, style: { position: 'absolute', left: 70, top: 22 } } },
+    h('div', { position: 'absolute', left: 390, top: 46, width: 590, height: 420, flexDirection: 'column', justifyContent: 'center' },
+      { type: 'img', props: { src: `${ORIGIN}/brand/logo-new.png`, width: 150, height: 93, style: { marginBottom: 22 } } },
+      h('div', { fontSize: title.length > 34 ? 46 : 54, fontWeight: 800, color: '#f7f3ea', lineHeight: 1.12 }, title),
+      ...(body ? [h('div', { fontSize: 27, color: '#c3cec7', marginTop: 16, lineHeight: 1.35 }, body)] : []),
+      h('div', { marginTop: 28 },
+        h('div', { padding: '14px 30px', borderRadius: 999, background: 'linear-gradient(180deg, #3bfaa4 0%, #12d77c 100%)', color: '#04160e', fontSize: 26, fontWeight: 800 }, cta))))
+  return new ImageResponse(tree as never, { width: 1024, height: 512, headers: { 'cache-control': 'public, max-age=86400, s-maxage=604800, immutable' } })
+}
+
 export async function GET(req: Request): Promise<Response> {
-  const u = clean(new URL(req.url, ORIGIN).searchParams.get('u') ?? '')
+  const q = new URL(req.url, ORIGIN).searchParams
+  if (q.get('kind') === 'note') return notePicture(q)
+  const u = clean(q.get('u') ?? '')
   const card = await storedCard(u).catch(() => null)
   if (card) return new Response(card, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=300, s-maxage=300' } })
   const p = await getProfile(u).catch(() => null)

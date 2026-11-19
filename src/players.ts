@@ -30,6 +30,8 @@ export type PlayersDeps = {
   message: (username: string) => void
   find: (username: string) => void
   toast: (m: string) => void
+  /** Start dancing (the floating Dance key is gone: it sat on screen all the time). Any move stops it. */
+  dance?: () => void
 }
 
 export function openPlayers(d: PlayersDeps): void {
@@ -44,7 +46,9 @@ export function openPlayers(d: PlayersDeps): void {
   t.append(el('p', 'Real players · right now', 'gm-kick'), el('h3', 'Players online', 'gm-title'))
   head.append(t, key('Close', 'gm-ghost', close))
   const where = el('p', '', 'gm-sub'), list = el('div', '', 'pl-list'), foot = el('div', '', 'pl-foot')
-  card.append(head, where, list, foot)
+  const moves = el('div', '', 'gm-keys')
+  if (d.dance) moves.append(key('💃 Dance', 'gm-go', () => { close(); d.dance!() }))
+  card.append(head, where, moves, list, foot)
   shade.append(card); document.body.append(shade)
   const paint = () => {
     const me = d.me(), home = d.atHome(), ps = d.players()
@@ -66,7 +70,7 @@ export function openPlayers(d: PlayersDeps): void {
       row.append(who, keys); list.append(row)
     }
     foot.replaceChildren(el('p', home
-      ? 'You are at home: invite anyone online. When they arrive, sit together, chat, and tap Dance. Record a skit from My Gallery.'
+      ? 'You are at home: invite anyone online. When they arrive, sit together, chat, and tap Dance above (move to stop). Record a skit from My Gallery.'
       : 'Go home (your house on the home row, or a home you own) to invite players over.', 'gm-sub'))
   }
   paint()

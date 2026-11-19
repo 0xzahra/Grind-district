@@ -863,7 +863,9 @@ const apiAgents = createRemoteAgents(scene)
     }).catch(() => undefined)
   }, 4000)
   // A newer version of the game, live since this tab opened: offered (or loaded on the title screen).
-  void import('./freshness.ts').then((m) => m.watchForUpdates({ notify, onTitle: () => !document.getElementById('menu')?.hidden }))
+  void import('./freshness.ts').then((m) => m.watchForUpdates({ onTitle: () => !document.getElementById('menu')?.hidden }))
+  // Phones with alerts on pick up the newest notification design (sw.js) on their next visit.
+  try { if ('serviceWorker' in navigator) void navigator.serviceWorker.getRegistration('/sw.js').then((r) => r?.update()).catch(() => undefined) } catch { /* unsupported */ }
   installLayers()
   if (!localStorage.getItem('gd.welcomed') && !localStorage.getItem('gd.privy.username')) notify('Welcome to Grind District', 'Start at Campus: Zahra teaches a five-minute lesson, and it goes on your CV with a certificate you keep. Tap the gold Next step button any time.', 'welcome', 'place:Campus')
   localStorage.setItem('gd.welcomed', '1')
@@ -1446,24 +1448,19 @@ const apiAgents = createRemoteAgents(scene)
     message: (u) => { setCC(true); void openThread(u) },
     find: (u) => { const at = net.findPeer(u); if (at) window.dispatchEvent(new CustomEvent('gd-find', { detail: { u, x: at.x, z: at.z } })); else ui.toast(`@${u} is somewhere else right now.`) },
     toast: (t) => ui.toast(t),
+    dance: () => { if (seating.sitting) seating.stand(); setDance(true); ui.toast('Dancing · move to stop') },
   })) }
   document.getElementById('nav-players')?.addEventListener('click', openPlayersPanel)
   window.addEventListener('gd:players', openPlayersPanel)
-  // Dance: one tap to dance, any move to stop. Everyone in the room sees it (net.ts emote), and skits film it.
+  // Dance: started from the Players panel (it used to be a key that sat on screen the whole time), any move stops
+  // it. Everyone in the room sees it (net.ts emote), and skits film it.
   let dancing = false
-  const danceBtn = document.createElement('button')
-  danceBtn.type = 'button'; danceBtn.id = 'dance'; danceBtn.className = 'glass-fab dance-fab'; danceBtn.textContent = '💃 Dance'; danceBtn.hidden = true
-  danceBtn.setAttribute('aria-pressed', 'false')
   const setDance = (on: boolean) => {
     if (dancing === on) return
     dancing = on
     avatar.object.userData.dance = on ? 1 : 0
-    danceBtn.textContent = on ? '■ Stop' : '💃 Dance'
-    danceBtn.setAttribute('aria-pressed', String(on))
     if (on) { target = null; personaNote('dance') }
   }
-  danceBtn.onclick = () => { if (seating.sitting) seating.stand(); setDance(!dancing) }
-  document.body.append(danceBtn)
   // Tapped city resident: a small card (name, persona, what they are doing). Auto-hides; never blocks play.
   const showNpcCard = (n: { name: string; trait: string; routine: string; doing: string }) => {
     npcCard?.remove()
@@ -2761,11 +2758,6 @@ const apiAgents = createRemoteAgents(scene)
     }
     if (visiting && !interiors.inside && !homes?.inside) visiting = null // left their home
     if (dancing && (moving || seating.sitting || ride)) setDance(false)
-    {
-      // The Dance button: wherever people hang out (indoors, at home, a venue) or with another player close by.
-      const show = !ride && !ui.isOpen() && !document.body.classList.contains('selfie-mode') && (dancing || !!interiors.inside || !!homes?.inside || net.peers().some((q) => Math.hypot(q.x - pos.x, q.z - pos.z) < 12))
-      if (danceBtn.hidden === show) danceBtn.hidden = !show
-    }
     net.tick(dt, { x: pos.x, z: pos.z, yaw: faceYaw, moving, act: seating.sitting, vx: vel.x, vz: vel.z, room: myRoom(), emote: dancing ? 'dance' : '' })
     mapAcc += dt
     if (mapAcc > 0.15) { mapAcc = 0; drawMap() } // minimap at ~7 Hz is plenty

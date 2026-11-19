@@ -101,6 +101,13 @@
       "title": "Smoother and sharper",
       "body": "Fewer freezes, a lighter load on phones (steady 30 frames a second where a phone needs it), new cars and 4K on big screens.",
       "push": false
+    },
+    {
+      "id": "u1119-alerts",
+      "title": "Zahra keeps you on track",
+      "body": "Turn on phone alerts in Messages and Zahra will remind you when your next course is waiting. Dance is now in the Players list (move to stop).",
+      "go": "messages",
+      "push": false
     }
   ]
 }

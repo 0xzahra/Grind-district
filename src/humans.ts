@@ -536,7 +536,10 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh
       mesh.castShadow = true; mesh.receiveShadow = false; mesh.frustumCulled = false
       mesh.raycast = bodyRaycast; mesh.userData.bodyRoot = person; mesh.userData.bodyH = opts.height ?? 1.74
-      paint(mesh, t, look, detail)
+      const painted = paint(mesh, t, look, detail)
+      // A look in its own colours is painted in the background (a moment): until it is ready the figure stays out
+      // of sight (or the outfit it replaces stays on), so nobody sees the model's own clothes flash first.
+      const dressed = wants(t, look)
       void dressBeads(person, t, look?.couture)
       person.updateMatrixWorld(true)
       const inv = new THREE.Matrix4().copy(person.matrixWorld).invert()
@@ -575,14 +578,26 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
         root.userData.setExtras = setExtras
       }
-      if (old) { old.removeFromParent(); const om = old.getObjectByName('Person') as THREE.SkinnedMesh | undefined; if (om) paint(om, om.userData.template as Template, undefined, detail) }
+      const dropOld = () => { if (old && old.parent) { old.removeFromParent(); const om = old.getObjectByName('Person') as THREE.SkinnedMesh | undefined; if (om) paint(om, om.userData.template as Template, undefined, detail) } }
       mesh.userData.template = t
       person.rotation.y = bodyRef.rotation.y
-      person.visible = !root.userData.masked
+      person.visible = !root.userData.masked && !dressed
       root.userData.person = person
       root.userData.body = bodyRef
       bodyRef.visible = !!root.userData.masked
       root.add(person)
+      if (!dressed) dropOld()
+      else {
+        let shown = false
+        const show = () => {
+          if (shown) return
+          shown = true
+          dropOld()
+          if (root.userData.person === person) person.visible = !root.userData.masked
+        }
+        void painted.then(show, show)
+        window.setTimeout(show, 6000) // never wait forever on a slow phone
+      }
       mounted = name
       window.dispatchEvent(new Event('gd-avatar-ready'))
       const mixer = new THREE.AnimationMixer(person)

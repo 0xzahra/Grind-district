@@ -2,9 +2,10 @@
 // /release.json naming the live version (vite.config.ts); an open game checks it every ten minutes and whenever
 // the tab comes back into view. When a newer version is live:
 // - on the title screen, or after the tab was away for ten minutes or more, the page simply reloads into it;
-// - mid-play, a notification offers it (Refresh), so nobody is pulled out of a lesson or a trade.
-// Progress is saved as it happens, so a reload loses nothing.
-type Deps = { notify: (title: string, body: string, once: string, go: string) => void; onTitle: () => boolean }
+// - mid-play, the small "Update available · tap to refresh" toast offers it (update.ts), so nobody is pulled out
+//   of a lesson or a trade. Progress is saved as it happens, so a reload loses nothing.
+import { offerRefresh } from './update.ts'
+type Deps = { onTitle: () => boolean }
 
 export function watchForUpdates(d: Deps): void {
   if (import.meta.env.DEV) return
@@ -17,7 +18,7 @@ export function watchForUpdates(d: Deps): void {
       if (!id || id === __BUILD__) return
       newer = id
       if (d.onTitle()) { location.reload(); return }
-      if (offered !== id) { offered = id; d.notify('A new version is ready', 'Tap to refresh into the latest Grind District. Your progress is saved.', `build-${id}`, 'reload') }
+      if (offered !== id) { offered = id; offerRefresh() }
     } catch { /* offline: try again later */ }
   }
   document.addEventListener('visibilitychange', () => {
