@@ -118,12 +118,15 @@ export function carGeometry(kind: CarKind) {
     const z = cabBack + p.rRake + (glassLen * k) / (n + 1)
     parts.push(colour(clean(new THREE.BoxGeometry(W - 0.12, gTop - gb, 0.1).translate(0, (gTop + gb) / 2, z)), 1))
   }
-  // A-pillars and C-pillars follow the rake: thin painted strips along each glass edge.
+  // A-pillars and C-pillars follow the rake: one thin painted strip down each side of the windscreen and the
+  // rear window. (They were one slab the width of the car, which painted over both windows.)
   for (const [z0, y0, z1, y1] of [[front - p.bonnet, p.belt, front - p.bonnet - p.fRake, gTop], [cabBack, gb, cabBack + p.rRake, gTop]] as const) {
     const len = Math.hypot(z1 - z0, y1 - y0)
-    const pillar = new THREE.BoxGeometry(W - 0.13, len, 0.08)
-    pillar.rotateX(Math.atan2(z1 - z0, y1 - y0)).translate(0, (y0 + y1) / 2, (z0 + z1) / 2)
-    parts.push(colour(clean(pillar), 1))
+    for (const sx of [-1, 1]) {
+      const pillar = new THREE.BoxGeometry(0.1, len, 0.09)
+      pillar.rotateX(Math.atan2(z1 - z0, y1 - y0)).translate(sx * (W / 2 - 0.1), (y0 + y1) / 2, (z0 + z1) / 2)
+      parts.push(colour(clean(pillar), 1))
+    }
   }
 
   // Dark trim: bumpers, grille, sills, mirrors; roof rails on the SUV; open bed on the pickup.
