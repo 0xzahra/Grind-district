@@ -196,7 +196,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
       // Once a Colour swatch is tapped while this look is on, the swatch recolours the look's top too (the
       // swatches used to do nothing on a complete look: its palette always won). See lookTinted in wardrobe.ts.
       const lk = piece(v.look)
-      if (lk?.figure && (!lk.for || lk.for === (female ? 'lady' : 'gent'))) return { figure: lk.figure as HumanModel, top: lookTinted() === lk.id ? tintNow : lk.palette?.top, bottom: lk.palette?.bottom, shoes: lk.palette?.shoes }
+      if (lk?.figure && (!lk.for || lk.for === (female ? 'lady' : 'gent'))) return { figure: lk.figure as HumanModel, top: lookTinted() === lk.id ? tintNow : lk.palette?.top, bottom: lk.palette?.bottom, shoes: lk.palette?.shoes, couture: lk.couture }
       // A suit is one cloth: the trousers match the jacket unless other trousers are worn.
       return { top: t?.hex, bottom: piece(v.bottom)?.hex ?? (!female && t?.model === 'suit' ? t.hex : undefined), shoes: piece(v.shoes)?.hex, sleeves: female && /^abaya/.test(id), robe: female && /^abaya/.test(id), kaftan: !female && /kaftan|agbada/.test(id), gown: female && /ankara/.test(id) }
     }
@@ -235,7 +235,7 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
         avatar.object.userData.face = now.f ?? 1
         ;(avatar.object.userData.setFace as ((f: number) => void) | undefined)?.(now.f ?? 1)
         const o = outfit(t)
-        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.figure ? o.top : o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown, figure: o.figure, makeup: makeup(), sharp: true }
+        const look = { ...base, hair: now.hair ?? base.hair, ...(now.skin ? { skin: now.skin } : {}), bottom: o.bottom, shoes: o.shoes, top: o.figure ? o.top : o.top ?? t, sleeves: o.sleeves, robe: o.robe, kaftan: o.kaftan, gown: o.gown, figure: o.figure, couture: o.couture, makeup: makeup(), sharp: true }
         avatar.object.userData.extras = extras(lux)
         ;(avatar.object.userData.setExtras as ((e: Extras) => void) | undefined)?.(extras(lux))
         avatar.object.userData.look = look

@@ -9,6 +9,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { ShrimpAvatar } from './shrimp.ts'
 import { dressPixels, hasMakeup, hexLin, shrink, type Colours, type Makeup } from './skinPaint.ts'
+import { bares, bareTriangles, beadMeshes, measureBody, wearBeads, type Couture } from './couture.ts'
 
 export const MEN = ['man1', 'man2', 'man3', 'man4'] as const
 export const WOMEN = ['woman1', 'woman2', 'woman3', 'woman4'] as const
@@ -33,6 +34,8 @@ export type Look = {
   makeup?: Makeup
   /** The player's own figure: the texture is drawn at twice the size with the face sharpened. */
   sharp?: boolean
+  /** A beaded couture look (couture.ts): real beads on the figure, and for the bralette sets a bare midriff. */
+  couture?: Couture
 }
 export type { Makeup } from './skinPaint.ts'
 export type Metal = 'gold' | 'rose' | 'steel'
@@ -171,7 +174,7 @@ function pixelsAt(t: Template, detail: number): Promise<{ base: Uint8ClampedArra
 
 type Skin = { texture: THREE.Texture; users: number; key: string }
 const skins = new Map<string, Promise<Skin | null>>()
-const wants = (t: Template, look?: Look) => !!look && (REGIONS.some((r) => look[r] !== undefined && t.regions[r]) || !!look.sharp || hasMakeup(look.makeup))
+const wants = (t: Template, look?: Look) => !!look && (REGIONS.some((r) => look[r] !== undefined && t.regions[r]) || !!look.sharp || hasMakeup(look.makeup) || !!look.couture)
 
 // Crowd figures go on the GPU one at a time, a few frames apart, once the city is on screen.
 let crowdLine: Promise<void> | null = null
@@ -235,7 +238,7 @@ function offThread(t: Template, detail: number, job: DressJob): Promise<Wire | n
 }
 /** The texture with each region shifted to the look's colour. `detail` 1 = full size, 0.5 = half (crowd). */
 function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
-  const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}|${look.sharp && detail >= 1 ? 's' : ''}|${hasMakeup(look.makeup) ? JSON.stringify(look.makeup) : ''}`
+  const key = `${t.name}|${detail}|${REGIONS.map((r) => (t.regions[r] ? look[r] ?? '' : '')).join(',')}|${look.sharp && detail >= 1 ? 's' : ''}|${hasMakeup(look.makeup) ? JSON.stringify(look.makeup) : ''}|${look.couture ?? ''}`
   let p = skins.get(key)
   if (!p) {
     // Per region: the target colour and the texture's own average, both linear.
@@ -254,7 +257,19 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
     const job: DressJob = { colours: { target, mean, luma, keep }, sharp, makeup: hasMakeup(look.makeup) ? look.makeup : undefined }
     const turn = () => (detail < 1 ? crowdTurn() : Promise.resolve())
     const here = () => pixelsAt(t, detail).then((px) => (px ? dressPixels(px.base, px.mask, px.w, px.h, job.colours, job) : null))
-    p = offThread(t, detail, job)
+    // Couture: a fine beaded weave under the beads, and for a bralette set the top's cloth outside the cups and
+    // band painted as skin (the figure's own skin tone, or the creator's).
+    const ready: Promise<unknown> = look.couture
+      ? (job.colours.dots = 6, bares(look.couture)
+        ? measureBody(t.name, t.scene, `${FIGURES}${t.name}.mask.png`).then((b) => {
+          if (!b) return
+          job.colours.bare = bareTriangles(b)
+          const sk = target[1]
+          job.colours.bareTone = sk ? [sk[0] * 0.74, sk[1] * 0.74, sk[2] * 0.74] : t.regions.skin ?? [0.42, 0.26, 0.19]
+        })
+        : Promise.resolve())
+      : Promise.resolve()
+    p = ready.then(() => offThread(t, detail, job))
       .then((r) => (r ? turn().then(() => r) : turn().then(here)))
       .then((r) => {
         if (!r) return null
@@ -272,6 +287,26 @@ function dress(t: Template, look: Look, detail: number): Promise<Skin | null> {
     skins.set(key, p)
   }
   return p
+}
+
+// Couture beads (couture.ts): built once per figure and look, then shared by everyone wearing it.
+const beadParts = new Map<string, Promise<Array<{ geometry: THREE.BufferGeometry; material: THREE.Material }> | null>>()
+function coutureParts(t: Template, c: Couture) {
+  const k = `${t.name}|${c}`
+  let p = beadParts.get(k)
+  if (!p) { p = measureBody(t.name, t.scene, `${FIGURES}${t.name}.mask.png`).then((b) => (b ? beadMeshes(b, c) : null)).catch(() => null); beadParts.set(k, p) }
+  return p
+}
+/** Put a look's beads on a figure, taking off any it wore before. Resolves once they are on. */
+function dressBeads(person: THREE.Object3D, t: Template, c: Couture | undefined): Promise<void> {
+  const stamp = (person.userData.beadStamp = ((person.userData.beadStamp as number | undefined) ?? 0) + 1)
+  for (const o of (person.userData.beads as THREE.Object3D[] | undefined) ?? []) o.removeFromParent()
+  person.userData.beads = undefined
+  if (!c) return Promise.resolve()
+  return coutureParts(t, c).then((parts) => {
+    if (!parts || person.userData.beadStamp !== stamp) return
+    person.userData.beads = wearBeads(person, parts)
+  })
 }
 
 /** Wear a look: the person gets its own material with the recoloured texture (or goes back to the shared one). */
@@ -502,6 +537,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       mesh.castShadow = true; mesh.receiveShadow = false; mesh.frustumCulled = false
       mesh.raycast = bodyRaycast; mesh.userData.bodyRoot = person; mesh.userData.bodyH = opts.height ?? 1.74
       paint(mesh, t, look, detail)
+      void dressBeads(person, t, look?.couture)
       person.updateMatrixWorld(true)
       const inv = new THREE.Matrix4().copy(person.matrixWorld).invert()
       /** Put `obj` at `bone` plus an offset in metres (person axes: x left, y up, z forward) and let it ride the bone. */
@@ -601,7 +637,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
     if (pending === want) return // already on its way: it will wear root.userData.look, or this look
     if (want !== mounted || !person) { mount(want, next); return }
     const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh | undefined
-    if (mesh) paint(mesh, mesh.userData.template as Template, next, detail)
+    if (mesh) { paint(mesh, mesh.userData.template as Template, next, detail); void dressBeads(person, mesh.userData.template as Template, next.couture) }
   }
   mount(figure(model, first), first)
 }
@@ -724,6 +760,7 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
     mesh.userData.template = t
     mesh.raycast = bodyRaycast; mesh.userData.bodyRoot = person; mesh.userData.bodyH = o.height ?? 1.74
     const painted = paint(mesh, t, look, o.detail ?? 0.5)
+    const beaded = look?.couture ? dressBeads(person, t, look.couture) : Promise.resolve()
     root.add(person)
     // Start from a moment of the idle clip: weight on both feet, arms hanging naturally.
     const idle = t.clips.find((c) => c.name === 'Idle')
@@ -794,7 +831,7 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
     }
     if (o.extras) jewels(person, t, o.extras)
     window.dispatchEvent(new Event('gd-avatar-ready'))
-    void painted.then(() => o.onReady?.())
+    void Promise.all([painted, beaded]).then(() => o.onReady?.())
   }).catch(() => { o.onReady?.() /* the room simply has one figure fewer */ })
   return root
 }

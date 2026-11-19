@@ -4025,6 +4025,7 @@ html[data-ui='light'] #gd-modal .gm-facts dt, html[data-ui='light'] #gd-modal .g
 @media (min-width: 821px) and (orientation: landscape) {
   #menu > #menu-poster { background-image: url('/brand/title-l-1920.webp'), url('/brand/title-l.jpg'); }
   @media (min-resolution: 1.5dppx), (min-width: 1700px) { #menu > #menu-poster { background-image: url('/brand/title-l-hd.webp'), url('/brand/title-l.jpg'); } }
+  @media (min-width: 1281px) and (min-resolution: 1.5dppx), (min-width: 2561px) { #menu > #menu-poster { background-image: url('/brand/title-l-4k.webp'), url('/brand/title-l.jpg'); } }
 }
 
 /* The phone dropped the 3D view (GPU context lost): a calm note in the middle while it comes back. */

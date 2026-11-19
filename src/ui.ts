@@ -180,7 +180,7 @@ function stack(...nodes: Array<Node | string>): HTMLDivElement {
 /** Which figure, colours and framing photograph a boutique piece (the same choice the avatar itself makes). */
 function shotFor(pc: Piece, lady: boolean): { key: string; model: HumanModel; look?: Look; frame: Frame; extras?: Extras } | null {
   const key = `${pc.id}:${lady ? 'f' : 'm'}`
-  if (pc.slot === 'look') return pc.figure ? { key, model: pc.figure as HumanModel, look: pc.palette, frame: 'full' } : null
+  if (pc.slot === 'look') return pc.figure ? { key, model: pc.figure as HumanModel, look: pc.couture ? { ...pc.palette, couture: pc.couture } : pc.palette, frame: 'full' } : null
   if (pc.slot === 'top') {
     const model: HumanModel = lady ? (/^abaya/.test(pc.id) ? 'abaya' : pc.model === 'casual' ? 'woman3' : 'woman4') : /kaftan|agbada/.test(pc.id) ? 'kurta' : pc.model === 'suit' ? 'man4' : 'man1'
     return { key, model, look: { top: pc.hex, ...(pc.model === 'suit' ? { bottom: pc.hex } : {}) }, frame: 'full' }
@@ -930,7 +930,8 @@ export function mountUi(
       lux.append(mk)
     }
     rail('Grind Pass exclusives', passPieces, true, lux)
-    rail('Runway looks', by('look', true), true, lux)
+    rail('Couture · hand-beaded', all.filter((x) => !!x.couture), true, lux)
+    rail('Runway looks', by('look', true).filter((x) => !x.couture), true, lux)
     rail('Tailoring & dresses', by('top', true), true, lux)
     rail('Trousers', by('bottom', true), true, lux)
     rail('Shoes', by('shoes', true), true, lux)

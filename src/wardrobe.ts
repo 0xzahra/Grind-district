@@ -13,6 +13,9 @@ export type Piece = {
   note?: string
   /** Grind Pass exclusive: never sold in the boutique, granted by a pass tier (see pass.ts). */
   pass?: number
+  /** Couture: hand-beaded (couture.ts). Real pearls, gold and diamonds on the figure, drop fringes; the bralette
+   *  sets bare the midriff. */
+  couture?: 'pearl-dress' | 'gold-dress' | 'pearl-bra' | 'gold-bra' | 'diamond-bra'
 }
 export const PIECES: Piece[] = [
   // ---- Free looks: the outfits the city's own figures already wear, exactly as they come ----
@@ -38,6 +41,12 @@ export const PIECES: Piece[] = [
   { id: 'run-abaya-emerald', slot: 'look', label: 'Emerald couture abaya', usd: 480, hex: 0x1f4f44, for: 'lady', figure: 'abaya', palette: { top: 0x1f4f44 } },
   { id: 'run-abaya-burgundy', slot: 'look', label: 'Burgundy couture abaya', usd: 480, hex: 0x5a1f2c, for: 'lady', figure: 'abaya', palette: { top: 0x5a1f2c } },
   { id: 'run-tunic-teal', slot: 'look', label: 'Teal embroidered tunic', usd: 340, hex: 0x2f6a6a, for: 'lady', figure: 'woman2', palette: { top: 0x2f6a6a } },
+  // ---- Couture: hand-beaded mini looks. Original designs, the most expensive pieces in the boutique ----
+  { id: 'couture-pearl-dress', slot: 'look', label: 'Pearl cascade mini dress', usd: 4800, hex: 0xefe8dc, for: 'lady', figure: 'look_party', palette: { top: 0xefe8dc, bottom: 0xefe8dc, shoes: 0xd9c3a0 }, couture: 'pearl-dress', note: 'Hand-set pearls from collar to hem, short cap sleeves and a fringe of pearl drops' },
+  { id: 'couture-gold-dress', slot: 'look', label: 'Gold cascade mini dress', usd: 5600, hex: 0xc9a24a, for: 'lady', figure: 'look_party', palette: { top: 0xc9a24a, bottom: 0xc9a24a, shoes: 0xb8955a }, couture: 'gold-dress', note: 'Gold beads with diamond accents, a fringe of gold drops' },
+  { id: 'couture-pearl-bra', slot: 'look', label: 'Pearl bralette & mini skirt', usd: 5200, hex: 0xf1ebe0, for: 'lady', figure: 'look_party', palette: { top: 0xf1ebe0, bottom: 0xf1ebe0, shoes: 0xe9dccb }, couture: 'pearl-bra', note: 'A pearl-encrusted bralette with a pearl fringe, over a beaded mini skirt' },
+  { id: 'couture-gold-bra', slot: 'look', label: 'Gold bralette & mini skirt', usd: 5800, hex: 0xc9a24a, for: 'lady', figure: 'look_party', palette: { top: 0xc9a24a, bottom: 0xc9a24a, shoes: 0xb8955a }, couture: 'gold-bra', note: 'Gold beads and diamonds on the bralette, a gold mini skirt with a drop fringe' },
+  { id: 'couture-diamond-bra', slot: 'look', label: 'Diamond bralette & mini skirt', usd: 7500, hex: 0xdfe4ec, for: 'lady', figure: 'look_party', palette: { top: 0xdfe4ec, bottom: 0xd8dde6, shoes: 0xdfe4ec }, couture: 'diamond-bra', note: 'Pavé diamonds over the cups and band, a diamond mini skirt and diamond drops' },
   { id: 'run-tux-midnight', slot: 'look', label: 'Midnight tuxedo', usd: 560, hex: 0x14161a, for: 'gent', figure: 'look_tux' },
   { id: 'run-tux-ivory', slot: 'look', label: 'Ivory dinner jacket', usd: 560, hex: 0xf1ece2, for: 'gent', figure: 'look_tux', palette: { top: 0xf1ece2, bottom: 0x16171a } },
   { id: 'run-navy', slot: 'look', label: 'Navy tailored suit', usd: 480, hex: 0x1d2a44, for: 'gent', figure: 'look_navy' },
