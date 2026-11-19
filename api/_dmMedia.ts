@@ -39,17 +39,25 @@ export async function storeMedia(db: SupabaseClient, user: string, raw: unknown)
   return { mark: `[[media:${spec.kind}:${path}]]` }
 }
 
-/** The text part of a body, and the attachment marker if there is one. */
-export function splitBody(body: string): { text: string; kind?: 'image' | 'voice'; path?: string } {
-  const m = MARK.exec(body)
-  if (!m) return { text: body }
-  return { text: body.slice(0, m.index).trim(), kind: m[1] as 'image' | 'voice', path: m[2] }
+/** An edited message starts with this marker (no extra column needed); readers see an "Edited" label instead. */
+export const EDITED = '[[edited]]'
+/** The text part of a body, the attachment marker if there is one, and whether it was edited. */
+export function splitBody(body: string): { text: string; kind?: 'image' | 'voice'; path?: string; edited?: boolean } {
+  const edited = body.startsWith(EDITED)
+  const rest = edited ? body.slice(EDITED.length) : body
+  const m = MARK.exec(rest)
+  if (!m) return { text: rest, ...(edited ? { edited } : {}) }
+  return { text: rest.slice(0, m.index).trim(), kind: m[1] as 'image' | 'voice', path: m[2], ...(edited ? { edited } : {}) }
+}
+/** Remove a message's attachment from storage (the message itself was deleted by its sender). */
+export async function removeMedia(db: SupabaseClient, path: string): Promise<void> {
+  await db.storage.from(BUCKET).remove([path]).catch(() => undefined)
 }
 
 /** A one-line preview for the inbox. */
 export function previewBody(body: string): string {
   const s = splitBody(body)
-  if (!s.kind) return body
+  if (!s.kind) return s.text
   const tag = s.kind === 'image' ? '📷 Photo' : '🎤 Voice note'
   return s.text ? `${tag} · ${s.text}` : tag
 }
@@ -65,8 +73,9 @@ export async function signLines<T extends { body: string }>(db: SupabaseClient, 
   }
   return lines.map((l, i) => {
     const p = parts[i]!
-    if (!p.kind || !p.path) return l
+    const edited = p.edited ? { edited: true } : {}
+    if (!p.kind || !p.path) return { ...l, body: p.text, ...edited }
     const url = urls.get(p.path)
-    return { ...l, body: p.text, ...(url ? { media: { kind: p.kind, url } } : {}) }
+    return { ...l, body: p.text, ...edited, ...(url ? { media: { kind: p.kind, url } } : {}) }
   })
 }

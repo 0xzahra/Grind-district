@@ -108,6 +108,13 @@
       "body": "Turn on phone alerts in Messages and Zahra will remind you when your next course is waiting. Dance is now in the Players list (move to stop).",
       "go": "messages",
       "push": false
+    },
+    {
+      "id": "u1119-messages",
+      "title": "Messages got better",
+      "body": "Edit or delete your own messages (tap ⋯), drag through voice notes, and see a photo before you send it. Player profiles have a fresh look, and the joystick now sits bottom right.",
+      "go": "messages",
+      "push": false
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
-import { previewBody, signLines, storeMedia } from './_dmMedia.js'
+import { EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia } from './_dmMedia.js'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { verifyNearLogin, nearUserId, type NearProof } from './_nearAuth.js'
 import { broadcastUpdate, cleanSub, emailOff, emailToken, notifyMessage, nudgeLapsed, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
@@ -205,6 +205,30 @@ export default async function handler(req: Req, res: Res) {
     if (old.data) { const left = (old.data.members as string[]).filter((m) => m !== user); if (!left.length) await db.from('parties').delete().eq('id', old.data.id); else await db.from('parties').update({ members: left }).eq('id', old.data.id) }
     await db.from('parties').update({ members: [...(p.data.members as string[]), user], invites: (p.data.invites as string[]).filter((m) => m !== user), updated_at: new Date().toISOString() }).eq('id', id)
     return res.status(200).json({ ok: true })
+  }
+  if (req.method === 'POST' && (op === 'edit' || op === 'delete')) {
+    // Your own messages only: delete takes it away for both of you (and its photo or voice note); edit changes
+    // the words for 24 hours and marks it Edited.
+    const id = Number(b.id)
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'bad message' })
+    const row = await db.from('messages').select('id,sender,recipient,body,created_at,read_at').eq('id', id).maybeSingle()
+    if (!row.data || row.data.sender !== user) return res.status(404).json({ error: 'You can only change your own messages' })
+    const parts = splitBody(String(row.data.body))
+    if (op === 'delete') {
+      if (parts.path) await removeMedia(db, parts.path)
+      const del = await db.from('messages').delete().eq('id', id).eq('sender', user)
+      return del.error ? res.status(500).json({ error: 'Could not delete' }) : res.status(200).json({ ok: true })
+    }
+    if (Date.now() - Date.parse(String(row.data.created_at)) > 86_400_000) return res.status(403).json({ error: 'Messages can be edited for 24 hours' })
+    const mark = parts.kind && parts.path ? `[[media:${parts.kind}:${parts.path}]]` : ''
+    let text = cleanText(b.text)
+    if (!text && !mark) return res.status(400).json({ error: 'Empty message: delete it instead' })
+    text = text.slice(0, MAX - EDITED.length - (mark ? mark.length + 1 : 0))
+    const body = EDITED + (text && mark ? `${text}\n${mark}` : text || mark)
+    const up = await db.from('messages').update({ body }).eq('id', id).eq('sender', user).select('id,sender,recipient,body,created_at,read_at').single()
+    if (up.error) return res.status(500).json({ error: 'Could not edit' })
+    const [line] = await signLines(db, [up.data])
+    return res.status(200).json({ line })
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const t = cleanUsername(b.to ?? b.u)

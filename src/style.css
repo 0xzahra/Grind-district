@@ -4033,3 +4033,77 @@ html[data-ui='light'] #gd-modal .gm-facts dt, html[data-ui='light'] #gd-modal .g
 .gpu-note p { margin: 0 0 12px; font: 600 14.5px/1.4 var(--sys); }
 .gpu-note .glass-btn { width: 100%; }
 .gpu-note .glass-btn[hidden] { display: none; }
+
+/* Messages: a real voice-note player (drag to any point), Edit / Delete on your own messages, photo preview. */
+html body #cc-sheet-body .dm-voice { display: flex; align-items: center; gap: 10px; width: min(250px, 70vw); height: auto; min-height: 46px; padding: 6px 12px 6px 6px; border-radius: 999px; background: rgba(18, 184, 106, 0.14); margin: 2px 0 4px; }
+html body #cc-sheet-body .dm-vplay { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; background: linear-gradient(180deg, #3bfaa4, #12c873); color: #04160e; font-size: 13px; font-weight: 800; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+html body #cc-sheet-body .dm-vbar { flex: 1; min-width: 0; height: 30px; margin: 0; accent-color: #12b86a; touch-action: none; }
+html body #cc-sheet-body .dm-vtime { flex: none; font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.75; }
+html body #cc-sheet-body .dm-log li { position: relative; }
+html body #cc-sheet-body .dm-log li.mine { padding-right: 34px; }
+html body #cc-sheet-body .dm-more { position: absolute; top: 4px; right: 2px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; color: inherit; opacity: 0.6; font-size: 18px; line-height: 1; }
+html body #cc-sheet-body .dm-menu { position: absolute; top: 34px; right: 2px; z-index: 6; display: grid; min-width: 140px; padding: 6px; border-radius: 14px; background: #1b1f1c; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); }
+html body #cc-sheet-body .dm-menu button { padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; box-shadow: none; color: #f5f2ea; font-size: 15px; font-weight: 600; text-align: left; }
+html body #cc-sheet-body .dm-menu button.danger { color: #ff8f8f; }
+html body #cc-sheet-body .dm-menu button:active { background: rgba(255, 255, 255, 0.08); }
+html body #cc-sheet-body .dm-edit { display: block; width: 100%; min-height: 64px; margin-top: 4px; padding: 8px 10px; border-radius: 12px; font: inherit; }
+html body #cc-sheet-body .dm-edit-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin: 6px 0; }
+html body #cc-sheet-body .dm-tray { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px; border-radius: 14px; background: rgba(0, 0, 0, 0.06); }
+html body #cc-sheet-body .dm-tray[hidden] { display: none; }
+html body #cc-sheet-body .dm-tray-img { flex: none; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; }
+html body #cc-sheet-body .dm-tray span { flex: 1; font-size: 13px; }
+
+/* Player profile: a header card with their character, status and badges; tiles at a glance; clear keys. */
+html body #cc-sheet-body .pf2-head { display: flex; gap: 14px; align-items: center; margin: 8px 0 12px; padding: 14px; border-radius: 20px; background: linear-gradient(135deg, #0c1c14 0%, #153526 60%, #1d4431 100%); color: #f5f2ea; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08); border: 1px solid rgba(233, 207, 142, 0.35); }
+html body #cc-sheet-body .pf2-pic { position: relative; flex: none; width: 96px; height: 112px; border-radius: 16px; overflow: hidden; background: #1b2420 no-repeat; background-size: 333px 175px; background-position: -43px -49px; box-shadow: 0 0 0 2px rgba(233, 207, 142, 0.7); }
+html body #cc-sheet-body .pf2-pic .pf-avatar svg { display: block; width: 96px; height: 112px; }
+html body #cc-sheet-body .pf2-dot { position: absolute; right: 6px; bottom: 6px; width: 14px; height: 14px; border-radius: 50%; background: #8a8f8b; box-shadow: 0 0 0 3px #0c1c14; }
+html body #cc-sheet-body .pf2-dot.on { background: #1af38f; }
+html body #cc-sheet-body .pf2-who { min-width: 0; }
+html body #cc-sheet-body .pf2-who h2 { margin: 0; font-size: 22px; line-height: 1.15; color: #fff; overflow-wrap: anywhere; }
+html body #cc-sheet-body .pf2-handle { margin: 2px 0 0; color: #b9c8bf; font-size: 14px; }
+html body #cc-sheet-body .pf2-status { margin: 6px 0 0; font-size: 13px; color: #c9d3cc; }
+html body #cc-sheet-body .pf2-status.on { color: #6cf7b6; font-weight: 600; }
+html body #cc-sheet-body .pf2-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+html body #cc-sheet-body .pf2-badge { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #f5f2ea; font-size: 12px; font-weight: 600; }
+html body #cc-sheet-body .pf2-badge.gold { background: rgba(233, 207, 142, 0.22); color: #f3dca0; }
+html body #cc-sheet-body .pf2-badge.friend { background: rgba(26, 243, 143, 0.18); color: #8ff7c6; }
+html body #cc-sheet-body .pf2-badge.job { background: rgba(120, 170, 255, 0.18); color: #c4d8ff; }
+html body #cc-sheet-body .pf2-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+html body #cc-sheet-body .pf2-stat { display: grid; gap: 2px; padding: 12px 8px; border-radius: 14px; text-align: center; background: color-mix(in srgb, currentColor 7%, transparent); }
+html body #cc-sheet-body .pf2-stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+html body #cc-sheet-body .pf2-stat span { font-size: 12px; opacity: 0.7; }
+html body #cc-sheet-body .pf2-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+html body #cc-sheet-body .pf2-key { min-height: 46px; padding: 10px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); background: color-mix(in srgb, currentColor 6%, transparent); color: inherit; font-size: 15px; font-weight: 700; }
+html body #cc-sheet-body .pf2-key.main { grid-column: 1 / -1; border: 0; background: linear-gradient(180deg, #3bfaa4 0%, #12c873 100%); color: #04160e; box-shadow: 0 6px 16px rgba(18, 200, 115, 0.35); }
+html body #cc-sheet-body .pf2-key:disabled { opacity: 0.6; }
+html body #cc-sheet-body .pf2-card { margin-top: 10px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, currentColor 5%, transparent); }
+html body #cc-sheet-body .pf2-card h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+html body #cc-sheet-body .pf2-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+html body #cc-sheet-body .pf2-chips li { padding: 6px 10px; border-radius: 10px; background: color-mix(in srgb, currentColor 8%, transparent); font-size: 13px; }
+html body #cc-sheet-body .pf2-chips.certs li { background: rgba(233, 207, 142, 0.25); }
+html body #cc-sheet-body .pf2-cv { display: inline-block; margin-top: 12px; font-weight: 700; color: #12a862; text-decoration: none; }
+
+/* Phones: the joystick sits bottom right, under the thumb; the action key and hints keep clear of it on the left. */
+html body.touch #stick { left: auto !important; right: max(16px, env(safe-area-inset-right)) !important; }
+html body.touch #dock, html body.touch .tools { left: max(12px, env(safe-area-inset-left)) !important; right: calc(max(12px, env(safe-area-inset-right)) + 128px) !important; }
+/* A menu panel (Messages, a profile) covers the city: the joystick steps aside so it never sits on the panel's keys. */
+html body.cc-sheet-on #stick { opacity: 0 !important; pointer-events: none !important; }
+/* Readable in both themes: the Edit / Delete menu and the profile header keep light text on their dark cards (the
+   repeated class outweighs the light theme's rule that turns all panel text dark). */
+html body #cc-sheet-body .dm-menu.dm-menu.dm-menu.dm-menu button { color: #f5f2ea !important; background: transparent !important; box-shadow: none !important; border: 0 !important; text-shadow: none !important; }
+html body #cc-sheet-body .dm-menu.dm-menu.dm-menu.dm-menu button.danger { color: #ff9a9a !important; }
+html body #cc-sheet-body .dm-edit-row button { white-space: nowrap; min-height: 40px; padding: 8px 16px; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head h2 { color: #ffffff !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-handle { color: #b9c8bf !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-status { color: #c9d3cc !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-status.on { color: #6cf7b6 !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-badge { color: #f5f2ea !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-badge.gold { color: #f3dca0 !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-badge.friend { color: #8ff7c6 !important; }
+html body #cc-sheet-body .pf2-head.pf2-head.pf2-head.pf2-head .pf2-badge.job { color: #c4d8ff !important; }
+/* Light theme: the Edit / Delete menu is a white card (its keys take the theme's dark text). */
+html[data-ui='light'] body #cc-sheet-body .dm-menu { background: #ffffff; box-shadow: 0 12px 32px rgba(30, 24, 14, 0.22), 0 0 0 1px rgba(40, 32, 20, 0.08); }
+html[data-ui='light'] body #cc-sheet-body .dm-menu button:active { background: rgba(0, 0, 0, 0.05) !important; }
+html body #cc-sheet-body .dm-menu { min-width: 180px; }
+html body #cc-sheet-body .dm-menu button { white-space: nowrap; }

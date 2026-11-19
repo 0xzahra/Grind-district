@@ -25,7 +25,7 @@ import { notify } from './notify.ts'
 import { note as personaNote } from './persona.ts'
 import './messages.css'
 
-type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null; media?: { kind: 'image' | 'voice'; url: string } }
+type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null; edited?: boolean; media?: { kind: 'image' | 'voice'; url: string } }
 type Attachment = { type: string; data: string }
 
 const toBase64 = (blob: Blob) => new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(blob) })
@@ -169,6 +169,37 @@ export async function openInbox(): Promise<void> {
   }
 }
 
+/** A voice note: play / pause, a bar you can drag to any point, and the time. (The browser's own player was
+ *  squeezed into a dot in the chat bubble, and recorded notes often report no length until fully loaded, which
+ *  made them impossible to scrub.) */
+function voicePlayer(url: string): HTMLElement {
+  const box = el('div', '', 'dm-voice')
+  const au = new Audio(); au.preload = 'metadata'; au.src = url
+  const play = el('button', '▶', 'dm-vplay'); play.type = 'button'; play.setAttribute('aria-label', 'Play voice note')
+  const bar = el('input', '', 'dm-vbar') as HTMLInputElement; bar.type = 'range'; bar.min = '0'; bar.max = '1000'; bar.value = '0'; bar.setAttribute('aria-label', 'Position in the voice note')
+  const time = el('span', '0:00', 'dm-vtime')
+  const fmt = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`
+  let len = 0, dragging = false
+  const known = () => Number.isFinite(au.duration) && au.duration > 0
+  au.addEventListener('loadedmetadata', () => {
+    if (known()) { len = au.duration; time.textContent = fmt(len); return }
+    // Length unknown (a recorded webm): jump far ahead once so the browser works it out, then come back.
+    const fix = () => { if (known()) { len = au.duration; au.currentTime = 0; time.textContent = fmt(len); au.removeEventListener('durationchange', fix) } }
+    au.addEventListener('durationchange', fix)
+    au.currentTime = 1e7
+  })
+  au.addEventListener('timeupdate', () => { if (!dragging && len) { bar.value = String(Math.round((au.currentTime / len) * 1000)); time.textContent = fmt(au.paused && au.currentTime === 0 ? len : au.currentTime) } })
+  au.addEventListener('play', () => { play.textContent = '❚❚'; play.setAttribute('aria-label', 'Pause') })
+  au.addEventListener('pause', () => { play.textContent = '▶'; play.setAttribute('aria-label', 'Play voice note') })
+  au.addEventListener('ended', () => { bar.value = '0'; time.textContent = fmt(len) })
+  play.onclick = () => { if (au.paused) void au.play().catch(() => undefined); else au.pause() }
+  bar.oninput = () => { dragging = true; if (len) time.textContent = fmt((Number(bar.value) / 1000) * len) }
+  bar.onchange = () => { dragging = false; if (len) au.currentTime = (Number(bar.value) / 1000) * len }
+  for (const ev of ['pointerdown', 'touchstart'] as const) bar.addEventListener(ev, (e) => e.stopPropagation(), { passive: true })
+  box.append(play, bar, time)
+  return box
+}
+
 export async function openThread(withUser: string): Promise<void> {
   if (!ctx) return
   const u = withUser.toLowerCase()
@@ -183,26 +214,73 @@ export async function openThread(withUser: string): Promise<void> {
   const back = el('button', '‹ All messages', 'cc-link'); back.type = 'button'; back.onclick = () => void openInbox()
   const prof = el('button', `View @${u}’s profile`, 'cc-link'); prof.type = 'button'; prof.onclick = () => void openProfile(u)
   const log = el('ol', '', 'dm-log')
-  const add = (l: Line) => {
-    const li = el('li', '', l.sender === r.data.me ? 'mine' : 'theirs')
+  const add = (l: Line, at?: Element) => {
+    const mine = l.sender === r.data.me
+    const li = el('li', '', mine ? 'mine' : 'theirs')
     if (l.media?.kind === 'image') {
       const img = el('img', '', 'dm-photo'); img.src = l.media.url; img.alt = 'Photo'; img.loading = 'lazy'
       img.onclick = () => window.open(l.media!.url, '_blank', 'noopener')
       li.append(img)
     } else if (l.media?.kind === 'voice') {
-      const au = el('audio', '', 'dm-voice'); au.controls = true; au.preload = 'none'; au.src = l.media.url
-      li.append(au)
+      li.append(voicePlayer(l.media.url))
     }
-    if (l.body) li.append(el('p', l.body))
-    li.append(el('time', when(l.created_at)))
+    const text = el('p', l.body)
+    if (l.body) li.append(text)
+    const stamp = el('time', `${when(l.created_at)}${l.edited ? ' · Edited' : ''}`)
+    li.append(stamp)
+    if (mine) {
+      // Your own message: Edit (words, for 24 hours) or Delete (for both of you).
+      const more = el('button', '⋯', 'dm-more'); more.type = 'button'; more.setAttribute('aria-label', 'Edit or delete this message')
+      more.onclick = (ev) => {
+        ev.stopPropagation()
+        li.querySelector('.dm-menu')?.remove()
+        const menu = el('div', '', 'dm-menu')
+        const canEdit = Date.now() - Date.parse(l.created_at) < 86_400_000
+        if (canEdit) {
+          const ed = el('button', '✏️  Edit', ''); ed.type = 'button'
+          ed.onclick = () => {
+            menu.remove()
+            const box = el('textarea', '', 'dm-edit') as HTMLTextAreaElement; box.value = l.body; box.maxLength = MAX; box.rows = 2
+            box.onkeydown = (e) => e.stopPropagation()
+            const save = el('button', 'Save', 'dm-primary'), cancel = el('button', 'Cancel', 'cc-link')
+            save.type = 'button'; cancel.type = 'button'
+            const row = el('div', '', 'dm-edit-row'); row.append(cancel, save)
+            text.hidden = true
+            li.insertBefore(box, stamp); li.insertBefore(row, stamp)
+            box.focus()
+            const done = () => { box.remove(); row.remove(); text.hidden = !l.body }
+            cancel.onclick = done
+            save.onclick = async () => {
+              save.disabled = true
+              const x = await api<{ line: Line }>('edit', { post: { id: l.id, text: box.value } })
+              if (!x.ok) { save.disabled = false; status.textContent = x.data.error ?? 'Could not edit'; return }
+              add(x.data.line, li); li.remove()
+            }
+          }
+          menu.append(ed)
+        }
+        const del = el('button', '🗑  Delete for both', 'danger'); del.type = 'button'
+        del.onclick = async () => {
+          menu.remove()
+          if (!confirm('Delete this message for both of you?')) return
+          const x = await api('delete', { post: { id: l.id } })
+          if (x.ok) li.remove(); else status.textContent = 'Could not delete the message'
+        }
+        menu.append(del)
+        li.append(menu)
+        const away = (e: Event) => { if (!menu.contains(e.target as Node)) { menu.remove(); document.removeEventListener('pointerdown', away, true) } }
+        window.setTimeout(() => document.addEventListener('pointerdown', away, true), 0)
+      }
+      li.append(more)
+    }
     if (l.sender !== r.data.me) {
       const rep = el('button', 'Report', 'dm-report'); rep.type = 'button'
       rep.onclick = async () => { if (!confirm(`Report this message from @${u}?`)) return; const x = await api('report', { post: { u, id: l.id, reason: 'message' } }); rep.textContent = x.ok ? 'Reported' : 'Failed'; rep.disabled = true }
       li.append(rep)
     }
-    log.append(li)
+    if (at) log.insertBefore(li, at); else log.append(li)
   }
-  r.data.lines.forEach(add)
+  r.data.lines.forEach((l) => add(l))
   if (!r.data.lines.length) log.append(el('li', `Say hi to @${u}. They get a notification.`, 'dm-empty'))
   const form = el('form', '', 'dm-form')
   const ta = el('textarea'); ta.maxLength = MAX; ta.rows = 2; ta.placeholder = `Message @${u}`; ta.setAttribute('aria-label', `Message @${u}`)
@@ -224,8 +302,16 @@ export async function openThread(withUser: string): Promise<void> {
     add(s.data.line); ta.value = ''; count.textContent = `0/${MAX}`
     log.scrollTop = log.scrollHeight
   }
-  form.onsubmit = (e) => { e.preventDefault(); void deliver() }
-  // Photo: pick or take one; it is resized here before it is sent.
+  // Photo: pick or take one; it shows here first (add words if you like), and goes when you tap Send.
+  let pending: Attachment | null = null
+  const tray = el('div', '', 'dm-tray'); tray.hidden = true
+  const clearTray = () => { pending = null; tray.hidden = true; tray.replaceChildren(); ta.placeholder = `Message @${u}` }
+  form.onsubmit = (e) => {
+    e.preventDefault()
+    const media = pending ?? undefined
+    if (media) clearTray()
+    void deliver(media)
+  }
   const tools = el('div', '', 'dm-tools')
   const pick = el('input'); pick.type = 'file'; pick.accept = 'image/*'; pick.hidden = true
   const photo = el('button', '📷 Photo', 'dm-tool'); photo.type = 'button'
@@ -233,7 +319,15 @@ export async function openThread(withUser: string): Promise<void> {
   pick.onchange = async () => {
     const f = pick.files?.[0]; pick.value = ''
     if (!f) return
-    try { await deliver(await photoAttachment(f)) } catch { status.textContent = 'That photo could not be sent. Try a smaller one.' }
+    try {
+      pending = await photoAttachment(f)
+      const img = el('img', '', 'dm-tray-img'); img.src = `data:${pending.type};base64,${pending.data}`; img.alt = 'Photo to send'
+      const rm = el('button', 'Remove', 'cc-link'); rm.type = 'button'; rm.onclick = clearTray
+      tray.replaceChildren(img, el('span', 'Add a caption, then tap Send.', 'cc-muted'), rm)
+      tray.hidden = false
+      ta.placeholder = 'Add a caption (optional)'
+      ta.focus({ preventScroll: true })
+    } catch { status.textContent = 'That photo could not be used. Try a smaller one.' }
   }
   tools.append(photo, pick)
   // Voice note: tap to record (up to a minute), tap again to send.
@@ -262,7 +356,7 @@ export async function openThread(withUser: string): Promise<void> {
     }
     tools.append(mic)
   }
-  form.append(ta, count, send, tools)
+  form.append(tray, ta, count, send, tools)
   window.setTimeout(() => ta.focus({ preventScroll: true }), 60)
   const safety = el('div', '', 'dm-safety')
   const block = el('button', r.data.blocked ? 'Unblock' : 'Block', 'cc-link'); block.type = 'button'
@@ -343,7 +437,9 @@ export async function emailAlerts(on?: boolean): Promise<{ on: boolean; ready: b
 export function mountMessages(c: Ctx): void {
   ctx = c
   // A tapped alert opens that conversation (fresh tab: ?dm=<user>; open tab: a message from the service worker).
-  const openFrom = (url: string) => { try { const u = new URL(url, location.href).searchParams.get('dm'); if (u) window.setTimeout(() => void openThread(u), 1500) } catch { /* */ } }
+  // Through the game's own deep link (main.ts follow), which opens the menu panel the conversation lives in: opened
+  // straight here it was drawn inside the closed menu, so a tapped alert showed nothing.
+  const openFrom = (url: string) => { try { const u = new URL(url, location.href).searchParams.get('dm'); if (u) window.setTimeout(() => window.dispatchEvent(new CustomEvent('gd:follow', { detail: `dm:${u}` })), 1500) } catch { /* */ } }
   openFrom(location.href)
   navigator.serviceWorker?.addEventListener?.('message', (e: MessageEvent) => { if (e.data?.type === 'gd-open') openFrom(String(e.data.url ?? '')) })
   // Keep this device's subscription fresh once alerts are on.
@@ -476,41 +572,62 @@ export async function openProfile(username: string): Promise<void> {
   if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load profile.', 'cc-muted')); return }
   const p = r.data.profile
   const here = presence?.find(u) ?? null
-  const head = el('div', '', 'pf-head')
-  const info = el('div')
-  info.append(el('strong', p.name || `@${u}`), el('p', `@${u}`, 'cc-muted'))
-  const badges = el('div', '', 'pf-badges')
-  const badge = (t: string, cls = '') => badges.append(el('span', t, `pf-badge ${cls}`))
-  badge(here ? 'Online · in the city' : p.seen ? `Seen ${when(p.seen)}` : 'Offline', here ? 'on' : '')
-  if (p.agent) badge(`Agent · ${p.agent}`, 'agent')
-  if (p.rank) badge(p.rank)
+  // Header card: their character (from the photo card they made in the game, when there is one), name, where they
+  // are, and badges. Public view only: rank, job and reputation; never a balance, wallet or purchases.
+  const head = el('div', '', 'pf2-head')
+  const pic = el('div', '', 'pf2-pic')
+  pic.append(silhouette(p))
+  const base = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  if (base) {
+    const card = new Image()
+    card.onload = () => { pic.replaceChildren(); pic.style.backgroundImage = `url("${card.src}")`; pic.classList.add('card') }
+    card.src = `${base}/storage/v1/object/public/invite-cards/${u}.jpg`
+  }
+  const dot = el('span', '', `pf2-dot${here ? ' on' : ''}`); pic.append(dot)
+  const who = el('div', '', 'pf2-who')
+  who.append(el('h2', p.name || `@${u}`), el('p', `@${u}`, 'pf2-handle'))
+  who.append(el('p', here ? 'Online now · in the city' : p.seen ? `Last seen ${when(p.seen)}` : 'Offline', `pf2-status${here ? ' on' : ''}`))
+  const badges = el('div', '', 'pf2-badges')
+  const badge = (t: string, cls = '') => badges.append(el('span', t, `pf2-badge ${cls}`))
   if (p.job) badge(p.job, 'job')
-  if (r.data.friend === 'friends') badge('Friend')
-  if (r.data.inParty) badge('In your party')
-  if (p.streak >= 3) badge(`${p.streak}-day streak`)
-  if (p.reputation >= 1000) badge('Trusted')
-  info.append(badges)
-  head.append(silhouette(p), info)
-  const sheet = el('div', '', 'pf-sheet')
-  // Public view: rank, job and reputation only. A player's balance, wallet, needs and purchases stay private.
-  sheet.append(el('h3', 'Career sheet'), el('p', `Rank: ${p.rank || 'New'}${p.job ? ` · ${p.job}` : ''} · Reputation ${p.reputation.toLocaleString()}`))
-  sheet.append(el('h3', 'Courses on CV'))
-  if (p.skills.length) { const ul = el('ul', '', 'pf-skills'); for (const s of p.skills) ul.append(el('li', s)); sheet.append(ul) }
-  else sheet.append(el('p', 'No courses completed yet.', 'cc-muted'))
-  sheet.append(el('h3', 'Pinned certificates'))
-  if (p.pinned.length) { const ul = el('ul', '', 'pf-certs'); for (const s of p.pinned) ul.append(el('li', s)); sheet.append(ul) }
-  else sheet.append(el('p', 'Nothing pinned.', 'cc-muted'))
-  const acts = el('div', '', 'pf-actions'); const st = el('p', '', 'cc-muted')
-  const btn = (t: string, fn: () => Promise<unknown> | void, cls = 'dm-primary') => { const b = el('button', t, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; try { await fn() } finally { b.disabled = false } }; acts.append(b); return b }
+  if (p.rank) badge(p.rank)
+  if (p.agent) badge(`Agent · ${p.agent}`, 'agent')
+  if (r.data.friend === 'friends') badge('Friend', 'friend')
+  if (r.data.inParty) badge('In your party', 'friend')
+  if (p.streak >= 3) badge(`🔥 ${p.streak}-day streak`)
+  if (p.reputation >= 1000) badge('✓ Trusted', 'gold')
+  who.append(badges)
+  head.append(pic, who)
+  // At a glance.
+  const stats = el('div', '', 'pf2-stats')
+  const stat = (n: string, label: string) => { const t = el('div', '', 'pf2-stat'); t.append(el('b', n), el('span', label)); stats.append(t) }
+  stat(p.reputation.toLocaleString(), 'Reputation')
+  stat(String(p.skills.length), p.skills.length === 1 ? 'Course passed' : 'Courses passed')
+  stat(String(p.pinned.length), p.pinned.length === 1 ? 'Certificate' : 'Certificates')
+  // What you can do with them.
+  const acts = el('div', '', 'pf2-actions'); const st = el('p', '', 'cc-muted')
+  const btn = (t: string, fn: () => Promise<unknown> | void, cls = 'pf2-key') => { const b = el('button', t, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; try { await fn() } finally { b.disabled = false } }; acts.append(b); return b }
   if (!r.data.self) {
-    btn('Message', () => { void openThread(u) })
-    const fl = { none: 'Add friend', outgoing: 'Request sent', incoming: 'Accept friend', friends: 'Friends ✓' }[r.data.friend]
-    const fb = btn(fl, async () => { const x = await api<{ status?: string }>('friend', { post: { u, action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? `You and @${u} are friends.` : 'Friend request sent.') : (x.data.error ?? 'Failed'); if (x.ok) fb.textContent = x.data.status === 'accepted' ? 'Friends ✓' : 'Request sent' }, 'cc-link')
-    if (r.data.friend === 'friends' || r.data.friend === 'outgoing') fb.disabled = true, fb.onclick = null
-    if (!r.data.inParty) btn('Invite to party', async () => { const x = await api('party_invite', { post: { u } }); st.textContent = x.ok ? `Party invite sent to @${u}.` : (x.data.error === 'Invite friends only' ? 'Add them as a friend first: only friends can be invited.' : (x.data.error ?? 'Failed')) }, 'cc-link')
-    if (here) btn('Find on map', () => { window.dispatchEvent(new CustomEvent('gd-find', { detail: { u, ...here } })) }, 'cc-link')
-    if (here) btn('Go near them', () => { const at = presence?.find(u); if (at) window.dispatchEvent(new CustomEvent('gd-teleport', { detail: { ...at, who: u } })); else st.textContent = `@${u} just left the city.` }, 'cc-link')
-  } else acts.append(el('p', 'This is you.', 'cc-muted'))
+    btn('💬 Message', () => { void openThread(u) }, 'pf2-key main')
+    const fl = { none: '＋ Add friend', outgoing: 'Request sent', incoming: '✓ Accept friend', friends: 'Friends ✓' }[r.data.friend]
+    const fb = btn(fl, async () => { const x = await api<{ status?: string }>('friend', { post: { u, action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? `You and @${u} are friends.` : 'Friend request sent.') : (x.data.error ?? 'Failed'); if (x.ok) fb.textContent = x.data.status === 'accepted' ? 'Friends ✓' : 'Request sent' })
+    if (r.data.friend === 'friends' || r.data.friend === 'outgoing') { fb.disabled = true; fb.onclick = null }
+    if (!r.data.inParty) btn('🎉 Invite to party', async () => { const x = await api('party_invite', { post: { u } }); st.textContent = x.ok ? `Party invite sent to @${u}.` : (x.data.error === 'Invite friends only' ? 'Add them as a friend first: only friends can be invited.' : (x.data.error ?? 'Failed')) })
+    if (here) btn('📍 Find on map', () => { window.dispatchEvent(new CustomEvent('gd-find', { detail: { u, ...here } })) })
+    if (here) btn('🚶 Go near them', () => { const at = presence?.find(u); if (at) window.dispatchEvent(new CustomEvent('gd-teleport', { detail: { ...at, who: u } })); else st.textContent = `@${u} just left the city.` })
+  } else acts.append(el('p', 'This is how other players see you.', 'cc-muted'))
+  // Their CV.
+  const sheet = el('div', '', 'pf2-sheet')
+  const section = (title: string, items: string[], empty: string, cls: string) => {
+    const card = el('section', '', 'pf2-card'); card.append(el('h3', title))
+    if (items.length) { const ul = el('ul', '', `pf2-chips ${cls}`); for (const t of items) ul.append(el('li', t)); card.append(ul) }
+    else card.append(el('p', empty, 'cc-muted'))
+    sheet.append(card)
+  }
+  section('Courses on their CV', p.skills, r.data.self ? 'Pass a course at Campus and it lands here.' : 'No courses yet. Everyone starts at Campus with Zahra.', 'skills')
+  section('Pinned certificates', p.pinned, r.data.self ? 'Pin a certificate from your Profile to show it here.' : 'Nothing pinned yet.', 'certs')
+  const cv = el('a', 'View full CV ↗', 'pf2-cv') as HTMLAnchorElement; cv.href = `/cv/${u}`; cv.target = '_blank'; cv.rel = 'noopener'
+  sheet.append(cv)
   const back = el('button', '‹ Messages', 'cc-link'); back.type = 'button'; back.onclick = () => void openInbox()
-  body.replaceChildren(back, head, acts, st, sheet)
+  body.replaceChildren(back, head, stats, acts, st, sheet)
 }

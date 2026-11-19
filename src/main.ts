@@ -954,6 +954,7 @@ const apiAgents = createRemoteAgents(scene)
     return false
   }
   setNoteFollow(follow)
+  window.addEventListener('gd:follow', (e) => { follow(String((e as CustomEvent).detail ?? '')) })
   const openSheet = (title: string, fill: () => void) => {
     sheetTitle.textContent = title
     ccSheet.hidden = false; document.body.classList.add('cc-sheet-on')
