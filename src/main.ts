@@ -50,7 +50,7 @@ import { setLookRenderer } from './lookShots.ts'
 import { createStreetProps } from './props.ts'
 import { createStreetscape } from './streetscape.ts'
 import { applyPrefs } from './prefs.ts'
-import { createCrowd, label as nameLabel } from './npcs.ts'
+import { createCrowd, label as nameLabel, type CrowdInfo } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket, spendInGame, bonusXp, isAccountBound } from './state.ts'
@@ -1375,6 +1375,18 @@ const apiAgents = createRemoteAgents(scene)
       ui.open('shared', { shared, peer: { shot, partial: !full, onMessage: () => { setCC(true); void openThread(shared.u || p.username) } } })
     } finally { peerBusy = false; peerTarget = null }
   }
+  // Tapped resident: their public profile (full-body shot, who they are, what they study, how well you know them).
+  const openResident = (n: CrowdInfo) => {
+    npcCard?.remove(); npcCard = null
+    peerTarget = n.object
+    let shot: string | null = null
+    try { shot = peerShot() } catch { shot = null } finally { peerTarget = null }
+    void import('./residentProfile.ts').then((m) => m.openResidentProfile(n, {
+      shot, toast: (t) => ui.toast(t),
+      friend: () => import('./town.ts').then((town) => ({ level: town.LEVELS[town.levelOf(n.name)] ?? 'Stranger', hello: () => town.hello(n.name), gift: () => town.gift(n.name) })),
+    }))
+  }
+  void showNpcCard
   chat.addEventListener('submit', (event) => {
     event.preventDefault()
     net.setMe(identity())
@@ -1987,7 +1999,7 @@ const apiAgents = createRemoteAgents(scene)
   bakeWhenStill = () => { if (!satelliteUrl() && !indoors() && !document.body.classList.contains('rail-shut')) { try { bake() } catch { /* vector map */ } } }
   let debugView: [number[], number[]] | null = null
   let clearAir = 1
-  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __res: () => +renderer.getPixelRatio().toFixed(3), __scene: () => scene, __facing: () => { const p = (avatar.object.userData.person as THREE.Object3D | undefined) ?? avatar.object; const v = new THREE.Vector3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())); return { root: +avatar.object.rotation.y.toFixed(3), body: +Math.atan2(v.x, v.z).toFixed(3), move: Math.hypot(vel.x, vel.z) > 0.3 ? +Math.atan2(vel.x, vel.z).toFixed(3) : null, speed: +Math.hypot(vel.x, vel.z).toFixed(2) } }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
+  if (import.meta.env.DEV && location.search.includes('debugmap')) Object.assign(window, { __view: (p?: number[], t?: number[]) => { debugView = p && t ? [p, t] : null; introT = 1 }, __clearAir: (k: number) => { clearAir = k }, __skyline: (on: boolean) => skyline.show(on), __hide: (name: string, on = false) => { const o = scene.getObjectByName(name); if (o) o.visible = on; return !!o }, __res: () => +renderer.getPixelRatio().toFixed(3), __scene: () => scene, __facing: () => { const p = (avatar.object.userData.person as THREE.Object3D | undefined) ?? avatar.object; const v = new THREE.Vector3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())); return { root: +avatar.object.rotation.y.toFixed(3), body: +Math.atan2(v.x, v.z).toFixed(3), move: Math.hypot(vel.x, vel.z) > 0.3 ? +Math.atan2(vel.x, vel.z).toFixed(3) : null, speed: +Math.hypot(vel.x, vel.z).toFixed(2) } }, __setGraphics: (g: Graphics) => { setGraphics(g); applyGraphics() }, __npcs: () => crowd.debug(), __tapNpc: (i: number) => { const n = crowd.debug()[i]; if (!n) return null; const rc = new THREE.Raycaster(new THREE.Vector3(n.x + 3, 1.1, n.z), new THREE.Vector3(-1, 0, 0)); const hit = crowd.pick(rc); if (hit) openResident(hit); return hit?.name ?? null }, __info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }), __open: (p: string) => ui.open(p as Parameters<typeof ui.open>[0]), __pick: (sx: number, sy: number) => {
     const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((sx / innerWidth) * 2 - 1, -(sy / innerHeight) * 2 + 1), camera)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
@@ -2166,7 +2178,7 @@ const apiAgents = createRemoteAgents(scene)
       if (inHome && homes!.arranging) homes!.arrangeTap(raycaster, groundHit ? tapPoint.clone() : null)
       else if (zahraHit) { if (!mentor.isOpen() && !ui.isOpen()) mentor.hello() }
       else if (tapped) void openPeer(tapped)
-      else if (npc) showNpcCard(npc)
+      else if (npc) openResident(npc)
       else if (groundHit) {
         target = tapPoint.clone()
         const room = interiors.bounds() ?? (homes?.inside ? homes.bounds() : null)
@@ -2530,7 +2542,7 @@ const apiAgents = createRemoteAgents(scene)
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-6 * dt))
       camera.updateProjectionMatrix()
     }
-    net.tick(dt, { x: pos.x, z: pos.z, yaw: 0, moving, act: seating.sitting })
+    net.tick(dt, { x: pos.x, z: pos.z, yaw: faceYaw, moving, act: seating.sitting, vx: vel.x, vz: vel.z })
     mapAcc += dt
     if (mapAcc > 0.1) { mapAcc = 0; drawMap() } // minimap at 10 Hz is plenty
     saveAcc += dt

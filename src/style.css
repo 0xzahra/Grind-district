@@ -3832,6 +3832,29 @@ html[data-ui='light'] #gd-modal .gm-key:not(.gm-go) { background: var(--key-ivor
 html[data-ui='light'] #gd-modal .pt-ask, html[data-ui='light'] #gd-modal .pt-tick, html[data-ui='light'] #gd-modal .pt-li span { color: #6b655a; }
 html[data-ui='light'] #gd-modal .pt-flag, html[data-ui='light'] #gd-modal .pt-err, html[data-ui='light'] #gd-modal .pt-tick.pt-dead { color: #c4283a; }
 
+/* A resident's public profile (residentProfile.ts): portrait beside the facts, then about, tags, courses, quotes. */
+#gd-modal .rp-card { width: min(520px, 100%); }
+#gd-modal .rp-top { display: grid; grid-template-columns: minmax(0, 130px) 1fr; gap: 14px; margin-top: 12px; align-items: start; }
+#gd-modal .rp-top:not(:has(.rp-shot)) { grid-template-columns: 1fr; }
+#gd-modal .rp-shot { width: 100%; aspect-ratio: 3 / 5; object-fit: cover; border-radius: 14px; background: linear-gradient(180deg, #3a3d44, #1d1f24); border: 1px solid rgba(255, 255, 255, 0.08); }
+#gd-modal .rp-facts { display: grid; gap: 8px; }
+#gd-modal .rp-fact { display: grid; gap: 1px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
+#gd-modal .rp-fact span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(246, 241, 230, 0.55); }
+#gd-modal .rp-fact b { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+#gd-modal .rp-h { margin: 14px 0 4px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #06ee74; }
+#gd-modal .rp-about { margin: 0; font-size: 14px; line-height: 1.45; }
+#gd-modal .rp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#gd-modal .rp-tag { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(6, 238, 116, 0.12); color: #9ff5c6; }
+#gd-modal .rp-list { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 13.5px; }
+#gd-modal .rp-quotes p { margin: 0 0 4px; font-size: 13.5px; font-style: italic; color: rgba(246, 241, 230, 0.85); }
+#gd-modal .rp-note { margin-top: 10px; }
+@media (max-width: 420px) { #gd-modal .rp-top { grid-template-columns: 104px 1fr; } }
+html[data-ui='light'] #gd-modal .rp-fact { background: rgba(0, 0, 0, 0.04); }
+html[data-ui='light'] #gd-modal .rp-fact span { color: #6b655a; }
+html[data-ui='light'] #gd-modal .rp-h { color: #04803f; }
+html[data-ui='light'] #gd-modal .rp-tag { background: rgba(4, 128, 63, 0.1); color: #04803f; }
+html[data-ui='light'] #gd-modal .rp-quotes p { color: #3d392f; }
+
 /* Your Web3 personality (persona.ts) in Profile: tappable lines that open to show the evidence. */
 .persona .ps-title { margin: 2px 0 2px; font-size: 21px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; }
 .persona .ps-note, .persona .ps-small { font-size: 12px; }

@@ -167,14 +167,24 @@ function pixelsAt(t: Template, detail: number): Promise<{ base: ImageData; mask:
     p = pixels(t).then((px) => {
       if (!px) return null
       const w = Math.max(1, Math.round(px.base.width * detail)), h = Math.max(1, Math.round(px.base.height * detail))
+      // Resampled in plain JS: drawing through a canvas and reading it back (getImageData) forced a GPU sync
+      // that stalled frames for a moment per figure on phones. Smooth = box average; mask = nearest pixel.
       const shrink = (src: ImageData, smooth: boolean) => {
-        const from = document.createElement('canvas'); from.width = src.width; from.height = src.height
-        from.getContext('2d')!.putImageData(src, 0, 0)
-        const to = document.createElement('canvas'); to.width = w; to.height = h
-        const g = to.getContext('2d', { willReadFrequently: true })!
-        g.imageSmoothingEnabled = smooth; if (smooth) g.imageSmoothingQuality = 'high'
-        g.drawImage(from, 0, 0, w, h)
-        return g.getImageData(0, 0, w, h)
+        const out = new ImageData(w, h), d = out.data, s = src.data, sw = src.width, sh = src.height
+        const fx = sw / w, fy = sh / h
+        for (let y = 0; y < h; y++) {
+          const y0 = Math.floor(y * fy), y1 = smooth ? Math.max(y0 + 1, Math.min(sh, Math.floor((y + 1) * fy))) : y0 + 1
+          const yc = Math.min(sh - 1, Math.floor((y + 0.5) * fy))
+          for (let x = 0; x < w; x++) {
+            const o = (y * w + x) * 4
+            if (!smooth) { const i = (yc * sw + Math.min(sw - 1, Math.floor((x + 0.5) * fx))) * 4; d[o] = s[i]!; d[o + 1] = s[i + 1]!; d[o + 2] = s[i + 2]!; d[o + 3] = s[i + 3]!; continue }
+            const x0 = Math.floor(x * fx), x1 = Math.max(x0 + 1, Math.min(sw, Math.floor((x + 1) * fx)))
+            let r = 0, g = 0, b = 0, a = 0, n = 0
+            for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const i = (yy * sw + xx) * 4; r += s[i]!; g += s[i + 1]!; b += s[i + 2]!; a += s[i + 3]!; n++ }
+            d[o] = r / n; d[o + 1] = g / n; d[o + 2] = b / n; d[o + 3] = a / n
+          }
+        }
+        return out
       }
       return { base: shrink(px.base, true), mask: shrink(px.mask, false) }
     })
@@ -553,6 +563,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       person.scale.setScalar((opts.height ?? 1.74) / t.height)
       const mesh = person.getObjectByName('Person') as THREE.SkinnedMesh
       mesh.castShadow = true; mesh.receiveShadow = false; mesh.frustumCulled = false
+      mesh.raycast = bodyRaycast; mesh.userData.bodyRoot = person; mesh.userData.bodyH = opts.height ?? 1.74
       paint(mesh, t, look, detail)
       person.updateMatrixWorld(true)
       const inv = new THREE.Matrix4().copy(person.matrixWorld).invert()
@@ -653,6 +664,26 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
   mount(figure(model, first), first)
 }
 
+// Rays (the camera's wall check every frame, taps) meet a person as a body-sized capsule of spheres, not their
+// skinned triangles: three.js skins every vertex on the CPU to test a SkinnedMesh, and the camera ray starts at
+// the player's own head, so it paid that for the player's body (and anyone close) on every frame.
+const rayTmp = new THREE.Vector3(), rayHit = new THREE.Vector3(), raySphere = new THREE.Sphere()
+function bodyRaycast(this: THREE.Object3D, rc: THREE.Raycaster, out: THREE.Intersection[]): void {
+  const root = (this.userData.bodyRoot as THREE.Object3D | undefined) ?? this
+  root.getWorldPosition(rayTmp)
+  const h = (this.userData.bodyH as number | undefined) ?? 1.74
+  let best: THREE.Intersection | null = null
+  for (const f of [0.22, 0.5, 0.78]) {
+    raySphere.center.set(rayTmp.x, rayTmp.y + h * f, rayTmp.z); raySphere.radius = h * 0.17
+    const p = rc.ray.intersectSphere(raySphere, rayHit)
+    if (!p) continue
+    const d = rc.ray.origin.distanceTo(p)
+    if (d < rc.near || d > rc.far || (best && d >= best.distance)) continue
+    best = { distance: d, point: p.clone(), object: this }
+  }
+  if (best) out.push(best)
+}
+
 // Shared per-frame view info for mixer LOD (set once per frame by the render loop; no allocations per person).
 const viewFrustum = new THREE.Frustum()
 const viewMat = new THREE.Matrix4()
@@ -727,6 +758,7 @@ export function posedHuman(model: HumanModel, o: { pose: 'stand' | 'pray' | 'kne
     mesh.castShadow = true
     mesh.frustumCulled = false
     mesh.userData.template = t
+    mesh.raycast = bodyRaycast; mesh.userData.bodyRoot = person; mesh.userData.bodyH = o.height ?? 1.74
     const painted = paint(mesh, t, look, o.detail ?? 0.5)
     root.add(person)
     // Start from a moment of the idle clip: weight on both feet, arms hanging naturally.

@@ -21,13 +21,19 @@ import { createSeating, type Seat } from './seating.ts'
 export const HEAR_RADIUS = 12
 const peerRingGeo = new THREE.RingGeometry(0.42, 0.52, 28)
 const peerRingMat = new THREE.MeshBasicMaterial({ color: 0xd9b26a, transparent: true, opacity: 0.7, depthWrite: false, fog: false })
-const SEND_HZ = 5
+// Positions go out 8 times a second while you move or change pose, and as a 2.5 s heartbeat while you stand still
+// (so an idle crowd costs almost nothing). Each one carries your velocity, so the receiver can keep the body moving
+// smoothly between packets instead of easing toward stale points (that read as lag: surges, stops, gait flicker).
+const SEND_HZ = 8
+const IDLE_BEAT = 2.5
+const LEAD_MAX = 0.4
 const BUBBLE_MS = 7000
 const MAX_TEXT = 140
 
 export type Me = { name: string; username: string; body: BodyId; tint: number }
-type Wire = { id: string; name: string; username: string; body: BodyId; tint: number; x: number; z: number; yaw: number; moving: boolean; act?: Seat | null }
-type Peer = Wire & { seating?: ReturnType<typeof createSeating>; actKey?: string; avatar: Avatar; tx: number; tz: number; seen: number; lastX: number; lastZ: number }
+type Wire = { id: string; name: string; username: string; body: BodyId; tint: number; x: number; z: number; yaw: number; moving: boolean; act?: Seat | null; vx?: number; vz?: number }
+type Peer = Wire & { seating?: ReturnType<typeof createSeating>; actKey?: string; avatar: Avatar; tx: number; tz: number; vx: number; vz: number; seen: number; lastX: number; lastZ: number }
+export type MeNow = { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null; vx?: number; vz?: number }
 
 export type Net = {
   online: () => boolean
@@ -36,7 +42,7 @@ export type Net = {
   /** Upload a short voice note to Storage and broadcast its URL to nearby players. */
   sayVoice: (blob: Blob, seconds: number) => Promise<void>
   canVoice: () => boolean
-  tick: (dt: number, me: { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null }) => void
+  tick: (dt: number, me: MeNow) => void
   setMe: (me: Me) => void
   /** Peer under a ray (tap), or null. */
   /** Where a player is in the city right now (by username), or null if not in this city. */
@@ -130,7 +136,9 @@ export function createNet(options: {
   const id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const peers = new Map<string, Peer>()
   let me = options.me
-  let pos: { x: number; z: number; yaw: number; moving: boolean; act?: Seat | null } = { x: 0, z: 0, yaw: 0, moving: false }
+  let pos: MeNow = { x: 0, z: 0, yaw: 0, moving: false }
+  let sentKey = ''
+  let sinceSent = 0
   let channel: import('@supabase/supabase-js').RealtimeChannel | null = null
   let connected = false
   let storage: import('@supabase/supabase-js').SupabaseClient | null = null
@@ -155,7 +163,7 @@ export function createNet(options: {
       avatar.object.add(ring)
       avatar.object.position.set(wire.x, 0, wire.z)
       options.scene.add(avatar.object)
-      peer = { ...wire, avatar, tx: wire.x, tz: wire.z, seen: performance.now(), lastX: wire.x, lastZ: wire.z }
+      peer = { ...wire, avatar, tx: wire.x, tz: wire.z, vx: 0, vz: 0, seen: performance.now(), lastX: wire.x, lastZ: wire.z }
       peers.set(wire.id, peer)
     }
     if (peer.tint !== wire.tint) peer.avatar.setStyle(wire.tint, false)
@@ -164,9 +172,17 @@ export function createNet(options: {
     const act = wire.act && typeof wire.act.x === 'number' ? { x: +wire.act.x, z: +wire.act.z, yaw: +wire.act.yaw || 0, y: Math.min(1.2, Math.max(0, +wire.act.y || 0)), pose: (['sit', 'lie', 'workout'] as const).find((k) => k === wire.act!.pose) ?? 'sit' } : null
     const key = act ? `${act.x.toFixed(2)},${act.z.toFixed(2)},${act.pose}` : ''
     if (key !== (peer.actKey ?? '')) { peer.seating ??= createSeating(); peer.seating.stand(); if (act) peer.seating.sit(act, peer.avatar.object); peer.actKey = key }
-    peer.tx = wire.x
-    peer.tz = wire.z
-    peer.seen = performance.now()
+    const nx = Number(wire.x) || 0, nz = Number(wire.z) || 0, at = performance.now()
+    // Velocity: trust it only within a sane walking/running range. Older clients send none: estimate it from
+    // the last two positions instead.
+    let vx = Number(wire.vx), vz = Number(wire.vz)
+    if (wire.vx === undefined) { const gap = Math.max(0.05, (at - peer.seen) / 1000); vx = (nx - peer.tx) / gap; vz = (nz - peer.tz) / gap }
+    const v = Math.hypot(vx, vz)
+    const ok = Number.isFinite(v) && v < 14 && wire.moving
+    peer.vx = ok ? vx : 0; peer.vz = ok ? vz : 0
+    peer.tx = nx
+    peer.tz = nz
+    peer.seen = at
   }
 
   const drop = (peerId: string) => {
@@ -284,11 +300,17 @@ export function createNet(options: {
       void channel.send({ type: 'broadcast', event: 'voice', payload: { id, url: publicUrl, x: pos.x, z: pos.z, name: me.name, s: seconds } })
     },
     tick(dt, self) {
-      pos = self
+      pos = { ...self, vx: Math.round((self.vx ?? 0) * 100) / 100, vz: Math.round((self.vz ?? 0) * 100) / 100, x: Math.round(self.x * 100) / 100, z: Math.round(self.z * 100) / 100, yaw: Math.round(self.yaw * 100) / 100 }
       sendAcc += dt
+      sinceSent += dt
       if (connected && channel && sendAcc > 1 / SEND_HZ) {
         sendAcc = 0
-        void channel.send({ type: 'broadcast', event: 'pos', payload: wire() })
+        // Moving: every tick. Standing: only when the pose, seat or facing changed, or as a heartbeat.
+        const key = `${pos.moving ? 1 : 0}|${pos.act ? `${pos.act.x},${pos.act.z},${pos.act.pose}` : ''}|${Math.round(pos.yaw * 4)}|${Math.round(pos.x * 2)},${Math.round(pos.z * 2)}`
+        if (pos.moving || key !== sentKey || sinceSent > IDLE_BEAT) {
+          sentKey = key; sinceSent = 0
+          void channel.send({ type: 'broadcast', event: 'pos', payload: wire() })
+        }
       }
       const now = performance.now()
       for (const [peerId, peer] of peers) {
@@ -297,16 +319,22 @@ export function createNet(options: {
           continue
         }
         const object = peer.avatar.object
-        const glide = 1 - Math.exp(-8 * dt)
-        object.position.x += (peer.tx - object.position.x) * glide
-        object.position.z += (peer.tz - object.position.z) * glide
-        const dx = object.position.x - peer.lastX
-        const dz = object.position.z - peer.lastZ
+        // Where they are now: the last position plus their velocity since it arrived (capped, so a dropped
+        // packet never sends anyone sailing off), then a firm spring toward it. Far jumps (a teleport) snap.
+        const lead = Math.min(LEAD_MAX, (now - peer.seen) / 1000)
+        const gx = peer.tx + peer.vx * lead, gz = peer.tz + peer.vz * lead
+        if (Math.hypot(gx - object.position.x, gz - object.position.z) > 6) object.position.set(gx, object.position.y, gz)
+        else {
+          const k = 1 - Math.exp(-12 * dt)
+          object.position.x += (gx - object.position.x) * k
+          object.position.z += (gz - object.position.z) * k
+        }
         peer.lastX = object.position.x
         peer.lastZ = object.position.z
-        const speed = Math.hypot(dx, dz) / Math.max(dt, 0.001)
-        const moving = speed > 0.3
-        peer.avatar.face(dx, dz, dt, moving)
+        const speed = Math.hypot(peer.vx, peer.vz)
+        const moving = peer.moving && speed > 0.3 && !peer.actKey
+        if (moving) peer.avatar.face(peer.vx, peer.vz, dt, true)
+        else if (!peer.actKey) peer.avatar.face(Math.sin(peer.yaw), Math.cos(peer.yaw), dt, true)
         peer.avatar.step(dt, moving, speed)
         peer.seating?.apply(object, dt)
         // Far players stay drawn, but their plate and bubble only show within earshot.

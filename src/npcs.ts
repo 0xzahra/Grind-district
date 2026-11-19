@@ -140,7 +140,7 @@ function bubble(text: string): THREE.Sprite {
   return sp
 }
 
-export type CrowdInfo = { name: string; trait: string; routine: string; doing: string }
+export type CrowdInfo = { name: string; trait: string; routine: string; doing: string; lines: string[]; object: THREE.Object3D }
 // Residents further than this from the camera are too small on screen to be a deliberate tap.
 const PICK_RANGE = 30
 const segA = new THREE.Vector3()
@@ -271,7 +271,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const along = bodyHit(ray.ray, p.sim.x, p.sim.z)
         if (along !== null && along < bestD) {
           const per = persona(people[i]!)
-          bestD = along; best = { name: per.name, trait: per.trait, routine: per.routine, doing: doing(p, i) }
+          bestD = along; best = { name: per.name, trait: per.trait, routine: per.routine, doing: doing(p, i), lines: per.lines, object: p.avatar.object }
         }
       }
       return best
