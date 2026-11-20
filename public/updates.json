@@ -128,6 +128,12 @@
       "body": "Chats and the Messages list now show each player's own character as their picture. A chat fills the screen with a slim message bar, and Add friend, Block and Report sit on the player's profile: tap their name at the top of a chat.",
       "go": "messages",
       "push": false
+    },
+    {
+      "id": "u1120-masjid",
+      "title": "New: the Grand Masjid and prayer times",
+      "body": "A grand masjid with a golden dome, blue tiles and two minarets now stands by the basin. The five daily prayers show in real time for your city, with Jumuʿah on Fridays: open the menu, tap Prayer, and turn on reminders so you never miss one.",
+      "go": "panel:prayertimes"
     }
   ]
 }

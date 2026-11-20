@@ -22,6 +22,7 @@ import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
 import { publishProfile, setCharacterSource } from './share.ts'
+import { startPrayerReminders } from './prayer.ts'
 import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer, setStepSource, setUpgradeCard } from './career.ts'
 import { JOBS } from './careerData.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
@@ -654,6 +655,7 @@ const apiAgents = createRemoteAgents(scene)
   must('#nav-city').addEventListener('click', () => ui.open('city'))
   must('#nav-settings').addEventListener('click', () => ui.open('settings'))
   document.getElementById('nav-seasons')?.addEventListener('click', () => ui.open('seasons'))
+  document.getElementById('nav-prayer')?.addEventListener('click', () => ui.open('prayertimes'))
   // Click-to-travel: tap a spot on the map and arrive outside the nearest door.
   const travelTo = (spot: Hotspot) => {
     if (interiors.inside) leaveRoom()
@@ -1285,6 +1287,20 @@ const apiAgents = createRemoteAgents(scene)
     requestAnimationFrame(() => b.classList.add('in'))
     bannerTimer = window.setTimeout(() => { b.classList.remove('in'); window.setTimeout(() => { b.remove(); if (banner === b) banner = null }, 400) }, 7000)
   }
+  // Prayer reminders (prayer.ts, opt-in on the Masjid card): the same banner, with the crescent; tap for the times.
+  startPrayerReminders((title, line) => {
+    banner?.remove(); window.clearTimeout(bannerTimer); banner = null
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'note-banner pt-banner'
+    b.setAttribute('aria-label', `${title}. Open prayer times.`)
+    const icon = el('span', '', 'nb-bell'); icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.2A8.5 8.5 0 1 0 20.8 15 7 7 0 0 1 15.5 3.2Z"/></svg>'
+    const text = el('span', '', 'nb-text'); text.append(el('b', title), el('span', line, 'nb-line'))
+    b.append(icon, text, el('span', 'Times', 'nb-go'))
+    b.onclick = () => { b.remove(); ui.open('prayertimes') }
+    document.querySelector('.pt-banner')?.remove()
+    document.body.append(b)
+    requestAnimationFrame(() => b.classList.add('in'))
+    window.setTimeout(() => { b.classList.remove('in'); window.setTimeout(() => b.remove(), 400) }, 15000)
+  })
   window.setInterval(() => {
     const n = unreadCount()
     const msgUnread = must('#msg-btn').classList.contains('unread')
@@ -1298,7 +1314,8 @@ const apiAgents = createRemoteAgents(scene)
     // The banner: only in the open city (not over the menu, a panel, the title, a selfie or a skit).
     const clear = performance.getEntriesByName('gd:revealed').length > 0 && document.body.classList.contains('rail-shut') && !ui.isOpen() && ccSheet.hidden
       && !document.body.classList.contains('selfie-mode') && !document.getElementById('sk-bar') && !document.querySelector('.mentor:not([hidden])')
-    if (!clear) return
+    // A prayer reminder on screen keeps its place; the notifications banner waits for it to go.
+    if (!clear || document.querySelector('.pt-banner')) return
     if (n > 0 && (seenUnread < 0 || n > seenUnread)) showBanner(n)
     seenUnread = n
   }, 800)

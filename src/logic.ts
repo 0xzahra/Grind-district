@@ -107,6 +107,7 @@ export type PanelId =
   | 'gym'
   | 'church'
   | 'prayer'
+  | 'prayertimes'
   | 'cafe'
   | 'house'
   | 'city'

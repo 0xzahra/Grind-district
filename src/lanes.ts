@@ -30,7 +30,7 @@ export const FOOTPRINTS: Footprint[] = [
   { x: 22, z: -22, w: 8, d: 7, label: 'Boutique' },
   { x: -22, z: -22, w: 8, d: 8, label: 'Gym' },
   { x: 24, z: 24.5, w: 9, d: 17, label: 'Church' },
-  { x: -24, z: 25, w: 10.5, d: 13, label: 'Masjid' },
+  { x: -19.8, z: 32.8, w: 12.8, d: 27.2, label: 'Masjid' },
   { x: 36, z: 32, w: 7, d: 6, label: 'Your house' },
   { x: 52, z: 18, w: 6, d: 5, label: 'Notes house' },
   { x: 52, z: 28, w: 6, d: 5, label: 'Set house' },

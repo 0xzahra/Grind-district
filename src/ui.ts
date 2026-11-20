@@ -48,6 +48,7 @@ import type { Extras, HumanModel, Look } from './humans.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import { languagePicker } from './i18n.ts'
 import { renderCalendar } from './calendar.ts'
+import { prayerNodes } from './prayer.ts'
 import { speak, stopSpeaking } from './speech.ts'
 import {
   BODIES,
@@ -1480,13 +1481,18 @@ export function mountUi(
         ])
       case 'prayer':
         return renderSimple('Masjid', [
-          para('A bench, stones, and no questions about what you believe.'),
-          para('Sitting puts focus on the next course you pass.'),
+          ...prayerNodes({ para, button }, { rerender: () => open('prayer'), toast }),
+          para('Sit a while: quiet focus for the next course you pass.', 'muted'),
           button('Sit', 'primary', () => {
             const outcome = sitPrayer()
             finish(outcome.message, outcome.rankedUp)
             open('prayer')
           }),
+        ])
+      case 'prayertimes':
+        return renderSimple('Prayer times', [
+          ...prayerNodes({ para, button }, { rerender: () => open('prayertimes'), toast }),
+          button('Walk to the Grand Masjid', 'ghost', () => { close(); hooks.travel?.('Masjid', true) }),
         ])
       case 'cafe':
         return renderSimple('The room', [

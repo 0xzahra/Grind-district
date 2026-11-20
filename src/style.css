@@ -4192,3 +4192,37 @@ html body #cc-sheet-body .pf2-pic .av { box-shadow: 0 0 0 3px rgba(233, 207, 142
 html body #cc-sheet-body .pf2-pic:has(.av) .pf2-dot { right: 4px; bottom: 6px; }
 html body #cc-sheet-body .pf2-safety { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
 html body #cc-sheet-body .pf2-danger { min-height: 40px; padding: 8px 14px !important; border-radius: 12px !important; border: 1px solid rgba(229, 72, 77, 0.35) !important; background: rgba(229, 72, 77, 0.08) !important; box-shadow: none !important; color: #c8333a !important; text-shadow: none !important; font-weight: 700; font-size: 14px; }
+
+/* ---------- Prayer times (prayer.ts) ---------- */
+html body :is(#sheet, #cc-sheet-body) .pt-card { position: relative; overflow: hidden; margin: 0 0 4px; padding: 16px 16px 12px; border-radius: 20px; border: 1px solid rgba(233, 207, 142, 0.45); background: radial-gradient(120% 90% at 100% 0%, rgba(233, 207, 142, 0.22), transparent 55%), linear-gradient(160deg, #0f3a2c 0%, #0b2a20 55%, #08201a 100%); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08); color: #f4efe2; }
+html body :is(#sheet, #cc-sheet-body) .pt-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.08; background-image: radial-gradient(circle at 50% 50%, #e9cf8e 0 2px, transparent 2.5px); background-size: 22px 22px; }
+html body :is(#sheet, #cc-sheet-body) .pt-head { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+html body :is(#sheet, #cc-sheet-body) .pt-lead { display: grid; gap: 2px; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card small { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: #cbbf9c !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-lead b { font: 800 24px/1.15 var(--sys, system-ui), sans-serif; color: #ffffff !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-count { font-size: 14px; font-weight: 600; color: #e9cf8e !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-moon { flex: none; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #fff3cf, #e9c46a 55%, #b8862b); box-shadow: 0 0 0 3px rgba(233, 207, 142, 0.25), 0 6px 16px rgba(0, 0, 0, 0.35); }
+html body :is(#sheet, #cc-sheet-body) .pt-moon svg { width: 26px; height: 26px; fill: #0f3a2c; stroke: none; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-hijri { position: relative; margin: 6px 0 10px; font-size: 13px; color: #d9cfb3 !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-list { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); color: #f4efe2 !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-name { display: flex; align-items: baseline; gap: 8px; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-name b { font: 700 16px/1.2 var(--sys, system-ui), sans-serif; color: #ffffff !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-name i { font-style: normal; font-size: 15px; color: #cbbf9c !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list time { font: 700 16px/1 var(--sys, system-ui), sans-serif; font-variant-numeric: tabular-nums; color: #ffffff !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list li.past { opacity: 0.55; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list li.rise { padding-top: 6px; padding-bottom: 6px; background: transparent; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list li.rise :is(b, time) { font-size: 13px; font-weight: 600; color: #cbbf9c !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list li.next { opacity: 1; background: linear-gradient(90deg, #f1d58e, #d9a73e); box-shadow: 0 4px 14px rgba(217, 167, 62, 0.35); }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-list li.next :is(b, time, i) { color: #1c2a17 !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-card.pt-card.pt-card.pt-card .pt-where { position: relative; margin: 10px 2px 0; font-size: 12px; color: #b9c8bf !important; }
+html body :is(#sheet, #cc-sheet-body) .pt-note { margin: 6px 0; padding: 10px 12px; border-radius: 14px; border-left: 3px solid #d9a73e; background: rgba(217, 167, 62, 0.12); font-size: 14px; }
+html body :is(#sheet, #cc-sheet-body) .pt-toggle { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 12px 14px; border-radius: 14px; background: rgba(18, 200, 115, 0.1); border: 1px solid rgba(18, 200, 115, 0.35); font-weight: 700; cursor: pointer; }
+html body :is(#sheet, #cc-sheet-body) .pt-toggle input { width: 20px; height: 20px; accent-color: #12b86a; flex: none; }
+html body :is(#sheet, #cc-sheet-body) .pt-set { margin-top: 4px; border-radius: 14px; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); padding: 10px 12px; }
+html body :is(#sheet, #cc-sheet-body) .pt-set summary { cursor: pointer; font-weight: 700; }
+html body :is(#sheet, #cc-sheet-body) .pt-set-grid { display: grid; gap: 8px; margin: 10px 0 6px; }
+html body :is(#sheet, #cc-sheet-body) .pt-set-grid select { width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); background: color-mix(in srgb, currentColor 5%, transparent); color: inherit; font: 15px var(--sys, system-ui), sans-serif; }
+html body :is(#sheet, #cc-sheet-body) .pt-set-grid label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-top: 4px; }
+.note-banner.pt-banner .nb-bell { background: radial-gradient(circle at 35% 30%, #fff3cf, #e9c46a 55%, #b8862b); }
+.note-banner.pt-banner .nb-bell svg { width: 22px; height: 22px; fill: #0f3a2c; }

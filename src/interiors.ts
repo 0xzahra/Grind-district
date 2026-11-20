@@ -32,7 +32,7 @@ export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = 
   house: { spot: 'yours', cx: 36, cz: 32 },
   gym: { spot: 'gym', cx: -22, cz: -22 },
   boutique: { spot: 'boutique', cx: 22, cz: -22 },
-  mosque: { spot: 'prayer', cx: -24, cz: 27 },
+  mosque: { spot: 'prayer', cx: -19.8, cz: 39.6 },
   trading: { spot: 'trade', cx: -48, cz: 0 },
   campus: { spot: 'learn', cx: 0, cz: -48 },
   studio: { spot: 'bounty', cx: 48, cz: 0 },

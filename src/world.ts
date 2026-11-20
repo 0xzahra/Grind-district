@@ -12,6 +12,7 @@ import { createDrinkStand } from './drinkStand.ts'
 import { facetMap, paintFacets } from './facets.ts'
 import { createTrees, foliageMaterial } from './trees.ts'
 import { groundDetail } from './groundDetail.ts'
+import { buildGrandMosque, MASJID } from './grandMosque.ts'
 
 export type Hotspot = {
   id: string
@@ -70,6 +71,7 @@ export function districtName(x: number, z: number): string {
   if (Math.hypot(x + 48, z) < 22) return 'Trading floor'
   if (Math.hypot(x - 48, z) < 22) return 'Influencer row'
   if (Math.hypot(x, z - 48) < 22) return 'Mempool'
+  if (x > MASJID.x0 && x < MASJID.x1 && z > MASJID.z0 && z < MASJID.z1) return 'The Masjid'
   if (Math.hypot(x + 40, z - 40) < 14) return 'The basin'
   if (z < -16 && Math.abs(x) < 8) return 'Campus'
   if (x < -16 && Math.abs(z) < 8) return 'Trading floor'
@@ -634,6 +636,15 @@ export function createWorld(options: {
   architecture.flush(scene)
   buildShowroom(scene, { obstacles, pavilion: { x: -20, z: 15.8, w: 5.4, d: 4.2 }, dealer: dealerAt })
 
+  // Grand Masjid (grandMosque.ts): golden dome, tiled hall, arcaded courtyard, two minarets by the street gate.
+  // Built before the walkways so its gate gets a paved path to the road and other paths keep off it.
+  const grandMasjid = buildGrandMosque(anisotropy)
+  scene.add(grandMasjid.group)
+  obstacles.push(...grandMasjid.obstacles)
+  reserved.push({ kind: 'box', x: (MASJID.x0 + MASJID.x1) / 2, z: (MASJID.z0 + MASJID.z1) / 2, hx: (MASJID.x1 - MASJID.x0) / 2 + 0.8, hz: (MASJID.z1 - MASJID.z0) / 2 + 0.8 })
+  doors.push({ x: MASJID.gate.x, z: MASJID.gate.z, own: grandMasjid.obstacles[0]! })
+  spot('prayer', MASJID.door.x, MASJID.door.z, 1.6, 'Masjid', 'The Grand Masjid. Go inside to the prayer hall; today’s prayer times are on the card.', 'prayer', 'Go inside')
+
   // Walkways: every door gets a paved path to the nearest road or to a path laid before it.
   // Paths are routed around building footprints and the basin, and trees keep off them.
   {
@@ -765,95 +776,6 @@ export function createWorld(options: {
     }
   }
 
-  // Masjid: white stone prayer hall with a central dome, a tall minaret with a crescent, arched entrance
-  // and windows, and a walled courtyard. Walk-in (door trigger -> 3D prayer hall in interiors.ts).
-  const masjid = new THREE.Group()
-  const MX = -24
-  const MZ = 27
-  masjid.position.set(MX, 0, MZ)
-  const white = new THREE.MeshStandardMaterial({ color: 0xf1ece2, roughness: 0.85 })
-  white.map = facetMap(23, 2, 0.08, 1, anisotropy)
-  const domeMat = new THREE.MeshStandardMaterial({ color: 0xe9e3d6, roughness: 0.5, metalness: 0.05 })
-  const prayerHall = solid(new THREE.BoxGeometry(10, 5, 9), white)
-  prayerHall.position.set(0, 2.5, 1.5)
-  const drum = solid(new THREE.CylinderGeometry(3.0, 3.0, 1.2, 24), white)
-  drum.position.set(0, 5.6, 1.5)
-  const dome = solid(new THREE.SphereGeometry(3.0, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), domeMat)
-  dome.position.set(0, 6.2, 1.5)
-  const finial = solid(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 6), trim, false)
-  finial.position.set(0, 9.6, 1.5)
-  masjid.add(prayerHall, drum, dome, finial)
-  // Minaret with balcony and crescent.
-  const minaret = solid(new THREE.CylinderGeometry(0.75, 0.9, 14, 12), white)
-  minaret.position.set(4.6, 7, -3.4)
-  const balcony = solid(new THREE.CylinderGeometry(1.15, 1.0, 0.35, 14), stoneDark)
-  balcony.position.set(4.6, 11.2, -3.4)
-  const cap = solid(new THREE.ConeGeometry(0.8, 2.2, 12), domeMat)
-  cap.position.set(4.6, 15.1, -3.4)
-  const crescent = solid(new THREE.TorusGeometry(0.32, 0.06, 6, 18, Math.PI * 1.45), trim, false)
-  crescent.position.set(4.6, 16.75, -3.4)
-  crescent.rotation.z = Math.PI * 0.27
-  masjid.add(minaret, balcony, cap, crescent)
-  // Arched entrance (north) and arched windows.
-  const archTex = paint(128, 192, (c) => {
-    c.fillStyle = '#f1ece2'; c.fillRect(0, 0, 128, 192)
-    c.fillStyle = '#2c2a26'
-    c.beginPath(); c.moveTo(16, 192); c.lineTo(16, 70); c.quadraticCurveTo(64, -10, 112, 70); c.lineTo(112, 192); c.fill()
-    c.strokeStyle = '#c9a25e'; c.lineWidth = 6; c.stroke()
-  })
-  const archMat = new THREE.MeshStandardMaterial({ map: archTex, roughness: 0.7 })
-  const door = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 3.3), archMat)
-  door.position.set(0, 1.65, 1.5 - 4.52)
-  door.rotation.y = Math.PI
-  masjid.add(door)
-  for (const x of [-3.4, 3.4]) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.7), archMat)
-    w.position.set(x, 2.6, 1.5 - 4.52)
-    w.rotation.y = Math.PI
-    masjid.add(w)
-  }
-  for (const z of [-0.5, 2.0, 4.5]) for (const side of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.7), archMat)
-    w.position.set(side * 5.02, 2.6, z)
-    w.rotation.y = side * Math.PI / 2
-    masjid.add(w)
-  }
-  // Courtyard: low walls with a gap at the gate, paving, and a small fountain for wudu.
-  const yard = solid(new THREE.BoxGeometry(10, 0.05, 5), stone, false)
-  yard.position.set(0, 0.03, -5.6)
-  yard.userData.ghost = true
-  const wallW = new THREE.BoxGeometry(0.35, 1.0, 5)
-  for (const x of [-5, 5]) {
-    const wl = solid(wallW, white)
-    wl.position.set(x, 0.5, -5.6)
-    masjid.add(wl)
-    obstacles.push({ kind: 'box', x: MX + x, z: MZ - 5.6, hx: 0.3, hz: 2.55 })
-  }
-  for (const x of [-3.3, 3.3]) {
-    const wl = solid(new THREE.BoxGeometry(3.4, 1.0, 0.35), white)
-    wl.position.set(x, 0.5, -8.1)
-    masjid.add(wl)
-    obstacles.push({ kind: 'box', x: MX + x, z: MZ - 8.1, hx: 1.75, hz: 0.3 })
-  }
-  const fountain = solid(new THREE.CylinderGeometry(0.7, 0.8, 0.5, 16), white)
-  fountain.position.set(-3.2, 0.25, -5.6)
-  obstacles.push({ kind: 'circle', x: MX - 3.2, z: MZ - 5.6, r: 0.85 })
-  masjid.add(yard, fountain)
-  // Signpost.
-  const signPost = solid(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 6), stoneDark)
-  signPost.position.set(1.8, 1.2, -8.6)
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.42), new THREE.MeshStandardMaterial({ map: paint(256, 80, (c) => {
-    c.fillStyle = '#14110e'; c.fillRect(0, 0, 256, 80); c.strokeStyle = '#c9a25e'; c.lineWidth = 4; c.strokeRect(4, 4, 248, 72)
-    c.fillStyle = '#f2ece0'; c.font = '600 40px -apple-system, BlinkMacSystemFont, "Inter Variable", Inter, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('MASJID', 128, 42)
-  }), roughness: 0.6 }))
-  plate.position.set(1.8, 2.2, -8.62)
-  plate.rotation.y = Math.PI
-  masjid.add(signPost, plate)
-  scene.add(masjid)
-  obstacles.push({ kind: 'box', x: MX, z: MZ + 1.5, hx: 5.15, hz: 4.65 })
-  obstacles.push({ kind: 'circle', x: MX + 4.6, z: MZ - 3.4, r: 1.0 })
-  reserved.push({ kind: 'box', x: MX, z: MZ - 1.5, hx: 7, hz: 8 })
-  spot('prayer', MX, MZ - 3.9, 1.6, 'Masjid', 'Prayer hall. Sit quietly to focus before your next course.', 'prayer', 'Go inside')
 
   const screenOf = (key: 'unit' | 'meme', x: number, z: number, rotationY: number) => {
     const canvas = document.createElement('canvas')
@@ -1128,6 +1050,7 @@ export function createWorld(options: {
     waterMat.emissiveIntensity = night ? 0.4 : 0.08
     architecture.setNight(night ? 1 : dusk ? 0.35 : 0)
     drinkStand.setNight(night ? 1 : dusk ? 0.35 : 0)
+    grandMasjid.setNight(night ? 1 : dusk ? 0.35 : 0)
     for (const light of glow) light.intensity = night ? Number(light.userData.night) : dusk ? Number(light.userData.night) * 0.35 : 0
     moon.visible = night || dusk
     stars.visible = night
