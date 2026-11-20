@@ -20,7 +20,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { loadSkinPermissions } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
-import { MAP_LIMIT } from './minimap.ts'
+import { MAP_LIMIT, satelliteCanvas } from './minimap.ts'
 import { publishProfile, setCharacterSource } from './share.ts'
 import { startPrayerReminders } from './prayer.ts'
 import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer, setStepSource, setUpgradeCard } from './career.ts'
@@ -41,7 +41,7 @@ import type { Ride, RideOpts } from './ride.ts'
 import type { Homes, AreaId } from './homes.ts'
 import type { Metro, StationId } from './metro.ts'
 import { setHomeInView, type HomeId, type StyleId } from './homesShop.ts'
-import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPortraitMaker, setPresence } from './messages.ts'
+import { dmUnread, mountMessages, openInbox, openThread, openProfile, playerPic, setPortraitMaker, setPresence } from './messages.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
@@ -484,7 +484,7 @@ const apiAgents = createRemoteAgents(scene)
     window.clearTimeout(gpuTimer); gpuNote?.remove(); gpuNote = null
     // The reflected light every surface gets (an environment map drawn on the GPU) went with the context: without
     // it the whole city turns dark under a bright sky. Draw it again, then the effects stack and the shaders.
-    try { applyEnvironment(renderer, scene); post.recover(); applyGraphics() } catch (e) { console.warn('[grind] restore', e) }
+    try { applyEnvironment(renderer, scene, true); post.recover(); applyGraphics() } catch (e) { console.warn('[grind] restore', e) }
   })
   const applyBody = () => {
     const save = getSave()
@@ -657,29 +657,83 @@ const apiAgents = createRemoteAgents(scene)
   document.getElementById('nav-seasons')?.addEventListener('click', () => ui.open('seasons'))
   document.getElementById('nav-prayer')?.addEventListener('click', () => ui.open('prayertimes'))
   // Click-to-travel: tap a spot on the map and arrive outside the nearest door.
-  const travelTo = (spot: Hotspot) => {
+  // Picking a place on the map: a "Going to" card shows the city from above with your route to it and a dot
+  // travelling along, then you arrive (it used to jump there with only a toast, so you never saw where it went).
+  const goingCard = (title: string, from: { x: number; z: number }, to: { x: number; z: number }, ms = 1500): Promise<void> => new Promise((done) => {
+    document.getElementById('going')?.remove()
+    const card = document.createElement('div'); card.id = 'going'; card.className = 'going'; card.setAttribute('role', 'status')
+    const W = 520, H = 280, cv = document.createElement('canvas'); cv.width = W; cv.height = H
+    const g = cv.getContext('2d')!
+    const cx = (from.x + to.x) / 2, cz = (from.z + to.z) / 2
+    const vw = Math.max(46, Math.abs(from.x - to.x) * 1.45, Math.abs(from.z - to.z) * 1.45 * (W / H)), vh = vw * (H / W)
+    const sx = (x: number) => ((x - (cx - vw / 2)) / vw) * W, sy = (z: number) => ((z - (cz - vh / 2)) / vh) * H
+    const base = () => {
+      const sat = satelliteCanvas()
+      if (sat) { const k = sat.width / (2 * MAP_LIMIT); g.drawImage(sat, (cx - vw / 2 + MAP_LIMIT) * k, (cz - vh / 2 + MAP_LIMIT) * k, vw * k, vh * k, 0, 0, W, H) }
+      else { g.fillStyle = '#4b5a50'; g.fillRect(0, 0, W, H) }
+      g.fillStyle = 'rgba(6, 12, 9, 0.28)'; g.fillRect(0, 0, W, H)
+    }
+    const m = Math.round(Math.hypot(to.x - from.x, to.z - from.z))
+    const words = document.createElement('div'); words.className = 'going-t'
+    const kick = document.createElement('small'); kick.textContent = 'Going to'
+    const name = document.createElement('b'); name.textContent = title
+    const dist = document.createElement('span'); dist.textContent = `${m} m away`
+    words.append(kick, name, dist)
+    card.append(cv, words)
+    document.body.append(card)
+    requestAnimationFrame(() => card.classList.add('in'))
+    const t0 = performance.now()
+    const frame = () => {
+      if (!card.isConnected) return
+      const u = Math.min(1, (performance.now() - t0) / (ms * 0.85))
+      base()
+      g.setLineDash([10, 9]); g.lineWidth = 5; g.lineCap = 'round'; g.strokeStyle = 'rgba(255, 255, 255, 0.85)'
+      g.beginPath(); g.moveTo(sx(from.x), sy(from.z)); g.lineTo(sx(to.x), sy(to.z)); g.stroke(); g.setLineDash([])
+      g.strokeStyle = '#3bfaa4'; g.lineWidth = 6
+      g.beginPath(); g.moveTo(sx(from.x), sy(from.z)); g.lineTo(sx(from.x + (to.x - from.x) * u), sy(from.z + (to.z - from.z) * u)); g.stroke()
+      // Destination pin and the moving dot.
+      const px = sx(to.x), py = sy(to.z)
+      g.fillStyle = '#e8b545'; g.beginPath(); g.arc(px, py - 18, 13, Math.PI * 0.85, Math.PI * 2.15); g.lineTo(px, py); g.closePath(); g.fill()
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(px, py - 18, 5, 0, Math.PI * 2); g.fill()
+      const dx = sx(from.x + (to.x - from.x) * u), dy = sy(from.z + (to.z - from.z) * u)
+      g.fillStyle = 'rgba(59, 250, 164, 0.35)'; g.beginPath(); g.arc(dx, dy, 15, 0, Math.PI * 2); g.fill()
+      g.fillStyle = '#12c873'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(dx, dy, 8, 0, Math.PI * 2); g.fill(); g.stroke()
+      if (u < 1) requestAnimationFrame(frame)
+    }
+    frame()
+    window.setTimeout(() => { done(); card.classList.remove('in'); window.setTimeout(() => card.remove(), 400) }, ms)
+  })
+  const travelTo = (spot: Hotspot, then?: () => void) => {
     if (interiors.inside) leaveRoom()
     const len = Math.hypot(spot.x, spot.z) || 1
     const step = Math.min(2.4, len)
     ui.close()
-    hooksTeleport(spot.x - (spot.x / len) * step, spot.z - (spot.z / len) * step)
-    ui.setPlace(districtName(pos.x, pos.z))
-    ui.toast(`Travelled to ${spot.title}.`)
+    const tx = spot.x - (spot.x / len) * step, tz = spot.z - (spot.z / len) * step
+    const arrive = () => {
+      hooksTeleport(tx, tz)
+      ui.setPlace(districtName(pos.x, pos.z))
+      ui.toast(`You are at ${spot.title}.`)
+      then?.()
+    }
+    target = null
+    if (Math.hypot(tx - pos.x, tz - pos.z) < 6 || homes?.inside) { arrive(); return }
+    void goingCard(spot.title, { x: pos.x, z: pos.z }, { x: spot.x, z: spot.z }).then(arrive)
   }
   travelHook = (title, enter) => {
     const spot = findSpot(title)
     if (!spot) { ui.toast(`Couldn't find ${title} on the map.`); return }
-    travelTo(spot)
-    if (!enter) return
-    if (interiors.roomFor(spot.id)) enterRoom(spot)
-    else if (spot.action) ui.open(spot.action as Parameters<typeof ui.open>[0])
+    travelTo(spot, () => {
+      if (!enter) return
+      if (interiors.roomFor(spot.id)) enterRoom(spot)
+      else if (spot.action) ui.open(spot.action as Parameters<typeof ui.open>[0])
+    })
   }
   // Test hook: ?room=<hotspot id|action> walks you into that room after boot. Only moves the local player.
   const roomParam = new URLSearchParams(location.search).get('room')
   if (roomParam) Object.assign(window, { __roomObstacles: () => ({ obs: interiors.obstacles(), r: PLAYER_R, at: { ...pos } }) }) // read-only, for the walk-path check
   if (roomParam) window.setTimeout(() => {
     const spot = world.hotspots.find((h) => (h.id === roomParam || h.action === roomParam) && interiors.roomFor(h.id))
-    if (spot) { travelTo(spot); enterRoom(spot) }
+    if (spot) travelTo(spot, () => enterRoom(spot))
   }, 1500)
   map.addEventListener('click', (event) => {
     const rect = map.getBoundingClientRect()
@@ -1222,6 +1276,21 @@ const apiAgents = createRemoteAgents(scene)
   window.setTimeout(awayCheck, 4000)
   window.setInterval(() => { if (document.visibilityState === 'visible') markSeen() }, 30_000)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') markSeen(); else awayCheck() })
+  // Back from a locked screen or another app: many phones quietly wipe what the GPU drew once (the reflected light
+  // every surface gets) without reporting a lost context, and the city came back dark under a bright sky. Draw it
+  // again whenever the game returns after a few seconds away, on the next frame (cheap, and only then).
+  {
+    let hiddenAt = 0
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = performance.now(); return }
+      if (!hiddenAt || performance.now() - hiddenAt < 2500) return
+      hiddenAt = 0
+      requestAnimationFrame(() => {
+        if (renderer.getContext().isContextLost()) return // the restore handler redraws it when the context is back
+        try { applyEnvironment(renderer, scene, true); post.recover() } catch (e) { console.warn('[grind] resume', e) }
+      })
+    })
+  }
   window.addEventListener('pagehide', () => markSeen())
   setUpgradeCard(() => {
     const card = el('div', '', 'cr-card fw-card')
@@ -1506,6 +1575,7 @@ const apiAgents = createRemoteAgents(scene)
     find: (u) => { const at = net.findPeer(u); if (at) window.dispatchEvent(new CustomEvent('gd-find', { detail: { u, x: at.x, z: at.z } })); else ui.toast(`@${u} is somewhere else right now.`) },
     toast: (t) => ui.toast(t),
     dance: () => { if (seating.sitting) seating.stand(); setDance(true); ui.toast('Dancing · move to stop') },
+    pic: (u, name, size, here) => playerPic(u, name, size, here),
   })) }
   document.getElementById('nav-players')?.addEventListener('click', openPlayersPanel)
   window.addEventListener('gd:players', openPlayersPanel)
@@ -1694,8 +1764,7 @@ const apiAgents = createRemoteAgents(scene)
     const spot = world.hotspots.find((h) => h.house === 'yours' && interiors.roomFor(h.id))
     if (!spot) { ui.toast('Your house is on the east row.'); return }
     setCC(false)
-    travelTo(spot)
-    enterRoom(spot)
+    travelTo(spot, () => enterRoom(spot))
   }
   must('#go-home').addEventListener('click', goHome)
   must('#cc-needs').addEventListener('click', () => openSheet('Needs & mood', () => renderNeeds(sheetBody, goHome)))
@@ -1712,6 +1781,32 @@ const apiAgents = createRemoteAgents(scene)
     if (event.key === 'm' || event.key === 'M') { if (!document.body.classList.contains('rail-shut')) setCC(false); must<HTMLButtonElement>('#nav-city').click() }
   })
   let busyFor = 0
+  let busyTotal = 0
+  let actTitle = ''
+  let actEl: HTMLElement | null = null
+  let actShown = ''
+  const actClock = (title: string, left: number, total: number) => {
+    if (!title) {
+      const e = actEl; actEl = null; actShown = ''
+      if (e) { e.classList.remove('in'); window.setTimeout(() => e.remove(), 300) }
+      return
+    }
+    if (!actEl) {
+      actEl = document.createElement('div'); actEl.className = 'act-clock'; actEl.setAttribute('role', 'timer')
+      actEl.innerHTML = '<span class="ac-ring"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/><circle class="ac-fill" cx="18" cy="18" r="15"/></svg></span><span class="ac-t"><b></b><small></small></span>'
+      document.body.append(actEl)
+      const e = actEl; requestAnimationFrame(() => e.classList.add('in'))
+    }
+    const secs = Math.max(0, Math.ceil(left))
+    const key = `${title}|${secs}`
+    if (key === actShown) return
+    actShown = key
+    actEl.querySelector('b')!.textContent = title
+    actEl.querySelector('small')!.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} left`
+    const fill = actEl.querySelector<SVGCircleElement>('.ac-fill')!, c = 2 * Math.PI * 15
+    fill.style.strokeDasharray = `${c}`
+    fill.style.strokeDashoffset = `${c * (1 - Math.min(1, Math.max(0, left / Math.max(0.01, total))))}`
+  }
   let exitCooldown = 0
   performance.mark('gd:ui-net')
   const interiors = createInteriors(scene, {
@@ -1724,6 +1819,7 @@ const apiAgents = createRemoteAgents(scene)
       // Get up first: an action started from a chair or the bed is done standing.
       if (seating.sitting) seating.stand()
       busyFor = seconds
+      busyTotal = seconds
       pos.x = x
       pos.z = z
       faceYaw = yaw
@@ -1798,9 +1894,26 @@ const apiAgents = createRemoteAgents(scene)
     cupTimer = 60
   }
   let streetDoor = { x: 0, z: 0 }
+  // The first visit to a room builds it (walls, furniture, people) and its shaders: on a phone that is a freeze of
+  // a second or more. So the screen fades to black first, the room is built and its shaders prepared behind it,
+  // and then it fades in. Later visits are instant.
+  let roomBusy = false
   const enterRoom = (doorSpot: Hotspot) => {
     const room = interiors.roomFor(doorSpot.id)
     if (!room) return false
+    if (roomBusy) return true
+    if (interiors.isBuilt(room)) return stepInto(doorSpot, room)
+    roomBusy = true
+    const veil = document.createElement('div'); veil.className = 'room-fade'; document.body.append(veil)
+    requestAnimationFrame(() => veil.classList.add('on'))
+    const done = () => { veil.classList.remove('on'); window.setTimeout(() => veil.remove(), 320); roomBusy = false }
+    window.setTimeout(() => {
+      try { stepInto(doorSpot, room) } catch (e) { console.warn('[grind] room', e); done(); return }
+      void Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((r) => window.setTimeout(r, 1500))]).then(done)
+    }, 240)
+    return true
+  }
+  const stepInto = (doorSpot: Hotspot, room: NonNullable<ReturnType<typeof interiors.roomFor>>) => {
     notePlace(room)
     streetDoor = { x: doorSpot.x, z: doorSpot.z }
     const at = interiors.enter(room)
@@ -2406,6 +2519,14 @@ const apiAgents = createRemoteAgents(scene)
 
     exitCooldown = Math.max(0, exitCooldown - dt)
     busyFor = Math.max(0, busyFor - dt)
+    // Activity clock: a ride (the carousel, the wheel, the coaster...) or a timed action shows what it is and how
+    // long is left, so nobody wonders how long they are in for.
+    {
+      const mv = homes?.inside ? homes.moveClock : null
+      if (mv && mv.dur > 3) { actTitle ||= spot?.title || 'On the ride'; actClock(actTitle, mv.dur - mv.t, mv.dur) }
+      else if (busyFor > 0.3 && busyTotal >= 3) { actTitle ||= spot?.title || 'Busy'; actClock(actTitle, busyFor, busyTotal) }
+      else if (actTitle) { actTitle = ''; actClock('', 0, 1) }
+    }
     if (!paused && frame.interact) {
       if (seating.sitting && seating.sitting !== rideSeat) { seating.stand() }
       else if (seating.sitting === rideSeat) { /* riding: the ride brings you back */ }

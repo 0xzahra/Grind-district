@@ -1,7 +1,7 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
-import { EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia } from './_dmMedia.js'
+import { attachUploaded, EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia, uploadSlot } from './_dmMedia.js'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { verifyNearLogin, nearUserId, type NearProof } from './_nearAuth.js'
 import { broadcastUpdate, cleanSub, emailOff, emailToken, notifyMessage, nudgeLapsed, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
@@ -135,6 +135,14 @@ export default async function handler(req: Req, res: Res) {
     const peer = { name: (pp.data?.name as string | undefined) ?? '', seen: (pp.data?.updated_at as string | undefined) ?? null, char: ((pp.data?.look ?? {}) as { char?: unknown }).char ?? null }
     return res.status(200).json({ me: user, with: o, blocked: !!bl.data, peer, lines: await signLines(db, (r.data ?? []).reverse()) })
   }
+  // Names and characters for a list of usernames (the Players online list shows everyone's character).
+  if (op === 'cards') {
+    const names = [...new Set(String(req.query?.u ?? '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[a-z0-9_]{2,20}$/.test(x)))].slice(0, 40)
+    const cards = names.length ? await db.from('public_profiles').select('username,name,look').in('username', names) : { data: [] }
+    const people: Record<string, { name: string; char: unknown }> = {}
+    for (const c of (cards.data ?? []) as Array<{ username: string; name?: string; look?: { char?: unknown } | null }>) people[c.username] = { name: c.name || c.username, char: c.look?.char ?? null }
+    return res.status(200).json({ people })
+  }
   if (op === 'search') {
     // Username/name prefix search over public profiles (players who have not shared a card still match by username).
     const raw = String(req.query?.q ?? '').toLowerCase().replace(/^@/, '')
@@ -188,11 +196,17 @@ export default async function handler(req: Req, res: Res) {
     ])
     const rows = fr.data ?? []
     const other = (r: { a: string; b: string }) => (r.a === user ? r.b : r.a)
-    return res.status(200).json({ me: user,
-      friends: rows.filter((r) => r.status === 'accepted').map(other),
-      incoming: rows.filter((r) => r.status === 'pending' && r.requester !== user).map(other),
-      outgoing: rows.filter((r) => r.status === 'pending' && r.requester === user).map(other),
-      party: mine.data ?? null, invites: inv.data ?? [] })
+    const friends = rows.filter((r) => r.status === 'accepted').map(other)
+    const incoming = rows.filter((r) => r.status === 'pending' && r.requester !== user).map(other)
+    const outgoing = rows.filter((r) => r.status === 'pending' && r.requester === user).map(other)
+    // Everyone on the page, with their display name and character (for the pictures).
+    const party = mine.data as { members?: string[] } | null
+    const invites = (inv.data ?? []) as Array<{ leader?: string }>
+    const names = [...new Set([...friends, ...incoming, ...outgoing, ...(party?.members ?? []), ...invites.map((i) => String(i.leader ?? ''))].filter(Boolean))].slice(0, 100)
+    const cards = names.length ? await db.from('public_profiles').select('username,name,look').in('username', names) : { data: [] }
+    const people: Record<string, { name: string; char: unknown }> = {}
+    for (const c of (cards.data ?? []) as Array<{ username: string; name?: string; look?: { char?: unknown } | null }>) people[c.username] = { name: c.name || c.username, char: c.look?.char ?? null }
+    return res.status(200).json({ me: user, friends, incoming, outgoing, party: mine.data ?? null, invites: inv.data ?? [], people })
   }
   if (req.method === 'POST' && op === 'party_leave') {
     const p = await db.from('parties').select('id,members,leader').contains('members', [user]).maybeSingle()
@@ -246,9 +260,15 @@ export default async function handler(req: Req, res: Res) {
   const other = t.name
   if (other === user) return res.status(400).json({ error: 'That is you' })
 
+  // A one-time upload link for a video or document (the phone uploads it straight to private storage).
+  if (req.method === 'POST' && op === 'upload') {
+    const slot = await uploadSlot(db, user, b)
+    if ('error' in slot) return res.status(400).json(slot)
+    return res.status(200).json(slot)
+  }
   if (op === 'send') {
     const text = cleanText(b.text)
-    if (!text && !b.media) return res.status(400).json({ error: 'Empty message' })
+    if (!text && !b.media && !b.upload) return res.status(400).json({ error: 'Empty message' })
     if (text.length > MAX) return res.status(400).json({ error: `Max ${MAX} characters` })
     const exists = await db.from('players').select('username').eq('username', other).maybeSingle()
     if (!exists.data) return res.status(404).json({ error: `@${other} has not signed in yet, so they have no Messages tab` })
@@ -262,8 +282,8 @@ export default async function handler(req: Req, res: Res) {
     if ((min.count ?? 0) >= 8) return res.status(429).json({ error: 'Slow down: 8 messages a minute' })
     if ((day.count ?? 0) >= 200) return res.status(429).json({ error: 'Daily limit reached (200)' })
     let body = text
-    if (b.media) {
-      const stored = await storeMedia(db, user, b.media)
+    if (b.media || b.upload) {
+      const stored = b.upload ? await attachUploaded(db, user, b.upload) : await storeMedia(db, user, b.media)
       if ('error' in stored) return res.status(400).json({ error: stored.error })
       body = text ? `${text}\n${stored.mark}` : stored.mark
     }

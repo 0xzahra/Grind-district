@@ -25,8 +25,12 @@ import { notify } from './notify.ts'
 import { note as personaNote } from './persona.ts'
 import './messages.css'
 
-type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null; edited?: boolean; media?: { kind: 'image' | 'voice'; url: string } }
+type Line = { id: number; sender: string; recipient: string; body: string; created_at: string; read_at: string | null; edited?: boolean; media?: { kind: 'image' | 'voice' | 'video' | 'file'; url: string; name?: string } }
 type Attachment = { type: string; data: string }
+/** Messages whose photo or video already got one fresh link (so a broken file never reloads the chat in a loop). */
+const refreshed = new Set<number>()
+/** The newest message drawn in the open chat (a poll reopens it only for something newer). */
+let shownId = 0
 
 const toBase64 = (blob: Blob) => new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(blob) })
 /** A photo, resized on the phone so it sends fast (long side 1280 px, then 960 px if still large). */
@@ -59,6 +63,36 @@ function avatar(u: string, name: string, char: Char | null | undefined, size: nu
   letter.style.fontSize = `${Math.round(size * 0.42)}px`
   box.append(letter)
   if (char && maker) void maker(char).then((url) => { if (!url) return; box.style.setProperty('--av-pic', `url("${url}")`); box.classList.add('pic'); letter.remove() }).catch(() => undefined)
+  return box
+}
+// Characters for people we only know by username (the Players online list): fetched in small batches, cached.
+const charCache = new Map<string, Char | null>()
+const charWaiters = new Map<string, Array<(c: Char | null) => void>>()
+let charWant = new Set<string>(), charTimer = 0
+async function fetchChars(): Promise<void> {
+  charTimer = 0
+  const names = [...charWant].slice(0, 40)
+  charWant = new Set([...charWant].slice(40))
+  if (charWant.size) charTimer = window.setTimeout(() => void fetchChars(), 300)
+  const r = await api<{ people?: Record<string, { char: Char | null }> }>('cards', { q: `&u=${encodeURIComponent(names.join(','))}` })
+  for (const n of names) {
+    const c = r.ok ? (r.data.people?.[n]?.char ?? null) : null
+    if (r.ok) charCache.set(n, c)
+    for (const f of charWaiters.get(n) ?? []) f(c)
+    charWaiters.delete(n)
+  }
+}
+/** A player's picture by username: their character once known (the initial on a colour until then). */
+export function playerPic(u: string, name: string, size: number, online = false): HTMLElement {
+  const known = charCache.get(u)
+  const box = avatar(u, name, known ?? null, size, online)
+  if (known === undefined && /^[a-z0-9_]{2,20}$/.test(u)) {
+    const list = charWaiters.get(u) ?? []
+    list.push((c) => { if (c && maker) void maker(c).then((url) => { if (!url) return; box.style.setProperty('--av-pic', `url("${url}")`); box.classList.add('pic'); box.querySelector('.av-letter')?.remove() }).catch(() => undefined) })
+    charWaiters.set(u, list)
+    charWant.add(u)
+    if (!charTimer) charTimer = window.setTimeout(() => void fetchChars(), 60)
+  }
   return box
 }
 /** The chat look (no panel title bar: the chat has its own) is only for an open conversation. */
@@ -156,11 +190,20 @@ async function confirmNear(acct: string, btn: HTMLButtonElement, status: HTMLEle
   }
 }
 
-function nearbyRow() {
-  const b = el('button', '', 'cc-row dm-nearby'); b.type = 'button'
-  b.append(el('strong', 'Nearby chat'), el('p', 'Talk to players within 12 m. Lines are not saved.'))
-  b.onclick = () => ctx?.openNearby()
+/** A quick tile on the Messages home: an icon, a title and one line, the whole tile tappable. */
+function tile(icon: string, title: string, sub: string, cls: string, go: () => void) {
+  const b = el('button', '', `dm2-tile ${cls}`); b.type = 'button'
+  const ic = el('span', '', 'dm2-tile-ico'); ic.innerHTML = icon
+  const t = el('span', '', 'dm2-tile-t'); t.append(el('b', title), el('small', sub))
+  b.append(ic, t)
+  b.onclick = go
   return b
+}
+function nearbyRow() {
+  return tile('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9.5h8M8 12.5h5"/></svg>', 'Nearby chat', 'Talk to players around you', 'near', () => ctx?.openNearby())
+}
+function friendsTile() {
+  return tile('<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.6-.3 4.8 1.2 5.5 4.3"/></svg>', 'Friends & party', 'Add friends, play together', 'friends', () => void openFriends())
 }
 
 export async function openInbox(): Promise<void> {
@@ -190,10 +233,8 @@ export async function openInbox(): Promise<void> {
     li.append(btn); list.append(li)
   }
   if (!r.data.threads.length) list.append(el('li', 'No messages yet. Tap a player in the city, then Message.', 'empty'))
-  const fr = el('button', '', 'cc-row dm-nearby'); fr.type = 'button'
-  fr.append(el('strong', 'Friends & party'), el('p', 'Add friends, party up to 4, join me.'))
-  fr.onclick = () => void openFriends()
-  body.replaceChildren(el('p', `Signed in as @${r.data.me}`, 'cc-muted'), searchBox(), nearbyRow(), fr, el('h3', 'Conversations'), list)
+  const quick = el('div', '', 'dm2-quick'); quick.append(nearbyRow(), friendsTile())
+  body.replaceChildren(el('p', `Signed in as @${r.data.me}`, 'cc-muted dm2-me'), searchBox(), quick, el('h3', 'Conversations'), list)
   if (r.data.blocked.length) {
     const h = el('h3', 'Blocked'); body.append(h)
     for (const u of r.data.blocked) {
@@ -270,15 +311,29 @@ export async function openThread(withUser: string): Promise<void> {
     const away = (e: Event) => { if (!menu.contains(e.target as Node)) { menu.remove(); document.removeEventListener('pointerdown', away, true) } }
     window.setTimeout(() => document.addEventListener('pointerdown', away, true), 0)
   }
+  shownId = 0
   const add = (l: Line, at?: Element) => {
+    shownId = Math.max(shownId, l.id)
     const mine = l.sender === r.data.me
     const li = el('li', '', mine ? 'mine' : 'theirs')
     if (l.media?.kind === 'image') {
       const img = el('img', '', 'dm-photo'); img.src = l.media.url; img.alt = 'Photo'; img.loading = 'lazy'
       img.onclick = () => window.open(l.media!.url, '_blank', 'noopener')
+      // A photo link lasts an hour: if it fails (an old chat left open), load the chat once more for fresh links.
+      img.onerror = () => { if (!refreshed.has(l.id)) { refreshed.add(l.id); void openThread(u) } }
       li.append(img)
     } else if (l.media?.kind === 'voice') {
       li.append(voicePlayer(l.media.url))
+    } else if (l.media?.kind === 'video') {
+      const v = el('video', '', 'dm-video'); v.src = l.media.url; v.controls = true; v.playsInline = true; v.preload = 'metadata'
+      v.onerror = () => { if (!refreshed.has(l.id)) { refreshed.add(l.id); void openThread(u) } }
+      li.append(v)
+    } else if (l.media?.kind === 'file') {
+      const a = el('a', '', 'dm-file'); a.href = l.media.url; a.target = '_blank'; a.rel = 'noopener noreferrer'
+      const nm = l.media.name ?? 'Document'
+      const ext = (/\.([a-z0-9]{2,5})$/i.exec(nm)?.[1] ?? 'doc').toUpperCase()
+      a.append(el('span', ext, `dm-file-ico x-${ext.toLowerCase()}`), el('span', nm, 'dm-file-name'), el('span', 'Open', 'dm-file-go'))
+      li.append(a)
     }
     const text = el('p', l.body)
     if (l.body) li.append(text)
@@ -334,10 +389,11 @@ export async function openThread(withUser: string): Promise<void> {
   const send = el('button', '', 'dm2-send'); send.type = 'submit'; send.setAttribute('aria-label', 'Send'); send.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-4 16-4-6-8-2Z"/></svg>'
   const grow = () => { ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 120)}px` }
   let pending: Attachment | null = null
+  let pendingFile: File | null = null
   let recording = false
   const mic = VOICE_TYPE && typeof navigator.mediaDevices?.getUserMedia === 'function' ? el('button', '', 'dm2-mic') : null
   const sync = () => {
-    const has = !!ta.value.trim() || !!pending
+    const has = !!ta.value.trim() || !!pending || !!pendingFile
     send.hidden = !has && !!mic && !recording
     if (mic) mic.hidden = has && !recording
     count.textContent = ta.value.length > MAX - 100 ? `${ta.value.length}/${MAX}` : ''
@@ -357,11 +413,41 @@ export async function openThread(withUser: string): Promise<void> {
     add(s.data.line); ta.value = ''; grow(); sync()
     log.scrollTop = log.scrollHeight
   }
+  // Videos and documents: a one-time upload link from the server, the file straight to private storage (with
+  // progress), then the message with the file attached.
+  const deliverFile = async (f: File) => {
+    const text = ta.value.trim()
+    const what = f.type.startsWith('video') || /\.(mp4|webm|mov)$/i.test(f.name) ? 'video' : 'document'
+    personaNote('message')
+    send.disabled = true; status.textContent = `Uploading ${what}…`
+    const slot = await api<{ path: string; url: string }>('upload', { post: { name: f.name, size: f.size } })
+    if (!slot.ok) { send.disabled = false; status.textContent = slot.data.error ?? 'Could not upload'; return }
+    const ok = await new Promise<boolean>((done) => {
+      const x = new XMLHttpRequest()
+      x.open('PUT', slot.data.url)
+      x.setRequestHeader('x-upsert', 'false')
+      x.upload.onprogress = (e) => { if (e.lengthComputable) status.textContent = `Uploading ${what} · ${Math.round((e.loaded / e.total) * 100)}%` }
+      x.onload = () => done(x.status >= 200 && x.status < 300)
+      x.onerror = () => done(false)
+      const fd = new FormData(); fd.append('cacheControl', '3600'); fd.append('', f)
+      x.send(fd)
+    })
+    if (!ok) { send.disabled = false; status.textContent = 'The upload did not finish. Check your connection and try again.'; return }
+    status.textContent = 'Sending…'
+    const s = await api<{ line: Line }>('send', { post: { to: u, text, upload: { path: slot.data.path, name: f.name } } })
+    send.disabled = false
+    if (!s.ok) { status.textContent = s.data.error ?? 'Could not send'; return }
+    status.textContent = ''
+    log.querySelector('.dm-empty')?.remove()
+    add(s.data.line); ta.value = ''; grow(); sync()
+    log.scrollTop = log.scrollHeight
+  }
   // Photo: pick or take one; it shows above the bar first (add words if you like), and goes when you tap send.
   const tray = el('div', '', 'dm-tray'); tray.hidden = true
-  const clearTray = () => { pending = null; tray.hidden = true; tray.replaceChildren(); ta.placeholder = 'Message'; sync() }
+  const clearTray = () => { pending = null; pendingFile = null; for (const v of tray.querySelectorAll('video')) URL.revokeObjectURL(v.src); tray.hidden = true; tray.replaceChildren(); ta.placeholder = 'Message'; sync() }
   form.onsubmit = (e) => {
     e.preventDefault()
+    if (pendingFile) { const f = pendingFile; clearTray(); void deliverFile(f); return }
     const media = pending ?? undefined
     if (media) clearTray()
     void deliver(media)
@@ -370,9 +456,33 @@ export async function openThread(withUser: string): Promise<void> {
   const photo = el('button', '', 'dm2-icon'); photo.type = 'button'; photo.setAttribute('aria-label', 'Send a photo')
   photo.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg>'
   photo.onclick = () => pick.click()
+  // Attach: a video or a document (PDF, Word, Excel, PowerPoint, text).
+  const pickFile = el('input'); pickFile.type = 'file'; pickFile.hidden = true
+  pickFile.accept = 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv'
+  const clip = el('button', '', 'dm2-icon dm2-clip'); clip.type = 'button'; clip.setAttribute('aria-label', 'Send a video or a document')
+  clip.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5 12.4 19a5 5 0 0 1-7.1-7.1l8-8a3.4 3.4 0 0 1 4.8 4.8l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/></svg>'
+  clip.onclick = () => pickFile.click()
+  pickFile.onchange = () => {
+    const f = pickFile.files?.[0]; pickFile.value = ''
+    if (!f) return
+    clearTray()
+    pendingFile = f
+    const isVideo = f.type.startsWith('video') || /\.(mp4|webm|mov)$/i.test(f.name)
+    const mb = f.size >= 1_000_000 ? `${(f.size / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(f.size / 1000))} KB`
+    let thumb: HTMLElement
+    if (isVideo) { const v = el('video', '', 'dm-tray-img'); v.src = URL.createObjectURL(f); v.muted = true; v.playsInline = true; v.preload = 'metadata'; thumb = v }
+    else { const ext = (/\.([a-z0-9]{2,5})$/i.exec(f.name)?.[1] ?? 'doc').toUpperCase(); thumb = el('span', ext, `dm-file-ico x-${ext.toLowerCase()}`) }
+    const info = el('span', '', 'dm-tray-info'); info.append(el('b', f.name), el('small', `${isVideo ? 'Video' : 'Document'} · ${mb} · add a message, then tap send`, 'cc-muted'))
+    const rm = el('button', 'Remove', 'cc-link'); rm.type = 'button'; rm.onclick = clearTray
+    tray.replaceChildren(thumb, info, rm)
+    tray.hidden = false
+    ta.placeholder = 'Add a message'
+    sync()
+  }
   pick.onchange = async () => {
     const f = pick.files?.[0]; pick.value = ''
     if (!f) return
+    pendingFile = null
     try {
       pending = await photoAttachment(f)
       const img = el('img', '', 'dm-tray-img'); img.src = `data:${pending.type};base64,${pending.data}`; img.alt = 'Photo to send'
@@ -411,7 +521,7 @@ export async function openThread(withUser: string): Promise<void> {
       stop = window.setTimeout(() => rec?.stop(), 60_000)
     }
   }
-  form.append(photo, pick, ta, count, send, ...(mic ? [mic] : []))
+  form.append(photo, pick, clip, pickFile, ta, count, send, ...(mic ? [mic] : []))
   sync()
   if (r.data.blocked) {
     form.hidden = true
@@ -422,11 +532,23 @@ export async function openThread(withUser: string): Promise<void> {
   void poll()
 }
 
-function setUnread(n: number) { unread = n; document.getElementById('cc-msg')?.classList.toggle('has-unread', n > 0) }
+/** Anyone signed in can have messages: a claimed username, a Privy session, or a NEAR account. */
+const canMessage = () => !!(localStorage.getItem(CLAIMED_KEY) || localStorage.getItem('gd.privy.userId') || userId().startsWith('near:'))
+function setUnread(n: number) {
+  unread = n
+  const key = document.getElementById('cc-msg')
+  if (!key) return
+  key.classList.toggle('has-unread', n > 0)
+  // A red count on the Messages key in the menu, like the one on Notifications.
+  let badge = key.querySelector<HTMLElement>('.cc-badge.dm-count')
+  if (!badge) { badge = el('span', '', 'cc-badge dm-count'); badge.hidden = true; key.prepend(badge) }
+  badge.hidden = n === 0
+  badge.textContent = n > 9 ? '9+' : String(n)
+}
 
 let polling = false
 async function poll(): Promise<void> {
-  if (polling || document.hidden || !localStorage.getItem(CLAIMED_KEY)) return
+  if (polling || document.hidden || !canMessage()) return
   polling = true
   try {
     const r = await api<{ threads: Thread[] }>('inbox')
@@ -444,7 +566,7 @@ async function poll(): Promise<void> {
     localStorage.setItem(SEEN, JSON.stringify(seen))
     setUnread(total)
     // Thread open: pull new lines in place.
-    if (current && ctx?.isOpen(`@${current}`) && r.data.threads.some((t) => t.with === current && t.unread)) void openThread(current)
+    if (current && ctx?.isOpen(`@${current}`) && r.data.threads.some((t) => t.with === current && t.unread && t.lastId > shownId)) void openThread(current)
   } finally { polling = false }
 }
 
@@ -486,7 +608,13 @@ export function mountMessages(c: Ctx): void {
   // A tapped alert opens that conversation (fresh tab: ?dm=<user>; open tab: a message from the service worker).
   // Through the game's own deep link (main.ts follow), which opens the menu panel the conversation lives in: opened
   // straight here it was drawn inside the closed menu, so a tapped alert showed nothing.
-  const openFrom = (url: string) => { try { const u = new URL(url, location.href).searchParams.get('dm'); if (u) window.setTimeout(() => window.dispatchEvent(new CustomEvent('gd:follow', { detail: `dm:${u}` })), 1500) } catch { /* */ } }
+  // A fresh tab opened from an alert is still on the title screen for a while: wait until the city is open (the
+  // player pressed Play), then open the conversation. An already open game opens it at once.
+  const whenInCity = (f: () => void) => {
+    if (performance.getEntriesByName('gd:revealed').length) { window.setTimeout(f, 400); return }
+    window.addEventListener('gd:revealed', () => window.setTimeout(f, 900), { once: true })
+  }
+  const openFrom = (url: string) => { try { const u = new URL(url, location.href).searchParams.get('dm'); if (u) whenInCity(() => window.dispatchEvent(new CustomEvent('gd:follow', { detail: `dm:${u}` }))) } catch { /* */ } }
   openFrom(location.href)
   navigator.serviceWorker?.addEventListener?.('message', (e: MessageEvent) => { if (e.data?.type === 'gd-open') openFrom(String(e.data.url ?? '')) })
   // Keep this device's subscription fresh once alerts are on.
@@ -503,45 +631,85 @@ export function mountMessages(c: Ctx): void {
 
 // ---------- Friends & parties ----------
 type Party = { id: string; leader: string; members: string[]; invites: string[]; spot: { by: string; x: number; z: number; at: number } | null }
-type Social = { me: string; friends: string[]; incoming: string[]; outgoing: string[]; party: Party | null; invites: Array<{ id: string; leader: string; members: string[] }> }
+type Social = { me: string; friends: string[]; incoming: string[]; outgoing: string[]; party: Party | null; invites: Array<{ id: string; leader: string; members: string[] }>; people?: Record<string, { name: string; char: Char | null }> }
 let social: Social | null = null
 export const partySize = () => social?.party?.members.length ?? 0
 const SOC_SEEN = 'gd.social.seen.v1'
+/** Friends & party: who you play with. A party is up to four friends together: share your spot and they can jump
+ *  next to you; at conference events together each member earns a bonus. Every person shows with their character. */
 export async function openFriends(): Promise<void> {
   if (!ctx) return
   current = ''
-  ctx.openSheet('Friends', () => {})
+  ctx.openSheet('Friends & party', () => {})
+  chatMode(false)
   const body = ctx.body()
   body.replaceChildren(el('p', 'Loading…', 'cc-muted'))
   const r = await api<Social>('social')
   if (r.status === 401) return signedOut(body, !(r.data as { noToken?: boolean }).noToken)
-  if (!r.ok) { body.replaceChildren(el('p', r.data.error ?? 'Could not load friends.', 'cc-muted')); return }
+  if (!r.ok || !Array.isArray(r.data.friends)) { body.replaceChildren(el('p', r.data.error ?? 'Could not load friends.', 'cc-muted')); return }
   social = r.data
   const s = r.data
-  const act = (label: string, fn: () => Promise<unknown>, cls = 'cc-link') => { const b = el('button', label, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; await fn(); void openFriends() }; return b }
-  const row = (u: string, ...btns: HTMLElement[]) => { const d = el('div', '', 'dm-blocked'); d.append(el('span', `@${u}`), ...btns); return d }
-  const form = el('form', '', 'dm-form'); const inp = el('input'); inp.placeholder = 'Add friend by username'; inp.maxLength = 20; inp.onkeydown = (e) => e.stopPropagation()
-  const add = el('button', 'Add', 'dm-primary'); add.type = 'submit'; const st = el('p', '', 'cc-muted')
-  form.onsubmit = async (e) => { e.preventDefault(); const x = await api<{ status?: string }>('friend', { post: { u: inp.value.trim().toLowerCase(), action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? 'You are now friends.' : 'Request sent.') : (x.data.error ?? 'Failed'); if (x.ok) window.setTimeout(() => void openFriends(), 700) }
+  const who = (u: string) => s.people?.[u]
+  const online = (u: string) => !!presence?.find(u)
+  const act = (label: string, fn: () => Promise<unknown>, cls = 'fp-btn') => { const b = el('button', label, cls); b.type = 'button'; b.onclick = async () => { b.disabled = true; await fn(); void openFriends() }; return b }
+  /** One person: picture, name, a status line, and their buttons. Tapping the picture or name opens their profile. */
+  const person = (u: string, line: string, ...btns: HTMLElement[]) => {
+    const row = el('div', '', 'fp-row')
+    const id = el('button', '', 'fp-id'); id.type = 'button'; id.onclick = () => void openProfile(u)
+    const t = el('span', '', 'fp-t'); t.append(el('b', who(u)?.name || `@${u}`), el('small', line, online(u) ? 'on' : ''))
+    id.append(avatar(u, who(u)?.name || u, who(u)?.char ?? null, 44, online(u)), t)
+    const tools = el('span', '', 'fp-tools'); tools.append(...btns)
+    row.append(id, tools)
+    return row
+  }
+  const section = (title: string, ...kids: HTMLElement[]) => { const sec = el('section', '', 'fp-sec'); sec.append(el('h3', title), ...kids); return sec }
+  // Add a friend.
+  const form = el('form', '', 'fp-add'); const inp = el('input'); inp.placeholder = 'Add a friend by username'; inp.maxLength = 20; inp.onkeydown = (e) => e.stopPropagation(); inp.setAttribute('aria-label', 'Username')
+  const add = el('button', 'Add', 'fp-btn primary'); add.type = 'submit'; const st = el('p', '', 'cc-muted fp-status')
+  form.onsubmit = async (e) => { e.preventDefault(); const name = inp.value.trim().replace(/^@/, '').toLowerCase(); if (!name) return; const x = await api<{ status?: string }>('friend', { post: { u: name, action: 'add' } }); st.textContent = x.ok ? (x.data.status === 'accepted' ? `You and @${name} are now friends.` : `Request sent to @${name}. They will see it in their notifications.`) : (x.data.error ?? 'Could not add them'); if (x.ok) window.setTimeout(() => void openFriends(), 900) }
   form.append(inp, add)
   body.replaceChildren(form, st)
-  body.append(el('h3', s.party ? `Party · ${s.party.members.length}/4` : 'Party'))
+  // The party, explained plainly.
+  const party = el('section', '', 'fp-party')
+  const ph = el('div', '', 'fp-party-h'); ph.append(el('span', '🎉', 'fp-party-ico'))
+  const pt = el('div', '', 'fp-party-t')
+  pt.append(el('b', s.party ? `Your party · ${s.party.members.length} of 4` : 'Party: play together'), el('small', 'A party is up to 4 friends playing together. Share where you are and your party can jump right next to you. At conference events together, each of you earns a $10 in-game bonus.'))
+  ph.append(pt); party.append(ph)
   if (s.party) {
-    for (const m of s.party.members) body.append(row(m + (m === s.party.leader ? ' (lead)' : '')))
-    body.append(el('p', 'Party members earn a $10 in-game bonus each (up to $30) when they attend conference events together.', 'cc-muted'))
-    if (s.party.spot && s.party.spot.by !== s.me && Date.now() - s.party.spot.at < 15 * 60_000) body.append(act(`Join @${s.party.spot.by}`, async () => { window.dispatchEvent(new CustomEvent('gd-teleport', { detail: s.party!.spot })) }, 'dm-primary'))
-    body.append(act('Join me (share my spot)', async () => { const pos = (window as unknown as { gdPos?: () => { x: number; z: number } }).gdPos?.(); if (pos) await api('party_spot', { post: pos }) }), act('Leave party', () => api('party_leave', { post: {} })))
-  } else body.append(el('p', 'Invite a friend to start a party (max 4).', 'cc-muted'))
-  if (s.invites.length) { body.append(el('h3', 'Party invites')); for (const i of s.invites) body.append(row(`${i.leader} · ${i.members.length}/4`, act('Join', () => api('party_join', { post: { id: i.id } }), 'dm-primary'))) }
-  if (s.incoming.length) { body.append(el('h3', 'Friend requests')); for (const u of s.incoming) body.append(row(u, act('Accept', () => api('friend', { post: { u, action: 'add' } }), 'dm-primary'), act('Decline', () => api('friend', { post: { u, action: 'remove' } })))) }
-  body.append(el('h3', `Friends · ${s.friends.length}`))
-  for (const u of s.friends) body.append(row(u, act('Message', async () => { void openThread(u) }), ...(s.party?.members.includes(u) ? [] : [act('Invite', () => api('party_invite', { post: { u } }))]), act('Remove', () => api('friend', { post: { u, action: 'remove' } }))))
-  if (!s.friends.length) body.append(el('p', 'No friends yet.', 'cc-muted'))
-  for (const u of s.outgoing) body.append(row(u + ' · pending'))
+    const lead = s.party.leader
+    const faces = el('div', '', 'fp-faces')
+    for (const m of s.party.members) {
+      const f = el('button', '', 'fp-face'); f.type = 'button'; f.onclick = () => void openProfile(m)
+      f.append(avatar(m, who(m)?.name || m, who(m)?.char ?? null, 52, online(m)), el('small', `${m === s.me ? 'You' : who(m)?.name || `@${m}`}${m === lead ? ' 👑' : ''}`))
+      faces.append(f)
+    }
+    for (let k = s.party.members.length; k < 4; k++) { const e2 = el('span', '', 'fp-face empty'); e2.append(el('span', '+', 'fp-plus'), el('small', 'Invite')); faces.append(e2) }
+    party.append(faces)
+    const sp = s.party.spot
+    if (sp && sp.by !== s.me && Date.now() - sp.at < 15 * 60_000) party.append(act(`Jump to @${sp.by}`, async () => { window.dispatchEvent(new CustomEvent('gd-teleport', { detail: { ...sp, who: sp.by } })) }, 'fp-btn primary wide'))
+    const share = act('📍 Share my location with the party', async () => { const pos = (window as unknown as { gdPos?: () => { x: number; z: number } }).gdPos?.(); if (pos) { await api('party_spot', { post: pos }); notify('Location shared', 'Your party can jump next to you for the next 15 minutes.') } }, 'fp-btn primary wide')
+    party.append(share, el('small', 'For 15 minutes your party sees a "Jump to you" button.', 'fp-hint'), act('Leave party', () => api('party_leave', { post: {} }), 'fp-btn ghost wide'))
+  } else party.append(el('small', 'To start one, tap Invite next to a friend below.', 'fp-hint'))
+  body.append(party)
+  if (s.invites.length) body.append(section('Party invites', ...s.invites.map((i) => person(i.leader, `Invited you · ${i.members.length} of 4 in the party`, act('Join', () => api('party_join', { post: { id: i.id } }), 'fp-btn primary')))))
+  if (s.incoming.length) body.append(section('Friend requests', ...s.incoming.map((u) => person(u, 'Wants to be friends', act('Accept', () => api('friend', { post: { u, action: 'add' } }), 'fp-btn primary'), act('Decline', () => api('friend', { post: { u, action: 'remove' } }), 'fp-btn ghost')))))
+  const msgIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>'
+  const friendRows = s.friends.map((u) => {
+    const msg = el('button', '', 'fp-icon'); msg.type = 'button'; msg.setAttribute('aria-label', `Message @${u}`); msg.innerHTML = msgIcon; msg.onclick = () => void openThread(u)
+    const inParty = !!s.party?.members.includes(u)
+    const btns: HTMLElement[] = [msg]
+    if (!inParty && (s.party?.members.length ?? 1) < 4) btns.push(act('Invite', () => api('party_invite', { post: { u } }), 'fp-btn'))
+    const more = el('button', '⋯', 'fp-icon'); more.type = 'button'; more.setAttribute('aria-label', `Remove @${u} as a friend`)
+    more.onclick = async () => { if (confirm(`Remove @${u} from your friends?`)) { await api('friend', { post: { u, action: 'remove' } }); void openFriends() } }
+    btns.push(more)
+    return person(u, inParty ? 'In your party' : online(u) ? 'Online now' : `@${u}`, ...btns)
+  })
+  body.append(section(`Friends · ${s.friends.length}`, ...(friendRows.length ? friendRows : [el('p', 'No friends yet. Add someone by username above, or tap a player in the city.', 'cc-muted')])))
+  if (s.outgoing.length) body.append(section('Requests you sent', ...s.outgoing.map((u) => person(u, 'Waiting for them to accept', act('Cancel', () => api('friend', { post: { u, action: 'remove' } }), 'fp-btn ghost')))))
 }
 async function pollSocial(): Promise<void> {
-  if (document.hidden || !localStorage.getItem(CLAIMED_KEY)) return
-  const r = await api<Social>('social'); if (!r.ok) return
+  if (document.hidden || !canMessage()) return
+  const r = await api<Social>('social'); if (!r.ok || !Array.isArray(r.data.incoming) || !Array.isArray(r.data.invites)) return
   social = r.data
   let seen: string[] = []; try { seen = JSON.parse(localStorage.getItem(SOC_SEEN) ?? '[]') } catch { seen = [] }
   const fresh = (k: string) => { if (seen.includes(k)) return false; seen.push(k); return true }

@@ -1224,6 +1224,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
       return null
     },
     get moving() { return !!move },
+    /** How far through the current ride or move (seconds), for the activity clock on screen. */
+    get moveClock() { return move ? { t: move.t, dur: move.dur } : null },
     /** How far back the camera sits during a ride (the Ferris wheel, the carousel). */
     get rideCam(): number | null { return move?.camFn?.() ?? move?.cam ?? null },
     /** Seated on a ride: which way you face and how high the seat is above where you stand. */

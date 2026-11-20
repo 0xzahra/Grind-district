@@ -4252,3 +4252,105 @@ html body .cr-lesson { display: flex; align-items: center; gap: 10px; }
 html body .cr-lesson-art { flex: none; width: 54px; aspect-ratio: 3 / 2; border-radius: 8px; overflow: hidden; }
 html body .cr-lesson-art svg { display: block; width: 100%; height: 100%; }
 html body .cr-lesson .cr-lesson-info { flex: 1; min-width: 0; }
+
+/* First visit to a room: a short fade while it is built (main.ts enterRoom). */
+.room-fade { position: fixed; inset: 0; z-index: 7100; background: #07090c; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
+.room-fade.on { opacity: 1; }
+
+/* Chat attachments: videos play in the bubble; documents are a tidy card with their type. */
+html body #cc-sheet-body .dm2-log li .dm-video { display: block; width: 100%; max-width: 260px; max-height: 320px; margin: 0 -24px 4px -6px; border-radius: 14px; background: #000; }
+html body #cc-sheet-body .dm-file { display: flex; align-items: center; gap: 10px; min-width: 200px; margin: 0 -22px 4px -4px; padding: 10px 12px; border-radius: 14px; background: rgba(0, 0, 0, 0.05); color: inherit !important; text-decoration: none; }
+html body #cc-sheet-body .dm-file-ico, html body #cc-sheet-body .dm-tray .dm-file-ico { flex: none; width: 40px; height: 48px; display: grid; place-items: center; border-radius: 8px; background: linear-gradient(160deg, #5b6cff, #2a2f7a); color: #fff !important; font: 800 10px/1 var(--sys, system-ui), sans-serif; letter-spacing: 0.04em; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
+html body #cc-sheet-body .dm-file-ico.x-pdf { background: linear-gradient(160deg, #ff6b5c, #b8261c); }
+html body #cc-sheet-body .dm-file-ico:is(.x-doc, .x-docx) { background: linear-gradient(160deg, #4f8bff, #1f4fb8); }
+html body #cc-sheet-body .dm-file-ico:is(.x-xls, .x-xlsx, .x-csv) { background: linear-gradient(160deg, #2fd38a, #13804f); }
+html body #cc-sheet-body .dm-file-ico:is(.x-ppt, .x-pptx) { background: linear-gradient(160deg, #ffad5c, #c8601c); }
+html body #cc-sheet-body .dm-file-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1d1b17 !important; }
+html:not([data-ui='light']) body #cc-sheet-body .dm-file-name { color: #f2f2f2 !important; }
+html body #cc-sheet-body .dm-file-go { flex: none; font-size: 12px; font-weight: 800; color: #12a862 !important; }
+html body #cc-sheet-body .dm-tray video.dm-tray-img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; background: #000; }
+html body #cc-sheet-body .dm-tray-info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+html body #cc-sheet-body .dm-tray-info b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #cc-sheet-body .dm2-bar .dm2-clip svg { stroke-width: 2; }
+/* The unread count on the Messages key in the menu. */
+#cc-msg { position: relative; }
+
+/* Messages home: two quick tiles (nearby chat, friends & party) and a rounded search. */
+html body #cc-sheet-body .dm2-me { margin: 0 2px 6px; font-size: 12px; }
+html body #cc-sheet-body .dm-search input { min-height: 44px; border-radius: 22px !important; padding: 0 16px !important; }
+html body #cc-sheet-body .dm2-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 4px; }
+html body #cc-sheet-body .dm2-tile { display: grid; gap: 8px; justify-items: start; padding: 12px !important; border-radius: 16px !important; border: 1px solid color-mix(in srgb, currentColor 10%, transparent) !important; background: color-mix(in srgb, currentColor 4%, transparent) !important; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important; text-align: left; }
+html body #cc-sheet-body .dm2-tile-ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(160deg, #3bfaa4, #12c873); box-shadow: 0 3px 8px rgba(18, 200, 115, 0.3); }
+html body #cc-sheet-body .dm2-tile.friends .dm2-tile-ico { background: linear-gradient(160deg, #8fa8ff, #4f5fd8); box-shadow: 0 3px 8px rgba(79, 95, 216, 0.3); }
+html body #cc-sheet-body .dm2-tile-ico svg { width: 22px; height: 22px; fill: none; stroke: #ffffff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+html body #cc-sheet-body .dm2-tile-t { display: grid; gap: 2px; }
+html body #cc-sheet-body .dm2-tile-t b { font-size: 14.5px; }
+html body #cc-sheet-body .dm2-tile-t small { font-size: 12px; opacity: 0.7; line-height: 1.3; }
+
+/* ---------- Friends & party (messages.ts openFriends) ---------- */
+html body #cc-sheet-body .fp-add { display: flex; gap: 8px; margin: 2px 0 4px; }
+html body #cc-sheet-body .fp-add input { flex: 1; min-width: 0; min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); background: color-mix(in srgb, currentColor 5%, transparent); color: inherit; font: 15px var(--sys, system-ui), sans-serif; }
+html body #cc-sheet-body .fp-status:empty { display: none; }
+html body #cc-sheet-body .fp-btn { min-height: 36px; padding: 0 14px !important; border-radius: 18px !important; border: 1px solid color-mix(in srgb, currentColor 16%, transparent) !important; background: color-mix(in srgb, currentColor 5%, transparent) !important; box-shadow: none !important; font: 700 13.5px/1 var(--sys, system-ui), sans-serif !important; white-space: nowrap; }
+html body #cc-sheet-body .fp-btn.primary { border: 0 !important; background: linear-gradient(180deg, #3bfaa4, #12c873) !important; color: #04160e !important; box-shadow: 0 3px 10px rgba(18, 200, 115, 0.3) !important; }
+html body #cc-sheet-body .fp-btn.ghost { background: transparent !important; }
+html body #cc-sheet-body .fp-btn.wide { width: 100%; min-height: 44px; margin-top: 8px; }
+html body #cc-sheet-body .fp-icon { width: 36px; height: 36px; min-height: 36px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important; border: 1px solid color-mix(in srgb, currentColor 14%, transparent) !important; background: transparent !important; box-shadow: none !important; font-size: 18px !important; }
+html body #cc-sheet-body .fp-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round; }
+html body #cc-sheet-body .fp-party { margin: 12px 0; padding: 14px; border-radius: 20px; background: linear-gradient(160deg, rgba(91, 108, 255, 0.14), rgba(18, 200, 115, 0.1)); border: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
+html body #cc-sheet-body .fp-party-h { display: flex; gap: 12px; align-items: flex-start; }
+html body #cc-sheet-body .fp-party-ico { flex: none; width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; background: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+html body #cc-sheet-body .fp-party-t { display: grid; gap: 4px; }
+html body #cc-sheet-body .fp-party-t b { font-size: 16px; }
+html body #cc-sheet-body .fp-party-t small, html body #cc-sheet-body .fp-hint { font-size: 12.5px; line-height: 1.4; opacity: 0.75; }
+html body #cc-sheet-body .fp-hint { display: block; margin-top: 8px; }
+html body #cc-sheet-body .fp-faces { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0 4px; }
+html body #cc-sheet-body .fp-face { display: grid; justify-items: center; gap: 4px; padding: 4px !important; border: 0 !important; background: transparent !important; box-shadow: none !important; min-width: 0; }
+html body #cc-sheet-body .fp-face small { max-width: 100%; font-size: 11.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #cc-sheet-body .fp-face.empty { opacity: 0.5; }
+html body #cc-sheet-body .fp-plus { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; border: 2px dashed color-mix(in srgb, currentColor 35%, transparent); font-size: 22px; }
+html body #cc-sheet-body .fp-sec { margin-top: 10px; }
+html body #cc-sheet-body .fp-row { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); }
+html body #cc-sheet-body .fp-id { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-start !important; gap: 12px; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; text-align: left; }
+html body #cc-sheet-body .fp-t { min-width: 0; display: grid; gap: 1px; }
+html body #cc-sheet-body .fp-t b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body #cc-sheet-body .fp-t small { font-size: 12px; opacity: 0.7; }
+html body #cc-sheet-body .fp-t small.on { color: #12a862 !important; opacity: 1; font-weight: 700; }
+html body #cc-sheet-body .fp-tools { flex: none; display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Players online (players.ts) ---------- */
+#gd-modal .pl-card .pl-where { font-size: 13px; }
+#gd-modal .pl-card .pl-list { display: grid; gap: 4px; margin-top: 6px; }
+#gd-modal .pl-card .pl-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 14px; border: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); background: transparent; }
+#gd-modal .pl-card .pl-row.here { background: rgba(18, 200, 115, 0.08); border-color: transparent; }
+#gd-modal .pl-card .pl-who { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-start !important; gap: 12px; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; text-align: left; color: inherit; }
+#gd-modal .pl-card .pl-words { min-width: 0; display: grid; gap: 2px; }
+#gd-modal .pl-card .pl-words b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body .pl-card .pl-words small { font-size: 12.5px; opacity: 0.85; color: #5f5a50 !important; }
+html body .pl-card .pl-words small.on { color: #12a862 !important; font-weight: 700; }
+html:not([data-ui='light']) body .pl-card .pl-words small:not(.on) { color: #b9c2bb !important; }
+#gd-modal .pl-card .pl-keys { flex: none; display: flex; gap: 6px; align-items: center; }
+#gd-modal .pl-card .pl-ico { width: 40px; height: 40px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important; border: 0 !important; background: linear-gradient(180deg, #3bfaa4, #12c873) !important; box-shadow: 0 3px 8px rgba(18, 200, 115, 0.3) !important; }
+#gd-modal .pl-card .pl-ico svg { width: 19px; height: 19px; fill: none; stroke: #04160e; stroke-width: 2; stroke-linejoin: round; }
+#gd-modal .pl-card .pl-moves { display: flex; justify-content: flex-start; margin-top: 10px; }
+#gd-modal .pl-card .pl-chip { min-height: 36px !important; padding: 0 14px !important; border-radius: 18px !important; font-size: 14px !important; }
+
+/* Activity clock (main.ts actClock): what you are doing and how long is left. */
+.act-clock { position: fixed; z-index: 6900; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 4px); display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px; border-radius: 999px; background: rgba(12, 28, 20, 0.88); border: 1px solid rgba(233, 207, 142, 0.45); color: #f5f2ea; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3); transform: translate(-50%, -150%); opacity: 0; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.2s ease; pointer-events: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.act-clock.in { transform: translate(-50%, 0); opacity: 1; }
+.act-clock .ac-ring { width: 34px; height: 34px; flex: none; }
+.act-clock .ac-ring svg { width: 34px; height: 34px; transform: rotate(-90deg); }
+.act-clock .ac-ring circle { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-width: 4; }
+.act-clock .ac-ring .ac-fill { stroke: #3bfaa4; stroke-linecap: round; transition: stroke-dashoffset 0.9s linear; }
+.act-clock .ac-t { display: grid; gap: 1px; }
+.act-clock .ac-t b { font: 800 14px/1.15 var(--sys, system-ui), sans-serif; color: #fff; }
+.act-clock .ac-t small { font: 600 12px/1.2 var(--sys, system-ui), sans-serif; color: #e9cf8e; font-variant-numeric: tabular-nums; }
+
+/* Map travel (main.ts goingCard): the route from you to the place you picked. */
+.going { position: fixed; z-index: 7150; left: 50%; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 120px); width: min(380px, calc(100vw - 32px)); border-radius: 22px; overflow: hidden; background: #0c1c14; border: 1px solid rgba(233, 207, 142, 0.45); box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45); transform: translate(-50%, 30px) scale(0.96); opacity: 0; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.25s ease; pointer-events: none; }
+.going.in { transform: translate(-50%, 0) scale(1); opacity: 1; }
+.going canvas { display: block; width: 100%; height: auto; }
+.going-t { display: grid; gap: 2px; padding: 12px 16px 14px; color: #f5f2ea; }
+.going-t small { font: 800 11px/1.2 var(--sys, system-ui), sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #3bfaa4; }
+.going-t b { font: 800 20px/1.2 var(--sys, system-ui), sans-serif; color: #fff; }
+.going-t span { font-size: 13px; color: #cbbf9c; }

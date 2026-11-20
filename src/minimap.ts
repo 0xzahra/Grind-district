@@ -66,6 +66,8 @@ export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
 }
 
 export const satelliteUrl = (): string => sat?.toDataURL('image/png') ?? ''
+/** The baked top-down picture of the city (null until it has been drawn). */
+export const satelliteCanvas = (): HTMLCanvasElement | null => sat
 
 export function drawMinimap(
   ctx: CanvasRenderingContext2D,

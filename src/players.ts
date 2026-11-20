@@ -32,6 +32,8 @@ export type PlayersDeps = {
   toast: (m: string) => void
   /** Start dancing (the floating Dance key is gone: it sat on screen all the time). Any move stops it. */
   dance?: () => void
+  /** A player's picture: their character (messages.ts playerPic). */
+  pic?: (username: string, name: string, size: number, here: boolean) => HTMLElement
 }
 
 export function openPlayers(d: PlayersDeps): void {
@@ -43,26 +45,33 @@ export function openPlayers(d: PlayersDeps): void {
   const close = () => { window.clearInterval(timer); shade.remove() }
   shade.addEventListener('click', (e) => { if (e.target === shade) close() })
   const head = el('div', '', 'gm-head'), t = el('div')
-  t.append(el('p', 'Real players · right now', 'gm-kick'), el('h3', 'Players online', 'gm-title'))
+  const count = el('p', 'Real players · right now', 'gm-kick')
+  t.append(count, el('h3', 'Players online', 'gm-title'))
   head.append(t, key('Close', 'gm-ghost', close))
-  const where = el('p', '', 'gm-sub'), list = el('div', '', 'pl-list'), foot = el('div', '', 'pl-foot')
-  const moves = el('div', '', 'gm-keys')
-  if (d.dance) moves.append(key('💃 Dance', 'gm-go', () => { close(); d.dance!() }))
-  card.append(head, where, moves, list, foot)
+  const where = el('p', '', 'gm-sub pl-where'), list = el('div', '', 'pl-list'), foot = el('div', '', 'pl-foot')
+  const moves = el('div', '', 'pl-moves')
+  if (d.dance) moves.append(key('💃 Dance', 'gm-ghost pl-chip', () => { close(); d.dance!() }))
+  card.append(head, where, list, moves, foot)
   shade.append(card); document.body.append(shade)
   const paint = () => {
     const me = d.me(), home = d.atHome(), ps = d.players()
     where.textContent = d.online() ? `${roomLabel(d.myRoom(), me.username)}. Real players have a gold ring at their feet; residents do not.` : 'Not connected to the city right now, so other players cannot be seen. Check your connection.'
     list.replaceChildren()
     if (!ps.length) list.append(el('p', d.online() ? 'Nobody else is in the city at the moment. Send a friend your invite link, then invite them home when they arrive.' : '', 'gm-sub'))
+    count.textContent = ps.length ? `${ps.length} real player${ps.length === 1 ? '' : 's'} · right now` : 'Real players · right now'
+    const icon = (svg: string, label: string, on: () => void) => { const b = el('button', '', 'pl-ico'); b.type = 'button'; b.setAttribute('aria-label', label); b.title = label; b.innerHTML = svg; b.onclick = on; return b }
     for (const p of ps) {
       const row = el('div', '', `pl-row${p.here ? ' here' : ''}`)
-      const who = el('div', '', 'pl-who')
-      who.append(el('b', p.name), el('small', `${p.username && p.username !== 'guest' ? `@${p.username} · ` : 'Guest · '}${p.here ? 'here with you' : roomLabel(p.room, me.username)}`))
-      const keys = el('div', '', 'pl-keys')
       const named = !!p.username && p.username !== 'guest'
-      if (named) keys.append(key('Profile', 'gm-ghost', () => { close(); d.profile(p.username) }), key('Message', 'gm-ghost', () => { close(); d.message(p.username) }))
-      if (p.here && named) keys.append(key('Find', 'gm-ghost', () => { close(); d.find(p.username) }))
+      const who = el(named ? 'button' : 'div', '', 'pl-who')
+      if (named) { (who as HTMLButtonElement).type = 'button'; who.onclick = () => { close(); d.profile(p.username) } }
+      const words = el('span', '', 'pl-words')
+      words.append(el('b', p.name), el('small', `${named ? `@${p.username} · ` : 'Guest · '}${p.here ? 'Here with you' : roomLabel(p.room, me.username)}`, p.here ? 'on' : ''))
+      if (d.pic) who.append(d.pic(named ? p.username : '', p.name, 46, p.here))
+      who.append(words)
+      const keys = el('div', '', 'pl-keys')
+      if (named) keys.append(icon('<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>', `Message @${p.username}`, () => { close(); d.message(p.username) }))
+      if (p.here && named) keys.append(icon('<svg viewBox="0 0 24 24"><path d="M12 21s-6-5.6-6-10.5a6 6 0 0 1 12 0C18 15.4 12 21 12 21Z"/><circle cx="12" cy="10.5" r="2.2"/></svg>', `Find @${p.username} in the city`, () => { close(); d.find(p.username) }))
       if (home && named && !p.here) keys.append(key('Invite home', 'gm-go', () => {
         if (!me.signedIn) { d.toast('Sign in to invite players home: invites go to a username.'); return }
         d.toast(d.invite(p.username, { room: home.room, home: home.home, label: home.label }) ? `Invite sent to @${p.username}.` : 'Could not send the invite: you are offline.')

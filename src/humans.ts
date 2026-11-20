@@ -519,7 +519,21 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
   let step: ((dt: number, moving: boolean, speed: number) => void) | null = null
   const baseFace = avatar.face
   const baseStep = avatar.step
-  avatar.face = (x, z, dt, moving) => { baseFace(x, z, dt, moving); const p = root.userData.person as THREE.Object3D | undefined; if (p) p.rotation.y = bodyRef.rotation.y }
+  // The figure keeps its own heading, turned toward where it goes (the same easing as the stand-in body), and every
+  // figure on this root follows it: the one on screen, and an outgoing one still showing while a new outfit is
+  // painted. (Copying the stand-in body's turn relied on finding that body among the root's children, and an
+  // outgoing figure kept its last turn: either way a player could be seen walking backwards.)
+  let heading = bodyRef.rotation.y
+  root.userData.heading = () => heading
+  avatar.face = (x, z, dt, moving) => {
+    baseFace(x, z, dt, moving)
+    if (moving && x * x + z * z > 0.0001) {
+      const d = Math.atan2(Math.sin(Math.atan2(x, z) - heading), Math.cos(Math.atan2(x, z) - heading))
+      heading += d * (1 - Math.exp(-10 * dt))
+      if (heading > Math.PI) heading -= Math.PI * 2; else if (heading < -Math.PI) heading += Math.PI * 2
+    }
+    for (const c of root.children) if (c.userData.isPerson) c.rotation.y = heading
+  }
   avatar.step = (dt, moving, speed) => { if (step) step(dt, moving, speed); else baseStep(dt, moving, speed) }
 
   const mount = (name: HumanModel, first: Look | undefined) => {
@@ -580,7 +594,8 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       }
       const dropOld = () => { if (old && old.parent) { old.removeFromParent(); const om = old.getObjectByName('Person') as THREE.SkinnedMesh | undefined; if (om) paint(om, om.userData.template as Template, undefined, detail) } }
       mesh.userData.template = t
-      person.rotation.y = bodyRef.rotation.y
+      person.rotation.y = heading
+      person.userData.isPerson = true
       person.visible = !root.userData.masked && !dressed
       root.userData.person = person
       root.userData.body = bodyRef

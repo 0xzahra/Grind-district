@@ -1014,6 +1014,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const id of Object.keys(STREET) as RoomId[]) if (STREET[id].spot === spotId) return id
       return null
     },
+    /** Whether a room has been built yet (the first visit builds it). */
+    isBuilt(id: RoomId): boolean { return built.has(id) },
     enter(id: RoomId): { x: number; z: number; yaw: number } {
       const room = built.get(id) ?? build(id)
       if (!room.group.userData.props && id !== 'house' && id !== 'mosque') { room.group.userData.props = true; addProps(room.group, id) }

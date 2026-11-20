@@ -141,6 +141,13 @@
       "body": "Every resident now has clearer skin, defined eyes and a soft natural glow, with every skin tone kept true. Each course and career has its own rich illustration, and locked courses show a preview of what is coming.",
       "go": "panel:learn",
       "push": false
+    },
+    {
+      "id": "u1120-fixes",
+      "title": "Send videos and documents, see who you play with",
+      "body": "Chats now take videos and documents (PDF, Word, Excel, PowerPoint) with the paperclip, show a red count on the Messages key, and open from a phone alert. Players online and Friends & party show everyone's character, a ride shows how long is left, and picking a place on the map shows your route there.",
+      "go": "messages",
+      "push": false
     }
   ]
 }

@@ -14,11 +14,14 @@ import type { Graphics } from './logic.ts'
 import { setSurfaceTier } from './surfaces.ts'
 
 /** One-time PMREM env map so metal, glass and cars have something to reflect. */
-export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Scene): void {
+export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Scene, keepIntensity = false): void {
   const pmrem = new THREE.PMREMGenerator(renderer)
   const room = new RoomEnvironment()
+  // Redrawn after a resume or a lost context: free the old one, and keep a room's own brightness.
+  const before = scene.environment
   scene.environment = pmrem.fromScene(room, 0.04).texture
-  scene.environmentIntensity = 0.38
+  before?.dispose()
+  if (!keepIntensity) scene.environmentIntensity = 0.38
   room.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
   pmrem.dispose()
   // Then swap in a real sky: Poly Haven "Kloofendal 48d Partly Cloudy (Pure Sky)" (CC0), 512x256.
