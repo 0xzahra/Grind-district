@@ -12,7 +12,7 @@ import { createWeather } from './weather.ts'
 import { createSeasons } from './seasons.ts'
 import { canGraduate, graduatedOn } from './diploma.ts'
 import { foliageMaterial as seasonFoliage } from './trees.ts'
-import { setMixerViewer, posedHuman, type HumanModel, type Look } from './humans.ts'
+import { setMixerViewer, posedHuman, releaseHuman, type HumanModel, type Look } from './humans.ts'
 import { createMentorCard, tourSeen } from './mentor.ts'
 import { nextStep } from './objective.ts'
 import { FREE_WILL_PRICE, buyFreeWill, ownsFreeWill, settleAway, markSeen } from './freeWill.ts'
@@ -21,7 +21,7 @@ import { loadSkinPermissions } from './skins.ts'
 import { NFT_COLLECTIONS_ENABLED } from './nft.ts'
 import { createAgentCompanion, createRemoteAgents } from './agent.ts'
 import { MAP_LIMIT } from './minimap.ts'
-import { publishProfile } from './share.ts'
+import { publishProfile, setCharacterSource } from './share.ts'
 import { startMoments, initCareer, renderCareer, renderFeed, onCareer, feedRankUp, getCareer, setStepSource, setUpgradeCard } from './career.ts'
 import { JOBS } from './careerData.ts'
 import { getNotes, markRead, setNoteFollow, mountNotifications, notify, onNotesChange, unreadCount } from './notify.ts'
@@ -40,7 +40,7 @@ import type { Ride, RideOpts } from './ride.ts'
 import type { Homes, AreaId } from './homes.ts'
 import type { Metro, StationId } from './metro.ts'
 import { setHomeInView, type HomeId, type StyleId } from './homesShop.ts'
-import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPresence } from './messages.ts'
+import { dmUnread, mountMessages, openInbox, openThread, openProfile, setPortraitMaker, setPresence } from './messages.ts'
 import { createTraffic } from './traffic.ts'
 import { applyEnvironment, createPost, createProbe } from './quality.ts'
 import { createWatch } from './watch.ts'
@@ -402,6 +402,17 @@ const apiAgents = createRemoteAgents(scene)
   syncDrone()
 
   window.addEventListener('gd:look', () => applyLook())
+  // The character this player picked (figure and colours) goes out with their public profile: it is their picture
+  // in other players' chats and on their profile.
+  setCharacterSource(() => {
+    const f = (avatar.object.userData.ownFigure as (() => { model: HumanModel; look: Look; height: number }) | undefined)?.()
+    if (!f) return undefined
+    const L = f.look as Record<string, unknown>, l: Record<string, unknown> = {}
+    for (const k of ['skin', 'hair', 'top', 'bottom', 'shoes']) if (typeof L[k] === 'number') l[k] = L[k]
+    for (const k of ['robe', 'kaftan', 'gown']) if (L[k]) l[k] = true
+    if (typeof L.couture === 'string') l.couture = L.couture
+    return { m: f.model, h: f.height, l }
+  })
   setTimeout(() => void publishProfile(), 4000) // pull the account look on a fresh device
   const applyLook = () => {
     const time = getSave().timeOfDay
@@ -925,7 +936,7 @@ const apiAgents = createRemoteAgents(scene)
     }
   }
   nav.inert = true
-  const closeSheet = () => { ccSheet.hidden = true; document.body.classList.remove('cc-sheet-on'); sheetBody.replaceChildren() }
+  const closeSheet = () => { ccSheet.hidden = true; ccSheet.classList.remove('dm-chat'); document.body.classList.remove('cc-sheet-on'); sheetBody.replaceChildren() }
   let bakeWhenStill = () => { /* set once the map helpers exist */ }
   const setCC = (open: boolean) => {
     document.body.classList.toggle('rail-shut', !open)
@@ -957,7 +968,7 @@ const apiAgents = createRemoteAgents(scene)
   window.addEventListener('gd:follow', (e) => { follow(String((e as CustomEvent).detail ?? '')) })
   const openSheet = (title: string, fill: () => void) => {
     sheetTitle.textContent = title
-    ccSheet.hidden = false; document.body.classList.add('cc-sheet-on')
+    ccSheet.hidden = false; ccSheet.classList.remove('dm-chat'); document.body.classList.add('cc-sheet-on')
     fill()
   }
   const renderNotes = () => {
@@ -1535,6 +1546,34 @@ const apiAgents = createRemoteAgents(scene)
   let peerTarget: THREE.Object3D | null = null
   performance.mark('gd:pre-peershot')
   const peerShot = createPortrait(renderer, () => peerTarget!)
+  // Player pictures for chats and profiles: their picked character, head and shoulders, drawn once each (one at a
+  // time, so a long inbox never stalls the city) and kept for the visit.
+  {
+    const shots = new Map<string, Promise<string | null>>()
+    let line: Promise<unknown> = Promise.resolve()
+    setPortraitMaker((c) => {
+      const key = JSON.stringify(c)
+      let p = shots.get(key)
+      if (!p) {
+        p = line.then(() => new Promise<string | null>((done) => {
+          let g: THREE.Group | null = null
+          const finish = (url: string | null) => { if (g) { g.removeFromParent(); releaseHuman(g) } done(url) }
+          const timer = window.setTimeout(() => finish(null), 15000)
+          g = posedHuman(c.m as HumanModel, { pose: 'stand', look: c.l as Look, height: c.h, detail: 0.5, onReady: () => {
+            window.clearTimeout(timer)
+            // In the scene for this one shot, so it gets the city's reflected light; out again in the same moment.
+            g!.position.set(0, -500, 0); scene.add(g!)
+            let url: string | null = null
+            try { url = createPortrait(renderer, () => g!, { w: 256, h: 256, head: true, headY: c.h * 0.89 })() } catch { url = null }
+            finish(url)
+          } })
+        }))
+        line = p
+        shots.set(key, p)
+      }
+      return p
+    })
+  }
   let peerBusy = false
   const openPeer = async (p: { id: string; name: string; username: string; object: THREE.Object3D }) => {
     if (peerBusy) return

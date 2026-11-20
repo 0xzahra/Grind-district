@@ -114,7 +114,12 @@ export default async function handler(req: Req, res: Res) {
       if (!t) { t = { with: other, last: previewBody(m.body), at: m.created_at, mine: m.sender === user, unread: 0, lastId: m.id }; threads.set(other, t) }
       if (m.recipient === user && !m.read_at) t.unread++
     }
-    return res.status(200).json({ me: user, threads: [...threads.values()], blocked: [...blocked] })
+    // Each conversation's name and character, for the avatars in the list (one read for all of them).
+    const names = [...threads.keys()]
+    const cards = names.length ? await db.from('public_profiles').select('username,name,look').in('username', names.slice(0, 100)) : { data: [] }
+    const card = new Map(((cards.data ?? []) as Array<{ username: string; name?: string; look?: { char?: unknown } | null }>).map((c) => [c.username, c]))
+    const list = [...threads.values()].map((t) => ({ ...t, name: card.get(t.with)?.name ?? '', char: card.get(t.with)?.look?.char ?? null }))
+    return res.status(200).json({ me: user, threads: list, blocked: [...blocked] })
   }
   if (op === 'thread') {
     const c = cleanUsername(req.query?.with)
@@ -123,8 +128,12 @@ export default async function handler(req: Req, res: Res) {
     const r = await db.from('messages').select('id,sender,recipient,body,created_at,read_at')
       .or(`and(sender.eq.${user},recipient.eq.${o}),and(sender.eq.${o},recipient.eq.${user})`).order('created_at', { ascending: false }).limit(100)
     await db.from('messages').update({ read_at: new Date().toISOString() }).eq('sender', o).eq('recipient', user).is('read_at', null)
-    const bl = await db.from('message_blocks').select('blocked').eq('blocker', user).eq('blocked', o).maybeSingle()
-    return res.status(200).json({ me: user, with: o, blocked: !!bl.data, lines: await signLines(db, (r.data ?? []).reverse()) })
+    const [bl, pp] = await Promise.all([
+      db.from('message_blocks').select('blocked').eq('blocker', user).eq('blocked', o).maybeSingle(),
+      db.from('public_profiles').select('name,look,updated_at').eq('username', o).maybeSingle(),
+    ])
+    const peer = { name: (pp.data?.name as string | undefined) ?? '', seen: (pp.data?.updated_at as string | undefined) ?? null, char: ((pp.data?.look ?? {}) as { char?: unknown }).char ?? null }
+    return res.status(200).json({ me: user, with: o, blocked: !!bl.data, peer, lines: await signLines(db, (r.data ?? []).reverse()) })
   }
   if (op === 'search') {
     // Username/name prefix search over public profiles (players who have not shared a card still match by username).
@@ -168,6 +177,7 @@ export default async function handler(req: Req, res: Res) {
       look: { h: lk.h ?? 1, b: lk.b ?? 1, hair: lk.hair ?? null, skin: lk.skin ?? null }, streak: lux?.streak ?? 0,
       agent: (lk.agent as { label?: string } | undefined)?.label ?? null,
       job: typeof lk.job === 'string' ? lk.job : null,
+      char: lk.char ?? null,
     }, friend, inParty: !!(party.data && (party.data.members as string[]).includes(o)), blocked: !!bl.data })
   }
   if (op === 'social') {

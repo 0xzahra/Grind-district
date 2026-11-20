@@ -159,6 +159,18 @@ export default async function handler(req: Req, res: Res) {
   const prev = await db.from('public_profiles').select('look').eq('username', p.data.username).maybeSingle()
   const old = (prev?.data?.look ?? {}) as Record<string, unknown>
   if (lk && typeof lk === 'object') row.look = { ...old, h: Math.max(0.92, Math.min(1.08, Number(lk.h) || 1)), b: Math.max(0.9, Math.min(1.15, Number(lk.b) || 1)), hair: col(lk.hair), skin: col(lk.skin), lip: col((lk as { lip?: unknown }).lip), blush: col((lk as { blush?: unknown }).blush) }
+  // The character they picked (figure and colours) rides in the same jsonb, so other players see the real character
+  // as their picture in chats and on their profile. Colours and a known shape only.
+  const ch = b.char as { m?: unknown; h?: unknown; l?: unknown } | undefined
+  if (ch && typeof ch === 'object' && typeof ch.m === 'string' && /^[a-z0-9_]{2,24}$/.test(ch.m)) {
+    const l = (ch.l && typeof ch.l === 'object' ? ch.l : {}) as Record<string, unknown>
+    const look: Record<string, unknown> = {}
+    for (const k of ['skin', 'hair', 'top', 'bottom', 'shoes']) if (l[k] != null) look[k] = col(l[k])
+    for (const k of ['robe', 'kaftan', 'gown']) if (l[k] === true) look[k] = true
+    if (typeof l.couture === 'string' && /^[a-z-]{3,20}$/.test(l.couture)) look.couture = l.couture
+    const base = (row.look ?? old) as Record<string, unknown>
+    row.look = { ...base, char: { m: ch.m, h: Math.max(1.4, Math.min(2.1, Number(ch.h) || 1.74)), l: look } }
+  }
   // Daily check-in streak rides in the same jsonb (no schema change). Keep whichever record is newer.
   const lx = b.lux as { last?: unknown; streak?: unknown; best?: unknown } | undefined
   if (lx && typeof lx === 'object' && /^\d{4}-\d{2}-\d{2}$/.test(String(lx.last ?? ''))) {

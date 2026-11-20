@@ -43,6 +43,10 @@ export function shareToX(username: string, rank: string): void {
   window.open(intent.toString(), '_blank', 'noopener')
 }
 
+let charSource: () => unknown = () => undefined
+/** The character this player picked (figure and colours), published so other players see it as their picture. */
+export function setCharacterSource(fn: () => unknown): void { charSource = fn }
+
 /** Upsert this player's public card snapshot (name, rank, reputation, balance, skills) for /cv/<username>. Needs Privy sign-in. */
 export async function publishProfile(): Promise<boolean> {
   try {
@@ -53,7 +57,7 @@ export async function publishProfile(): Promise<boolean> {
     const career = await import('./career.ts')
     const jobId = career.getCareer().job
     const jobTitle = jobId ? (await import('./careerData.ts')).JOBS.find((j) => j.id === jobId)?.title : undefined
-    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: Math.round(s.ledger * 100) / 100, skills: skillLines(s), pinned: career.pinnedTitles(), job: jobTitle ?? null, look: mo.hasLocalMorph() ? mo.getMorph() : undefined, lux: (await import('./luxury.ts')).luxRecord() }) })
+    const r = await fetch('/api/profile', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ name: s.name, rank: rankFor(s.xp).label, reputation: s.reputation, balance: Math.round(s.ledger * 100) / 100, skills: skillLines(s), pinned: career.pinnedTitles(), job: jobTitle ?? null, look: mo.hasLocalMorph() ? mo.getMorph() : undefined, lux: (await import('./luxury.ts')).luxRecord(), char: charSource() }) })
     // Fresh device: adopt the look saved on the account.
     const j = r.ok ? await r.json().catch(() => null) as { look?: { h: number; b: number; hair: number | null; skin?: number | null; lux?: { last: string; streak: number; best: number } } | null } | null : null
     if (j?.look?.lux) (await import('./luxury.ts')).adoptLux(j.look.lux)

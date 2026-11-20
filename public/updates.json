@@ -121,6 +121,13 @@
       "title": "Never miss a notification",
       "body": "A red number on the menu key shows what is unread, and new notifications slide in at the top. Tap to open them.",
       "push": false
+    },
+    {
+      "id": "u1120-chat",
+      "title": "New: chats that feel like a real messaging app",
+      "body": "Chats and the Messages list now show each player's own character as their picture. A chat fills the screen with a slim message bar, and Add friend, Block and Report sit on the player's profile: tap their name at the top of a chat.",
+      "go": "messages",
+      "push": false
     }
   ]
 }

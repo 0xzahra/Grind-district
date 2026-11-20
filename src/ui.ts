@@ -810,6 +810,7 @@ export function mountUi(
         if (pc.pass && !mine) { close(); window.dispatchEvent(new CustomEvent('gd:career', { detail: 'weekly' })); return }
         if (!mine) { const r = buyWant(pc.label, pc.usd); if (!r.ok) { finish(r.message); return } own(pc.id) }
         wear(pc)
+        saveLookSoon() // other players see the new outfit as this player's picture
         hooks.onBody()
         open('boutique')
       })
