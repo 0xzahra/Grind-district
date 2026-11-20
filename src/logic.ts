@@ -200,9 +200,11 @@ export const DRONES: { id: DroneId; label: string; price: number; blurb: string 
 ]
 
 export type VehicleKind = 'car' | 'jet' | 'drone' | 'phone' | 'laptop' | 'accessory'
-export type VehicleId = 'saloon' | 'tourer' | 'evcoupe' | 'sportsaloon' | 'executive' | 'supercar' | 'hypercar' | 'ultrabook' | 'minipc' | 'tablet' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset'
+export type VehicleId = 'cityhatch' | 'familysedan' | 'saloon' | 'tourer' | 'evcoupe' | 'sportsaloon' | 'executive' | 'supercar' | 'hypercar' | 'ultrabook' | 'minipc' | 'tablet' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset'
 /** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
 export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
+  { id: 'cityhatch', kind: 'car', label: 'City hatch', price: 160, blurb: 'A first car: a cheerful five-door in coral with a big hatchback, cheap to run and easy to park.' },
+  { id: 'familysedan', kind: 'car', label: 'Family sedan', price: 280, blurb: 'A smooth, roomy four-door in pearl blue. Quiet, easy on fuel, the car most people drive to work.' },
   { id: 'saloon', kind: 'car', label: 'City saloon', price: 600, blurb: 'A quiet four-door in graphite. Insurance and fuel are yours.' },
   { id: 'tourer', kind: 'car', label: 'Grand tourer', price: 900, blurb: 'Long bonnet, two seats, a cabin in tan leather.' },
   { id: 'evcoupe', kind: 'car', label: 'Electric coupé', price: 1100, blurb: 'Instant torque, a glass roof and 500 km on a charge. Quickest off the line.' },

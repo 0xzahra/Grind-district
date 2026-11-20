@@ -518,7 +518,7 @@ const apiAgents = createRemoteAgents(scene)
   /** Extra map pins: [spot id, label, kind] (kind colours the pin). */
   const MAP_EXTRA: Array<[string, string, string]> = [
     ['hospital', 'Hospital', 'health'], ['venue-hotel', 'The Grind Grand hotel', 'stay'], ['venue-mall', 'Grind Mall', 'shop'],
-    ['cruise', 'Harbour · cruises & party yacht', 'travel'], ['realty', 'Grind Realty', 'home'], ['villas', 'Villa row', 'home'],
+    ['cruise', 'Harbour, cruises & party yacht', 'travel'], ['realty', 'Grind Realty', 'home'], ['villas', 'Villa row', 'home'],
     ['crown-lift', 'Crown penthouse', 'home'], ['race', 'Raceway', 'fun'], ['casino', 'Casino (closed)', 'fun'],
     ['graduation', 'Graduation 🎓', 'learn'], ['society', 'Etiquette House', 'learn'], ['market', 'Market hall', 'shop'],
     ['metro-beach', 'Metro · Beach', 'travel'], ['metro-marina', 'Metro · Marina', 'travel'], ['metro-skytower', 'Metro · Sky Tower', 'travel'], ['metro-raceway', 'Metro · Raceway', 'travel'],
@@ -565,11 +565,14 @@ const apiAgents = createRemoteAgents(scene)
         return h && Math.abs(h.x) < MAP_LIMIT && Math.abs(h.z) < MAP_LIMIT ? [{ title: g.title, x: h.x, z: h.z }] : []
       })
       // Places added since the guide was written: tap one to arrive beside it.
+      // Those outside the satellite view are not pins, but they still get a row in the list of places.
+      const more: Array<{ title: string; x: number; z: number; id: string }> = []
       for (const [id, title, kind] of MAP_EXTRA) {
         const h = streetSpots.find((x) => x.id === id) ?? world.hotspots.find((x) => x.id === id)
         if (h && Math.abs(h.x) < MAP_LIMIT && Math.abs(h.z) < MAP_LIMIT) pins.push({ title, x: h.x, z: h.z, id, kind })
+        else if (h) more.push({ title, x: h.x, z: h.z, id })
       }
-      return { url: satelliteUrl(), limit: MAP_LIMIT, pins, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
+      return { url: satelliteUrl(), limit: MAP_LIMIT, pins, more, me: indoors() ? undefined : { x: pos.x, z: pos.z } }
     } catch { return { url: '', limit: MAP_LIMIT, pins: [] } } },
     portrait: (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => portraitShot(yaw, into, hi),
     goSpot: (id) => {
@@ -1956,7 +1959,7 @@ const apiAgents = createRemoteAgents(scene)
   const DEALER_ROAD = { x: -26, z: 1.6, heading: Math.PI / 2 }
   const HARBOUR = { x: 36, z: -44.6 }
   const RACEWAY_DOOR = { x: -12, z: 53.4 }
-  const DRIVABLE = ['saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
+  const DRIVABLE = ['cityhatch', 'familysedan', 'saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
   const rideSpot: Hotspot = { id: '__ride__', x: 0, z: 0, r: 99, title: '', body: 'Stick up to go, back to brake, left and right to steer.', enter: 'Get out', use: () => endRide() }
   const parkedSpot: Hotspot = { id: '__parked__', x: 0, z: 0, r: 3.4, title: 'Your car', body: 'Parked. Take the wheel any time.', enter: 'Drive', use: () => takeWheel() }
   const bestOwnedCar = () => {

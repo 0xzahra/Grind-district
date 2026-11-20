@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import type { Arch } from './homes.ts'
 import type { ParkCtx } from './parkPlus.ts'
 import { std, put, cube, sign } from './travel.ts'
+import { mergeStatic } from './batch.ts'
 import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { posedHuman, MEN, WOMEN } from './humans.ts'
@@ -14,18 +15,36 @@ const BOX = (x0: number, z0: number, x1: number, z1: number) => ({ x0, z0, x1, z
 
 export function buildParkLife(A: Arch, X: ParkCtx): void {
   const g = new THREE.Group(); A.add(0, g)
-  const metal = std(0x3b4248, 0.4, 0.6), wood = std(0x9a6a42, 0.7), seatMat = std(0xe0457b, 0.5), chainMat = std(0x2a2c2f, 0.5, 0.6)
+  const wood = std(0x9a6a42, 0.7), seatMat = std(0xe0457b, 0.5), chainMat = std(0x2a2c2f, 0.5, 0.6)
 
   // ---------------------------------------------------------------- swings: two seats that really swing
   {
     const SX = -116, SZ = 150, TOP = 2.5, L = 1.94
-    for (const x of [-1.5, 1.5]) for (const z of [-0.7, 0.7]) { const l = put(g, new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8), metal, SX + x, 1.25, SZ + z); l.rotation.x = z > 0 ? -0.25 : 0.25 }
-    const bar = put(g, new THREE.CylinderGeometry(0.06, 0.06, 3.2, 8), metal, SX, TOP, SZ); bar.rotation.z = Math.PI / 2
-    A.block(0, BOX(SX - 1.7, SZ - 0.9, SX - 1.3, SZ + 0.9)); A.block(0, BOX(SX + 1.3, SZ - 0.9, SX + 1.7, SZ + 0.9))
+    // A proper A-frame at each end: two legs splayed from feet 0.9 m either side down to one apex under the top
+    // bar, a spreader bar half way up, a cap where they meet, and a soft rubber mat under the seats.
+    const frame = new THREE.Group(); g.add(frame)
+    const paint = std(0x1f6fb2, 0.42, 0.35), cap = std(0xf2c230, 0.45, 0.2), mat = std(0x9c3b2e, 0.95)
+    const FOOT = 0.9, LEG = Math.hypot(FOOT, TOP), TILT = Math.atan2(FOOT, TOP)
+    for (const x of [-1.6, 1.6]) {
+      for (const s of [-1, 1]) {
+        const l = put(frame, new THREE.CylinderGeometry(0.055, 0.06, LEG, 10), paint, SX + x, TOP / 2, SZ + (s * FOOT) / 2); l.rotation.x = -s * TILT
+        put(frame, new THREE.CylinderGeometry(0.11, 0.13, 0.06, 12), cap, SX + x, 0.03, SZ + s * FOOT) // foot plate
+      }
+      const spread = put(frame, new THREE.CylinderGeometry(0.035, 0.035, FOOT + 0.04, 8), paint, SX + x, TOP / 2 - 0.15, SZ); spread.rotation.x = Math.PI / 2
+      put(frame, new THREE.BoxGeometry(0.2, 0.26, 0.24), cap, SX + x, TOP - 0.02, SZ) // the cap the legs and bar meet in
+    }
+    const bar = put(frame, new THREE.CylinderGeometry(0.065, 0.065, 3.5, 12), paint, SX, TOP, SZ); bar.rotation.z = Math.PI / 2
+    for (const x of [-0.7, 0.7]) for (const dx of [-0.2, 0.2]) { const h = put(frame, new THREE.TorusGeometry(0.075, 0.018, 6, 14), cap, SX + x + dx, TOP, SZ); h.rotation.y = Math.PI / 2 }
+    const pad = put(frame, new THREE.PlaneGeometry(3.0, 4.6), mat, SX, 0.012, SZ, false); pad.rotation.x = -Math.PI / 2
+    mergeStatic(frame)
+    A.block(0, BOX(SX - 1.8, SZ - 1.05, SX - 1.4, SZ + 1.05)); A.block(0, BOX(SX + 1.4, SZ - 1.05, SX + 1.8, SZ + 1.05))
+    // Seats hang on chains from the bar and dip in the middle like a real rubber strap seat.
+    const seatGeo = new THREE.BoxGeometry(0.52, 0.045, 0.22, 8, 1, 1)
+    { const sp = seatGeo.getAttribute('position') as THREE.BufferAttribute; for (let i = 0; i < sp.count; i++) sp.setY(i, sp.getY(i) + 0.07 * (sp.getX(i) / 0.26) ** 2); seatGeo.computeVertexNormals() }
     const pivots = [-0.7, 0.7].map((x) => {
-      const p = new THREE.Group(); p.position.set(SX + x, TOP, SZ); g.add(p)
-      for (const dx of [-0.2, 0.2]) put(p, new THREE.CylinderGeometry(0.012, 0.012, L, 5), chainMat, dx, -L / 2, 0)
-      put(p, new THREE.BoxGeometry(0.5, 0.05, 0.22), seatMat, 0, -L, 0)
+      const p = new THREE.Group(); p.position.set(SX + x, TOP, SZ); p.userData.dynamic = true; g.add(p)
+      for (const dx of [-0.2, 0.2]) put(p, new THREE.CylinderGeometry(0.016, 0.016, L - 0.05, 6), chainMat, dx * 1.25, -L / 2 + 0.07, 0)
+      put(p, seatGeo, seatMat, 0, -L, 0)
       return p
     })
     let ride: { k: number; t0: number } | null = null

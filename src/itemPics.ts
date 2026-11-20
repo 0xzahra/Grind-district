@@ -44,7 +44,7 @@ export function setShopRenderer(renderer: THREE.WebGLRenderer, environment: () =
     model.scale.setScalar(k)
     model.position.set(-centre.x * k, -box.min.y * k, -centre.z * k)
     // Vehicles show their side in a three-quarter view; screens face the camera.
-    const turn = new THREE.Group(); turn.rotation.y = /saloon|tourer|coupe|executive|car|jet|skydrone/.test(id) ? -0.75 : 0.2; turn.add(model)
+    const turn = new THREE.Group(); turn.rotation.y = /hatch|sedan|saloon|tourer|coupe|executive|car|jet|skydrone/.test(id) ? -0.75 : 0.2; turn.add(model)
     scene.add(turn)
     scene.environment = environment()
     const prev = renderer.getRenderTarget()
@@ -130,6 +130,8 @@ const PICS: Record<string, string> = {
   sportsaloon: S('<path d="M22 70h156V58l-24-6-18-16H80L60 50l-36 6z" fill="#1c3f96"/><rect x="84" y="40" width="42" height="11" fill="#9cc"/><circle cx="56" cy="72" r="10" fill="#111"/><circle cx="146" cy="72" r="10" fill="#111"/>'),
   supercar: S('<path d="M14 72h172v-8l-30-10-22-14H96L70 52 14 62z" fill="#c4161c"/><path d="M98 42h30l12 10H84z" fill="#9cc"/><circle cx="48" cy="72" r="10" fill="#111"/><circle cx="152" cy="72" r="10" fill="#111"/>'),
   hypercar: S('<path d="M12 72h176v-7l-34-10-20-13H98L72 53 12 63z" fill="#2a2d32"/><path d="M100 44h28l12 9H88z" fill="#9cc"/><rect x="12" y="46" width="34" height="3" fill="#ff7a1a"/><rect x="26" y="48" width="3" height="12" fill="#111"/><circle cx="48" cy="72" r="10" fill="#111"/><circle cx="152" cy="72" r="10" fill="#111"/>'),
+  cityhatch: S('<path d="M40 70h122v-14l-14-6-20-16H70L48 50 40 56z" fill="#e2573f"/><rect x="72" y="38" width="46" height="12" fill="#9cc"/><circle cx="66" cy="72" r="10" fill="#111"/><circle cx="138" cy="72" r="10" fill="#111"/>'),
+  familysedan: S('<path d="M24 70h152v-13l-22-5-18-16H76L56 50 24 56z" fill="#4a6f99"/><rect x="80" y="40" width="44" height="12" fill="#9cc"/><circle cx="58" cy="72" r="10" fill="#111"/><circle cx="146" cy="72" r="10" fill="#111"/>'),
   saloon: S('<path d="M30 70h140v-14l-22-4-18-16H72L52 52 30 56z" fill="#55595e"/><rect x="76" y="40" width="44" height="12" fill="#9cc"/><circle cx="62" cy="72" r="10" fill="#111"/><circle cx="142" cy="72" r="10" fill="#111"/>'),
   tourer: S('<path d="M20 70h160v-10l-30-6-20-14H96L80 54 20 58z" fill="#7a2626"/><rect x="100" y="44" width="34" height="10" fill="#9cc"/><circle cx="50" cy="72" r="10" fill="#111"/><circle cx="150" cy="72" r="10" fill="#111"/>'),
   lightjet: S('<path d="M20 52l150-6c10 0 14 4 14 6s-4 6-14 6L20 56z" fill="#e8e8e8"/><path d="M90 52l-20-26h12l30 26zM90 54l-20 26h12l30-26zM24 52l-8-18h8l12 18z" fill="#c7c7c7"/>'),

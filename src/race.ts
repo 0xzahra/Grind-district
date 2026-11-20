@@ -8,6 +8,8 @@ import { slotKey, getSave, addReputation } from './state.ts'
 type Car = { id: string; label: string; top: number; acc: number; grip: number; tint: string }
 export const KART: Car = { id: 'kart', label: 'Club kart', top: 150, acc: 95, grip: 1, tint: '#e9c46a' }
 export const OWNED: Record<string, Car> = {
+  cityhatch: { id: 'cityhatch', label: 'City hatch', top: 156, acc: 98, grip: 1.01, tint: '#e2573f' },
+  familysedan: { id: 'familysedan', label: 'Family sedan', top: 160, acc: 99, grip: 1.02, tint: '#4a6f99' },
   saloon: { id: 'saloon', label: 'City saloon', top: 165, acc: 100, grip: 1.02, tint: '#8d99ae' },
   tourer: { id: 'tourer', label: 'Grand tourer', top: 178, acc: 108, grip: 1.05, tint: '#9d2f2f' },
   evcoupe: { id: 'evcoupe', label: 'Electric coupé', top: 172, acc: 130, grip: 1.06, tint: '#3fb8af' },

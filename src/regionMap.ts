@@ -4,19 +4,21 @@
 // scroll (or + and -) to zoom; tap any place to go straight there.
 import { CTRL, STATIONS } from './metroRoute.ts'
 
-export type FarPlace = { id: string; area: 'park' | 'airport'; title: string; glyph: string; kind: 'fun' | 'nature' | 'travel' | 'thrill'; x: number; z: number; at?: [number, number]; text: string }
+/** `where` is the row's direction in the list of places; `inside` marks a ride or lounge within a bigger place (a pin on
+ *  the map, but not its own row in the list: the row for the place it is inside covers it). */
+export type FarPlace = { id: string; area: 'park' | 'airport'; title: string; glyph: string; kind: 'fun' | 'nature' | 'travel' | 'thrill'; x: number; z: number; at?: [number, number]; text: string; where: string; inside?: string }
 export const FAR: FarPlace[] = [
-  { id: 'park', area: 'park', title: 'Grind Park', glyph: '🎡', kind: 'fun', x: -122, z: 128, text: 'Ferris wheel, carousel, coaster, water slides, a lake and ice cream.' },
-  { id: 'wheel', area: 'park', title: 'Ferris wheel & carousel', glyph: '🎠', kind: 'fun', x: -145, z: 150, at: [-128, 142.4], text: 'A slow turn over the whole district, then the carousel.' },
-  { id: 'coaster', area: 'park', title: 'Roller coaster', glyph: '🎢', kind: 'thrill', x: -171, z: 116, at: [-171, 117.8], text: 'Lift hill, drop and loop.' },
-  { id: 'zoo', area: 'park', title: 'Grind Zoo & safari', glyph: '🦒', kind: 'nature', x: -208, z: 137, at: [-208, 135.6], text: 'Giraffes, zebras, elephants, lions and flamingos, from an open-top safari tram.' },
-  { id: 'golf', area: 'park', title: 'Golf course', glyph: '⛳', kind: 'nature', x: -226, z: 183, at: [-226, 181.6], text: 'Three holes on the west lawn. Swing meter, real ball flight.' },
-  { id: 'picnic', area: 'park', title: 'Picnic lawn', glyph: '🧺', kind: 'nature', x: -115, z: 184, at: [-115, 182.2], text: 'A blanket, a basket and the lake.' },
-  { id: 'airport', area: 'airport', title: 'Grind International', glyph: '✈', kind: 'travel', x: 150, z: 14, text: 'Check in for economy, business or first; flights over the city and out to sea.' },
-  { id: 'jet', area: 'airport', title: 'Party jet lounge', glyph: '🥂', kind: 'fun', x: 213, z: 49, at: [213, 47.2], text: 'Charter Grind One with a DJ and a dance floor at altitude.' },
-  { id: 'space', area: 'airport', title: 'Spaceport · orbit flight', glyph: '🚀', kind: 'thrill', x: 382, z: -34, at: [203.2, -18], text: 'Book at the Grind Orbital desk: launch, orbit over Earth and splashdown.' },
-  { id: 'cliff', area: 'airport', title: 'Cliff climbing', glyph: '🧗', kind: 'thrill', x: 446, z: -66, at: [440, -67], text: 'Guided climb up a 34 m sea cliff, then abseil down.' },
-  { id: 'skydive', area: 'airport', title: 'Skydiving', glyph: '🪂', kind: 'thrill', x: 258, z: 92, at: [251, 101], text: 'Tandem-style briefing, the door, freefall, canopy and a flared landing.' },
+  { id: 'park', area: 'park', title: 'Grind Park', glyph: '🎡', kind: 'fun', x: -122, z: 128, where: 'Southwest', text: 'Ferris wheel, carousel, roller coaster, water slides, swings and a slide, a picnic lawn, a lake and ice cream.' },
+  { id: 'wheel', area: 'park', title: 'Ferris wheel & carousel', glyph: '🎠', kind: 'fun', x: -145, z: 150, at: [-128, 142.4], text: 'A slow turn over the whole district, then the carousel.', where: 'Grind Park', inside: 'park' },
+  { id: 'coaster', area: 'park', title: 'Roller coaster', glyph: '🎢', kind: 'thrill', x: -171, z: 116, at: [-171, 117.8], text: 'Lift hill, drop and loop.', where: 'Grind Park', inside: 'park' },
+  { id: 'zoo', area: 'park', title: 'Grind Zoo & safari', glyph: '🦒', kind: 'nature', x: -208, z: 137, at: [-208, 135.6], text: 'Giraffes, zebras, elephants, lions and flamingos, from an open-top safari tram.', where: 'Southwest, past the park' },
+  { id: 'golf', area: 'park', title: 'Golf course', glyph: '⛳', kind: 'nature', x: -226, z: 183, at: [-226, 181.6], text: 'Three holes on the west lawn. Swing meter, real ball flight.', where: 'Southwest, past the zoo' },
+  { id: 'picnic', area: 'park', title: 'Picnic lawn', glyph: '🧺', kind: 'nature', x: -115, z: 184, at: [-115, 182.2], text: 'A blanket, a basket and the lake.', where: 'Grind Park', inside: 'park' },
+  { id: 'airport', area: 'airport', title: 'Grind International', glyph: '✈', kind: 'travel', x: 150, z: 14, text: 'Check in for economy, business or first; flights over the city and out to sea, and the party jet lounge.', where: 'East' },
+  { id: 'jet', area: 'airport', title: 'Party jet lounge', glyph: '🥂', kind: 'fun', x: 213, z: 49, at: [213, 47.2], text: 'Charter Grind One with a DJ and a dance floor at altitude.', where: 'Grind International', inside: 'airport' },
+  { id: 'space', area: 'airport', title: 'Spaceport & orbit flight', glyph: '🚀', kind: 'thrill', x: 382, z: -34, at: [203.2, -18], text: 'Book at the Grind Orbital desk: launch, orbit over Earth and splashdown.', where: 'East, past the airport' },
+  { id: 'cliff', area: 'airport', title: 'Cliff climbing', glyph: '🧗', kind: 'thrill', x: 446, z: -66, at: [440, -67], text: 'Guided climb up a 34 m sea cliff, then abseil down.', where: 'Far east, by the sea' },
+  { id: 'skydive', area: 'airport', title: 'Skydiving', glyph: '🪂', kind: 'thrill', x: 258, z: 92, at: [251, 101], text: 'Tandem-style briefing, the door, freefall, canopy and a flared landing.', where: 'East, by the airport' },
 ]
 
 // The airport grounds run far east; squeeze everything past x = 200 so the map stays readable on a phone.
@@ -45,8 +47,8 @@ export type CityPin = { title: string; x: number; z: number; id?: string; kind?:
 export type CityLayer = { url: string; limit: number; pins: CityPin[]; me?: { x: number; z: number } }
 const KIND: Record<string, string> = { health: '#e0525a', stay: '#c9a25e', shop: '#e08a3c', travel: '#3f86e0', home: '#9a6be0', fun: '#1fb873', learn: '#d6b25e', place: '#e9cf8e' }
 
-/** The single district map, and (hidden behind 'Show list of places') rows for the places beyond the centre. */
-export function districtMapNodes(button: Btn, o: { city?: CityLayer; goFar: (p: FarPlace) => void; goPin: (p: CityPin) => void }): HTMLElement[] {
+/** The single district map and its caption. */
+export function districtMapNodes(_button: Btn, o: { city?: CityLayer; goFar: (p: FarPlace) => void; goPin: (p: CityPin) => void }): HTMLElement[] {
   const wrap = document.createElement('div'); wrap.className = 'region-map'
   const svg = s('svg', { viewBox: `${VB.x0} ${VB.z0} ${VB.w} ${VB.h}`, role: 'img', 'aria-label': 'Map of the whole district: the city centre, the metro, Grind Park and Grind International Airport' })
   const defs = s('defs', {})
@@ -140,12 +142,17 @@ export function districtMapNodes(button: Btn, o: { city?: CityLayer; goFar: (p: 
   })
   apply()
   const cap = document.createElement('small'); cap.className = 'region-cap'; cap.textContent = 'Drag to move, pinch or scroll to zoom, ⤢ for the whole district. The gold line is the Grind Metro. Tap any place to go there.'
-  const out: HTMLElement[] = [wrap, cap]
-  for (const p of FAR) {
-    const row = document.createElement('div'); row.className = 'map-entry region-row'
-    const b = button(`${p.glyph}  ${p.title}`, 'ghost', () => o.goFar(p))
-    const t = document.createElement('small'); t.textContent = p.text
-    row.append(b, t); out.push(row)
-  }
-  return out
+  return [wrap, cap]
+}
+
+/** The places beyond the centre as rows of the one list of places, in the same style as the street's own rows.
+ *  Rides and lounges inside a bigger place (the Ferris wheel in the park, the jet lounge at the airport) are left
+ *  to that place's row. */
+export function farPlaceRows(button: Btn, goFar: (p: FarPlace) => void): HTMLElement[] {
+  return FAR.filter((p) => !p.inside).map((p) => {
+    const row = document.createElement('div'); row.className = 'map-entry'
+    const b = button(`${p.title} · ${p.where}`, 'ghost', () => goFar(p)); b.title = p.text
+    row.append(b)
+    return row
+  })
 }

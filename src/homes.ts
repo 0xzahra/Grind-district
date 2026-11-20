@@ -243,8 +243,33 @@ function piece(kind: Kind, M: Mats): THREE.Group {
     case 'palms': for (const [x, s] of [[-0.55, 1], [0, 1.25], [0.55, 0.9]] as const) { box(g, 0.42, 0.45, 0.42, M.stone, x, 0, 0); cyl(g, 0.03, 0.04, 1.2 * s, M.wood, x, 0.45); for (let k = 0; k < 6; k++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.7 * s), M.leaf); f.material.side = THREE.DoubleSide; f.position.set(x, 0.45 + 1.2 * s, 0); f.rotation.set(0.9, (k / 6) * Math.PI * 2, 0); f.translateY(0.3 * s); g.add(f) } } break
     case 'bench': box(g, 1.8, 0.06, 0.45, M.wood, 0, 0.44, 0.05); box(g, 1.8, 0.4, 0.05, M.wood, 0, 0.55, -0.2); for (const sx of [-0.8, 0.8]) { box(g, 0.06, 0.44, 0.5, M.black, sx, 0, 0); box(g, 0.06, 0.45, 0.06, M.black, sx, 0.44, -0.2) } break
     case 'tree': { cyl(g, 0.22, 0.32, 3.2, M.wood); for (const [x, y, z, r] of [[0, 4.4, 0, 2.2], [1.1, 3.8, 0.4, 1.5], [-1, 3.9, -0.5, 1.6], [0.2, 5.4, -0.3, 1.5]] as const) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), M.leaf); c.position.set(x, y, z); c.castShadow = true; g.add(c) } break }
-    case 'swings': { for (const x of [-1.5, 1.5]) for (const z of [-0.7, 0.7]) { const l = cyl(g, 0.05, 0.05, 2.6, M.metal, x, 0, z); l.rotation.x = z > 0 ? -0.25 : 0.25 } const top = cyl(g, 0.06, 0.06, 3.2, M.metal, 0, 0, 0); top.rotation.z = Math.PI / 2; top.position.set(0, 2.5, 0); for (const x of [-0.7, 0.7]) { cyl(g, 0.01, 0.01, 1.9, M.black, x - 0.2, 0.6, 0); cyl(g, 0.01, 0.01, 1.9, M.black, x + 0.2, 0.6, 0); box(g, 0.5, 0.04, 0.2, M.accent, x, 0.56, 0) } break }
-    case 'slide': { box(g, 1.0, 0.1, 1.0, M.wood, 0, 1.6, -1.6); for (const [x, z] of [[-0.45, -2.05], [0.45, -2.05], [-0.45, -1.15], [0.45, -1.15]] as const) box(g, 0.08, 1.6, 0.08, M.metal, x, 0, z); const sl = box(g, 0.7, 0.05, 3.0, M.accent, 0, 0, 0.3); sl.rotation.x = 0.5; sl.position.set(0, 0.85, 0.3); for (let k = 0; k < 5; k++) box(g, 0.6, 0.04, 0.12, M.metal, 0, 0.3 + k * 0.32, -2.3); for (const x of [-0.33, 0.33]) box(g, 0.05, 1.85, 0.06, M.metal, x, 0, -2.3); break }
+    case 'swings': {
+      // A-frames whose legs meet under the bar (feet 0.9 m out, apex at 2.5 m), not legs that stop short of it.
+      const T = Math.atan2(0.9, 2.5), LEG = Math.hypot(0.9, 2.5)
+      for (const x of [-1.6, 1.6]) { for (const s of [-1, 1]) { const l = cyl(g, 0.05, 0.055, LEG, M.metal, x, 1.25 - LEG / 2, s * 0.45); l.rotation.x = -s * T } box(g, 0.18, 0.24, 0.22, M.accent, x, 2.36, 0) }
+      const top = cyl(g, 0.06, 0.06, 3.5, M.metal, 0, 0, 0); top.rotation.z = Math.PI / 2; top.position.set(0, 2.5, 0)
+      for (const x of [-0.7, 0.7]) { cyl(g, 0.012, 0.012, 1.9, M.black, x - 0.22, 0.6, 0); cyl(g, 0.012, 0.012, 1.9, M.black, x + 0.22, 0.6, 0); box(g, 0.52, 0.045, 0.22, M.accent, x, 0.56, 0) }
+      break
+    }
+    case 'slide': {
+      // A little play tower: four posts up to a pointed roof, a deck with side panels, a ladder with round rungs
+      // and handholds, and a glossy chute with raised sides that flattens out at the bottom. The park ride in
+      // parkLife.ts climbs the ladder at z -2.3, stands on the deck at 1.7 m and slides from z -1.02 to z 1.62.
+      const frame = std(0x1f6fb2, 0.42, 0.35), chute = std(0xff9f1c, 0.28, 0.05), panel = std(0x2fae6b, 0.5), roof = std(0xe5483f, 0.55), deck = std(0xb07a4a, 0.75), grip = std(0xf2c230, 0.45, 0.2)
+      box(g, 1.0, 0.1, 1.0, deck, 0, 1.6, -1.6)
+      for (const [x, z] of [[-0.45, -2.05], [0.45, -2.05], [-0.45, -1.15], [0.45, -1.15]] as const) cyl(g, 0.05, 0.05, 3.55, frame, x, 0, z, 10)
+      cyl(g, 0, 0.86, 0.55, roof, 0, 3.52, -1.6, 4).rotation.y = Math.PI / 4
+      for (const x of [-0.47, 0.47]) { box(g, 0.035, 0.55, 0.86, panel, x, 1.72, -1.6); box(g, 0.06, 0.05, 0.98, grip, x, 2.27, -1.6) }
+      for (const x of [-0.33, 0.33]) cyl(g, 0.03, 0.03, 2.4, frame, x, 0, -2.3, 8)
+      for (let k = 0; k < 5; k++) { const r = cyl(g, 0.025, 0.025, 0.66, grip, 0, 0, 0, 8); r.rotation.z = Math.PI / 2; r.position.set(0, 0.3 + k * 0.32, -2.3) }
+      const ch = new THREE.Group(); ch.position.set(0, 0.875, 0.3); ch.rotation.x = 0.5; g.add(ch)
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.05, 3.0), chute); bed.castShadow = bed.receiveShadow = true; ch.add(bed)
+      for (const x of [-0.37, 0.37]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.24, 3.0), chute); w.position.set(x, 0.1, 0); w.castShadow = true; ch.add(w) }
+      box(g, 0.7, 0.05, 0.4, chute, 0, 0.13, 1.82); for (const x of [-0.37, 0.37]) box(g, 0.05, 0.2, 0.4, chute, x, 0.13, 1.82)
+      cyl(g, 0.045, 0.045, 0.82, frame, 0, 0, 0.3, 8)
+      for (const x of [-0.42, 0.42]) { const h = cyl(g, 0.025, 0.025, 0.7, grip, x, 1.7, -1.05, 8); h.rotation.x = 0.15 }
+      break
+    }
     case 'kiosk': { box(g, 2.4, 1.0, 1.4, M.white, 0, 0, 0); box(g, 2.6, 0.06, 1.6, M.marble, 0, 1.0, 0); for (const x of [-1.1, 1.1]) box(g, 0.08, 1.4, 0.08, M.metal, x, 1.06, 0.6); const awn = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 1.9), std(0xf06292, 0.7)); awn.position.set(0, 2.5, 0.2); awn.rotation.x = 0.15; awn.castShadow = true; g.add(awn); for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), std([0xf7c6d9, 0xfff1c1, 0x7a4a2a, 0xb6e3c6][k]!, 0.6)); c.position.set(-0.6 + k * 0.4, 1.12, 0.3); g.add(c) } break }
     case 'barcart': box(g, 0.85, 0.02, 0.45, M.glass, 0, 0.82, 0); box(g, 0.85, 0.02, 0.45, M.glass, 0, 0.35, 0); for (const [x, z] of [[-0.4, -0.2], [0.4, -0.2], [-0.4, 0.2], [0.4, 0.2]] as const) cyl(g, 0.012, 0.012, 0.85, M.metal, x, 0, z); for (let k = 0; k < 4; k++) cyl(g, 0.04, 0.045, 0.26, std([0x7a3d12, 0x2a5a2a, 0xd8d0b0, 0x5a1218][k]!, 0.15, 0.1, { transparent: true, opacity: 0.85 }), -0.3 + k * 0.2, 0.84, 0); break
   }

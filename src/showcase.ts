@@ -177,6 +177,8 @@ export function itemModel(id: string): THREE.Group {
       g.rotation.y = 0.35
       break
     }
+    case 'cityhatch':
+    case 'familysedan':
     case 'saloon':
     case 'tourer':
     case 'evcoupe':

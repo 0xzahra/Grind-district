@@ -3,7 +3,7 @@
 // surface of cross-sections along its length, so panels curve in both directions, the wings rise over the wheels
 // and the wheel arches are real openings with the wheels sitting inside them. Clear-coat paint, dark glass, spoked
 // alloys with brake discs, lamps, grilles, mirrors and exhausts.
-// The designs are original: an executive saloon, a sport saloon, a grand tourer, an electric coupé, a mid-engined
+// The designs are original: a city hatch, a family sedan, an executive saloon, a sport saloon, a grand tourer, an electric coupé, a mid-engined
 // supercar and a hypercar, in the manner of the great marques but with no real badge, name or exact shape.
 // Used for the showroom and shop photographs only (street traffic keeps the light kit in cars.ts).
 import * as THREE from 'three'
@@ -37,6 +37,18 @@ function curve(pts: Pt[]): (x: number) => number {
 }
 
 const SPECS: Record<string, Spec> = {
+  // Starter cars: a short five-door hatch (the roof runs back to a near-upright tailgate) and a mid-size family
+  // four-door with a gently sloping rear screen. Original shapes, no badge.
+  cityhatch: {
+    L: 4.02, W: 1.75, clr: 0.15, r: 0.31, fo: 0.8, ro: 0.62, taper: 0.22, paint: 0xe2573f, style: 'saloon',
+    deck: [[0, 0.82], [0.03, 0.94], [0.1, 0.98], [0.3, 0.98], [0.66, 0.95], [0.78, 0.88], [0.92, 0.77], [0.985, 0.69], [1, 0.6]],
+    cab: [0.05, 0.77], roof: [[0.12, 1.35], [0.26, 1.43], [0.47, 1.43], [0.6, 1.29]],
+  },
+  familysedan: {
+    L: 4.86, W: 1.84, clr: 0.15, r: 0.33, fo: 0.97, ro: 1.06, taper: 0.2, paint: 0x4a6f99, style: 'saloon',
+    deck: [[0, 0.8], [0.03, 0.94], [0.15, 0.99], [0.28, 1.0], [0.7, 0.97], [0.82, 0.9], [0.94, 0.79], [0.985, 0.7], [1, 0.6]],
+    cab: [0.17, 0.76], roof: [[0.28, 1.31], [0.4, 1.45], [0.56, 1.44], [0.66, 1.29]],
+  },
   saloon: {
     L: 4.7, W: 1.82, clr: 0.16, r: 0.33, fo: 0.92, ro: 1.02, taper: 0.2, paint: 0x3c4046, style: 'saloon',
     deck: [[0, 0.8], [0.03, 0.93], [0.18, 0.98], [0.3, 0.99], [0.7, 0.97], [0.82, 0.9], [0.94, 0.8], [0.985, 0.72], [1, 0.62]],

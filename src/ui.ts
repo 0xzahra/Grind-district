@@ -40,7 +40,7 @@ import { masterclassNodes } from './masterclass.ts'
 import { raceNodes } from './race.ts'
 import { cardNodes, checkCards } from './cards.ts'
 import { photoCardNodes, shareCardToX } from './photoCard.ts'
-import { districtMapNodes } from './regionMap.ts'
+import { districtMapNodes, farPlaceRows } from './regionMap.ts'
 import { clubNodes, markPlate } from './stockClub.ts'
 import { KIT_USD, kitOwned, buyKit, makeup, setMakeup, LIPSTICK, BLUSH as BLUSH_SHADES, SHADOW, sampleSvg, LINER_SVG } from './makeup.ts'
 import { lookShot, newShootBatch, type Frame } from './lookShots.ts'
@@ -135,7 +135,7 @@ type Hooks = {
   onRank: (label: string) => void
   travel?: (title: string, enter?: boolean) => void
   /** Baked top-down map (data URL, '' if not baked yet), its half-extent in metres, and pin positions by guide title. */
-  satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number; id?: string; kind?: string }>; me?: { x: number; z: number } }
+  satMap?: () => { url: string; limit: number; pins: Array<{ title: string; x: number; z: number; id?: string; kind?: string }>; more?: Array<{ title: string; x: number; z: number; id: string }>; me?: { x: number; z: number } }
   /** Go to a street spot by id (map pins for places that are not rooms). */
   goSpot?: (id: string) => void
   /** Go to a place beyond the centre (Grind Park, the airport), optionally to a spot inside it. */
@@ -1026,7 +1026,7 @@ export function mountUi(
     return frame('Boutique', wrap)
   }
 
-  const DRIVABLE_CARS: string[] = ['saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
+  const DRIVABLE_CARS: string[] = ['cityhatch', 'familysedan', 'saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
   const shopItem = (v: (typeof VEHICLES)[number], panel: 'gadgets' | 'dealer'): HTMLElement[] => {
     const owned = (getSave().ownedVehicles ?? []).includes(v.id)
     return [itemPic(v.id, v.label), para(`${v.label} · ${v.blurb}`, 'muted'), button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
@@ -1041,7 +1041,13 @@ export function mountUi(
   }
   const renderDealer = (): HTMLElement => {
     const wrap = stack(para('Cars, jets and air taxis. In-game cash only. Each one lands in Books under liabilities.', 'muted'))
-    for (const v of VEHICLES.filter((x) => x.kind === 'car' || x.kind === 'jet' || x.kind === 'drone')) wrap.append(...shopItem(v, 'dealer'))
+    const cars = VEHICLES.filter((x) => x.kind === 'car'), starter = cars.filter((x) => x.price < 500)
+    wrap.append(para('Starter cars', 'kicker'), para('Made for new players: a few days of job duties, Earn Path practice, daily check-ins and weekly challenges pays for one. Test drive it first, free. Once it is yours it waits outside your house.', 'muted'))
+    for (const v of starter) wrap.append(...shopItem(v, 'dealer'))
+    wrap.append(para('More cars', 'kicker'))
+    for (const v of cars.filter((x) => !starter.includes(x))) wrap.append(...shopItem(v, 'dealer'))
+    wrap.append(para('Jets and air taxis', 'kicker'))
+    for (const v of VEHICLES.filter((x) => x.kind === 'jet' || x.kind === 'drone')) wrap.append(...shopItem(v, 'dealer'))
     return frame('Auto dealership', wrap)
   }
   const renderGadgets = (): HTMLElement => {
@@ -1511,31 +1517,32 @@ export function mountUi(
         ])
       case 'house':
         return renderHouse()
-      case 'city':
+      case 'city': {
+        // One map for the whole district (the city centre as a satellite view with its places, the metro, the park
+        // and the airport), then one list of every place: the street's doors, the newer places on the map, and the
+        // places further out. Rides inside the park and the lounge at the airport live under their place's row.
+        const m = hooks.satMap?.()
+        const nodes = districtMapNodes(button, {
+          city: m && m.url ? { url: m.url, limit: m.limit, pins: m.pins, me: m.me } : undefined,
+          goFar: (p) => hooks.goFar?.(p.area, p.at, p.title),
+          goPin: (pin) => pin.id ? hooks.goSpot?.(pin.id) : hooks.travel?.(pin.title, true),
+        })
+        const toggle = button('Show list of places', 'ghost', () => { const l = toggle.parentElement?.querySelectorAll<HTMLElement>('.map-entry'); const hide = !(l?.[0]?.hidden); l?.forEach((n) => { n.hidden = hide }); toggle.textContent = hide ? 'Show list of places' : 'Hide list' })
+        requestAnimationFrame(() => toggle.parentElement?.querySelectorAll<HTMLElement>('.map-entry').forEach((n) => { n.hidden = true }))
+        const entry = (text: string, tip: string, go: () => void) => { const row = document.createElement('div'); row.className = 'map-entry'; const name = button(text, 'ghost', go); name.title = tip; row.append(name); return row }
+        // Which way from the plaza (north is -z, east is +x), in the guide's own words.
+        const compass = (x: number, z: number) => Math.hypot(x, z) < 14 ? 'Center' : ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'][((Math.round(Math.atan2(x, -z) / (Math.PI / 4)) % 8) + 8) % 8]!
         return renderSimple('The city', [
-          // One map for the whole district: the city centre (satellite view) with its places, the metro, the park and the airport.
-          ...(() => {
-            const m = hooks.satMap?.()
-            const nodes = districtMapNodes(button, {
-              city: m && m.url ? { url: m.url, limit: m.limit, pins: m.pins, me: m.me } : undefined,
-              goFar: (p) => hooks.goFar?.(p.area, p.at, p.title),
-              goPin: (pin) => pin.id ? hooks.goSpot?.(pin.id) : hooks.travel?.(pin.title, true),
-            })
-            const toggle = button('Show list of places', 'ghost', () => { const l = toggle.parentElement?.querySelectorAll<HTMLElement>('.map-entry'); const hide = !(l?.[0]?.hidden); l?.forEach((n) => { n.hidden = hide }); toggle.textContent = hide ? 'Show list of places' : 'Hide list' })
-            requestAnimationFrame(() => toggle.parentElement?.querySelectorAll<HTMLElement>('.map-entry').forEach((n) => { n.hidden = true }))
-            return [nodes[0]!, nodes[1]!, toggle, ...nodes.slice(2)]
-          })(),
-          para('Every door on the street. Tap a pin or a row to go straight there and walk in.'),
-          ...GUIDE.map((stop) => {
-            const row = document.createElement('div')
-            row.className = 'map-entry'
-            // One tap: travel there and walk straight in.
-            const name = button(`${stop.title} · ${stop.where}`, 'ghost', () => hooks.travel?.(stop.title, true))
-            name.title = stop.text
-            row.append(name)
-            return row
-          }),
+          nodes[0]!, nodes[1]!, toggle,
+          para('Every place in the district: the doors on the street, then the rest of the city, the park, the zoo, the airport and beyond. Tap a pin or a row to go straight there.'),
+          // One tap: travel there and walk straight in.
+          ...GUIDE.map((stop) => entry(`${stop.title} · ${stop.where}`, stop.text, () => hooks.travel?.(stop.title, true))),
+          ...[...(m?.pins ?? []), ...(m?.more ?? [])].filter((pin) => pin.id).map((pin) => pin.id!.startsWith('metro-')
+            ? entry(`${pin.title.replace('Metro · ', '')} · Metro stop, ${compass(pin.x, pin.z).toLowerCase()}`, pin.title, () => hooks.goSpot?.(pin.id!))
+            : entry(`${pin.title} · ${compass(pin.x, pin.z)}`, pin.title, () => hooks.goSpot?.(pin.id!))),
+          ...farPlaceRows(button, (p) => hooks.goFar?.(p.area, p.at, p.title)),
         ])
+      }
       case 'diploma':
         return renderSimple('Graduation 🎓', diplomaNodes({ para, button }, () => { close(); window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'grad', viewing: true } })) }))
       case 'seasons':

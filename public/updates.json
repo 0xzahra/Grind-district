@@ -148,6 +148,20 @@
       "body": "Chats now take videos and documents (PDF, Word, Excel, PowerPoint) with the paperclip, show a red count on the Messages key, and open from a phone alert. Players online and Friends & party show everyone's character, a ride shows how long is left, and picking a place on the map shows your route there.",
       "go": "messages",
       "push": false
+    },
+    {
+      "id": "u1120-starter-cars",
+      "title": "New: starter cars you can save up for",
+      "body": "The Auto dealership now sells two starter cars: a coral City hatch and a pearl-blue Family sedan, priced so a new player can afford one after a few days of job duties, practice and check-ins. Test drive free, and once it is yours it waits outside your house and races on the circuit.",
+      "go": "panel:dealer",
+      "push": false
+    },
+    {
+      "id": "u1120-park-map",
+      "title": "Sturdier swings, a play tower, every place on the map",
+      "body": "The park swings now stand on proper frames joined at the top, and the slide is a play tower with a roof and a real chute. The map's list of places now has every place, the park and the airport included, with the park's rides kept under the park.",
+      "go": "panel:city",
+      "push": false
     }
   ]
 }
