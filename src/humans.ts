@@ -73,7 +73,7 @@ const B = { root: 'Bip01', hips: 'Bip01_Pelvis', neck: 'Bip01_Neck', head: 'Bip0
 // Everything under /models/ is cached by browsers for a year as immutable (vercel.json), so a file here must
 // NEVER change in place: a phone that has the old bytes keeps them. Change a figure -> bump this folder (r2, r3).
 // (The first figures reused the old blocky people's file names, and returning phones drew those old files.)
-export const FIGURES = '/models/figures/r1/'
+export const FIGURES = '/models/figures/r2/'
 
 function motion(sex: string): Promise<Motion> {
   let p = motions.get(sex)

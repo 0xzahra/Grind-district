@@ -6,6 +6,7 @@ import { SKILL_META, SKILL_ORDER, COURSE_CASH, type SkillId } from './logic.ts'
 import { WORLDS, worldDone, nextMission, lockReason, careersOpen, tradingOpen } from './worlds.ts'
 import { TRACKS, JOBS, JOB_LEVELS, JOB_XP_PER_LEVEL, WEEKLY_POOL, SEASON, RANKS_LADDER, RANK_STEPS, DISCLAIMER, type TaskKind } from './careerData.ts'
 import { schedule } from './events.ts'
+import { courseArt, careerArt } from './courseArt.ts'
 
 type FeedPost = { at: number; text: string; go?: string }
 type Career = {
@@ -164,6 +165,7 @@ function nextStepCard(): HTMLElement | null {
 function lessonRow(id: SkillId, passed: boolean, next: boolean): HTMLElement {
   const row = el('div', '', 'cr-lesson' + (passed ? ' done' : next ? ' next' : ''))
   const info = el('div', '', 'cr-lesson-info')
+  row.append(courseArt(id, 'cr-lesson-art'))
   const lock = lockReason(id)
   info.append(el('strong', SKILL_META[id].title), el('small', passed ? 'Passed · on your CV' : lock ? `🔒 ${lock}` : `${next ? 'Up next' : 'Not started'} · +$${COURSE_CASH} on pass`))
   const b = btn(passed ? 'Review' : lock ? 'Locked' : 'Start', () => { if (!lock) window.dispatchEvent(new CustomEvent('gd:course', { detail: id })) }, passed || lock ? 'cr-btn' : 'cr-btn primary')
@@ -219,7 +221,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
       const n = c.track[t.id] ?? 0; const r = rankIdx(n)
       const card = el('details', '', 'cr-card')
       const done = c.trackDay[t.id] === day()
-      const sum = el('summary'); sum.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]}${done ? ' · done today ✓' : ''}`, 'cr-sub')); card.append(sum)
+      const sum = el('summary'); const words = el('span', '', 'cr-sum-t'); words.append(el('strong', t.title), el('span', `${RANKS_LADDER[r]}${done ? ' · done today ✓' : ''}`, 'cr-sub'), el('span', t.topics, 'cr-topics')); sum.append(careerArt(t.id), words); card.append(sum)
       card.append(el('p', first(t.lesson), 'cr-say'))
       card.append(el('p', `Today: ${t.task.text} · +$10 once a day`, 'cr-task'))
       if (t.id === 'trading' && !tradingOpen()) { card.append(el('p', '🔒 Trading opens after Worlds 1 to 5. Learn the map and the scams first.', 'cr-risk')); body.append(card); continue }

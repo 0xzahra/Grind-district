@@ -134,6 +134,13 @@
       "title": "New: the Grand Masjid and prayer times",
       "body": "A grand masjid with a golden dome, blue tiles and two minarets now stands by the basin. The five daily prayers show in real time for your city, with Jumuʿah on Fridays: open the menu, tap Prayer, and turn on reminders so you never miss one.",
       "go": "panel:prayertimes"
+    },
+    {
+      "id": "u1120-looks",
+      "title": "New: lovelier faces and beautiful course cards",
+      "body": "Every resident now has clearer skin, defined eyes and a soft natural glow, with every skin tone kept true. Each course and career has its own rich illustration, and locked courses show a preview of what is coming.",
+      "go": "panel:learn",
+      "push": false
     }
   ]
 }

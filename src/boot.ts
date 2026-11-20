@@ -40,7 +40,7 @@ void previewSettled.then(() => window.setTimeout(() => {
   for (const f of ['man1', 'man2', 'man3', 'man4', 'woman1', 'woman2', 'woman3', 'woman4', 'abaya']) {
     const link = document.createElement('link')
     link.rel = 'prefetch'
-    link.href = `/models/figures/r1/${f}.glb`
+    link.href = `/models/figures/r2/${f}.glb`
     document.head.append(link)
   }
 }, 1500))
@@ -220,7 +220,7 @@ const prefetchCity = () => {
   if (opening) return
   void import('./main.ts').catch(() => undefined)
   void import('./assets.ts').catch(() => undefined)
-  for (const u of ['/models/figures/r1/motion-m.glb', '/models/figures/r1/motion-f.glb', '/tex/nature/grass_t.webp', '/tex/nature/pavers_t.webp', '/tex/nature/wood_t.webp']) {
+  for (const u of ['/models/figures/r2/motion-m.glb', '/models/figures/r2/motion-f.glb', '/tex/nature/grass_t.webp', '/tex/nature/pavers_t.webp', '/tex/nature/wood_t.webp']) {
     void fetch(u, { priority: 'low' } as RequestInit).catch(() => undefined)
   }
 }
