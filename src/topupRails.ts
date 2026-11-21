@@ -183,6 +183,7 @@ export function renderRailTopup(root: HTMLElement, rail: Rail, onCredited: () =>
       paint()
       void config().then((c) => {
         cfg = c
+        if (rail === 'solana' && c?.solana?.receiver) fine.textContent += ` Payments go to the Grind District Solana wallet ${c.solana.receiver.slice(0, 4)}…${c.solana.receiver.slice(-4)}.`
         if (rail === 'intents' && c?.intents?.receiver) fine.textContent = fine.textContent.replace('the Grind District NEAR account', `the Grind District NEAR account (${c.intents.receiver})`)
         if (rail === 'intents' && !coin) coin = c?.intents?.assets[0]?.id ?? ''
         paint()

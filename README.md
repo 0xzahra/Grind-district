@@ -94,7 +94,7 @@ A NEAR mainnet top-up for in-game purchases (the player sends NEAR from their ow
 
 ## How it makes money without a token
 
-- **Today.** The game is free to play. The only real money that comes in is an optional top-up (USDC or ETH on Base, $1 to $1,000, or from SOL, USDC and ETH on Solana, Base and Arbitrum through NEAR Intents, $1 to $500, delivered as USDC to grinddistrict.near) that adds in-game dollars for looks, the Grind Pass and paid ranks. A top-up never buys a lesson or a certificate, and in-game dollars cannot be withdrawn. Players pay their own network fees, including the small NEAR storage fee for a mint.
+- **Today.** The game is free to play. The only real money that comes in is an optional top-up (USDC or ETH on Base, $1 to $1,000, SOL or USDC on Solana through Solana Pay, or from SOL, USDC and ETH on Solana, Base and Arbitrum through NEAR Intents, $1 to $500, delivered as USDC to grinddistrict.near) that adds in-game dollars for looks, the Grind Pass and paid ranks. A top-up never buys a lesson or a certificate, and in-game dollars cannot be withdrawn. Players pay their own network fees, including the small NEAR storage fee for a mint.
 - **Planned, not built yet.** Partner courses from Web3 projects, with their own certificates. A job board that links CVs to real Web3 roles.
 - **No token.** There is no Grind District token. The draft in the [GDD](docs/GDD.md) is for discussion only, and any token would need legal review first.
 
