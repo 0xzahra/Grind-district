@@ -107,6 +107,16 @@ export async function openCertificate(course: SkillId): Promise<void> {
       }
       link = shareLink(`/cert/${r.serial || id}`, 'cert', getSave().username)
       share.textContent = 'Share certificate'
+    } else if ('exam' in r && r.exam) {
+      // The share link needs a pass on the short exam graded on the server (taken once per course).
+      link = ''
+      share.textContent = 'Take the exam for a share link'
+      share.title = r.error
+      share.onclick = async () => {
+        const passed = await import('./certMint.ts').then((m) => m.certExam(course)).catch(() => false)
+        share.onclick = onShare
+        if (passed) void fetchServer()
+      }
     } else {
       link = ''
       share.textContent = 'Retry share link'
@@ -114,12 +124,13 @@ export async function openCertificate(course: SkillId): Promise<void> {
     }
     void import('./certMint.ts').then((m) => m.renderMint(mint, course, id)).catch(() => { mint.textContent = '' })
   }
-  share.onclick = async () => {
+  const onShare = async () => {
     if (!link) return void fetchServer()
     const r = await shareOrCopy(`${SKILL_META[course].title} certificate`, link, 'cert')
     if (r !== 'failed') track('cert_shared', { course })
     share.textContent = r === 'copied' ? 'Link copied' : r === 'shared' ? 'Shared' : 'Could not share'
   }
+  share.onclick = onShare
   const mint = document.createElement('div')
   mint.className = 'cert-mint'
   const close = document.createElement('button')

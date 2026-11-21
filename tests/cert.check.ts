@@ -5,7 +5,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { verify, createPublicKey } from 'node:crypto'
 import { encodeCertId, decodeCertId, certSerial, issuedWat, issuedIso, certMetadata, certImageUrl, CERT_W, CERT_H } from '../api/_certArt.ts'
 import { CERT_COURSES, CERT_RANKS } from '../api/_certCourses.ts'
-import { setCertDbForTests, issueCert, findCert } from '../api/_certStore.ts'
+import { setCertDbForTests, issueCert, findCert, recordExamPass, hasExamPass } from '../api/_certStore.ts'
 import { canonicalCert, baseVoucher, signBaseVoucher, VOUCHER_TYPES, certDomain, nearVoucherJson, signNearVoucher, nearSignerPublicKey, b58decode, b58encode } from '../api/_certVoucher.ts'
 import { renderCertPng } from '../api/_certRender.ts'
 import { SKILL_ORDER, SKILL_META, RANKS } from '../src/logic.ts'
@@ -110,7 +110,8 @@ function q(t: string) {
     then: (ok: (v: unknown) => void) => ok({ data: rows(), error: null }),
     upsert: async (row: Row, o: { onConflict: string }) => {
       const T = (tables[t] ??= [])
-      if (T.some((r) => r[o.onConflict] === row[o.onConflict])) return { error: null }
+      const keys = o.onConflict.split(',')
+      if (T.some((r) => keys.every((k) => r[k] === row[k]))) return { error: null }
       if (t === 'certificates' && row.source === 'issued' && T.some((r) => r.source === 'issued' && r.username === row.username && r.course_id === row.course_id)) return { error: { message: 'dup' } }
       T.push({ ...row }); return { error: null }
     },
@@ -136,6 +137,13 @@ ok(invalid(madeUpHtml) && String(madeUpHtml.body).includes('Invalid certificate'
 ok(invalid(await call({ kind: 'cert', id: 'GD-ZZ00-ZZ00' })), 'unissued serial is invalid')
 ok(invalid(await call({ kind: 'cert', id: madeUp2 })), 'real player + real course but a made-up name is invalid')
 ok(invalid(await call({ kind: 'certpng', id: madeUp })) && invalid(await call({ kind: 'certmeta', id: madeUp })), 'made-up image + metadata are invalid')
+// A save that says passed is not enough: a new record needs a server-graded exam pass.
+const noPass = await issueCert(memDb, 'did:privy:amina', 'amina', 'spot', '')
+ok(!noPass.ok && noPass.status === 403 && noPass.exam === true && tables.certificates.length === 0, 'save says passed but no exam pass: 403, nothing issued')
+ok(await recordExamPass(memDb, 'did:privy:amina', 'amina', 'spot', 4, 4), 'exam pass recorded')
+ok((await hasExamPass(memDb, 'did:privy:amina', 'spot')) === true && (await hasExamPass(memDb, 'did:privy:amina', 'risk')) === false, 'pass lookup is per player and course')
+await recordExamPass(memDb, 'did:privy:amina', 'amina', 'spot', 3, 4)
+ok((tables.cert_passes ?? []).filter((r) => r.privy_user_id === 'did:privy:amina' && r.course_id === 'spot').length === 1 && tables.cert_passes[0].score === 4, 'first pass is kept')
 // Issue from the synced save (no rank anywhere)
 const iss = await issueCert(memDb, 'did:privy:amina', 'amina', 'spot', '')
 ok(iss.ok && iss.row.cert_id === id && iss.row.serial === certSerial(back) && tables.certificates.length === 1, 'server issues one record from the synced save')
@@ -179,6 +187,8 @@ ok(allBad, `editing any field (${Object.keys(edits).join(', ')}) shows invalid`)
 tables.player_progress.push({ privy_user_id: 'did:privy:bola', save: { name: 'Bola Ade', skills: { risk: { passed: true } }, activities: [{ at: at - 86_400_000, label: 'Passed Risk sizing' }] } })
 tables.players.push({ privy_user_id: 'did:privy:bola', username: 'bola' })
 const legacy = Buffer.from(JSON.stringify({ v: 2, n: 'Bola Ade', u: 'bola', r: 'Crab', c: 'risk', t: 'Risk sizing', d: '2026-11-10', at: at - 86_400_000 })).toString('base64url')
+ok(invalid(await call({ kind: 'cert', id: legacy })) && !(tables.certificates ?? []).some((r) => r.username === 'bola'), 'old link with a passed save but no exam pass is invalid and not recorded')
+await recordExamPass(memDb, 'did:privy:bola', 'bola', 'risk', 4, 4)
 const legacyEdit = Buffer.from(JSON.stringify({ v: 2, n: 'Bola Ade', u: 'bola', r: 'Crab', c: 'risk', t: 'Risk sizing', d: '2026-11-10', at: at - 86_400_001 })).toString('base64url')
 ok(invalid(await call({ kind: 'cert', id: legacyEdit })), 'old link with an edited time is invalid')
 const lp = await call({ kind: 'cert', id: legacy })

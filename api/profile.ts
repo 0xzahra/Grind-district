@@ -6,7 +6,7 @@ import { issueNearChallenge, nearUserId, verifyNearAuth, type NearAuth } from '.
 import { certVoucher } from './_certMint.js'
 import { startExam, gradeExam } from './_certExam.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
-import { issueCert } from './_certStore.js'
+import { issueCert, recordExamPass } from './_certStore.js'
 import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
@@ -117,7 +117,7 @@ export default async function handler(req: Req, res: Res) {
   if (req.query?.op === 'cert-issue') {
     // The player's certificate for a passed course: the server record (issued from the synced save on first ask).
     const r = await issueCert(db, userId, p.data.username, String(req.body?.course ?? ''), String(req.body?.certId ?? ''))
-    if (!r.ok) return res.status(r.status).json({ error: r.error })
+    if (!r.ok) return res.status(r.status).json({ error: r.error, ...(r.exam ? { exam: true } : {}) })
     return res.status(200).json({ certId: r.row.cert_id, serial: r.row.serial, name: r.row.player_name, at: r.row.issued_ms })
   }
   if (req.query?.op === 'cert-exam') {
@@ -128,8 +128,11 @@ export default async function handler(req: Req, res: Res) {
   }
   if (req.query?.op === 'cert-grade') {
     // Graded here against the server's answer key; a pass returns the ticket the mint voucher needs.
-    const r = gradeExam(p.data.username, String(req.body?.course ?? ''), req.body?.token, req.body?.answers)
+    const course = String(req.body?.course ?? '')
+    const r = gradeExam(p.data.username, course, req.body?.token, req.body?.answers)
     if (!r.ok) return res.status(r.status).json({ error: r.error })
+    // A pass is recorded on the server: it is what lets the certificate record be issued.
+    if (r.result.passed && !(await recordExamPass(db, userId, p.data.username, course, r.result.score, r.result.of))) return res.status(503).json({ error: 'Could not save your pass. Try again.' })
     return res.status(200).json(r.result)
   }
   if (req.query?.op === 'cert-voucher') {

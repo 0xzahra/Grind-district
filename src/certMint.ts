@@ -76,13 +76,17 @@ async function authHeaders(): Promise<{ headers: Record<string, string>; near?: 
 }
 
 /** The server's record of this certificate (issued on first ask from the synced save): its id and printed serial. */
-export async function serverCert(course: SkillId, hintId: string): Promise<{ certId: string; serial: string } | { error: string }> {
+export async function serverCert(course: SkillId, hintId: string): Promise<{ certId: string; serial: string } | { error: string; exam?: boolean }> {
   const auth = await authHeaders()
   if (!auth) return { error: 'Sign in to your Grind District account to get a share link' }
   const r = await fetch('/api/profile?op=cert-issue', { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ course, certId: hintId, ...(auth.near ? { near: auth.near } : {}) }) }).catch(() => null)
   const j = (await r?.json().catch(() => ({}))) as Record<string, unknown> | undefined
-  if (!r?.ok || typeof j?.certId !== 'string') return { error: String(j?.error ?? 'Could not reach Grind District') }
+  if (!r?.ok || typeof j?.certId !== 'string') return { error: String(j?.error ?? 'Could not reach Grind District'), ...(j?.exam === true ? { exam: true } : {}) }
   return { certId: j.certId, serial: String(j.serial ?? '') }
+}
+/** The short server-graded exam for this course (a pass is recorded on the server). true = passed. */
+export async function certExam(course: SkillId): Promise<boolean> {
+  return !!(await takeExam(course, examPost))
 }
 
 /** The server-graded certificate exam's two calls (api/_certExam.ts), signed in like every other profile call. */

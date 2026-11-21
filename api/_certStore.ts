@@ -39,7 +39,7 @@ const toRow = (id: string, d: CertData, source: string, userId: string | null, t
 })
 
 /** The certificate for this player and course: the existing record, or a new one issued from the synced save. */
-export async function issueCert(db: SupabaseClient, userId: string, username: string, course: string, hintId = ''): Promise<{ ok: true; row: CertRow } | { ok: false; status: number; error: string }> {
+export async function issueCert(db: SupabaseClient, userId: string, username: string, course: string, hintId = ''): Promise<{ ok: true; row: CertRow } | { ok: false; status: number; error: string; exam?: boolean }> {
   const u = username.toLowerCase()
   const have = await db.from('certificates').select(COLS).eq('username', u).eq('course_id', course).eq('source', 'issued').maybeSingle()
   if (have.error) return { ok: false, status: 503, error: 'certificates unavailable' }
@@ -48,12 +48,30 @@ export async function issueCert(db: SupabaseClient, userId: string, username: st
   const save = prog.data?.save as Save | undefined
   const c = canonicalCert(save as never, u, course, hintId)
   if (!c.ok) return { ok: false, status: 403, error: c.error }
+  // A new record also needs a pass on the server-graded exam (recorded by op=cert-grade).
+  const passed = await hasExamPass(db, userId, course)
+  if (passed === null) return { ok: false, status: 503, error: 'certificates unavailable' }
+  if (!passed) return { ok: false, status: 403, error: 'pass the short certificate exam first', exam: true }
   const tries = Number(save?.skills?.[course]?.tries)
   const ins = await db.from('certificates').upsert(toRow(c.id, c.data, 'issued', userId, Number.isFinite(tries) ? tries : null), { onConflict: 'cert_id', ignoreDuplicates: true })
   // (A parallel first ask may have issued it a moment ago: read back whatever is recorded for this course.)
   const row = await db.from('certificates').select(COLS).eq('username', u).eq('course_id', course).eq('source', 'issued').maybeSingle()
   if (ins.error && !row.data) return { ok: false, status: 503, error: 'certificates unavailable' }
   return row.data ? { ok: true, row: row.data as CertRow } : { ok: false, status: 503, error: 'certificates unavailable' }
+}
+
+/** Server-graded exam passes (Supabase `cert_passes`, service role only): one row per player and course. */
+export async function hasExamPass(db: SupabaseClient, userId: string, course: string): Promise<boolean | null> {
+  const r = await db.from('cert_passes').select('course_id').eq('privy_user_id', userId).eq('course_id', course).maybeSingle()
+  return r.error ? null : !!r.data
+}
+/** Called when the server grades a pass. The first pass is kept. */
+export async function recordExamPass(db: SupabaseClient, userId: string, username: string, course: string, score: number, of: number): Promise<boolean> {
+  const r = await db.from('cert_passes').upsert(
+    { privy_user_id: userId, course_id: course, username: username.toLowerCase(), score, of_total: of, source: 'exam' },
+    { onConflict: 'privy_user_id,course_id', ignoreDuplicates: true },
+  )
+  return !r.error
 }
 
 /** An id or serial from a public link -> the server record it names, or null (shown as not valid). */
@@ -98,8 +116,8 @@ async function adoptLegacy(db: SupabaseClient, id: string, d: CertData): Promise
     }
   }
   if (!source) {
-    // 3) Not minted and nothing recorded yet: the player's synced save shows this course passed,
-    //    under this name and pass time.
+    // 3) Not minted and nothing recorded yet: the player has a server-graded exam pass for this course and
+    //    the synced save shows it passed, under this name and pass time.
     const taken = await db.from('certificates').select('cert_id').eq('username', u).eq('course_id', d.c).limit(1)
     if (taken.error || (taken.data ?? []).length) return null
     const player = await db.from('players').select('privy_user_id').eq('username', u).maybeSingle()
@@ -107,6 +125,7 @@ async function adoptLegacy(db: SupabaseClient, id: string, d: CertData): Promise
     const prog = await db.from('player_progress').select('save').eq('privy_user_id', player.data.privy_user_id).maybeSingle()
     const save = prog.data?.save as Save | undefined
     if (!save?.skills?.[d.c]?.passed) return null
+    if ((await hasExamPass(db, player.data.privy_user_id, d.c)) !== true) return null
     if (d.n !== (certField(save.name, 40) || u)) return null
     const logged = Number((save.activities ?? []).find((a) => a?.label === `Passed ${title}`)?.at)
     if (Number.isFinite(logged) && logged >= EARLIEST) {

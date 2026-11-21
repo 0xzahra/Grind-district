@@ -20,7 +20,7 @@ export async function certVoucher(body: Body, res: Res, db: SupabaseClient, user
   if (!chain) return res.status(400).json({ error: 'choose Base or NEAR' })
   // The server certificate record (issued now if this is the first time) is what gets minted.
   const rec = await issueCert(db, userId, username, course, String(body.certId ?? ''))
-  if (!rec.ok) return res.status(rec.status).json({ error: rec.error })
+  if (!rec.ok) return res.status(rec.status).json({ error: rec.error, ...(rec.exam ? { exam: true } : {}) })
   const c = { id: rec.row.cert_id, data: rowData(rec.row) }
 
   if (chain === 'base') {
