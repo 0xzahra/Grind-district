@@ -8,6 +8,7 @@ import { startExam, gradeExam } from './_certExam.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
 import { issueCert, recordExamPass } from './_certStore.js'
 import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
+import { publicFields } from './_publicFields.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
@@ -158,18 +159,19 @@ export default async function handler(req: Req, res: Res) {
   }
   const b = req.body ?? {}
   const n = (v: unknown, max: number) => Math.max(0, Math.min(max, Number(v) || 0))
+  const prev = await db.from('public_profiles').select('look,reputation,updated_at').eq('username', p.data.username).maybeSingle()
+  // Rank, skills, balance and reputation shown publicly come from server records (see _publicFields.ts).
+  const pub = await publicFields(db, userId, b, prev.data as { reputation?: number; updated_at?: string } | null)
+  if (!pub) return res.status(503).json({ error: 'profile unavailable' })
   const row = {
     username: p.data.username, privy_user_id: userId,
-    name: String(b.name ?? '').slice(0, 40), rank: String(b.rank ?? '').slice(0, 24),
-    reputation: Math.round(n(b.reputation, 1_000_000)), balance: Math.round(n(b.balance, 1e11) * 100) / 100,
-    skills: Array.isArray(b.skills) ? b.skills.slice(0, 12).map((s) => String(s).slice(0, 60)) : [],
+    name: String(b.name ?? '').slice(0, 40), ...pub,
     pinned: Array.isArray(b.pinned) ? b.pinned.slice(0, 3).map((s) => String(s).slice(0, 60)) : [],
     updated_at: new Date().toISOString(),
   } as Record<string, unknown>
   // Character look (height, build, hair colour) rides along so it follows the account across devices.
   const lk = b.look as { h?: unknown; b?: unknown; hair?: unknown; skin?: unknown } | undefined
   const col = (v: unknown) => v == null ? null : Math.max(0, Math.min(0xffffff, Math.round(Number(v) || 0)))
-  const prev = await db.from('public_profiles').select('look').eq('username', p.data.username).maybeSingle()
   const old = (prev?.data?.look ?? {}) as Record<string, unknown>
   if (lk && typeof lk === 'object') row.look = { ...old, h: Math.max(0.92, Math.min(1.08, Number(lk.h) || 1)), b: Math.max(0.9, Math.min(1.15, Number(lk.b) || 1)), hair: col(lk.hair), skin: col(lk.skin), lip: col((lk as { lip?: unknown }).lip), blush: col((lk as { blush?: unknown }).blush) }
   // The character they picked (figure and colours) rides in the same jsonb, so other players see the real character
