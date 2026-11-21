@@ -284,7 +284,7 @@ Assets are grouped as **Coins** (District Coin, BTC, ETH, SOL…) and **Tokens**
 | Grind Pass cash back, $1,000 across the season | Cars and status items (with upkeep) |
 | Practice trading gains | Paid ranks (only after a real top-up above $5) |
 | Takings from your business; tickets to events you host | Business licence, stock and rent; hall hire; gifts; the Founders card pack |
-| Optional top-up: USDC or ETH on Base (default $5, 1 to 1,000); NEAR on mainnet (the player sends NEAR from their own wallet, the server checks the transaction and credits once; added 15 Nov, switched off until configured); any chain through NEAR Intents 1Click (SOL, BTC, USDC or ETH on Solana, Base, Arbitrum and Bitcoin, swapped to USDC for grinddistrict.near and credited once NEAR Intents reports success; live 21 Nov) | Practice trading losses and perps liquidations |
+| Optional top-up: USDC or ETH on Base (default $5, 1 to 1,000); NEAR on mainnet (the player sends NEAR from their own wallet, the server checks the transaction and credits once; added 15 Nov, switched off until configured); any chain through NEAR Intents 1Click (SOL, USDC or ETH on Solana, Base and Arbitrum, swapped to USDC for grinddistrict.near and credited once NEAR Intents reports success; live 21 Nov) | Practice trading losses and perps liquidations |
 
 ### The town economy
 

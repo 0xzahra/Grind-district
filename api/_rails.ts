@@ -88,7 +88,9 @@ export const INTENTS_ASSETS: Array<{ id: string; symbol: string; chain: string; 
   { id: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', symbol: 'USDC', chain: 'base', label: 'USDC · Base', refund: 'evm' },
   { id: 'nep141:base.omft.near', symbol: 'ETH', chain: 'base', label: 'ETH · Base', refund: 'evm' },
   { id: 'nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near', symbol: 'USDC', chain: 'arb', label: 'USDC · Arbitrum', refund: 'evm' },
-  { id: 'nep141:btc.omft.near', symbol: 'BTC', chain: 'btc', label: 'BTC · Bitcoin', refund: 'btc' },
+  // BTC hidden 21 Nov: 1Click's BTC quotes do not pass its own signature check (also fails in the official SDK), and an
+  // unverified quote is never used. Put it back once `verifyQuoteSignature` passes for nep141:btc.omft.near.
+  // { id: 'nep141:btc.omft.near', symbol: 'BTC', chain: 'btc', label: 'BTC · Bitcoin', refund: 'btc' },
 ]
 export const intentsAccount = () => { const a = (process.env.INTENTS_TOPUP_ACCOUNT ?? '').trim().toLowerCase(); return /^[a-z0-9._-]{2,64}\.near$/.test(a) ? a : '' }
 export const oneClickBase = () => (process.env.ONECLICK_URL || 'https://1click.chaindefuser.com').replace(/\/$/, '')
