@@ -356,10 +356,12 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const afterNearLogin = async (proof: Record<string, unknown>) => {
     body.replaceChildren(el('p', 'Signing you in with NEAR…', 'muted'))
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ near: proof }) }).catch(() => null)
-    const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string; nearSession?: { token?: string } } : {}
+    const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string; nearSession?: { token?: string }; dmSession?: { token?: string; exp?: number } } : {}
     if (!r || !r.ok || !j.nearSession?.token) { warmNearChallenge(); body.replaceChildren(el('p', (j as { error?: string }).error ?? 'Could not reach the server. Try again.', 'muted'), nearButton()); return }
     // The signed message is single-use: everything after this uses the game session it was swapped for.
     const auth = { session: j.nearSession.token }
+    // Messages token from this fresh login (same record src/messages.ts keeps per NEAR account).
+    if (j.dmSession?.token && j.dmSession.exp && j.userId) { try { localStorage.setItem('gd.dm.near.v1', JSON.stringify({ uid: j.userId, token: j.dmSession.token, exp: j.dmSession.exp })) } catch { /* session only */ } }
     if (!j.username) {
       localStorage.removeItem(CLAIMED_KEY)
       if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)

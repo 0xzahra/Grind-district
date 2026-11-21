@@ -28,6 +28,8 @@ let rpcDown = false
 const used = new Set<string>()
 A.defaultNearDeps.keyKind = async (acc, pk) => rpcDown ? 'error' : chain[acc]?.[pk] ?? 'none'
 A.defaultNearDeps.consumeNonce = async (n) => { const h = n.toString('hex'); if (used.has(h)) return false; used.add(h); return true }
+const onChain = new Set<string>(['player.testnet', 'player.near'])
+A.defaultNearDeps.accountExists = async (acc) => rpcDown ? 'error' : onChain.has(acc) ? 'yes' : 'no'
 
 let fails = 0
 const expect = (name: string, cond: boolean) => { if (!cond) { fails++; console.error('FAIL - ' + name) } }
@@ -52,6 +54,15 @@ rpcDown = false
 const implicitOwner = newKey(), implicitId = implicitOwner.raw.toString('hex')
 expect('implicit account with its own key is accepted', await ok(proofFor(implicitId, implicitOwner)))
 expect('implicit account with another key is refused', !(await ok(proofFor(implicitId, stranger))))
+// Implicit account that exists on chain: its key list decides.
+onChain.add(implicitId); chain[implicitId] = { [implicitOwner.pk]: 'full' }
+expect('existing implicit account with its key on chain is accepted', await ok(proofFor(implicitId, implicitOwner)))
+delete chain[implicitId]
+expect('existing implicit account whose key was removed is refused', !(await ok(proofFor(implicitId, implicitOwner))))
+rpcDown = true
+expect('implicit account with RPC down is refused', !(await ok(proofFor(implicitId, implicitOwner))))
+rpcDown = false
+onChain.delete(implicitId)
 
 // Game session tokens.
 const v = await A.verifyNearAuth(proofFor('player.testnet', owner))
@@ -82,14 +93,33 @@ expect('near-login replay -> 401', (await call('../api/profile.ts', { method: 'P
 const ch = await call('../api/profile.ts', { method: 'POST', query: { op: 'near-challenge' }, body: {} })
 expect('challenge endpoint issues a 32-byte nonce', ch.code === 200 && Buffer.from(String((ch.body as { nonce?: string }).nonce), 'base64').length === 32)
 
-// Rotating the secret ends old Messages tokens and game sessions.
+// Messages tokens: 30 days only from a fresh signed login; from a game session, capped at that session.
 const M = await import('../api/messages.ts')
+const strangerBody2 = { near: { session: tok } }
+const fromSession = await A.verifyNearAuth(strangerBody2.near)
+expect('game session auth is not fresh', fromSession.ok && fromSession.fresh === false && fromSession.expiresAt <= Date.now() + 12 * 3600_000 + 1000)
+const capped = M.issueSession('near:player.testnet', fromSession.ok ? fromSession.expiresAt : 0)!
+expect('Messages token from a game session ends with it', capped.exp <= Date.now() + 12 * 3600_000 + 1000)
+const freshV = await A.verifyNearAuth(proofFor('player.testnet', owner))
+expect('fresh login is marked fresh', freshV.ok && freshV.fresh === true)
+expect('fresh-login Messages token lasts ~30 days', M.issueSession('near:player.testnet')!.exp > Date.now() + 29 * 86_400_000)
+// Rotating the secret ends old Messages tokens and game sessions.
 const dm = M.issueSession('near:player.testnet').token
 expect('Messages token valid before rotation', M.readSession(dm) === 'near:player.testnet')
 process.env.DM_SESSION_SECRET = randomBytes(32).toString('hex')
 expect('Messages token refused after rotation', M.readSession(dm) === null)
 expect('/api/messages with a pre-rotation token -> 401', (await call('../api/messages.ts', { method: 'GET', query: { op: 'inbox' }, headers: { authorization: `Bearer ${dm}` } })).code === 401)
 expect('game session refused after rotation', !(await ok({ session: tok })))
+// No DM_SESSION_SECRET: off (503), never a fallback key.
+const keep = process.env.DM_SESSION_SECRET
+const offProof = proofFor('player.testnet', owner)
+delete process.env.DM_SESSION_SECRET
+const off = await A.verifyNearAuth(offProof)
+expect('no secret: sign-in refused with 503', !off.ok && off.status === 503)
+expect('no secret: no Messages token is minted', M.issueSession('near:player.testnet') === null && A.issueNearChallenge() === null)
+expect('/api/profile?op=near-login with no secret -> 503', (await call('../api/profile.ts', { method: 'POST', query: { op: 'near-login' }, body: { near: { session: 'x' } } })).code === 503)
+expect('/api/messages with a gdn1 token and no secret -> 503', (await call('../api/messages.ts', { method: 'GET', query: { op: 'inbox' }, headers: { authorization: `Bearer ${dm}` } })).code === 503)
+process.env.DM_SESSION_SECRET = keep
 
 if (fails) { console.error(`${fails} NEAR sign-in check(s) failed`); process.exit(1) }
 console.log('ok - NEAR sign-in: key bound to account, single-use server nonce, sessions, rotation')

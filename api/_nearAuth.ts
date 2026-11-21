@@ -52,7 +52,7 @@ export type NearProof = {
 /** What NEAR players send: a signed login (once), then the session token it was swapped for. */
 export type NearAuth = NearProof | { session: string }
 export type NearSession = { token: string; exp: number }
-type Fail = { ok: false; error: string }
+type Fail = { ok: false; error: string; status?: number }
 
 export function nearUserId(accountId: string): string {
   return `near:${accountId.toLowerCase()}`
@@ -62,11 +62,13 @@ export function isNearAccount(id: string): boolean {
   return /^[a-z0-9._-]{2,64}$/.test(id) && (id.endsWith('.testnet') || id.endsWith('.near') || /^[0-9a-f]{64}$/.test(id))
 }
 
-// ---- server keys (DM_SESSION_SECRET, or derived from the service role key; never leaves the server) ----
+// ---- server keys (DM_SESSION_SECRET only; never leaves the server) ----
 function subkey(label: string): Buffer | null {
-  const s = process.env.DM_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const s = process.env.DM_SESSION_SECRET ?? ''
   return s.length >= 16 ? createHmac('sha256', s).update(label).digest() : null
 }
+/** NEAR sign-in and its sessions need DM_SESSION_SECRET; without it they are off (503), never a fallback key. */
+export const nearAuthConfigured = () => subkey('probe') !== null
 const eq = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeEqual(a, b)
 
 // ---- challenge: 32 bytes = issued-at ms (8, BE) | random (8) | HMAC tag (16) ----
@@ -102,6 +104,9 @@ export function issueNearSession(accountId: string, now = Date.now()): NearSessi
   return { token: `gdns.${body}.${createHmac('sha256', k).update(body).digest('base64url')}`, exp }
 }
 export function readNearSession(token: unknown, now = Date.now()): string | null {
+  return readNearSessionFull(token, now)?.accountId ?? null
+}
+export function readNearSessionFull(token: unknown, now = Date.now()): { accountId: string; exp: number } | null {
   const k = subkey(SESSION_LABEL)
   if (!k || typeof token !== 'string' || token.length > 600) return null
   const [v, body, mac, extra] = token.split('.')
@@ -111,7 +116,30 @@ export function readNearSession(token: unknown, now = Date.now()): string | null
     const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { u?: string; exp?: number }
     if (typeof p.u !== 'string' || !p.u.startsWith('near:') || typeof p.exp !== 'number' || p.exp <= now) return null
     const acc = p.u.slice(5)
-    return isNearAccount(acc) ? acc : null
+    return isNearAccount(acc) ? { accountId: acc, exp: p.exp } : null
+  } catch { return null }
+}
+
+// ---- Messages token: gdn1.<base64url {u: near:<account>, exp}>.<HMAC-SHA256>, up to 30 days ----
+const DM_DAYS = 30
+const dmKey = () => { const s = process.env.DM_SESSION_SECRET ?? ''; return s.length >= 16 ? createHmac('sha256', s).update('grind-district dm session v1').digest() : null }
+/** `maxExp` caps the token (a token made from a game session never outlives that session). */
+export function issueDmSession(userId: string, maxExp = Infinity, now = Date.now()): NearSession | null {
+  const k = dmKey()
+  if (!k) return null
+  const exp = Math.min(now + DM_DAYS * 86_400_000, maxExp)
+  const body = Buffer.from(JSON.stringify({ u: userId, exp })).toString('base64url')
+  return { token: `gdn1.${body}.${createHmac('sha256', k).update(body).digest('base64url')}`, exp }
+}
+export function readDmSession(token: string, now = Date.now()): string | null {
+  const k = dmKey()
+  if (!k) return null
+  const [v, body, mac] = token.split('.')
+  if (v !== 'gdn1' || !body || !mac) return null
+  if (!eq(Buffer.from(mac, 'base64url'), createHmac('sha256', k).update(body).digest())) return null
+  try {
+    const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { u?: string; exp?: number }
+    return typeof p.u === 'string' && p.u.startsWith('near:') && typeof p.exp === 'number' && p.exp > now ? p.u : null
   } catch { return null }
 }
 
@@ -121,10 +149,13 @@ export type NearAuthDeps = {
   keyKind(accountId: string, publicKey: string): Promise<'full' | 'other' | 'none' | 'error'>
   /** true the first time this nonce is consumed, false if it was used before; throws if the store is unreachable. */
   consumeNonce(nonce: Buffer, accountId: string, expiresAt: number): Promise<boolean>
+  /** Whether an account exists on chain ('error' = RPC down). Used for implicit (64-hex) accounts. */
+  accountExists(accountId: string): Promise<'yes' | 'no' | 'error'>
   now?(): number
 }
 
-const rpcs = (accountId: string): string[] => accountId.endsWith('.testnet')
+// Implicit (64-hex) accounts are looked up on testnet, the network the sign-in wallet connects to.
+const rpcs = (accountId: string): string[] => accountId.endsWith('.testnet') || /^[0-9a-f]{64}$/.test(accountId)
   ? [process.env.NEAR_TESTNET_RPC_URL || 'https://rpc.testnet.near.org', 'https://test.rpc.fastnear.com']
   : [process.env.NEAR_MAINNET_RPC_URL || 'https://rpc.mainnet.near.org', 'https://free.rpc.fastnear.com']
 
@@ -147,6 +178,24 @@ async function rpcKeyKind(accountId: string, publicKey: string): Promise<'full' 
   return 'error'
 }
 
+async function rpcAccountExists(accountId: string): Promise<'yes' | 'no' | 'error'> {
+  for (const url of rpcs(accountId)) {
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 'gd', method: 'query', params: { request_type: 'view_account', finality: 'optimistic', account_id: accountId } }),
+        signal: AbortSignal.timeout(5000),
+      })
+      if (!r.ok) continue
+      const j = await r.json() as { result?: { amount?: unknown }; error?: { cause?: { name?: string }; data?: string } }
+      if (j.result && j.result.amount !== undefined) return 'yes'
+      if (j.error?.cause?.name === 'UNKNOWN_ACCOUNT' || /does not exist/i.test(String(j.error?.data ?? ''))) return 'no'
+    } catch { /* try the next RPC */ }
+  }
+  return 'error'
+}
+
 async function dbConsumeNonce(nonce: Buffer, accountId: string, expiresAt: number): Promise<boolean> {
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('not configured')
@@ -160,12 +209,13 @@ async function dbConsumeNonce(nonce: Buffer, accountId: string, expiresAt: numbe
   throw new Error('nonce store unavailable')
 }
 
-export const defaultNearDeps: NearAuthDeps = { keyKind: rpcKeyKind, consumeNonce: dbConsumeNonce }
+export const defaultNearDeps: NearAuthDeps = { keyKind: rpcKeyKind, consumeNonce: dbConsumeNonce, accountExists: rpcAccountExists }
 
 /** Checks a signed login. The nonce is consumed only after every other check passes. */
 export async function verifyNearLogin(p: NearProof, deps: NearAuthDeps = defaultNearDeps): Promise<{ ok: true; accountId: string } | Fail> {
   try {
     const now = deps.now?.() ?? Date.now()
+    if (!nearAuthConfigured()) return { ok: false, status: 503, error: 'NEAR sign-in is not available right now' }
     if (!p || typeof p !== 'object') return { ok: false, error: 'Bad NEAR account' }
     if (typeof p.accountId !== 'string' || !isNearAccount(p.accountId)) return { ok: false, error: 'Bad NEAR account' }
     if (typeof p.publicKey !== 'string' || !p.publicKey.startsWith('ed25519:')) return { ok: false, error: 'Need an ed25519 public key' }
@@ -200,6 +250,14 @@ export async function verifyNearLogin(p: NearProof, deps: NearAuthDeps = default
     const accountId = p.accountId.toLowerCase()
     if (/^[0-9a-f]{64}$/.test(accountId)) {
       if (pub.toString('hex') !== accountId) return { ok: false, error: 'This key does not belong to that NEAR account' }
+      // Once the implicit account exists on chain, its key list decides (a removed key stops working).
+      const kind = await deps.keyKind(accountId, `ed25519:${p.publicKey.slice('ed25519:'.length)}`)
+      if (kind === 'error') return { ok: false, error: 'Could not reach NEAR — try again' }
+      if (kind !== 'full') {
+        const exists = await deps.accountExists(accountId)
+        if (exists === 'error') return { ok: false, error: 'Could not reach NEAR — try again' }
+        if (exists === 'yes') return { ok: false, error: 'This key does not belong to that NEAR account' }
+      }
     } else {
       const kind = await deps.keyKind(accountId, `ed25519:${p.publicKey.slice('ed25519:'.length)}`)
       if (kind === 'error') return { ok: false, error: 'Could not reach NEAR — try again' }
@@ -218,17 +276,18 @@ export async function verifyNearLogin(p: NearProof, deps: NearAuthDeps = default
  * NEAR auth for API routes: a game session token ({ session }) or a signed login (consumed once).
  * `session` is set when a signed login was just swapped for a new token, so the caller can return it.
  */
-export async function verifyNearAuth(n: unknown, deps: NearAuthDeps = defaultNearDeps): Promise<{ ok: true; accountId: string; session?: NearSession } | Fail> {
+export async function verifyNearAuth(n: unknown, deps: NearAuthDeps = defaultNearDeps): Promise<{ ok: true; accountId: string; session?: NearSession; fresh: boolean; expiresAt: number } | Fail> {
+  if (!nearAuthConfigured()) return { ok: false, status: 503, error: 'NEAR sign-in is not available right now' }
   if (!n || typeof n !== 'object') return { ok: false, error: 'Bad NEAR account' }
   if ('session' in n) {
-    const acc = readNearSession((n as { session: unknown }).session, deps.now?.())
-    return acc ? { ok: true, accountId: acc } : { ok: false, error: 'Sign in with NEAR again' }
+    const s = readNearSessionFull((n as { session: unknown }).session, deps.now?.())
+    return s ? { ok: true, accountId: s.accountId, fresh: false, expiresAt: s.exp } : { ok: false, error: 'Sign in with NEAR again' }
   }
   const v = await verifyNearLogin(n as NearProof, deps)
   if (!v.ok) return v
   const session = issueNearSession(v.accountId, deps.now?.())
-  if (!session) return { ok: false, error: 'Sign-in is not configured' }
-  return { ok: true, accountId: v.accountId, session }
+  if (!session) return { ok: false, status: 503, error: 'NEAR sign-in is not available right now' }
+  return { ok: true, accountId: v.accountId, session, fresh: true, expiresAt: session.exp }
 }
 
 export const NEAR_LOGIN_RECIPIENT = RECIPIENT

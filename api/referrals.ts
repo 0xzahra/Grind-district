@@ -21,7 +21,7 @@ async function storeCard(db: ReturnType<typeof createClient>, req: Req, res: Res
   if (near) {
     const { verifyNearAuth, nearUserId } = await import('./_nearAuth.js')
     const v = await verifyNearAuth(near)
-    if (!v.ok) return res.status(401).json({ error: v.error })
+    if (!v.ok) return res.status(v.status ?? 401).json({ error: v.error })
     userId = nearUserId(v.accountId)
   } else {
     const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID, secret = process.env.PRIVY_APP_SECRET

@@ -25,7 +25,7 @@ export default async function handler(req: Req, res: Res) {
   }
   if (req.query?.op === 'near-login') {
     const v = await verifyNearAuth(req.body?.near)
-    if (!v.ok) return res.status(401).json({ error: v.error })
+    if (!v.ok) return res.status(v.status ?? 401).json({ error: v.error })
     return res.status(200).json({ accountId: v.accountId, userId: nearUserId(v.accountId), session: v.session ?? null })
   }
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -33,7 +33,7 @@ export default async function handler(req: Req, res: Res) {
   let userId: string
   if (req.body?.near) {
     const v = await verifyNearAuth(req.body.near)
-    if (!v.ok) return res.status(401).json({ error: v.error })
+    if (!v.ok) return res.status(v.status ?? 401).json({ error: v.error })
     userId = nearUserId(v.accountId)
   } else {
     const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID

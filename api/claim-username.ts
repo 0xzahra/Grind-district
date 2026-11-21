@@ -2,7 +2,7 @@ import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 import { ensureWallet } from './_wallet.js'
-import { nearUserId, verifyNearAuth, type NearAuth, type NearSession } from './_nearAuth.js'
+import { issueDmSession, nearUserId, verifyNearAuth, type NearAuth, type NearSession } from './_nearAuth.js'
 
 type Req = { method?: string; headers: Record<string, string | undefined>; body?: { username?: string; ref?: string; near?: NearAuth } }
 type Res = { status(n: number): { json(b: unknown): void } }
@@ -15,13 +15,16 @@ export default async function handler(req: Req, res: Res) {
 
   let userId: string
   let nearSession: NearSession | undefined
+  let dmSession: NearSession | undefined
   // Two auth paths, same players table: Privy Bearer token, or NEAR (a signed login swapped here for a game
   // session token, or that token; userId = near:<account>).
   if (req.body?.near) {
     const v = await verifyNearAuth(req.body.near)
-    if (!v.ok) return res.status(401).json({ error: v.error })
+    if (!v.ok) return res.status(v.status ?? 401).json({ error: v.error })
     userId = nearUserId(v.accountId)
     nearSession = v.session
+    // A fresh signed login also opens Messages for 30 days (a game session alone never extends it).
+    if (v.fresh) dmSession = issueDmSession(userId) ?? undefined
   } else {
     const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
     const secret = process.env.PRIVY_APP_SECRET
@@ -40,9 +43,9 @@ export default async function handler(req: Req, res: Res) {
   if (existing.data) {
     await ensureWallet(db, userId)
     const prog = await db.from('player_progress').select('save,updated_at').eq('privy_user_id', userId).maybeSingle()
-    return res.status(200).json({ username: existing.data.username, userId, save: prog.error ? null : prog.data?.save ?? null, ...(nearSession ? { nearSession } : {}) })
+    return res.status(200).json({ username: existing.data.username, userId, save: prog.error ? null : prog.data?.save ?? null, ...(nearSession ? { nearSession } : {}), ...(dmSession ? { dmSession } : {}) })
   }
-  if (!req.body?.username) return res.status(200).json({ username: null, userId, ...(nearSession ? { nearSession } : {}) })
+  if (!req.body?.username) return res.status(200).json({ username: null, userId, ...(nearSession ? { nearSession } : {}), ...(dmSession ? { dmSession } : {}) })
   const c = cleanUsername(req.body?.username)
   if (!c.ok) return res.status(400).json({ error: c.reason })
   const { error } = await db.from('players').insert({ privy_user_id: userId, username: c.name })
@@ -58,5 +61,5 @@ export default async function handler(req: Req, res: Res) {
       if (!ins.error) invitedBy = inviter.data.username
     }
   }
-  res.status(200).json({ username: c.name, userId, invitedBy, ...(nearSession ? { nearSession } : {}) })
+  res.status(200).json({ username: c.name, userId, invitedBy, ...(nearSession ? { nearSession } : {}), ...(dmSession ? { dmSession } : {}) })
 }

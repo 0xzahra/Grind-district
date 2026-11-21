@@ -2,8 +2,7 @@ import { PrivyClient } from '@privy-io/server-auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 import { attachUploaded, EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia, uploadSlot } from './_dmMedia.js'
-import { createHmac, timingSafeEqual } from 'crypto'
-import { verifyNearAuth, nearUserId } from './_nearAuth.js'
+import { verifyNearAuth, nearUserId, issueDmSession, readDmSession, nearAuthConfigured } from './_nearAuth.js'
 import { cronAuthorized } from './_cron.js'
 import { broadcastUpdate, cleanSub, emailOff, emailToken, notifyMessage, nudgeLapsed, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
 
@@ -22,27 +21,10 @@ type Res = { status(n: number): { json(b: unknown): void }; setHeader(k: string,
 const MAX = 500
 export const cleanText = (t: unknown) => String(t ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
 
-// NEAR players have no Privy session. After one signed login message they get a Messages token:
-// gdn1.<base64url {u: near:<account>, exp}>.<HMAC-SHA256>. The key is DM_SESSION_SECRET, or derived from the
-// service role key so it never leaves the server. Only Messages accepts it.
-const SESSION_DAYS = 30
-const sessionKey = () => createHmac('sha256', process.env.DM_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '').update('grind-district dm session v1').digest()
-const b64u = (b: Buffer) => b.toString('base64url')
-export function issueSession(userId: string): { token: string; exp: number } {
-  const exp = Date.now() + SESSION_DAYS * 86_400_000
-  const body = b64u(Buffer.from(JSON.stringify({ u: userId, exp })))
-  return { token: `gdn1.${body}.${b64u(createHmac('sha256', sessionKey()).update(body).digest())}`, exp }
-}
-export function readSession(token: string): string | null {
-  const [v, body, mac] = token.split('.')
-  if (v !== 'gdn1' || !body || !mac) return null
-  const want = createHmac('sha256', sessionKey()).update(body).digest(), got = Buffer.from(mac, 'base64url')
-  if (got.length !== want.length || !timingSafeEqual(got, want)) return null
-  try {
-    const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { u?: string; exp?: number }
-    return typeof p.u === 'string' && p.u.startsWith('near:') && typeof p.exp === 'number' && p.exp > Date.now() ? p.u : null
-  } catch { return null }
-}
+// NEAR players have no Privy session. A fresh signed login gets a 30-day Messages token (gdn1, see
+// api/_nearAuth.ts); a token made from the 12-hour game session ends when that session ends. Only Messages accepts it.
+export const issueSession = (userId: string, maxExp = Infinity) => issueDmSession(userId, maxExp)
+export const readSession = (token: string) => readDmSession(token)
 const usernameOf = async (db: SupabaseClient, userId: string) => ((await db.from('players').select('username').eq('privy_user_id', userId).maybeSingle()).data?.username as string | undefined) ?? null
 
 async function me(req: Req, db: SupabaseClient): Promise<string | null> {
@@ -84,12 +66,15 @@ export default async function handler(req: Req, res: Res) {
     const proof = (req.body ?? {}).near
     if (!proof || typeof proof !== 'object') return res.status(400).json({ error: 'missing NEAR proof' })
     const v = await verifyNearAuth(proof)
-    if (!v.ok) return res.status(401).json({ error: v.error })
+    if (!v.ok) return res.status(v.status ?? 401).json({ error: v.error })
     const userId = nearUserId(v.accountId)
     const username = await usernameOf(db, userId)
     if (!username) return res.status(404).json({ error: 'No username is linked to this NEAR account yet' })
-    return res.status(200).json({ ...issueSession(userId), username, account: v.accountId })
+    const dm = issueSession(userId, v.fresh ? Infinity : v.expiresAt)
+    if (!dm) return res.status(503).json({ error: 'Messages are not available right now' })
+    return res.status(200).json({ ...dm, username, account: v.accountId })
   }
+  if (/^Bearer\s+gdn1\./i.test(String(req.headers.authorization ?? '')) && !nearAuthConfigured()) return res.status(503).json({ error: 'Messages are not available right now' })
   const user = await me(req, db)
   if (!user) return res.status(401).json({ error: 'Sign in to use messages' })
   const op = String(req.query?.op ?? '')
