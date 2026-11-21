@@ -70,6 +70,42 @@ function warmNearLoginConnector(): Promise<NearLoginConnector> {
   return nearLoginWarm
 }
 
+// NEAR sign-in challenge: the server issues a one-time nonce (valid ten minutes) for the wallet to sign.
+// Fetched while the sign-in card is open so the wallet opens without a wait; each one is used once.
+type NearChallenge = { nonce: Uint8Array; nonceB64: string; at: number }
+let nearChallengeP: Promise<NearChallenge> | null = null
+function fetchNearChallenge(): Promise<NearChallenge> {
+  const p = fetch('/api/profile?op=near-challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    .then(async (r) => {
+      const j = (await r.json().catch(() => ({}))) as { nonce?: string }
+      if (!r.ok || !j.nonce) throw new Error('Could not start NEAR sign-in. Try again.')
+      const bin = atob(j.nonce)
+      const nonce = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) nonce[i] = bin.charCodeAt(i)
+      return { nonce, nonceB64: j.nonce, at: Date.now() }
+    })
+  p.catch(() => { if (nearChallengeP === p) nearChallengeP = null })
+  return p
+}
+function warmNearChallenge(): void { if (!nearChallengeP) nearChallengeP = fetchNearChallenge() }
+/** A fresh server challenge for one NEAR signature (the warmed one if it is still young). */
+export async function takeNearChallenge(): Promise<NearChallenge> {
+  const warm = nearChallengeP
+  nearChallengeP = null
+  if (warm) {
+    const c = await warm.catch(() => null)
+    if (c && Date.now() - c.at < 7 * 60_000) return c
+  }
+  return fetchNearChallenge()
+}
+/** Swap a signed NEAR login for a game session ({ session }); the signed message itself works only once. */
+export async function nearSessionFromProof(proof: Record<string, unknown>): Promise<{ session: string }> {
+  const r = await fetch('/api/profile?op=near-login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ near: proof }) }).catch(() => null)
+  const j = (await r?.json().catch(() => ({})) ?? {}) as { session?: { token?: string }; error?: string }
+  if (!r?.ok || !j.session?.token) throw new Error(j.error ?? 'Could not sign in with NEAR')
+  return { session: j.session.token }
+}
+
 
 /** Finish a Google or X redirect if we came back from one. */
 export async function resumeOAuth(): Promise<void> {
@@ -168,6 +204,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
   document.body.append(dlg)
   void warmNearLoginConnector()
+  warmNearChallenge()
   const msg = el('p', notice, 'muted')
 
   const bind = async (token: string | null, j: { username?: string | null; userId?: string; save?: unknown }, nearProof?: unknown, opts?: { firstClaim?: boolean }) => {
@@ -319,22 +356,24 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const afterNearLogin = async (proof: Record<string, unknown>) => {
     body.replaceChildren(el('p', 'Signing you in with NEAR…', 'muted'))
     const r = await fetch('/api/claim-username', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ near: proof }) }).catch(() => null)
-    const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string } : {}
-    if (!r || !r.ok) { body.replaceChildren(el('p', (j as { error?: string }).error ?? 'Could not reach the server. Try again.', 'muted'), nearButton()); return }
+    const j = r ? (await r.json().catch(() => ({}))) as { username?: string | null; userId?: string; save?: unknown; error?: string; nearSession?: { token?: string } } : {}
+    if (!r || !r.ok || !j.nearSession?.token) { warmNearChallenge(); body.replaceChildren(el('p', (j as { error?: string }).error ?? 'Could not reach the server. Try again.', 'muted'), nearButton()); return }
+    // The signed message is single-use: everything after this uses the game session it was swapped for.
+    const auth = { session: j.nearSession.token }
     if (!j.username) {
       localStorage.removeItem(CLAIMED_KEY)
       if (j.userId) localStorage.setItem('gd.privy.userId', j.userId)
       const draft = readDraft()
       if (draft && USERNAME.test(draft)) {
         body.replaceChildren(el('p', `Claiming @${draft}…`, 'muted'))
-        const err = await claimWith({ near: proof }, draft)
+        const err = await claimWith({ near: auth }, draft)
         if (err === true) return
         body.replaceChildren(el('p', String(err), 'muted'))
       }
-      void pickUsername({ near: proof }, j.userId!)
+      void pickUsername({ near: auth }, j.userId!)
       return
     }
-    await bind(null, j, proof)
+    await bind(null, j, auth)
   }
 
   const social = (provider: Social) => {
@@ -376,8 +415,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
       b.textContent = 'Opening NEAR wallets…'
       msg.textContent = 'No funds or transactions — only a signed login message.'
       try {
-        const nonce = crypto.getRandomValues(new Uint8Array(32))
-        const nonceB64 = btoa(String.fromCharCode(...Array.from(nonce)))
+        const { nonce, nonceB64 } = await takeNearChallenge()
         const message = `Grind District login\n${Date.now()}\n${nonceB64}`
         // Test hook: a page can set window.__GD_MOCK_NEAR__ to return a NEP-413 proof (no real wallet).
         const mock = (window as unknown as { __GD_MOCK_NEAR__?: (a: { message: string; recipient: string; nonce: Uint8Array; nonceB64: string }) => Promise<Record<string, unknown>> }).__GD_MOCK_NEAR__

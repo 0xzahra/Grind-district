@@ -2,7 +2,7 @@ import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import rewardWallet from './_rewardWallet.js'
 import { createHash, randomBytes } from 'node:crypto'
-import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
+import { issueNearChallenge, nearUserId, verifyNearAuth, type NearAuth } from './_nearAuth.js'
 import { certVoucher } from './_certMint.js'
 import { startExam, gradeExam } from './_certExam.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
@@ -11,17 +11,27 @@ import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
-type Req = { method?: string; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined>; body?: Record<string, unknown> & { near?: NearProof } }
+type Req = { method?: string; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | undefined>; body?: Record<string, unknown> & { near?: NearAuth } }
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
   if (req.query?.op === 'reward-wallet') return rewardWallet(req, res)
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
+  // NEAR sign-in: a one-time challenge to sign, then the signed login is swapped for a game session token.
+  if (req.query?.op === 'near-challenge') {
+    const c = issueNearChallenge()
+    return c ? res.status(200).json({ ...c, recipient: 'grinddistrict.vercel.app' }) : res.status(503).json({ error: 'not configured' })
+  }
+  if (req.query?.op === 'near-login') {
+    const v = await verifyNearAuth(req.body?.near)
+    if (!v.ok) return res.status(401).json({ error: v.error })
+    return res.status(200).json({ accountId: v.accountId, userId: nearUserId(v.accountId), session: v.session ?? null })
+  }
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return res.status(503).json({ error: 'not configured' })
   let userId: string
   if (req.body?.near) {
-    const v = verifyNearLogin(req.body.near)
+    const v = await verifyNearAuth(req.body.near)
     if (!v.ok) return res.status(401).json({ error: v.error })
     userId = nearUserId(v.accountId)
   } else {

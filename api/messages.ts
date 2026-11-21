@@ -3,11 +3,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 import { attachUploaded, EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia, uploadSlot } from './_dmMedia.js'
 import { createHmac, timingSafeEqual } from 'crypto'
-import { verifyNearLogin, nearUserId, type NearProof } from './_nearAuth.js'
+import { verifyNearAuth, nearUserId } from './_nearAuth.js'
 import { broadcastUpdate, cleanSub, emailOff, emailToken, notifyMessage, nudgeLapsed, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
 
 // Direct messages. Identity = Privy token -> players.username, or for NEAR sign-ins a Messages session token
-// (op=near-session swaps a fresh NEP-413 signed login for a 30-day token bound to near:<account>).
+// (op=near-session swaps the NEAR game session, or a fresh signed login, for a 30-day token bound to near:<account>).
 // Service role only (RLS on, no anon policies).
 // GET  ?op=inbox             threads (last line, unread count) + blocked list
 // GET  ?op=thread&with=u     last 100 lines with u (marks them read)
@@ -27,12 +27,12 @@ export const cleanText = (t: unknown) => String(t ?? '').replace(/[\u0000-\u0008
 const SESSION_DAYS = 30
 const sessionKey = () => createHmac('sha256', process.env.DM_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '').update('grind-district dm session v1').digest()
 const b64u = (b: Buffer) => b.toString('base64url')
-function issueSession(userId: string): { token: string; exp: number } {
+export function issueSession(userId: string): { token: string; exp: number } {
   const exp = Date.now() + SESSION_DAYS * 86_400_000
   const body = b64u(Buffer.from(JSON.stringify({ u: userId, exp })))
   return { token: `gdn1.${body}.${b64u(createHmac('sha256', sessionKey()).update(body).digest())}`, exp }
 }
-function readSession(token: string): string | null {
+export function readSession(token: string): string | null {
   const [v, body, mac] = token.split('.')
   if (v !== 'gdn1' || !body || !mac) return null
   const want = createHmac('sha256', sessionKey()).update(body).digest(), got = Buffer.from(mac, 'base64url')
@@ -77,9 +77,9 @@ export default async function handler(req: Req, res: Res) {
     return
   }
   if (req.method === 'POST' && String(req.query?.op ?? '') === 'near-session') {
-    const proof = (req.body ?? {}).near as NearProof | undefined
+    const proof = (req.body ?? {}).near
     if (!proof || typeof proof !== 'object') return res.status(400).json({ error: 'missing NEAR proof' })
-    const v = verifyNearLogin(proof)
+    const v = await verifyNearAuth(proof)
     if (!v.ok) return res.status(401).json({ error: v.error })
     const userId = nearUserId(v.accountId)
     const username = await usernameOf(db, userId)

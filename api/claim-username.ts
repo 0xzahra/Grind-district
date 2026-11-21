@@ -2,9 +2,9 @@ import { PrivyClient } from '@privy-io/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
 import { ensureWallet } from './_wallet.js'
-import { nearUserId, verifyNearLogin, type NearProof } from './_nearAuth.js'
+import { nearUserId, verifyNearAuth, type NearAuth, type NearSession } from './_nearAuth.js'
 
-type Req = { method?: string; headers: Record<string, string | undefined>; body?: { username?: string; ref?: string; near?: NearProof } }
+type Req = { method?: string; headers: Record<string, string | undefined>; body?: { username?: string; ref?: string; near?: NearAuth } }
 type Res = { status(n: number): { json(b: unknown): void } }
 
 export default async function handler(req: Req, res: Res) {
@@ -14,11 +14,14 @@ export default async function handler(req: Req, res: Res) {
   if (!url || !key) return res.status(503).json({ error: 'not configured' })
 
   let userId: string
-  // Two auth paths, same players table: Privy Bearer token, or a NEP-413 signed NEAR message (userId = near:<account>).
+  let nearSession: NearSession | undefined
+  // Two auth paths, same players table: Privy Bearer token, or NEAR (a signed login swapped here for a game
+  // session token, or that token; userId = near:<account>).
   if (req.body?.near) {
-    const v = verifyNearLogin(req.body.near)
+    const v = await verifyNearAuth(req.body.near)
     if (!v.ok) return res.status(401).json({ error: v.error })
     userId = nearUserId(v.accountId)
+    nearSession = v.session
   } else {
     const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
     const secret = process.env.PRIVY_APP_SECRET
@@ -37,9 +40,9 @@ export default async function handler(req: Req, res: Res) {
   if (existing.data) {
     await ensureWallet(db, userId)
     const prog = await db.from('player_progress').select('save,updated_at').eq('privy_user_id', userId).maybeSingle()
-    return res.status(200).json({ username: existing.data.username, userId, save: prog.error ? null : prog.data?.save ?? null })
+    return res.status(200).json({ username: existing.data.username, userId, save: prog.error ? null : prog.data?.save ?? null, ...(nearSession ? { nearSession } : {}) })
   }
-  if (!req.body?.username) return res.status(200).json({ username: null, userId })
+  if (!req.body?.username) return res.status(200).json({ username: null, userId, ...(nearSession ? { nearSession } : {}) })
   const c = cleanUsername(req.body?.username)
   if (!c.ok) return res.status(400).json({ error: c.reason })
   const { error } = await db.from('players').insert({ privy_user_id: userId, username: c.name })
@@ -55,5 +58,5 @@ export default async function handler(req: Req, res: Res) {
       if (!ins.error) invitedBy = inviter.data.username
     }
   }
-  res.status(200).json({ username: c.name, userId, invitedBy })
+  res.status(200).json({ username: c.name, userId, invitedBy, ...(nearSession ? { nearSession } : {}) })
 }

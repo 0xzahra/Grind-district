@@ -3,7 +3,7 @@
 const CLAIMED_KEY = 'gd.privy.username'
 const accessToken = async () => (await import('./login.ts')).accessToken()
 const openLogin = (notice = '') => void import('./login.ts').then((m) => m.openLogin(notice))
-// NEAR sign-ins have no Privy session: Messages swaps one signed login message for its own 30-day token
+// NEAR sign-ins have no Privy session: Messages swaps the NEAR game session for its own 30-day token
 // (api/messages.ts op=near-session), kept per NEAR account. It never signs anyone into a different account.
 const DM_NEAR = 'gd.dm.near.v1'
 const NEAR_RECIPIENT = 'grinddistrict.vercel.app'
@@ -17,7 +17,7 @@ async function nearSession(proof: unknown): Promise<string | null> {
 }
 async function nearToken(): Promise<string | null> {
   try { const s = JSON.parse(localStorage.getItem(DM_NEAR) ?? 'null') as { uid?: string; token?: string; exp?: number } | null; if (s?.token && s.uid === userId() && (s.exp ?? 0) > Date.now() + 60_000) return s.token } catch { /* */ }
-  // Just signed in with NEAR on this page: that signed message (valid ten minutes) is enough, no second prompt.
+  // Just signed in with NEAR on this page: its game session is enough, no second prompt.
   const proof = (await import('./state.ts')).heldNearProof()
   return proof ? nearSession(proof).catch(() => null) : null
 }

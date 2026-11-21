@@ -158,8 +158,8 @@ function applyStarts(): void {
 export async function serverGrant(id: string, amount: number): Promise<boolean> {
   return (await serverGrantStatus(id, amount)) === 'fresh'
 }
-// NEAR accounts have no Privy token: grants are proven with this session's signed NEAR login instead
-// (the server already accepts { near } on /api/profile). Kept in memory only; it expires server-side.
+// NEAR accounts have no Privy token: requests carry this page's NEAR game session ({ session }) instead
+// (the server accepts { near } on /api/profile). Kept in memory only; it expires server-side.
 let nearProof: unknown = null
 export function holdNearProof(p: unknown): void { nearProof = p }
 export function heldNearProof(): unknown { return nearProof }

@@ -17,10 +17,10 @@ type Res = { status(n: number): { json(b: unknown): void }; setHeader(k: string,
 export const CARD_BUCKET = 'invite-cards'
 async function storeCard(db: ReturnType<typeof createClient>, req: Req, res: Res) {
   let userId: string
-  const near = req.body?.near as Parameters<typeof import('./_nearAuth.js').verifyNearLogin>[0] | undefined
+  const near = req.body?.near as unknown
   if (near) {
-    const { verifyNearLogin, nearUserId } = await import('./_nearAuth.js')
-    const v = verifyNearLogin(near)
+    const { verifyNearAuth, nearUserId } = await import('./_nearAuth.js')
+    const v = await verifyNearAuth(near)
     if (!v.ok) return res.status(401).json({ error: v.error })
     userId = nearUserId(v.accountId)
   } else {
