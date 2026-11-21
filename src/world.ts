@@ -2,6 +2,7 @@ import { ESTATE_ZONES } from './estate.ts'
 import { HOUSES, type HouseId } from './houses.ts'
 import type { Graphics, PanelId, Season, TimeOfDay } from './logic.ts'
 import { LOOK, lightBudget } from './lookPalette.ts'
+import { liteOn } from './deviceTier.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
 import { FOOTPRINTS, LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
@@ -44,7 +45,7 @@ export type World = {
   /** Sidewalk lanes and stop lines for the ambient city. */
   lanes: { roadHalf: number; walk: number; inner: number; outer: number }
   /** Real-time light budget per graphics tier (lookPalette.ts). Call on tier change only. */
-  setQuality: (graphics: Graphics) => void
+  setQuality: (graphics: Graphics, lite?: boolean) => void
 }
 
 type Door = 'px' | 'nx' | 'pz' | 'nz'
@@ -1139,10 +1140,11 @@ export function createWorld(options: {
     setLook,
     setDaylight,
     lanes: { roadHalf: ROAD_HALF, walk: ROAD_HALF + 0.7, inner: LANE_INNER, outer: LANE_OUTER },
-    setQuality(graphics: Graphics) {
+    setQuality(graphics: Graphics, lite = false) {
       // Constant per tier: changing visibility changes the shader light count (one recompile).
+      // Lite (low-end phones): one lamp light, since every light is paid for in every lit pixel.
       const budget = lightBudget(graphics)
-      pool.forEach((l, i) => { l.visible = i < budget.pool })
+      pool.forEach((l, i) => { l.visible = i < (lite ? 1 : budget.pool) })
       for (const light of glow) light.visible = budget.glow
     },
     setRank(label: string) {
@@ -1176,7 +1178,7 @@ export function createWorld(options: {
           material.opacity = (1 - t) * 0.45
         }
         // A light wind in the tree crowns.
-        trees.sway(time)
+        if (!liteOn()) trees.sway(time)
       }
       if (time < nextScreen) return
       nextScreen = time + 0.5

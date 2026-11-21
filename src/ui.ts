@@ -15,6 +15,7 @@ let lookTimer = 0
 const saveLookSoon = () => { clearTimeout(lookTimer); lookTimer = window.setTimeout(() => void publishProfile(), 1500) }
 import { shareLink, profileLink, publishProfile } from './share.ts'
 import { publicDoc, type BookRow } from './logic.ts'
+import { guessLowEnd, liteOn, litePref, setLiteNow, setLitePref } from './deviceTier.ts'
 import { renderExchange } from './exchange.ts'
 import { watchPerps } from './perps.ts'
 import { track } from './track.ts'
@@ -1156,6 +1157,18 @@ export function mountUi(
         open('settings')
       }))
     }
+    // Lite: for low-end phones (deviceTier.ts). Auto turns it on for phones that struggle; kept on this device only.
+    const liteRow = document.createElement('div')
+    liteRow.className = 'tabs'
+    for (const [pref, label] of [['auto', 'Auto'], ['on', 'Lite'], ['off', 'Full']] as const) {
+      liteRow.append(button(label, litePref() === pref ? 'primary' : 'ghost', () => {
+        setLitePref(pref)
+        try { if (pref === 'auto') localStorage.removeItem('gd.lite.auto') } catch { /* private mode */ }
+        setLiteNow(pref === 'on' ? true : pref === 'off' ? false : guessLowEnd())
+        hooks.onGraphics()
+        open('settings')
+      }))
+    }
     const maps = document.createElement('div')
     maps.className = 'tabs'
     for (const size of ['compact', 'large'] as const) {
@@ -1318,6 +1331,9 @@ export function mountUi(
         medium: 'Medium: sharper, 4 street lights, soft effects. Shadows on computers.',
         high: 'High: sharpest, every street light and glow, full shadows on computers.',
       } as const)[save.graphics], 'muted'),
+      para('Phone performance', 'kicker'),
+      liteRow,
+      para(liteOn() ? 'Lite is on: the city draws at 1x with one street light, fewer far-away people and cars, and no wind in the trees, so slower phones stay smooth. Edge smoothing changes after a reload.' : 'Full detail. Auto switches to Lite if this phone struggles; Lite forces it on.', 'muted'),
       para('Map', 'kicker'),
       maps,
       para('Comfort', 'kicker'),

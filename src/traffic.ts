@@ -1,3 +1,4 @@
+import { liteOn } from './deviceTier.ts'
 import * as THREE from 'three'
 import { ARMS, lanePoint, uturnPoint, sidePoint, ringRoute, insideFootprint, ROAD_HALF, SIDE_JOIN_T, SIDE_LEN, SIDE_STOPS } from './lanes.ts'
 import type { Graphics } from './logic.ts'
@@ -49,7 +50,8 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
 } {
   void lanes
   const coarse = window.matchMedia('(pointer: coarse)').matches
-  const count = COUNTS[coarse && graphics !== 'low' ? 'low' : graphics]
+  // Lite (low-end phones, deviceTier.ts): six cars keep the roads alive at a fraction of the cost.
+  const count = liteOn() ? 6 : COUNTS[coarse && graphics !== 'low' ? 'low' : graphics]
 
   // --- Legs -------------------------------------------------------------------------------------------
   const sample = (f: (u: number) => { x: number; z: number }, n: number) => Array.from({ length: n + 1 }, (_, i) => f(i / n))

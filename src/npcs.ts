@@ -1,3 +1,4 @@
+import { liteOn } from './deviceTier.ts'
 import { speak } from './speech.ts'
 import { steadyPlate } from './rig.ts'
 import * as THREE from 'three'
@@ -282,6 +283,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     debug() { return people.map((p, i) => ({ x: +p.sim.x.toFixed(2), z: +p.sim.z.toFixed(2), state: posed.some((q) => q.p === p) ? 'seated' : still.has(i) ? 'idle' : 'walking', body: p.sim.spec.body })) },
     tick(dt, player) {
       lastPlayer = player ?? null
+      const lite = liteOn()
       const obstacles: Obstacle[] = []
       // Pair chat: two standing people near each other trade a line (one bubble at a time, cheap canvas sprite).
       chatClock -= dt
@@ -340,14 +342,17 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         }
         person.avatar.object.userData.chat = chatting
         const seated = posed.some((o) => o.p === person)
-        person.avatar.step(dt, moving && !seated, (person.sim.pace ?? person.sim.spec.speed) * BRISK)
+        // Lite (low-end phones, deviceTier.ts): residents more than 38 m away are not drawn or animated; they keep
+        // walking their routes and reappear as you come closer.
+        const far = lite && !!player && (player.x - person.sim.x) ** 2 + (player.z - person.sim.z) ** 2 > 38 * 38
+        if (!far) person.avatar.step(dt, moving && !seated, (person.sim.pace ?? person.sim.spec.speed) * BRISK)
         person.avatar.object.position.set(person.sim.x, 0, person.sim.z)
         const q = posed.find((o) => o.p === person)
         if (q) q.seating.apply(person.avatar.object, dt)
         if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)
         // Gone into a building for a while: out of sight and out of the way.
         const away = (person.sim.inside ?? 0) > 0
-        person.avatar.object.visible = !away
+        person.avatar.object.visible = !away && !far
         if (!away) obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })
       })
 

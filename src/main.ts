@@ -54,6 +54,7 @@ import { applyPrefs } from './prefs.ts'
 import { createCrowd, label as nameLabel, type CrowdInfo } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
+import { liteOn, noteGpu, noteStruggling, setLiteNow } from './deviceTier.ts'
 import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket, spendInGame, bonusXp, isAccountBound } from './state.ts'
 import { mountUi } from './ui.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
@@ -155,6 +156,8 @@ async function loadTexture(url: string): Promise<THREE.Texture> {
 function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer | null {
   // Real game canvas only — never allocate+lose a probe context (that burned Mac GL).
   const tries: WebGLContextAttributes[] = [
+    // Lite (low-end phones, deviceTier.ts): no MSAA, the single biggest per-pixel saving after resolution.
+    ...(liteOn() ? [{ antialias: false, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false, alpha: false } as WebGLContextAttributes] : []),
     { antialias: true, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false, alpha: false },
     { antialias: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false, alpha: false },
     { antialias: false, failIfMajorPerformanceCaveat: false, alpha: false },
@@ -231,6 +234,8 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     return
   }
   renderer.outputColorSpace = THREE.SRGBColorSpace
+  // A known low-end phone GPU switches this visit to Lite (and the next one starts without MSAA).
+  if (noteGpu(renderer.getContext())) setLiteNow(true)
   // Neutral tone mapping keeps colours true and crisp (AgX washed them to pastels and read as too bright).
   try { renderer.toneMapping = THREE.NeutralToneMapping } catch { renderer.toneMapping = THREE.ACESFilmicToneMapping }
   renderer.shadowMap.enabled = true
@@ -428,9 +433,11 @@ const apiAgents = createRemoteAgents(scene)
   performance.mark('gd:traffic-weather-avatar')
   const post = createPost(renderer, scene, camera)
   performance.mark('gd:post')
-  const probe = createProbe(() => getSave().graphics, (g) => { setGraphics(g); applyGraphics() })
+  const probe = createProbe(() => getSave().graphics, (g) => { if (liteOn()) return; setGraphics(g); applyGraphics() })
   const applyGraphics = () => {
-    const graphics = getSave().graphics
+    // Lite (low-end phones) draws as Low whatever the saved setting, at 1x, with one lamp light.
+    const lite = liteOn()
+    const graphics = lite ? 'low' : getSave().graphics
     const dpr = window.devicePixelRatio || 1
     const coarseDev = matchMedia('(pointer: coarse)').matches
     // Each tier must look and cost visibly different. Phones: 1x / 1.25x / 1.5x; desktops: 1x / 1.5x / 2x.
@@ -442,10 +449,11 @@ const apiAgents = createRemoteAgents(scene)
     // climbs there only while frames stay easy. Phones stay at 2x: smooth beats extra pixels on a small screen.
     const native4k = Math.max(1, Math.min(dpr, 3, Math.sqrt((3840 * 2160) / Math.max(1, window.innerWidth * window.innerHeight))))
     const ratio = graphics === 'high' ? (coarseDev ? Math.min(dpr, 2) : native4k) : Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : (coarseDev ? 1.75 : 1.5))
-    renderer.setPixelRatio(ratio)
+    const drawRatio = lite ? Math.min(dpr, 1) : ratio
+    renderer.setPixelRatio(drawRatio)
     // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
     // Every point light is paid for in every lit pixel, so this is the biggest lever on mid-range phones.
-    world.setQuality(graphics)
+    world.setQuality(graphics, lite)
     // Shadows only on high: the biggest single cost on mid-range Android.
     const shadows = graphics !== 'low' && !matchMedia('(pointer: coarse)').matches
     renderer.shadowMap.enabled = shadows
@@ -457,7 +465,7 @@ const apiAgents = createRemoteAgents(scene)
       world.sun.shadow.map = null
     }
     renderer.setSize(window.innerWidth, window.innerHeight, false)
-    post.configure(graphics, window.innerWidth, window.innerHeight, ratio)
+    post.configure(graphics, window.innerWidth, window.innerHeight, drawRatio)
     // Shadows on or off change every material's shader: compile them all now, in the background where the
     // browser can, instead of one by one (a freeze each) as each comes into view.
     if (performance.getEntriesByName('gd:revealed').length) void renderer.compileAsync(scene, camera).catch(() => undefined)
@@ -3014,7 +3022,11 @@ const apiAgents = createRemoteAgents(scene)
         // Judge the phone over 4 s of play: under about 45 a second on average, lock to 30.
         paceSum += now - last; paceN++; paceT += now - last
         if (paceT > 4000) {
-          if (paceSum / paceN > 22) { lock30 = true; try { localStorage.setItem(FPS_KEY, '1') } catch { /* private mode */ } }
+          if (paceSum / paceN > 22) {
+            lock30 = true; try { localStorage.setItem(FPS_KEY, '1') } catch { /* private mode */ }
+            // A phone this slow also gets Lite, now and on later visits (unless Full was chosen in Settings).
+            if (noteStruggling()) { setLiteNow(true); applyGraphics(); ui.toast('Lite graphics on for smoother play. Change it in Settings.') }
+          }
           paceT = paceSum = paceN = 0
         }
       }
