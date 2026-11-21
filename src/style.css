@@ -4354,3 +4354,47 @@ html:not([data-ui='light']) body .pl-card .pl-words small:not(.on) { color: #b9c
 .going-t small { font: 800 11px/1.2 var(--sys, system-ui), sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #3bfaa4; }
 .going-t b { font: 800 20px/1.2 var(--sys, system-ui), sans-serif; color: #fff; }
 .going-t span { font-size: 13px; color: #cbbf9c; }
+
+/* ===== Trading: portfolio overview + Line/Candles switch (exchange.ts, candleChart.ts). Flat, no blur: cheap on phones. ===== */
+.sheet-card .xch-port { display: grid; gap: 12px; padding: 16px; border-radius: 20px; background: linear-gradient(160deg, rgba(217, 178, 106, 0.13), rgba(217, 178, 106, 0.03) 42%, rgba(255, 255, 255, 0.03)); border: 1px solid rgba(217, 178, 106, 0.32); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 24px rgba(0, 0, 0, 0.28); min-width: 0; }
+.sheet-card .xch-port-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.sheet-card .xch-port-totals { display: grid; gap: 2px; min-width: 0; }
+.sheet-card .xch-port-total { font-size: clamp(26px, 8vw, 34px); font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; color: #fff; }
+.sheet-card .xch-port-sub { font-size: 12px; color: var(--dim); }
+.sheet-card .xch-port-pnl { display: grid; justify-items: end; gap: 1px; text-align: right; flex: none; }
+.sheet-card .xch-port-pnl b { font-size: 17px; font-weight: 650; }
+.sheet-card .xch-port-pnl small { font-size: 12px; }
+.sheet-card .xch-port-pnl[data-dir='up'] b, .sheet-card .xch-port-pnl[data-dir='up'] small { color: var(--up); }
+.sheet-card .xch-port-pnl[data-dir='down'] b, .sheet-card .xch-port-pnl[data-dir='down'] small { color: var(--down); }
+.sheet-card .xch-port-pnl .xch-label { color: var(--dim) !important; }
+.sheet-card .xch-port-mix { display: flex; gap: 2px; height: 6px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.sheet-card .xch-port-mix i { display: block; min-width: 3px; flex-basis: 0; }
+.sheet-card .xch-port-rows { display: grid; gap: 2px; min-width: 0; }
+.sheet-card .xch-port-row { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.95fr) minmax(0, 1.3fr); align-items: center; gap: 8px; width: 100% !important; min-height: 54px; padding: 8px 8px !important; border: 0 !important; border-radius: 12px !important; background: transparent !important; color: var(--ink); }
+.sheet-card .xch-port-row.head { min-height: 0; padding: 0 8px 2px !important; grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr) minmax(0, 1.3fr); gap: 8px; padding-left: 46px !important; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #d9b26a; white-space: nowrap; }
+.sheet-card .xch-port-row.head span:nth-child(2) { text-align: right; } .sheet-card .xch-port-row.head span:nth-child(3) { text-align: right; }
+.sheet-card .xch-port-row + .xch-port-row:not(.head) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.sheet-card .xch-port-row .xch-ico { width: 30px; height: 30px; font-size: 13px; }
+.sheet-card .xch-port-row[data-perp] .xch-names b::after { content: 'PERP'; margin-left: 6px; padding: 1px 5px; border-radius: 6px; font-size: 9px; letter-spacing: 0.08em; vertical-align: 2px; background: rgba(217, 178, 106, 0.18); color: #f0d59a; }
+.sheet-card .xch-port-mid, .sheet-card .xch-port-end { display: grid; text-align: right; line-height: 1.25; min-width: 0; }
+.sheet-card .xch-port-mid b, .sheet-card .xch-port-end b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-card .xch-port-mid small, .sheet-card .xch-port-end small, .sheet-card .xch-port-row .xch-names small { font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-card .xch-port-end small[data-dir='up'] { color: var(--up); } .sheet-card .xch-port-end small[data-dir='down'] { color: var(--down); }
+.sheet-card .xch-port-empty { margin: 0; font-size: 13px; line-height: 1.45; color: var(--dim); }
+@media (max-width: 380px) { .sheet-card .xch-port-row { grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1.1fr); } .sheet-card .xch-port-row .xch-port-mid { display: none; } .sheet-card .xch-port-row.head { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.1fr); } .sheet-card .xch-port-row.head span:nth-child(2) { display: none; } }
+@media (hover: hover) { .sheet-card .xch-port-row:not(.head):hover { background: rgba(255, 255, 255, 0.05) !important; } }
+.sheet-card .xch-pricerow { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.sheet-card .xch-pricerow > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.sheet-card .xch-seg.chartmode { flex: none; grid-auto-columns: auto; padding: 3px; border-radius: 11px; margin-bottom: 4px; }
+html body .sheet-card .xch-seg.chartmode button { min-height: 30px; padding: 4px 10px !important; font-size: 12px; border-radius: 8px !important; }
+.sheet-card .xch-chartbox { position: relative; margin-top: 8px; min-width: 0; }
+.sheet-card .xch-chartbox .xch-chart { margin-top: 0; }
+.sheet-card .xch-chartbox[data-mode='candles'] { height: 220px; border-radius: 14px; background: rgba(0, 0, 0, 0.18); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.sheet-card .xch-candles { position: absolute; inset: 4px 2px 2px 4px; touch-action: pan-y; }
+.sheet-card .xch-candles[data-failed] { display: grid; place-items: center; padding: 16px; font-size: 13px; color: var(--dim); text-align: center; }
+.sheet-card .xch-candles[hidden], .sheet-card .xch-chart[hidden] { display: none !important; }
+html[data-ui='light'] .sheet-card .xch-port-total { color: #14110c; }
+html[data-ui='light'] .sheet-card .xch-chartbox[data-mode='candles'] { background: rgba(0, 0, 0, 0.03); }
+.sheet-card a.xch-tv, html body .sheet-card a.xch-tv { all: unset; display: block; justify-self: end; margin: 3px 2px 0; font-size: 10px; letter-spacing: 0.02em; color: rgba(246, 241, 230, 0.45); cursor: pointer; }
+.sheet-card a.xch-tv[hidden] { display: none; }
+html[data-ui='light'] .sheet-card a.xch-tv { color: #6b655a; }

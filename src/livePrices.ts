@@ -7,7 +7,9 @@ export type Quote = { s: string; last: number; open: number; high: number; low: 
 const SYMS = ['BTC', 'ETH', 'SOL', 'XRP', 'LINK', 'AVAX', 'DOT', 'NEAR', 'SUI', 'DOGE', 'SHIB', 'PEPE', 'WIF', 'BONK']
 let quotes: Record<string, Quote> = {}
 let at = 0, last = 0, busy = false, fast = 0
-const candles = new Map<string, { at: number; closes: number[] }>()
+/** One hourly candle: [time in seconds, open, high, low, close]. */
+export type Bar = [number, number, number, number, number]
+const candles = new Map<string, { at: number; closes: number[]; bars: Bar[] }>()
 
 /** Latest quote for a coin id ('btc') or symbol ('BTC'), or undefined before the first fetch lands. */
 export const liveQuote = (id: string): Quote | undefined => quotes[id.toUpperCase()]
@@ -54,15 +56,20 @@ export function wantFast(): void { const was = fast; fast = Date.now() + 60_000;
 export function hourly(id: string): number[] {
   const s = id.toUpperCase(), c = candles.get(s)
   if (!c || Date.now() - c.at > 300_000) {
-    candles.set(s, { at: Date.now(), closes: c?.closes ?? [] })
+    candles.set(s, { at: Date.now(), closes: c?.closes ?? [], bars: c?.bars ?? [] })
     void (async () => {
-      let closes: number[] = []
-      try { const r = await fetch(`/api/track?op=candles&s=${s}`, { signal: AbortSignal.timeout(6000) }); const j = r.ok ? (await r.json()) as { closes?: number[] } : null; closes = (j?.closes ?? []).filter((v) => v > 0) } catch { /* below */ }
+      let closes: number[] = [], bars: Bar[] = []
+      const okBar = (k: unknown): k is Bar => Array.isArray(k) && k.length >= 5 && k.slice(0, 5).every((v) => typeof v === 'number' && v > 0)
+      try { const r = await fetch(`/api/track?op=candles&s=${s}`, { signal: AbortSignal.timeout(6000) }); const j = r.ok ? (await r.json()) as { closes?: number[]; ohlc?: unknown[] } : null; closes = (j?.closes ?? []).filter((v) => v > 0); bars = (j?.ohlc ?? []).filter(okBar) } catch { /* below */ }
       if (!closes.length) {
-        try { const r = await fetch(`https://api.exchange.coinbase.com/products/${s}-USD/candles?granularity=3600`, { signal: AbortSignal.timeout(6000) }); const raw = r.ok ? (await r.json()) as unknown[][] : []; closes = raw.slice(0, 48).reverse().map((k) => Number(k[4])).filter((v) => v > 0) } catch { /* none */ }
+        // Coinbase rows are [time, low, high, open, close, volume], newest first.
+        try { const r = await fetch(`https://api.exchange.coinbase.com/products/${s}-USD/candles?granularity=3600`, { signal: AbortSignal.timeout(6000) }); const raw = r.ok ? (await r.json()) as unknown[][] : []; closes = raw.slice(0, 48).reverse().map((k) => Number(k[4])).filter((v) => v > 0); bars = raw.slice(0, 120).reverse().map((k) => [Number(k[0]), Number(k[3]), Number(k[2]), Number(k[1]), Number(k[4])]).filter(okBar) } catch { /* none */ }
       }
-      if (closes.length) { candles.set(s, { at: Date.now(), closes }); window.dispatchEvent(new Event('gd:prices')) }
+      if (closes.length) { candles.set(s, { at: Date.now(), closes, bars }); window.dispatchEvent(new Event('gd:prices')) }
     })()
   }
   return candles.get(s)?.closes ?? []
 }
+
+/** Up to 120 real hourly candles for a coin (oldest first); empty until they land. Shares hourly()'s fetch. */
+export function hourlyBars(id: string): Bar[] { hourly(id); return candles.get(id.toUpperCase())?.bars ?? [] }

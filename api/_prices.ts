@@ -23,8 +23,12 @@ export async function pricesHandler(req: Req, res: Res) {
     const raw = await get(`https://api.exchange.coinbase.com/products/${s}-USD/candles?granularity=3600`)
     // Coinbase returns [time, low, high, open, close, volume], newest first.
     const closes = Array.isArray(raw) ? (raw as unknown[][]).slice(0, 48).reverse().map((c) => num(c[4])).filter((v) => v > 0) : []
+    // The same hourly candles as [time (s), open, high, low, close] for the candlestick chart: up to 120 hours.
+    const ohlc = Array.isArray(raw) ? (raw as unknown[][]).slice(0, 120).reverse()
+      .map((c) => [Math.floor(Number(c[0])), num(c[3]), num(c[2]), num(c[1]), num(c[4])])
+      .filter((k) => k[0]! > 0 && k[1]! > 0 && k[2]! > 0 && k[3]! > 0 && k[4]! > 0) : []
     res.setHeader?.('cache-control', closes.length ? 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' : 'no-store')
-    return res.status(closes.length ? 200 : 502).json({ s, closes })
+    return res.status(closes.length ? 200 : 502).json({ s, closes, ohlc })
   }
   const rows = await Promise.all(LIVE_SYMBOLS.map(async (s) => {
     const j = (await get(`https://api.exchange.coinbase.com/products/${s}-USD/stats`)) as { open?: string; high?: string; low?: string; last?: string } | null

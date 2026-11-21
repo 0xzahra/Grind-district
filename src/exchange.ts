@@ -4,7 +4,8 @@ import { COINS, COIN_CATEGORIES, RANKS, SKILL_META, TOKEN_IDS, cents, coinPrice,
 import { lockReason } from './worlds.ts'
 import { convertCoin, getSave, trade, tradeCoin } from './state.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
-import { hourly, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
+import { hourly, hourlyBars, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
+import { barsFromSeries, candleChart, type CandleView } from './candleChart.ts'
 import { renderDefi } from './defi.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
@@ -36,6 +37,10 @@ const priceOf = (a: Asset): number => { const s = getSave(); return a.id === 'us
 const holdingOf = (a: Asset): Holding => { const s = getSave(); return a.id === 'usd' ? { qty: s.ledger, avg: 1 } : a.desk === 'unit' ? s.unit : a.desk === 'meme' ? s.meme : s.coins[a.id] ?? { qty: 0, avg: 0 } }
 const locked = (a: Asset): boolean => RANKS.findIndex((r) => r.id === a.minRank) > RANKS.findIndex((r) => r.id === rankFor(getSave().xp).id)
 const rankLabel = (a: Asset): string => RANKS.find((r) => r.id === a.minRank)!.label
+/** Short money for tight rows: no cents from $1,000, three significant digits under $1. */
+const short = (v: number): string => (Math.abs(v) >= 1000 ? `$${Math.round(v).toLocaleString('en-US')}` : Math.abs(v) >= 1 || v === 0 ? money(v) : `$${v.toPrecision(3)}`)
+const shortSigned = (v: number): string => `${v >= 0 ? '+' : '-'}${short(Math.abs(v))}`
+const pct = (v: number): string => `${v >= 0 ? '+' : '-'}${Math.abs(v) >= 100 ? Math.abs(v).toFixed(0) : Math.abs(v).toFixed(1)}%`
 const signed = (v: number): string => `${v >= 0 ? '+' : '-'}${money(Math.abs(v))}`
 const dir = (v: number): string => (v >= 0 ? 'up' : 'down')
 
@@ -61,6 +66,9 @@ function startTape(): void {
 const isLive = (a: Asset): boolean => !a.desk && a.id !== 'usd' && livePrice(a.id) !== undefined
 const series = (a: Asset): number[] => { const s = getSave(); if (a.desk === 'unit') return s.unitHist; if (a.desk === 'meme') return s.memeHist; const h48 = isLive(a) ? hourly(a.id) : []; return h48.length > 6 ? h48 : tape.get(a.id) ?? [] }
 const change = (a: Asset): number => { const real = isLive(a) ? liveChange(a.id) : undefined; if (real !== undefined) return real; const s = series(a); const first = s[0] ?? priceOf(a); return first > 0 ? (priceOf(a) / first - 1) * 100 : 0 }
+// Line or candles: the player's pick, kept on this device (not in the save).
+const CHART_KEY = 'gd.xch.chart'
+let chartMode: 'line' | 'candles' = (() => { try { return localStorage.getItem(CHART_KEY) === 'candles' ? 'candles' : 'line' } catch { return 'line' } })()
 const ago = (t: number): string => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `${s}s ago` : `${Math.round(s / 60)}m ago` }
 
 // Chart sizes come from a ResizeObserver, so a repaint never forces a layout to read the canvas size.
@@ -115,6 +123,9 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
   let p2pSide: 'buy' | 'sell' = 'buy', p2pCoin = 'btc', p2pFrac = 0.25, p2pOrder: { offer: Offer; stage: 'open' | 'bank' | 'releasing' } | null = null
   const paintNow = () => { for (const f of live) f() }
+  // Candle charts made for the pane on screen; dropped whenever the pane is rebuilt or the screen closes.
+  let charts: CandleView[] = []
+  const dropCharts = () => { for (const c of charts) c.destroy(); charts = [] }
 
   const segmented = (labels: string[], active: number, pick: (i: number) => void, cls = '') => {
     const wrap = h('div', `xch-seg ${cls}`.trim())
@@ -148,13 +159,36 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     head.append(icon(a), names)
     const price = h('div', 'xch-price'), chg = h('div', 'xch-chg'), canvas = h('canvas', 'xch-chart'), stamp = h('p', 'xch-live')
     canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', `${a.sym} recent price`)
-    wrap.append(head, price, chg, canvas, stamp)
+    // Line or TradingView-style candles: one small switch beside the price.
+    const frame = h('div', 'xch-chartbox')
+    const credit = h('a', 'xch-tv', 'Chart by TradingView')
+    credit.href = 'https://www.tradingview.com/'; credit.target = '_blank'; credit.rel = 'noopener'
+    let candles: CandleView | null = null
+    const setMode = () => {
+      canvas.hidden = chartMode !== 'line'
+      if (chartMode === 'candles' && !candles) { candles = candleChart(); charts.push(candles); frame.append(candles.el) }
+      if (candles) candles.el.hidden = chartMode !== 'candles'
+      frame.dataset.mode = chartMode
+      credit.hidden = chartMode !== 'candles'
+    }
+    const modes = segmented(['Line', 'Candles'], chartMode === 'line' ? 0 : 1, (i) => {
+      chartMode = i ? 'candles' : 'line'
+      try { localStorage.setItem(CHART_KEY, chartMode) } catch { /* private mode */ }
+      setMode(); paintNow()
+    }, 'chartmode')
+    const priceRow = h('div', 'xch-pricerow'), priceCol = h('div')
+    priceCol.append(price, chg)
+    priceRow.append(priceCol, modes)
+    frame.append(canvas)
+    setMode()
+    wrap.append(head, priceRow, frame, credit, stamp)
     live.push(() => {
-      const d = change(a), real = isLive(a)
-      price.textContent = coinPrice(priceOf(a))
+      const d = change(a), real = isLive(a), p = priceOf(a)
+      price.textContent = coinPrice(p)
       chg.textContent = `${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(2)}% ${real ? '24h' : 'recent'}`
       chg.dataset.dir = dir(d)
-      drawChart(canvas, [...series(a), priceOf(a)], d >= 0)
+      if (chartMode === 'line') drawChart(canvas, [...series(a), p], d >= 0)
+      else if (candles) { const real48 = real ? hourlyBars(a.id) : []; candles.set(real48.length > 6 ? real48 : barsFromSeries([...series(a), p]), p) }
       stamp.textContent = real ? `● Live market price · Coinbase · updated ${ago(liveAt())}. You trade it with in-game money only.` : a.desk ? 'The city\'s own token: a practice market.' : 'Live prices are loading. Showing practice prices.'
       stamp.dataset.live = String(real)
     })
@@ -192,11 +226,96 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     if (rebuild) show(); else paintNow()
   }
 
+  // ------------------------------- PORTFOLIO -------------------------------
+  // Every position at a glance when Trade opens: what you hold, what you paid, what it is worth now and the
+  // open profit or loss, plus open perps. Tap a row to focus that asset. Numbers repaint with the prices.
+  const portfolio = () => {
+    const card = h('section', 'xch-port')
+    card.setAttribute('aria-label', 'Your portfolio')
+    const top = h('div', 'xch-port-top'), totals = h('div', 'xch-port-totals')
+    const total = h('b', 'xch-port-total'), sub = h('small', 'xch-port-sub'), pnlAll = h('div', 'xch-port-pnl')
+    totals.append(h('span', 'xch-label', 'Portfolio value'), total, sub)
+    top.append(totals, pnlAll)
+    const mix = h('div', 'xch-port-mix')
+    const rows = h('div', 'xch-port-rows')
+    card.append(top, mix, rows)
+    type Pos = { key: string; a: Asset; qty: number; avg: number; perp?: Perp }
+    const positions = (): Pos[] => {
+      const out: Pos[] = []
+      for (const a of ASSETS) { const hd = holdingOf(a); if (hd.qty > 0) out.push({ key: a.id, a, qty: hd.qty, avg: hd.avg }) }
+      if (getSave().unit.qty > 0) out.push({ key: 'unit', a: { id: 'unit', sym: 'DIST', name: 'District Coin', tint: '#d9b26a', group: '', minRank: 'shrimp', desk: 'unit' }, qty: getSave().unit.qty, avg: getSave().unit.avg })
+      for (const p of perps()) out.push({ key: `perp:${p.id}`, a: asset(p.coin), qty: p.margin * p.lev / p.entry, avg: p.entry, perp: p })
+      return out
+    }
+    let shape = '\u0000'
+    let painters: Array<() => { value: number; pnl: number; cost: number }> = []
+    const build = (list: Pos[]) => {
+      rows.replaceChildren(); painters = []
+      if (!list.length) {
+        rows.append(h('p', 'xch-port-empty', 'No positions yet. Buy any coin below and it shows up here with its live profit or loss.'))
+        return
+      }
+      const headRow = h('div', 'xch-port-row head')
+      headRow.append(h('span', '', 'Holding'), h('span', '', 'Price'), h('span', '', 'Value · P/L'))
+      rows.append(headRow)
+      for (const ps of list) {
+        const r = h('button', 'xch-port-row'), who = h('div', 'xch-names'), mid = h('div', 'xch-port-mid'), end = h('div', 'xch-port-end')
+        r.type = 'button'
+        const name = h('b', '', ps.perp ? `${ps.a.sym} ${ps.perp.side === 'long' ? 'Long' : 'Short'} ${ps.perp.lev}x` : ps.a.sym)
+        const size = h('small'), px = h('b'), entry = h('small'), val = h('b'), pl = h('small')
+        who.append(name, size); mid.append(px, entry); end.append(val, pl)
+        const ic = icon(ps.a)
+        r.append(ic, who, mid, end)
+        if (ps.perp) r.dataset.perp = ps.perp.side
+        r.onclick = () => {
+          if (ps.perp) { perpId = ps.a.id; tab = 'perps'; root.querySelectorAll<HTMLElement>('.xch-seg.tabs button').forEach((b, i) => b.setAttribute('aria-selected', String(i === 1))) }
+          else if (ps.a.id !== 'unit') spotId = ps.a.id
+          result.textContent = ''; show(); root.closest('.sheet-card')?.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+        rows.append(r)
+        painters.push(() => {
+          const p = ps.a.desk === 'unit' ? getSave().unitPrice : priceOf(ps.a)
+          if (ps.perp) {
+            const pnl = perpPnl(ps.perp, p), value = Math.max(0, ps.perp.margin + pnl)
+            size.textContent = `${money(ps.perp.margin)} margin · ${formatQty(ps.qty)}`
+            px.textContent = short(p); entry.textContent = `in ${short(ps.avg)}`
+            val.textContent = short(value)
+            pl.textContent = `${shortSigned(pnl)} ${pct(pnl / ps.perp.margin * 100)}`; pl.dataset.dir = dir(pnl)
+            return { value, pnl, cost: ps.perp.margin }
+          }
+          const value = ps.qty * p, cost = ps.qty * ps.avg, pnl = value - cost
+          size.textContent = `${formatQty(ps.qty)} ${ps.a.sym}`
+          px.textContent = short(p); entry.textContent = `in ${short(ps.avg)}`
+          val.textContent = short(value)
+          pl.textContent = `${shortSigned(pnl)} ${pct(cost > 0 ? pnl / cost * 100 : 0)}`; pl.dataset.dir = dir(pnl)
+          return { value, pnl, cost }
+        })
+      }
+    }
+    live.push(() => {
+      const list = positions()
+      const next = list.map((p) => p.key).join('|')
+      if (next !== shape) { shape = next; build(list) }
+      let held = 0, pnl = 0, cost = 0
+      const parts: Array<{ tint: string; v: number }> = []
+      painters.forEach((f, i) => { const r = f(); held += r.value; pnl += r.pnl; cost += r.cost; parts.push({ tint: list[i]?.a.tint ?? '#9aa3ad', v: r.value }) })
+      const cash = getSave().ledger
+      total.textContent = money(cash + held)
+      sub.textContent = `Cash ${short(cash)} · In positions ${short(held)}`
+      pnlAll.replaceChildren(h('span', 'xch-label', 'Open P/L'), h('b', '', list.length ? signed(pnl) : '$0.00'), h('small', '', list.length && cost > 0 ? `${pnl >= 0 ? '+' : ''}${(pnl / cost * 100).toFixed(2)}%` : '—'))
+      pnlAll.dataset.dir = list.length ? dir(pnl) : ''
+      // Allocation bar: cash plus each position, in its coin's colour.
+      const sum = cash + held
+      mix.replaceChildren(...[{ tint: '#5fae7d', v: cash }, ...parts].filter((x) => x.v > 0 && sum > 0).map((x) => { const seg = h('i'); seg.style.flexGrow = String(x.v / sum); seg.style.background = x.tint; return seg }))
+    })
+    return card
+  }
+
   // ------------------------------- SPOT -------------------------------
   const spot = () => {
     const a = asset(spotId)
     const pane = h('div', 'xch-pane')
-    pane.append(chips(ASSETS, spotId, (x) => { spotId = x.id; result.textContent = ''; show() }), quote(a, a.name, a.sym))
+    pane.append(portfolio(), chips(ASSETS, spotId, (x) => { spotId = x.id; result.textContent = ''; show() }), quote(a, a.name, a.sym))
     if (locked(a)) pane.append(note(`${a.sym} opens at ${rankLabel(a)}. Keep climbing the ladder to trade it.`))
     else {
       const tiles = h('div', 'xch-tiles'), cash = tile('Cash'), held = tile(`${a.sym} held`), pnl = tile('Open P&L')
@@ -470,14 +589,16 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   }
 
   const body = h('div', 'xch-body')
-  const show = () => { live = []; body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : tab === 'defi' ? renderDefi({ done: (m) => hooks.finish(m), live: (f) => live.push(f) }) : p2pPane()); paintNow() }
+  const show = () => { live = []; dropCharts(); body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : tab === 'defi' ? renderDefi({ done: (m) => hooks.finish(m), live: (f) => live.push(f) }) : p2pPane()); paintNow() }
   root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P', 'DeFi'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p', 'defi'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
   // New prices (or a chart's hourly closes) landed: repaint what is on screen.
-  const onPrices = () => { if (!root.isConnected) { window.removeEventListener('gd:prices', onPrices); return } paintNow() }
+  let seen = false
+  const born = performance.now()
+  const onPrices = () => { if (!root.isConnected) { if (seen || performance.now() - born > 5000) { window.removeEventListener('gd:prices', onPrices); dropCharts() } return } seen = true; paintNow() }
   window.addEventListener('gd:prices', onPrices)
   show()
   // The chart measures its box: draw again once the card is in the page.
   requestAnimationFrame(paintNow)
   let last = 0
-  return { el: root, paint: () => { const t = performance.now(); if (t - last < 450) return; last = t; wantFast(); paintNow() } }
+  return { el: root, paint: () => { const t = performance.now(); if (t - last < 450) return; last = t; if (!root.isConnected) { if (seen) dropCharts(); return } seen = true; wantFast(); paintNow() } }
 }
