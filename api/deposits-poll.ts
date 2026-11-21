@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { cronAuthorized } from './_cron.js'
 
 // Cron/API: reads incoming USDC transfers on Base to DEPOSIT_ADDRESS and credits the matching player.
 // DISABLED until DEPOSIT_ADDRESS, SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set (and DEPOSITS_ENABLED=1).
@@ -8,7 +9,8 @@ const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 type Res = { status(n: number): { json(b: unknown): void } }
 
-export default async function handler(_req: unknown, res: Res) {
+export default async function handler(req: { headers?: Record<string, string | string[] | undefined> }, res: Res) {
+  if (!cronAuthorized(req?.headers)) return res.status(401).json({ error: 'unauthorized' })
   const to = process.env.DEPOSIT_ADDRESS ?? ''
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY

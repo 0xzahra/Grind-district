@@ -4,6 +4,7 @@ import { cleanUsername } from './_username.js'
 import { attachUploaded, EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia, uploadSlot } from './_dmMedia.js'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { verifyNearAuth, nearUserId } from './_nearAuth.js'
+import { cronAuthorized } from './_cron.js'
 import { broadcastUpdate, cleanSub, emailOff, emailToken, notifyMessage, nudgeLapsed, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
 
 // Direct messages. Identity = Privy token -> players.username, or for NEAR sign-ins a Messages session token
@@ -68,7 +69,10 @@ export default async function handler(req: Req, res: Res) {
   // A game session after a deploy: send the current release's phone alert once (see broadcastUpdate).
   if (String(req.query?.op ?? '') === 'news-ping') return res.status(200).json(await broadcastUpdate(db, String(req.query?.id ?? '')).catch(() => ({ skipped: 'error' })))
   // The daily come-back reminders (vercel.json cron). Once a day at most; ?dry=1 only counts who would get one.
-  if (String(req.query?.op ?? '') === 'nudge') return res.status(200).json(await nudgeLapsed(db, String(req.query?.dry ?? '') === '1').catch(() => ({ error: 'failed' })))
+  if (String(req.query?.op ?? '') === 'nudge') {
+    if (!cronAuthorized(req.headers)) return res.status(401).json({ error: 'unauthorized' })
+    return res.status(200).json(await nudgeLapsed(db, String(req.query?.dry ?? '') === '1').catch(() => ({ error: 'failed' })))
+  }
   if (String(req.query?.op ?? '') === 'email-off') {
     const u = cleanUsername(req.query?.u), t = String(req.query?.t ?? '')
     const ok = u.ok && t === emailToken(u.name) && await setEmailOff(db, u.name, true)
