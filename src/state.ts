@@ -331,6 +331,13 @@ export function loadSave(prefer: Graphics): Save {
   return save
 }
 
+/** Remember whether the player is inside their own home, so the next visit opens there (null: out in the city). */
+export function rememberHome(kind: string | null): void {
+  if ((save.homeAt ?? null) === kind) return
+  if (kind) save.homeAt = kind
+  else delete save.homeAt
+  persist()
+}
 export function rememberPlace(x: number, z: number): void {
   if (Math.hypot(save.posX - x, save.posZ - z) < 0.35) return
   save.posX = x

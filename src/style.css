@@ -3611,7 +3611,7 @@ html[data-ui='light'] .ref-tile { background: rgba(0, 0, 0, 0.04); }
 html body .family-fab { bottom: calc(200px + env(safe-area-inset-bottom)); }
 
 /* Rewards and notices read above every panel and pop-up (the pass and rank-up moment was hidden behind Campus). */
-html body #toast { z-index: 70 !important; }
+html body #toast { z-index: 70 !important; pointer-events: none !important; }
 
 /* Notifications as 3D buttons: a raised glass key with a lit top edge and a soft drop; it presses in on tap. */
 .cc-list { gap: 10px; }
@@ -4416,3 +4416,14 @@ html[data-ui='light'] .sheet-card a.xch-tv { color: #6b655a; }
 .topup-tabs:has(> :nth-child(4)) button { padding: 10px 4px; font-size: 13.5px; }
 .topup-refund { font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: inherit; width: 100%; box-sizing: border-box; }
 .topup-refund:focus { outline: none; border-color: #f2c94c; }
+
+/* Daily streak card (control centre, under the next lesson): shows only while today's check-in is ready. */
+html body #nav.cc #cc-streak { order: 2 !important; display: flex; align-items: center; gap: 12px; text-align: left; border-color: rgba(233, 178, 90, 0.5) !important; box-shadow: inset 0 0 0 1px rgba(233, 178, 90, 0.18), 0 6px 16px rgba(0, 0, 0, 0.3); }
+html body #nav.cc #cc-streak[hidden] { display: none !important; }
+html body #nav.cc #cc-streak .cc-circle { background: linear-gradient(180deg, #f6c46a, #d98a2b) !important; border-color: #9a5a12 !important; }
+html body #nav.cc #cc-streak .cc-circle svg { stroke: none; fill: #3a1d02; }
+html body #nav.cc #cc-streak .cc-learn-text { flex: 1 1 auto; min-width: 0; }
+html body #nav.cc #cc-streak strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body #nav.cc #cc-streak small { display: block; }
+html body #nav.cc #cc-streak .cc-claim { flex: none; min-height: 40px; min-width: 76px; padding: 8px 16px; border-radius: 12px; border: 1px solid #04803f; background: var(--key-gold); box-shadow: var(--key-gold-sh); color: #032612; font: 700 15px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: translate 70ms ease-out, box-shadow 70ms ease-out; }
+html body #nav.cc #cc-streak .cc-claim:active { translate: 0 2px; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35); }

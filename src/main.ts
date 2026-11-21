@@ -55,16 +55,17 @@ import { createCrowd, label as nameLabel, type CrowdInfo } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
 import { liteOn, noteGpu, noteStruggling, setLiteNow } from './deviceTier.ts'
-import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, setGraphics, tickMarket, spendInGame, bonusXp, isAccountBound } from './state.ts'
+import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, rememberHome, setGraphics, tickMarket, spendInGame, bonusXp, isAccountBound } from './state.ts'
 import { mountUi } from './ui.ts'
+import { claimDaily, loginState } from './luxury.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
-import { createSeating, kioskSeats, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
+import { PLAZA_BENCH_LEN, STREET_BENCH_LEN, benchSlots, pickBenchSlot, createSeating, kioskSeats, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
 import { tickWater } from './water.ts'
 import { createPhysicalSky } from './sky.ts'
-import { startNeeds, tickNeeds, socialised, paintNeedsCard, renderNeeds, onNeeds } from './needs.ts'
+import { startNeeds, tickNeeds, socialised, adjust as adjustNeeds, paintNeedsCard, renderNeeds, onNeeds } from './needs.ts'
 import { startPass } from './pass.ts'
 import { startCashAlert } from './sfx.ts'
 import { startReputation } from './rep.ts'
@@ -277,10 +278,14 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
       'How is the grind?',
     ]
     const line = tips[Math.floor(Date.now() / 8000) % tips.length]!
-    greetToast(line)
-    speak(line, { gender: getSave().body === 'zuri' ? 'f' : 'm', seed: 1 })
+    // The resident you greeted answers, in their own voice: a man's voice for a man, a woman's for a woman.
+    const who = crowd.nearestPerson(avatar.object.position.x, avatar.object.position.z, 3)
+    // One toast: the reply and the Social gain together (a second toast used to cover the reply at once).
+    const gain = adjustNeeds({ social: 10 }, 'quiet')
+    const said = who ? `${who.name}: ${line}` : line
+    greetToast(gain ? `${said} · ${gain}` : said)
+    speak(line, who ? { gender: who.gender, seed: who.seed } : { gender: getSave().body === 'zuri' ? 'f' : 'm', seed: 1 })
     greetShown = 0; greetCool = 20; greetBtn.hidden = true
-    socialised(10)
   })
   let greetToast: (m: string) => void = () => {}
   let greetShown = 0
@@ -1065,6 +1070,7 @@ const apiAgents = createRemoteAgents(scene)
     if (go.startsWith('panel:')) { ui.open(go.slice(6) as Parameters<typeof ui.open>[0]); return true }
     if (go === 'gallery' || go === 'players') { window.dispatchEvent(new Event(`gd:${go}`)); return true }
     if (go === 'reload') { location.reload(); return true }
+    if (go === 'streak') { setCC(true); window.dispatchEvent(new Event('gd:streak-claim')); return true }
     return false
   }
   setNoteFollow(follow)
@@ -1340,6 +1346,10 @@ const apiAgents = createRemoteAgents(scene)
   }
   // Back from the browser's page cache (some phones keep the page frozen there when the browser is minimised).
   window.addEventListener('pageshow', (e) => { if ((e as PageTransitionEvent).persisted && !renderer.getContext().isContextLost()) { refreshGpu('pageshow'); redrawSoon() } })
+  // Leaving (app switch, closing the tab): note whether the player is at home right now, not up to 2 s ago.
+  const noteHome = () => { if (homeRestored) rememberHome(atHome()?.home ?? null) }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') noteHome() })
+  window.addEventListener('pagehide', noteHome)
   window.addEventListener('pagehide', () => markSeen())
   setUpgradeCard(() => {
     const card = el('div', '', 'cr-card fw-card')
@@ -1374,6 +1384,49 @@ const apiAgents = createRemoteAgents(scene)
   }
   learnKey?.addEventListener('click', () => runStep(learnGo))
   paintLearn()
+  // Daily check-in: many players never found it. When today's reward is ready, a card sits under the next lesson
+  // with a Claim key that claims it right there, and the bell carries a reminder. The reward maths is luxury.ts's.
+  const streakCard = document.createElement('div')
+  streakCard.className = 'cc-card cc-wide'
+  streakCard.id = 'cc-streak'
+  streakCard.hidden = true
+  const streakText = document.createElement('span'); streakText.className = 'cc-learn-text'
+  const streakTitle = document.createElement('strong'), streakSub = document.createElement('small')
+  streakText.append(streakTitle, streakSub)
+  const streakIcon = document.createElement('span'); streakIcon.className = 'cc-circle cc-accent'
+  streakIcon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z"/></svg>'
+  const claimKey = document.createElement('button'); claimKey.type = 'button'; claimKey.className = 'cc-claim'; claimKey.textContent = 'Claim'
+  streakCard.append(streakIcon, streakText, claimKey)
+  learnKey?.after(streakCard)
+  const streakReward = (st: ReturnType<typeof loginState>) => {
+    // Same rule as claimDaily: the streak goes on from yesterday, or starts again at day 1.
+    const y = new Date(); y.setDate(y.getDate() - 1)
+    const next = st.last === y.toLocaleDateString('en-CA') ? st.streak + 1 : 1
+    return { day: next, usd: Math.min(15, 4 + next) }
+  }
+  const paintStreak = () => {
+    const st = loginState()
+    streakCard.hidden = !st.claimable
+    if (!st.claimable) return
+    const r = streakReward(st)
+    streakTitle.textContent = `Daily streak · day ${r.day}`
+    streakSub.textContent = `Your check-in reward is ready: +$${r.usd} in-game`
+    notify('Daily streak reward ready', `Day ${r.day} · +$${r.usd} in-game. Tap to claim it.`, `streak-${new Date().toLocaleDateString('en-CA')}`, 'streak')
+  }
+  const claimStreak = () => {
+    if (!loginState().claimable) { paintStreak(); return }
+    claimKey.disabled = true
+    const line = claimDaily()
+    ui.toast(`Daily streak claimed · ${line}`)
+    for (const n of getNotes()) if (!n.read && n.go === 'streak') markRead(n.id)
+    try { paintStatus() } catch { /* the balance card repaints on the next open */ }
+    claimKey.disabled = false
+    paintStreak()
+  }
+  claimKey.addEventListener('click', (e) => { e.stopPropagation(); claimStreak() })
+  window.addEventListener('gd:streak-claim', claimStreak)
+  window.addEventListener('gd:revealed', () => window.setTimeout(paintStreak, 2500), { once: true })
+  window.setInterval(paintStreak, 60_000) // a new day while playing
   window.setInterval(() => { try { paintLearn() } catch { /* booting */ } }, 2000)
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
@@ -1584,6 +1637,7 @@ const apiAgents = createRemoteAgents(scene)
   const PRIVATE_HOMES = new Set(['duplex', 'mansion', 'penthouse', 'skyhouse'])
   const HOME_LABEL: Record<string, string> = { house: 'home', duplex: 'garden duplex', mansion: 'hillside mansion', penthouse: 'crown penthouse', skyhouse: 'sky house' }
   let visiting: { room: string; kind: string } | null = null
+  let homeRestored = false // the saved home spot is not overwritten until the restore has run
   const hostKey = () => { const u = getSave().username; return u && u !== 'guest' ? u : `guest-${net.id().slice(0, 8)}` }
   const myRoom = (): string => {
     if (interiors.inside === 'house') return visiting?.kind === 'house' ? visiting.room : `house:${hostKey()}`
@@ -1653,7 +1707,19 @@ const apiAgents = createRemoteAgents(scene)
       const row = document.createElement('div'); row.className = 'npc-acts'
       const act = (label: string, run: () => { ok: boolean; message: string }) => {
         const b = document.createElement('button'); b.type = 'button'; b.textContent = label
-        b.onclick = (e) => { e.stopPropagation(); const out = run(); ui.toast(out.message); f.textContent = town.friendLine(n.name); window.clearTimeout(hide); hide = window.setTimeout(() => { c.remove(); if (npcCard === c) npcCard = null }, 4000) }
+        b.onclick = (e) => {
+          e.stopPropagation()
+          // One action at a time: both keys rest while one runs (a quick second tap does nothing).
+          if (row.dataset.busy === '1') return
+          row.dataset.busy = '1'
+          const keys = [...row.querySelectorAll('button')]
+          for (const k of keys) k.disabled = true
+          const label0 = b.textContent
+          b.textContent = '…'
+          const out = run(); ui.toast(out.message); f.textContent = town.friendLine(n.name)
+          window.setTimeout(() => { delete row.dataset.busy; for (const k of keys) k.disabled = false; b.textContent = out.ok ? `${label0} ✓` : label0; if (out.ok) b.disabled = true }, 1800)
+          window.clearTimeout(hide); hide = window.setTimeout(() => { c.remove(); if (npcCard === c) npcCard = null }, 4000)
+        }
         return b
       }
       row.append(act('Say hello', () => town.hello(n.name)), act('Gift · $10', () => town.gift(n.name)))
@@ -1895,9 +1961,17 @@ const apiAgents = createRemoteAgents(scene)
     target = null
     faceYaw = s.yaw
   }
+  // A bench seats two or three: take the free place nearest to you (tap again on yours to stand up).
+  const sitBench = (slots: Seat[]) => {
+    const mine = seating.sitting && slots.find((q) => Math.hypot(q.x - seating.sitting!.x, q.z - seating.sitting!.z) < 0.05)
+    if (mine) { seating.stand(); return }
+    const free = pickBenchSlot(slots, (x, z) => crowd.occupied(x, z), pos.x, pos.z)
+    if (!free) { ui.toast('Bench is full. Try another one.'); return }
+    sitOn(free)
+  }
   // Zahra at the Campus steps: walk up (or tap her) and she introduces herself, any time.
   const zahraSpot: Hotspot = { id: 'zahra', x: ada.position.x, z: ada.position.z, r: 1.9, title: 'Zahra', body: 'Campus guide · onboarding', enter: 'Talk to Zahra', use: () => mentor.hello() }
-  const streetSpots: Hotspot[] = [zahraSpot, ...world.hotspots, ...[...plazaSeats(), ...ambient.benchSeats].map((s, i) => seatSpot(`bench-${i}`, 'Bench', s, sitOn)),
+  const streetSpots: Hotspot[] = [zahraSpot, ...world.hotspots, ...[...plazaSeats().map((s) => ({ s, len: PLAZA_BENCH_LEN })), ...ambient.benchSeats.map((s) => ({ s, len: STREET_BENCH_LEN }))].map(({ s, len }, i) => seatSpot(`bench-${i}`, 'Bench', s, () => sitBench(benchSlots(s, len)))),
     ...workoutSpots().map((s, i) => ({ ...seatSpot(`workout-${i}`, 'Workout spot', s, sitOn), body: 'Do a few squats. Move to stop.', enter: 'Exercise' }))]
   // Grind Ring kiosk: stand at the front of the counter to order tea or coffee, or take a free stool.
   const freeStools = () => kioskSeats().filter((s) => !crowd.occupied(s.x, s.z))
@@ -2078,6 +2152,21 @@ const apiAgents = createRemoteAgents(scene)
   }
   window.addEventListener('gd:ride', (e) => void beginRide((e as CustomEvent<RideOpts>).detail))
   window.addEventListener('gd:revealed', () => window.setTimeout(() => void parkHomeCar(), 3500), { once: true })
+  // Back where you left off: a player who was inside their own home opens there again (reload or next sign-in).
+  window.addEventListener('gd:revealed', () => window.setTimeout(() => {
+    const kind = getSave().homeAt
+    const finish = () => { homeRestored = true }
+    if (!kind || interiors.inside || homes?.inside) return finish()
+    if (kind === 'house') {
+      const door = world.hotspots.find((h) => h.id === 'yours')
+      if (door) enterRoom(door)
+      return void window.setTimeout(finish, 1500)
+    }
+    void import('./homesShop.ts').then((m) => {
+      if (!m.readHomes().owned.includes(kind as never)) return finish()
+      void enterHome(kind as AreaId, false).finally(finish)
+    }).catch(finish)
+  }, 400), { once: true })
   {
     // A car bought at the dealership is waiting at home the moment you leave the showroom.
     let owned = (getSave().ownedVehicles ?? []).length
@@ -3020,6 +3109,7 @@ const apiAgents = createRemoteAgents(scene)
     if (saveAcc > 2) {
       saveAcc = 0
       rememberPlace(pos.x, pos.z)
+      if (homeRestored) rememberHome(atHome()?.home ?? null)
     }
   }
 

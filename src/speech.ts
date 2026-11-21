@@ -43,10 +43,13 @@ function pick(gender: 'f' | 'm', want2 = 'en'): SpeechSynthesisVoice | undefined
     return [...own].sort((a, b) => rank(a) - rank(b))[0]
   }
   const want = gender === 'f' ? FEMALE : MALE, avoid = gender === 'f' ? MALE : FEMALE
-  const pool = voices.filter((v) => want.test(v.name) && !(gender === 'f' && /\bmale\b/i.test(v.name) && !/female/i.test(v.name)))
+  // "female" contains "male": a man's pool never takes a voice named female or woman.
+  const pool = voices.filter((v) => want.test(v.name) && !(gender === 'f' && /\bmale\b/i.test(v.name) && !/female/i.test(v.name)) && !(gender === 'm' && /female|woman/i.test(v.name)))
   const ordered = [...pool.filter((v) => QUALITY.test(v.name)), ...pool.filter((v) => /en-(gb|ng|za|au)/i.test(v.lang)), ...pool]
-  return ordered[0] ?? voices.find((v) => !avoid.test(v.name)) ?? voices[0]
+  return ordered[0] ?? voices.find((v) => !avoid.test(v.name) && !(gender === 'm' && /female|woman/i.test(v.name))) ?? voices[0]
 }
+/** The voice is clearly a man's by its name (many phones only name voices by language). */
+const manlyName = (v: SpeechSynthesisVoice | undefined) => !!v && MALE.test(v.name) && !/female|woman/i.test(v.name)
 
 const duck = duckMusic
 
@@ -81,7 +84,10 @@ export function speak(text: string, who: { gender: 'f' | 'm'; seed?: number; voi
     if (v) { u.voice = v; u.lang = v.lang } else if (want2 !== 'en') u.lang = speechLang()
     const k = ((who.seed ?? 0) * 0.618) % 1
     // Clear and well paced: native voices at their natural pitch, a little slower than default.
-    u.pitch = want2 !== 'en' ? 1 : who.gender === 'f' ? 1.02 + k * 0.12 : 0.86 + k * 0.12
+    // A man on a phone with no man's voice (Android often names voices only by language, and they are usually
+    // women's): the same voice pitched well down, so men still sound like men.
+    const deep = who.gender === 'm' && !manlyName(v)
+    u.pitch = deep ? 0.55 + k * 0.1 : want2 !== 'en' ? 1 : who.gender === 'f' ? 1.02 + k * 0.12 : 0.86 + k * 0.12
     u.rate = want2 !== 'en' ? 0.92 : 0.94 + k * 0.06
     u.volume = 1
     u.onstart = () => { duck(true); talking(name, true) }

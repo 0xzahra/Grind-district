@@ -6,7 +6,7 @@ import { createAvatar, type Avatar } from './avatars.ts'
 import { BRISK, CITIZENS, stepCitizens, type CitizenSim, type Solid } from './citizens.ts'
 import { createDrone, spinDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
-import { createSeating, kioskSeats, plazaSeats, workoutSpots, type Seat } from './seating.ts'
+import { PLAZA_BENCH_LEN, benchSlots, createSeating, kioskSeats, plazaSeats, workoutSpots, type Seat } from './seating.ts'
 
 type Person = {
   avatar: Avatar
@@ -159,7 +159,7 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
   return along > 0 ? along : null
 }
 
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
   // Each resident gets a name that fits the figure: women's names on women, men's names on men.
   const personas = new Map<Person, Persona>()
@@ -202,7 +202,8 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
   // A few residents sit on the plaza benches or work out in the park; they rotate every ~40 s.
   const posed: Array<{ p: Person; seat: Seat; seating: ReturnType<typeof createSeating> }> = []
   // ...and one sits at the Grind Ring kiosk with a drink. A seat the player is on is never given to anyone else.
-  const poseSeats: Seat[] = [plazaSeats()[0]!, plazaSeats()[2]!, workoutSpots()[1]!, kioskSeats()[2]!]
+  // Benches seat two or three: a resident takes one end, leaving room beside them for the player.
+  const poseSeats: Seat[] = [benchSlots(plazaSeats()[0]!, PLAZA_BENCH_LEN)[0]!, benchSlots(plazaSeats()[2]!, PLAZA_BENCH_LEN)[0]!, workoutSpots()[1]!, kioskSeats()[2]!]
   let poseClock = 0
   let lastPlayer: { x: number; z: number } | null = null
   const assignPoses = () => {
@@ -280,6 +281,13 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
     setFreeWill(on) { freeWill = on },
     occupied(x, z) { return posed.some((q) => Math.hypot(q.seat.x - x, q.seat.z - z) < 0.3) },
     nearest(x, z, r) { return people.some((p) => Math.hypot(p.sim.x - x, p.sim.z - z) < r) },
+    nearestPerson(x, z, r) {
+      let best = -1, bd = r
+      people.forEach((p, i) => { const d = Math.hypot(p.sim.x - x, p.sim.z - z); if (d < bd) { bd = d; best = i } })
+      if (best < 0) return null
+      const p = people[best]!
+      return { name: persona(p).name, gender: p.sim.spec.body === 'zuri' ? 'f' : 'm', seed: best }
+    },
     debug() { return people.map((p, i) => ({ x: +p.sim.x.toFixed(2), z: +p.sim.z.toFixed(2), state: posed.some((q) => q.p === p) ? 'seated' : still.has(i) ? 'idle' : 'walking', body: p.sim.spec.body })) },
     tick(dt, player) {
       lastPlayer = player ?? null

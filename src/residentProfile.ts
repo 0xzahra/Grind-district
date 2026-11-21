@@ -41,7 +41,7 @@ export const standingFor = (name: string): { rep: number; since: string } => {
 type Friendship = { level: string; hello: () => { ok: boolean; message: string }; gift: () => { ok: boolean; message: string } }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''): HTMLElementTagNameMap[K] => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
-const key = (label: string, cls: string, on: () => void) => { const b = el('button', label, `gm-key ${cls}`); b.type = 'button'; b.onclick = on; return b }
+const key = (label: string, cls: string, on: (e?: Event) => void) => { const b = el('button', label, `gm-key ${cls}`); b.type = 'button'; b.onclick = on; return b }
 
 /** Open the profile. `shot` is a full-body portrait (data URL) or null; `friend` comes from town.ts. */
 export function openResidentProfile(r: ResidentInfo, o: { shot: string | null; friend: () => Promise<Friendship>; toast: (m: string) => void }): void {
@@ -84,7 +84,28 @@ export function openResidentProfile(r: ResidentInfo, o: { shot: string | null; f
     if (!card.isConnected) return
     const paint = (lv: string) => { (you.querySelector('b') as HTMLElement).textContent = lv }
     paint(f.level)
-    const run = (fn: () => { ok: boolean; message: string }) => () => { const out = fn(); o.toast(out.message); void o.friend().then((g) => paint(g.level)) }
-    keys.append(key('Say hello', 'gm-ghost', run(f.hello)), key('Gift · $10', 'gm-go', run(f.gift)))
+    // One action at a time: both keys rest while one runs, show that it is working, then say what happened.
+    // (A gift is charged once a day by town.ts; this also stops a quick second tap from looking like a second try.)
+    let busy = false
+    const btns: HTMLButtonElement[] = []
+    const run = (fn: () => { ok: boolean; message: string }, label: string, working: string, doneLabel: string) => (e?: Event) => {
+      const b = e?.currentTarget as HTMLButtonElement | undefined
+      if (busy) return
+      busy = true
+      for (const x of btns) { x.disabled = true; x.setAttribute('aria-busy', 'true') }
+      if (b) b.textContent = working
+      const out = fn()
+      o.toast(out.message)
+      void o.friend().then((g) => paint(g.level))
+      window.setTimeout(() => {
+        busy = false
+        for (const x of btns) { x.disabled = false; x.removeAttribute('aria-busy') }
+        if (b) { b.textContent = out.ok ? doneLabel : label; if (out.ok) b.disabled = true }
+      }, 1800)
+    }
+    const hi = key('Say hello', 'gm-ghost', run(f.hello, 'Say hello', 'Saying hello…', 'Said hello ✓'))
+    const gift = key('Gift · $10', 'gm-go', run(f.gift, 'Gift · $10', 'Giving…', 'Gift given ✓'))
+    btns.push(hi, gift)
+    keys.append(hi, gift)
   })
 }

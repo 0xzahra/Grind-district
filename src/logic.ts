@@ -382,6 +382,8 @@ export type Save = {
   posZ: number
   /** Practice stakes (Trade > Stake). Optional: saves from before staking have none. */
   stakes?: Stake[]
+  /** The player was inside their own home ('house' or an owned home's id) when last saved: they open there. Optional. */
+  homeAt?: string
 }
 
 export type TradeResult =
@@ -794,6 +796,7 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.posZ = num(row.posZ, -CITY_POS, CITY_POS, 8)
   const stakes = cleanStakes(row.stakes, now.getTime())
   if (stakes.length) fresh.stakes = stakes
+  if (typeof row.homeAt === 'string' && /^(house|duplex|mansion|penthouse|skyhouse)$/.test(row.homeAt)) fresh.homeAt = row.homeAt
   if (row.skills && typeof row.skills === 'object') {
     for (const [key, value] of Object.entries(row.skills as Record<string, unknown>)) {
       if (!isSkill(key) || !value || typeof value !== 'object') continue

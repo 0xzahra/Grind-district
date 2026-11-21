@@ -161,6 +161,22 @@ export function plazaSeats(): Seat[] {
   return out
 }
 
+/** Places to sit along one bench: two on a short bench, three on a long one, spread along its length. */
+export function benchSlots(s: Seat, length: number): Seat[] {
+  const offs = length >= 1.5 ? [-0.52, 0, 0.52] : [-0.34, 0.34]
+  // The bench's long side runs along its local x axis: (cos yaw, 0, -sin yaw) in the world.
+  const ax = Math.cos(s.yaw), az = -Math.sin(s.yaw)
+  return offs.map((o) => ({ ...s, x: s.x + ax * o, z: s.z + az * o }))
+}
+/** The free place on a bench nearest to (x, z), or null when every place is taken ("Bench is full"). */
+export function pickBenchSlot(slots: Seat[], taken: (x: number, z: number) => boolean, x: number, z: number): Seat | null {
+  const free = slots.filter((q) => !taken(q.x, q.z)).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))
+  return free[0] ?? null
+}
+/** Plaza benches are 1.35 m (world.ts), street benches 1.6 m (ambient.ts). */
+export const PLAZA_BENCH_LEN = 1.35
+export const STREET_BENCH_LEN = 1.6
+
 /** The three bar stools at the Grind Ring kiosk (drinkStand.ts), facing the counter. */
 export function kioskSeats(): Seat[] {
   return [-0.9, 0, 0.9].map((x) => ({ x, z: 1.8, yaw: Math.PI, y: 0.96 }))

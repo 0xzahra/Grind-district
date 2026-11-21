@@ -265,11 +265,17 @@ export function mountUi(
     lastToastAt = Date.now()
     toastNode.hidden = false
     toastNode.textContent = text
+    toastShownAt = Date.now()
     window.clearTimeout(toastTimer)
-    toastTimer = window.setTimeout(() => {
-      toastNode.hidden = true
-    }, 4200)
+    toastTimer = window.setTimeout(hideToast, 4200)
   }
+  // A toast never stays: it goes after 4.2 s, and also on the next tap anywhere once it has been read for a moment
+  // (phones can hold timers back while the city is busy). It never takes taps itself (pointer-events: none).
+  let toastShownAt = 0
+  const hideToast = () => { window.clearTimeout(toastTimer); toastNode.hidden = true }
+  window.addEventListener('pointerdown', () => { if (!toastNode.hidden && Date.now() - toastShownAt > 1200) hideToast() }, { capture: true, passive: true })
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !toastNode.hidden && Date.now() - toastShownAt > 4200) hideToast() })
+  window.setInterval(() => { if (!toastNode.hidden && Date.now() - toastShownAt > 6000) hideToast() }, 1000)
 
   // Open practice perpetuals are checked against the market while the game runs; a liquidation is announced.
   watchPerps(toast)
