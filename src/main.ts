@@ -2368,7 +2368,7 @@ const apiAgents = createRemoteAgents(scene)
   let mapAcc = 1
   // interiors is declared later in main(); a timer can fire before that, so read it defensively.
   const indoors = () => { try { return Boolean(interiors.inside) } catch { return true } }
-  const bake = () => !indoors() && bakeSatellite(renderer, scene, 512) // one-off render; 512 keeps rooftops/roads readable when zoomed
+  const bake = () => !indoors() && bakeSatellite(renderer, scene, 512, world.hemi, () => post.render()) // one-off render; 512 keeps rooftops/roads readable when zoomed
   // The satellite picture for the map is one full render read back from the GPU, which stalls everything for a
   // moment. It used to run four seconds after the city started loading, in the middle of the opening; now it
   // runs when the player opens the menu (the city holds still behind it, so nothing stutters), and the Map
@@ -2986,7 +2986,22 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   performance.mark('gd:interiors-loop')
-  await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 1000, () => undefined, 'Shader warm-up')
+  // Shader warm-up behind the loading screen. It used to stop after 1 s, so a phone compiled the rest inside the
+  // first frame (a 3-8 s freeze with nothing moving). Now it gets up to 12 s (a desktop is done in well under 1 s)
+  // and the Play button shows how far it has got. A failure or timeout still opens the city.
+  {
+    const playBtn = document.querySelector<HTMLButtonElement>('#play')
+    const kinds = new Set<string>()
+    scene.traverseVisible((o) => { const m = (o as THREE.Mesh).material; if ((o as THREE.Mesh).isMesh && m) for (const x of Array.isArray(m) ? m : [m]) kinds.add(`${x.type}:${(x as THREE.MeshStandardMaterial).map ? 1 : 0}:${(o as THREE.SkinnedMesh).isSkinnedMesh ? 1 : 0}:${(o as THREE.InstancedMesh).isInstancedMesh ? 1 : 0}`) })
+    const start = renderer.info.programs?.length ?? 0
+    const expect = Math.max(8, kinds.size)
+    const tick = window.setInterval(() => {
+      const done = (renderer.info.programs?.length ?? start) - start
+      if (playBtn) playBtn.textContent = `Preparing graphics ${Math.min(99, Math.round((done / expect) * 100))}%`
+    }, 250)
+    try { await withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 12000, () => undefined, 'Shader warm-up') } finally { window.clearInterval(tick) }
+    if (playBtn) playBtn.textContent = 'Opening the district'
+  }
   performance.mark('gd:shaders')
   // While the full-screen menu is open the city holds still: no movement, no camera drift, no redraw.
   // The blurred backdrop keeps showing the last frame, so nothing behind the menu can shake or zoom,
@@ -2994,6 +3009,7 @@ const apiAgents = createRemoteAgents(scene)
   // slider (cc-peek) draws live again so the change is visible.
   let holdRedraw = 0
   window.addEventListener('resize', () => { holdRedraw = 2 })
+  let finalWarm: 'todo' | 'running' | 'done' = 'todo'
   const menuHold = () => {
     const cls = document.body.classList
     return !cls.contains('rail-shut') && !cls.contains('cc-peek')
@@ -3048,12 +3064,24 @@ const apiAgents = createRemoteAgents(scene)
       if (holdRedraw > 0) { holdRedraw -= 1; try { post.render() } catch { /* keep the last frame */ } }
       return
     }
+    // Second warm-up: the first update turns on what the opening scene really uses (the sun's shadow, the time
+    // of day's lights), which changes some shaders. Those are compiled here, behind the loading screen, before
+    // the first frame is drawn, instead of freezing that frame.
+    if (!revealed && finalWarm === 'running') return
     elapsed += dt
     if (revealed) tickNeeds(dt)
     try {
       const tu = DEV_PERF ? performance.now() : 0
       update(dt)
       if (!revealed) performance.mark('gd:first-update')
+      if (!revealed && finalWarm === 'todo') {
+        finalWarm = 'running'
+        const playBtn = document.querySelector<HTMLButtonElement>('#play')
+        if (playBtn) playBtn.textContent = 'Preparing graphics 99%'
+        void withTimeout(renderer.compileAsync(scene, camera).then(() => undefined), 8000, () => undefined, 'Final shader warm-up')
+          .then(() => { finalWarm = 'done'; performance.mark('gd:shaders-final'); if (playBtn) playBtn.textContent = 'Opening the district' })
+        return
+      }
       const tr = DEV_PERF ? performance.now() : 0
       post.frame(dt, elapsed)
       post.render()

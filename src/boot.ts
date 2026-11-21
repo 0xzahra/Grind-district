@@ -7,7 +7,7 @@ import './glass.css'
 // The game's typeface: the system face on Apple devices (San Francisco), and Inter, the open typeface drawn to
 // the same model, everywhere else. Bundled, so Android and Windows see the same clean letters.
 import '@fontsource-variable/inter/index.css'
-import { mountMenu } from './menu.ts'
+import { mountMenu, hasAccountSession } from './menu.ts'
 import { loadSave } from './state.ts'
 import { startTracking } from './track.ts'
 import { watchUpdates } from './update.ts'
@@ -26,7 +26,16 @@ resumeMusicOnFirstTap()
 // title took ~15 s on slow 4G. Now the warm-up waits until the preview has drawn its first frame (or was
 // skipped or failed), with a cap so the city is still fetched early if the preview never answers.
 let settlePreview: () => void = () => {}
-const previewSettled = new Promise<void>((done) => { settlePreview = done })
+// Not signed in yet: the sign-in code (and Privy's) comes first, so tapping Sign up / Sign in answers in a few
+// seconds on a slow line instead of queueing behind the city (it took ~12 s on slow 4G). The city and the people
+// are fetched after it (or after 10 s at most). Signed-in players are unchanged.
+const authReady: Promise<unknown> = hasAccountSession()
+  ? Promise.resolve()
+  : Promise.race([
+    Promise.all([import('./login.ts'), import('@privy-io/js-sdk-core')]).catch(() => undefined),
+    new Promise((done) => window.setTimeout(done, 10000)),
+  ])
+const previewSettled = Promise.all([new Promise<void>((done) => { settlePreview = done }), authReady]).then(() => undefined)
 window.addEventListener('gd-preview-ready', () => settlePreview(), { once: true })
 // The title shows a still of the preview at once (#menu-poster); the live 3D fades in over it when it has drawn.
 window.addEventListener('gd-preview-ready', () => document.getElementById('menu')?.classList.add('preview-live'))

@@ -34,6 +34,22 @@ function el(): HTMLAudioElement {
   return audio
 }
 const start = () => { const a = el(); if (!a.paused) return; fadeIn(a); void a.play().catch(() => {}) }
+// Phones and slow connections: the 2.8 MB track would download alongside the city and slow its opening, so on
+// the first tap the element is only unlocked (a play/pause inside the tap, nothing buffered) and the music
+// starts once the city is on screen.
+const phoneOrSlow = () => {
+  const c = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  return !!c?.saveData || /(^|-)(2g|3g)$/.test(c?.effectiveType ?? '') || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)
+}
+let cityUp = false
+if (typeof window !== 'undefined') window.addEventListener('gd:revealed', () => { cityUp = true }, { once: true })
+const startSoon = () => {
+  if (cityUp || !phoneOrSlow()) { start(); return }
+  const a = el()
+  a.preload = 'none'
+  try { const p = a.play(); a.pause(); void p?.catch(() => {}) } catch { /* unlock only */ }
+  window.addEventListener('gd:revealed', () => window.setTimeout(() => { if (musicOn()) start() }, 1500), { once: true })
+}
 export function setMusicVolume(v: number): void { volume = Math.max(0, Math.min(100, v)); write(LEVEL, String(volume)); window.clearInterval(fade); if (audio) audio.volume = level(); void import('./ambient-audio.ts').then((a) => a.syncAmbientToMusic()).catch(() => {}) }
 /** Lower the theme while someone speaks, and bring it back after. */
 export function duckMusic(on: boolean): void { if (!audio || audio.paused) return; window.clearInterval(fade); audio.volume = on ? level() * 0.3 : level() }
@@ -48,7 +64,7 @@ let armed = false
 export function resumeMusicOnFirstTap(): void {
   if (armed || !musicOn()) return
   armed = true
-  const go = () => { window.removeEventListener('pointerdown', go); window.removeEventListener('keydown', go); if (musicOn()) start() }
+  const go = () => { window.removeEventListener('pointerdown', go); window.removeEventListener('keydown', go); if (musicOn()) startSoon() }
   window.addEventListener('pointerdown', go, { passive: true })
   window.addEventListener('keydown', go)
 }

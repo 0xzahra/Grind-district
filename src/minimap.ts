@@ -19,18 +19,26 @@ const PLOTS: Array<{ x: number; z: number; w: number; d: number; door?: boolean 
 ]
 
 let sat: HTMLCanvasElement | null = null
-// Satellite photos are always daylit: a soft sky fill is added only for the bake.
-const dayFill = new THREE.HemisphereLight(0xffffff, 0x8a8478, 2.2)
-/** Satellite-style base map: one orthographic top-down render of the real scene, cached in a 2D canvas. */
-export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene, size = 512): void {
+// Satellite photos are always daylit: the scene's own sky light is turned up for the bake (adding a light, or
+// dropping the fog, would make every material compile a second shader: a 4-5 s freeze on a phone).
+/**
+ * Satellite-style base map: one orthographic top-down render of the real scene, cached in a 2D canvas.
+ * Drawn on the game canvas itself (a corner of it, then copied), not into a render target, so it reuses the
+ * exact shaders the city already has; `redraw` puts the normal frame back right after.
+ */
+export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene, size = 512, sky?: THREE.HemisphereLight, redraw?: () => void): void {
   const cam = new THREE.OrthographicCamera(-LIMIT, LIMIT, LIMIT, -LIMIT, 1, 400)
   cam.position.set(0, 200, 0)
   cam.up.set(0, 0, -1)
   cam.lookAt(0, 0, 0)
-  const rt = new THREE.WebGLRenderTarget(size, size)
-  rt.texture.colorSpace = THREE.SRGBColorSpace
-  const fog = scene.fog
+  const gl = renderer.getContext()
+  const px = Math.floor(Math.min(size, gl.drawingBufferWidth, gl.drawingBufferHeight))
+  if (px < 64) return
+  const ratio = renderer.getPixelRatio()
+  const fog = scene.fog as (THREE.Fog | THREE.FogExp2 | null)
+  const fogWas = fog ? ('density' in fog ? fog.density : fog.far) : 0
   const bg = scene.background
+  const skyWas = sky ? { i: sky.intensity, c: sky.color.getHex(), g: sky.groundColor.getHex(), v: sky.visible } : null
   const hidden: THREE.Object3D[] = []
   scene.traverse((o) => {
     const m = (o as THREE.Mesh).material as THREE.Material | undefined
@@ -40,28 +48,38 @@ export function bakeSatellite(renderer: THREE.WebGLRenderer, scene: THREE.Scene,
     if (o.visible && (skyish || fx || weather || o.userData.noMap)) { hidden.push(o); o.visible = false }
   })
   const prev = renderer.getRenderTarget()
+  const vp = new THREE.Vector4(), sc = new THREE.Vector4()
+  renderer.getViewport(vp); renderer.getScissor(sc)
+  const scissorWas = renderer.getScissorTest()
+  const exposure = renderer.toneMappingExposure
   try {
-    scene.fog = null
+    if (fog) { if ('density' in fog) fog.density = 0; else fog.far = 1e9 }
     scene.background = null
-    scene.add(dayFill)
-    renderer.setRenderTarget(rt)
+    if (sky && skyWas) { sky.visible = true; sky.color.setHex(0xffffff); sky.groundColor.setHex(0x8a8478); sky.intensity = 1.5 }
+    renderer.toneMappingExposure = 0.84
+    renderer.setRenderTarget(null)
+    const css = px / ratio
+    renderer.setViewport(0, 0, css, css)
+    renderer.setScissor(0, 0, css, css)
+    renderer.setScissorTest(true)
     renderer.render(scene, cam)
-    const px = new Uint8Array(size * size * 4)
-    renderer.readRenderTargetPixels(rt, 0, 0, size, size, px)
     const c = sat ?? document.createElement('canvas')
-    c.width = c.height = size
+    c.width = c.height = px
     const ctx = c.getContext('2d')!
-    const img = ctx.createImageData(size, size)
-    for (let y = 0; y < size; y++) img.data.set(px.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4)
-    ctx.putImageData(img, 0, 0)
+    // The viewport sits at the bottom-left of the drawing buffer; copy it before the browser presents the frame.
+    ctx.drawImage(renderer.domElement, 0, gl.drawingBufferHeight - px, px, px, 0, 0, px, px)
     sat = c
   } catch { /* keep the vector map */ } finally {
+    renderer.setScissorTest(scissorWas)
+    renderer.setScissor(sc)
+    renderer.setViewport(vp)
     renderer.setRenderTarget(prev)
-    scene.fog = fog
+    renderer.toneMappingExposure = exposure
+    if (fog) { if ('density' in fog) fog.density = fogWas; else fog.far = fogWas }
     scene.background = bg
     for (const o of hidden) o.visible = true
-    scene.remove(dayFill)
-    rt.dispose()
+    if (sky && skyWas) { sky.intensity = skyWas.i; sky.color.setHex(skyWas.c); sky.groundColor.setHex(skyWas.g); sky.visible = skyWas.v }
+    try { redraw?.() } catch { /* the next frame draws anyway */ }
   }
 }
 

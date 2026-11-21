@@ -1,7 +1,7 @@
 import { track, flushTracking } from './track.ts'
 // Privy sign-in (Google, X, email) when the Privy app has them on, plus Continue with NEAR (NEP-413 signed login).
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
-import { needsAvatarCreator, mountAvatarCreator, markAvatarCreated } from './creator.ts'
+// creator.ts pulls in Three and the people: loaded only after sign-in, so the sign-in card itself opens fast.
 import { ensureEmbeddedWallet, GAME_WALLET_KEY } from './privyWallet.ts'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,20}$/
@@ -105,9 +105,12 @@ async function enterAs(_handle: string): Promise<void> {
     window.dispatchEvent(new Event('gd-auth-changed'))
     window.dispatchEvent(new Event('gd-enter-city'))
   }
-  if (body && needsAvatarCreator()) {
-    mountAvatarCreator(body, finish)
-    return
+  if (body) {
+    const creator = await import('./creator.ts').catch(() => null)
+    if (creator?.needsAvatarCreator()) {
+      creator.mountAvatarCreator(body, finish)
+      return
+    }
   }
   // Existing account / returning player: enter immediately (no second "Enter" tap).
   // City open has its own auto-retry if WebGL fails the first time.
@@ -184,7 +187,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     try { (await import('./extras.ts')).applyExtras(j.save, j.userId) } catch { /* the save itself is loaded */ }
     // A returning account already has its look in its save: the join-time creator is only for brand-new accounts
     // (the device flag alone missed returning players on a new phone or after clearing the browser).
-    if (how === 'server' || how === 'kept') markAvatarCreated()
+    if (how === 'server' || how === 'kept') { try { (await import('./creator.ts')).markAvatarCreated() } catch { /* offline: the creator shows once */ } }
     const st = await import('./state.ts')
     // Sign-up bonus on a first username claim. NEAR accounts also check on login: their starter grant used to
     // need a Privy token and never landed. The server pays it once per account (fresh only the first time).

@@ -19,7 +19,9 @@ export function applyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   const room = new RoomEnvironment()
   // Redrawn after a resume or a lost context: free the old one, and keep a room's own brightness.
   const before = scene.environment
-  scene.environment = pmrem.fromScene(room, 0.04).texture
+  // Same size as the sky picture's map below (512 wide = 128 per cube face): swapping in the sky then reuses
+  // every shader. A different size made every reflective material compile again when sky.hdr arrived (a freeze).
+  scene.environment = pmrem.fromScene(room, 0.04, 0.1, 100, { size: 128 }).texture
   before?.dispose()
   if (!keepIntensity) scene.environmentIntensity = 0.38
   room.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose() })
