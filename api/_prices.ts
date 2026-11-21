@@ -7,7 +7,7 @@ type Res = { status(n: number): { json(b: unknown): void }; setHeader?: (k: stri
 type Req = { method?: string; query?: Record<string, string | string[] | undefined> }
 
 /** The coins the game lists (ids in src/logic.ts COINS), as Coinbase product symbols. */
-export const LIVE_SYMBOLS = ['BTC', 'ETH', 'SOL', 'XRP', 'LINK', 'AVAX', 'DOT', 'NEAR', 'DOGE', 'SHIB', 'PEPE', 'WIF', 'BONK'] as const
+export const LIVE_SYMBOLS = ['BTC', 'ETH', 'SOL', 'XRP', 'LINK', 'AVAX', 'DOT', 'NEAR', 'SUI', 'DOGE', 'SHIB', 'PEPE', 'WIF', 'BONK'] as const
 
 const get = async (url: string, ms = 5000): Promise<unknown> => {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms)

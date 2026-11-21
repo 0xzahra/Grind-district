@@ -259,6 +259,7 @@ export const COINS: { id: string; cat: CoinCategory; label: string; base: number
   { id: 'xrp', cat: 'big', label: 'XRP · XRP', base: 0.99, minRank: 'shrimp' },
   { id: 'link', cat: 'alt', label: 'LINK · Chainlink', base: 9.2, minRank: 'shrimp' },
   { id: 'near', cat: 'alt', label: 'NEAR · NEAR Protocol', base: 3.4, minRank: 'shrimp' },
+  { id: 'sui', cat: 'alt', label: 'SUI · Sui', base: 0.62, minRank: 'shrimp' },
   { id: 'avax', cat: 'alt', label: 'AVAX · Avalanche', base: 7.1, minRank: 'crab' },
   { id: 'dot', cat: 'alt', label: 'DOT · Polkadot', base: 0.72, minRank: 'crab' },
   { id: 'doge', cat: 'meme', label: 'DOGE · Dogecoin', base: 0.06, minRank: 'crab' },

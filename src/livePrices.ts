@@ -4,7 +4,7 @@
 // all show what the market is really doing. Trades stay practice trades with in-game money: nothing is sent.
 export type Quote = { s: string; last: number; open: number; high: number; low: number }
 
-const SYMS = ['BTC', 'ETH', 'SOL', 'XRP', 'LINK', 'AVAX', 'DOT', 'NEAR', 'DOGE', 'SHIB', 'PEPE', 'WIF', 'BONK']
+const SYMS = ['BTC', 'ETH', 'SOL', 'XRP', 'LINK', 'AVAX', 'DOT', 'NEAR', 'SUI', 'DOGE', 'SHIB', 'PEPE', 'WIF', 'BONK']
 let quotes: Record<string, Quote> = {}
 let at = 0, last = 0, busy = false, fast = 0
 const candles = new Map<string, { at: number; closes: number[] }>()

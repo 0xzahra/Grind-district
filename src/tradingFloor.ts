@@ -62,7 +62,7 @@ export function paintCandles(g: G, w: number, h: number, o: { pair: string; pric
   g.fillText(`${o.frame ?? '15m'}   O ${fmt(last.o)}   H ${fmt(hi)}   L ${fmt(lo)}   C ${fmt(last.c)}   MA(7)  MA(25)   Vol`, 14 * k, 56 * k)
 }
 
-const COINS: Array<[string, number, number]> = [['BTC', 64280, 9], ['ETH', 3214, 6], ['SOL', 151.4, 4], ['BNB', 592, 3], ['XRP', 0.61, 2.4], ['DOGE', 0.152, 2], ['ADA', 0.46, 1.8], ['AVAX', 30.2, 1.6], ['LINK', 15.1, 1.5], ['DOT', 6.05, 1.3], ['TON', 6.8, 1.3], ['WIF', 2.12, 1], ['BONK', 0.00003, 0.9], ['NEAR', 5.4, 1.1], ['ARB', 0.94, 0.9], ['OP', 1.9, 0.9]]
+const COINS: Array<[string, number, number]> = [['BTC', 64280, 9], ['ETH', 3214, 6], ['SOL', 151.4, 4], ['BNB', 592, 3], ['XRP', 0.61, 2.4], ['DOGE', 0.152, 2], ['ADA', 0.46, 1.8], ['AVAX', 30.2, 1.6], ['LINK', 15.1, 1.5], ['DOT', 6.05, 1.3], ['TON', 6.8, 1.3], ['WIF', 2.12, 1], ['BONK', 0.00003, 0.9], ['NEAR', 5.4, 1.1], ['SUI', 0.62, 1], ['ARB', 0.94, 0.9], ['OP', 1.9, 0.9]]
 const change = (r: () => number) => +((r() - 0.46) * 9).toFixed(2)
 
 /** Market heat map: one tile per coin, sized by weight, green or red by the day's move. */
