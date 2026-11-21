@@ -37,6 +37,18 @@ async function api(init: { body?: unknown; query?: string }): Promise<{ status: 
 export async function syncRailTopups(onChange: () => void): Promise<void> {
   if (!railOn('solana') && !railOn('intents')) return
   let changed = false
+  // A payment made after the panel was closed (or the game was left): check the open order once on load.
+  for (const r of ['intents', 'solana'] as const) {
+    if (!railOn(r)) continue
+    let o: Reply | null = null
+    try { o = JSON.parse(localStorage.getItem(ORDER_KEY(r)) ?? 'null') as Reply | null } catch { o = null }
+    if (!o?.orderId) continue
+    try {
+      const { status, j } = await api({ body: { op: r === 'solana' ? 'sol-scan' : 'intents-scan', orderId: o.orderId } })
+      if (j.ok && j.hash && j.creditUsd) changed = applyTopup(j.hash, j.creditUsd, r === 'solana' ? 'Solana' : 'NEAR Intents') || changed
+      if ((j.ok && (j.creditUsd || j.already)) || status === 404 || status === 410 || (j.ok === false && !j.waiting && j.error)) { try { localStorage.removeItem(ORDER_KEY(r)) } catch { /* private mode */ } }
+    } catch { /* offline: try again next load */ }
+  }
   for (const p of savedPayers()) {
     try {
       const { status, j } = await api({ query: `?rails=${encodeURIComponent(p)}` })
@@ -171,6 +183,7 @@ export function renderRailTopup(root: HTMLElement, rail: Rail, onCredited: () =>
       paint()
       void config().then((c) => {
         cfg = c
+        if (rail === 'intents' && c?.intents?.receiver) fine.textContent = fine.textContent.replace('the Grind District NEAR account', `the Grind District NEAR account (${c.intents.receiver})`)
         if (rail === 'intents' && !coin) coin = c?.intents?.assets[0]?.id ?? ''
         paint()
         if (!box.hidden) resume()
