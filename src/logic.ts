@@ -1,4 +1,5 @@
 import { EXTRA_BODIES_ENABLED, NFT_COLLECTIONS_ENABLED } from './nft.ts'
+import { cleanStakes, type Stake } from './staking.ts'
 export const ZAHRA = 'https://0xzahra.github.io'
 export const SAVE_KEY = 'grind-district-save-v1'
 export const COURSE_XP = 70
@@ -379,6 +380,8 @@ export type Save = {
   seenIntro: boolean
   posX: number
   posZ: number
+  /** Practice stakes (Trade > Stake). Optional: saves from before staking have none. */
+  stakes?: Stake[]
 }
 
 export type TradeResult =
@@ -789,6 +792,8 @@ export function hydrate(raw: unknown, now = new Date()): Save {
   fresh.seenIntro = bool(row.seenIntro, false)
   fresh.posX = num(row.posX, -CITY_POS, CITY_POS, 0)
   fresh.posZ = num(row.posZ, -CITY_POS, CITY_POS, 8)
+  const stakes = cleanStakes(row.stakes, now.getTime())
+  if (stakes.length) fresh.stakes = stakes
   if (row.skills && typeof row.skills === 'object') {
     for (const [key, value] of Object.entries(row.skills as Record<string, unknown>)) {
       if (!isSkill(key) || !value || typeof value !== 'object') continue

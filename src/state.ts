@@ -1,6 +1,7 @@
 import { attribution, track, trackFunnelOnce } from './track.ts'
 import { ensurePrices, livePrice } from './livePrices.ts'
 import { grade, courseById } from './courses.ts'
+import { STAKE_PLANS, stakeInto, unstakeFrom, type StakePlan } from './staking.ts'
 import {
   BOUNTY_USD,
   CHAIN_USD,
@@ -33,6 +34,7 @@ import {
   markDaily,
   maybeOpenTax,
   money,
+  formatQty,
   positionPnl,
   pushHist,
   rankFor,
@@ -226,6 +228,32 @@ export function convertCoin(from: string, to: string, fraction: number): { ok: b
   persist()
   emit()
   return { ok: true, message: `Converted ${money(sold.cash)} of ${symA} to ${symB}.` }
+}
+
+/** Practice staking: lock part of a held coin on a plan (src/staking.ts). In-game only. */
+export function stakeCoin(id: string, fraction: number, plan: StakePlan): { ok: boolean; message: string } {
+  const coin = COINS.find((c) => c.id === id)
+  if (!coin) return { ok: false, message: 'Not listed.' }
+  const r = stakeInto(save, id, fraction, plan, save.coinPrices[id] ?? coin.base)
+  if (!r.ok || !r.stake) return r
+  const sym = coin.label.split(' ')[0]
+  const p = STAKE_PLANS[plan]
+  log('trade', `Staked ${sym}`, `${formatQty(r.stake.qty)} ${sym} on ${p.label} at ~${r.stake.apr}% a year (practice).`)
+  persist()
+  emit()
+  return { ok: true, message: `Staked ${formatQty(r.stake.qty)} ${sym} · ${p.label} · est. ${r.stake.apr}% a year.${plan === 'flex' ? ' Leave any time.' : ` Opens in ${p.days} game days (${p.days} real hours).`}` }
+}
+/** End a stake: coins and earned reward go back to the holding; leaving a lock early forfeits the reward. */
+export function unstakeCoin(stakeId: string): { ok: boolean; message: string } {
+  const r = unstakeFrom(save, stakeId)
+  if (!r.ok || !r.stake) return { ok: false, message: r.message }
+  const coin = COINS.find((c) => c.id === r.stake!.coin)
+  const sym = coin ? coin.label.split(' ')[0] : r.stake.coin.toUpperCase()
+  const what = r.forfeited > 0 ? `reward of ${formatQty(r.forfeited)} ${sym} forfeited (left the lock early)` : `reward ${formatQty(r.reward)} ${sym}`
+  log('trade', `Unstaked ${sym}`, `${formatQty(r.stake.qty)} ${sym} back, ${what} (practice).`)
+  persist()
+  emit()
+  return { ok: true, message: `Unstaked ${formatQty(r.stake.qty)} ${sym}. ${r.forfeited > 0 ? `Left the lock early, so the reward (${formatQty(r.forfeited)} ${sym}) was forfeited.` : `Reward: +${formatQty(r.reward)} ${sym}.`}` }
 }
 
 type ActivityHook = (kind: Activity['kind'], label: string, detail: string) => void

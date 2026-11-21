@@ -2,7 +2,8 @@
 // a simple line chart and a single order ticket; the market list sits underneath. Practice prices only.
 import { COINS, COIN_CATEGORIES, RANKS, SKILL_META, TOKEN_IDS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId, type SkillId } from './logic.ts'
 import { lockReason } from './worlds.ts'
-import { convertCoin, getSave, trade, tradeCoin } from './state.ts'
+import { convertCoin, getSave, stakeCoin, trade, tradeCoin, unstakeCoin } from './state.ts'
+import { MAX_STAKES, MIN_STAKE_USD, STAKE_PLANS, accrued, canStake, isLocked, planApr, unlockAt, type Stake, type StakePlan } from './staking.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
 import { hourly, hourlyBars, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
 import { barsFromSeries, candleChart, type CandleView } from './candleChart.ts'
@@ -113,7 +114,7 @@ const icon = (a: Asset): HTMLElement => { const n = h('span', 'xch-ico', a.id ==
 export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message: string, rankedUp?: RankId) => void }): { el: HTMLElement; paint: () => void } {
   startTape()
   const root = h('div', 'xch')
-  let tab: 'spot' | 'perps' | 'convert' | 'p2p' | 'defi' = 'spot'
+  let tab: 'spot' | 'perps' | 'convert' | 'p2p' | 'stake' | 'defi' = 'spot'
   wantFast()
   let live: Array<() => void> = []
   // What each tab has selected; kept while the screen is open so switching tabs loses nothing.
@@ -121,6 +122,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   let spotId: string = desk === 'unit' ? 'btc' : desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
   let perpId = 'btc', perpSide: 'long' | 'short' = 'long', perpLev = 5, perpFrac = 0.25
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
+  let stakeId = 'eth', stakePlan: StakePlan = 'd7', stakeFrac = 0.5
   let p2pSide: 'buy' | 'sell' = 'buy', p2pCoin = 'btc', p2pFrac = 0.25, p2pOrder: { offer: Offer; stage: 'open' | 'bank' | 'releasing' } | null = null
   const paintNow = () => { for (const f of live) f() }
   // Candle charts made for the pane on screen; dropped whenever the pane is rebuilt or the screen closes.
@@ -239,12 +241,13 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     const mix = h('div', 'xch-port-mix')
     const rows = h('div', 'xch-port-rows')
     card.append(top, mix, rows)
-    type Pos = { key: string; a: Asset; qty: number; avg: number; perp?: Perp }
+    type Pos = { key: string; a: Asset; qty: number; avg: number; perp?: Perp; stake?: Stake }
     const positions = (): Pos[] => {
       const out: Pos[] = []
       for (const a of ASSETS) { const hd = holdingOf(a); if (hd.qty > 0) out.push({ key: a.id, a, qty: hd.qty, avg: hd.avg }) }
       if (getSave().unit.qty > 0) out.push({ key: 'unit', a: { id: 'unit', sym: 'DIST', name: 'District Coin', tint: '#d9b26a', group: '', minRank: 'shrimp', desk: 'unit' }, qty: getSave().unit.qty, avg: getSave().unit.avg })
       for (const p of perps()) out.push({ key: `perp:${p.id}`, a: asset(p.coin), qty: p.margin * p.lev / p.entry, avg: p.entry, perp: p })
+      for (const st of getSave().stakes ?? []) out.push({ key: `stake:${st.id}`, a: asset(st.coin), qty: st.qty, avg: st.avg, stake: st })
       return out
     }
     let shape = '\u0000'
@@ -261,7 +264,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       for (const ps of list) {
         const r = h('button', 'xch-port-row'), who = h('div', 'xch-names'), mid = h('div', 'xch-port-mid'), end = h('div', 'xch-port-end')
         r.type = 'button'
-        const name = h('b', '', ps.perp ? `${ps.a.sym} ${ps.perp.side === 'long' ? 'Long' : 'Short'} ${ps.perp.lev}x` : ps.a.sym)
+        const name = h('b', '', ps.perp ? `${ps.a.sym} ${ps.perp.side === 'long' ? 'Long' : 'Short'} ${ps.perp.lev}x` : ps.stake ? `${ps.a.sym} Staked` : ps.a.sym)
         const size = h('small'), px = h('b'), entry = h('small'), val = h('b'), pl = h('small')
         who.append(name, size); mid.append(px, entry); end.append(val, pl)
         const ic = icon(ps.a)
@@ -269,6 +272,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         if (ps.perp) r.dataset.perp = ps.perp.side
         r.onclick = () => {
           if (ps.perp) { perpId = ps.a.id; tab = 'perps'; root.querySelectorAll<HTMLElement>('.xch-seg.tabs button').forEach((b, i) => b.setAttribute('aria-selected', String(i === 1))) }
+          else if (ps.stake) { stakeId = ps.a.id; tab = 'stake'; root.querySelectorAll<HTMLElement>('.xch-seg.tabs button').forEach((b, i) => b.setAttribute('aria-selected', String(i === 4))) }
           else if (ps.a.id !== 'unit') spotId = ps.a.id
           result.textContent = ''; show(); root.closest('.sheet-card')?.scrollTo({ top: 0, behavior: 'smooth' })
         }
@@ -283,8 +287,8 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
             pl.textContent = `${shortSigned(pnl)} ${pct(pnl / ps.perp.margin * 100)}`; pl.dataset.dir = dir(pnl)
             return { value, pnl, cost: ps.perp.margin }
           }
-          const value = ps.qty * p, cost = ps.qty * ps.avg, pnl = value - cost
-          size.textContent = `${formatQty(ps.qty)} ${ps.a.sym}`
+          const value = (ps.qty + (ps.stake ? accrued(ps.stake) : 0)) * p, cost = ps.qty * ps.avg, pnl = value - cost
+          size.textContent = `${formatQty(ps.qty)} ${ps.a.sym}${ps.stake ? ` · ${STAKE_PLANS[ps.stake.plan].label}` : ''}`
           px.textContent = short(p); entry.textContent = `in ${short(ps.avg)}`
           val.textContent = short(value)
           pl.textContent = `${shortSigned(pnl)} ${pct(cost > 0 ? pnl / cost * 100 : 0)}`; pl.dataset.dir = dir(pnl)
@@ -506,6 +510,84 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     return pane
   }
 
+  // ------------------------------- STAKE -------------------------------
+  // Practice staking (src/staking.ts): lock a coin you hold on a plan and earn more of it. In-game coins only.
+  const stakePane = () => {
+    const list = ASSETS.filter((x) => canStake(x.id))
+    if (!canStake(stakeId)) stakeId = list.find((x) => holdingOf(x).qty > 0)?.id ?? 'eth'
+    const a = asset(stakeId)
+    const pane = h('div', 'xch-pane')
+    const learn = h('div', 'xch-stake-learn')
+    learn.append(h('b', '', 'What is staking?'), h('p', '', 'On proof-of-stake chains, coins you lock help secure the network, and it pays you new coins for it. In real life your coins can be locked for days, a validator\'s mistake can cost part of the stake ("slashing"), and the rates change. Here it is practice, with in-game coins only.'))
+    pane.append(learn, chips(list, stakeId, (x) => { stakeId = x.id; result.textContent = ''; show() }))
+    if (locked(a)) { pane.append(note(`${a.sym} opens at ${rankLabel(a)}. Keep climbing the ladder to stake it.`)) }
+    else {
+      const days = (d: number) => `${d} game day${d === 1 ? '' : 's'} (${d} real hour${d === 1 ? '' : 's'})`
+      const plans: StakePlan[] = ['flex', 'd7', 'd30']
+      const pv = preview(['You stake', 'Est. APR', 'Est. reward', 'Unlocks'])
+      const go = cta('buy')
+      go.onclick = () => done(stakeCoin(stakeId, stakeFrac, stakePlan), true)
+      const ticket = h('div', 'xch-ticket')
+      ticket.append(
+        row('Plan', segmented(plans.map((p) => `${STAKE_PLANS[p].label} · ${planApr(stakeId, p)}%`), plans.indexOf(stakePlan), (i) => { stakePlan = plans[i]!; paintNow() }, 'amt stake-plan')),
+        row(`Amount of your ${a.sym}`, segmented(['25%', '50%', 'Max'], [0.25, 0.5, 1].indexOf(stakeFrac), (i) => { stakeFrac = [0.25, 0.5, 1][i]!; paintNow() }, 'amt')),
+        pv.box, go,
+      )
+      live.push(() => {
+        const have = holdingOf(a).qty, px = priceOf(a), qty = stakeFrac >= 1 ? have : have * stakeFrac
+        const plan = STAKE_PLANS[stakePlan], apr = planApr(stakeId, stakePlan)
+        const reward = qty * apr / 100 * (plan.days || 7) / 365
+        pv.values[0]!.textContent = `${formatQty(qty)} ${a.sym} · ${money(qty * px)}`
+        pv.values[1]!.textContent = `~${apr}% a year (estimate)`
+        pv.values[2]!.textContent = `≈ ${formatQty(reward)} ${a.sym} ${plan.days ? `after ${plan.days} game days` : 'per game week'}`
+        pv.values[3]!.textContent = plan.days ? `After ${days(plan.days)}` : 'Any time'
+        const count = getSave().stakes?.length ?? 0
+        go.textContent = have <= 0 ? `Buy ${a.sym} on Spot to stake it` : count >= MAX_STAKES ? `Up to ${MAX_STAKES} stakes at once` : `Stake ${a.sym}`
+        go.disabled = have <= 0 || qty * px < MIN_STAKE_USD || count >= MAX_STAKES
+      })
+      pane.append(ticket, result)
+    }
+    // Active stakes, with what each has earned so far.
+    const book = h('div', 'xch-book')
+    let shown = '\u0000'
+    const rows = new Map<string, { earned: HTMLElement; status: HTMLElement; btn: HTMLButtonElement }>()
+    const left = (ms: number) => { const m = Math.max(1, Math.ceil(ms / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m` }
+    const build = (stakes: Stake[]) => {
+      rows.clear()
+      book.replaceChildren(h('h3', 'xch-group', `Your stakes${stakes.length ? ` · ${stakes.length}/${MAX_STAKES}` : ''}`))
+      if (!stakes.length) { book.append(note('No stakes yet. Pick a coin you hold, a plan and an amount above.')); return }
+      for (const st of stakes) {
+        const m = asset(st.coin), card = h('div', 'xch-pos'), top = h('div', 'xch-pos-top'), names = h('div', 'xch-names'), earned = h('b', 'xch-pnl'), grid = h('dl', 'xch-preview'), status = h('dd')
+        names.append(h('b', '', `${m.sym} staked`), h('small', `xch-tag ${st.plan === 'flex' ? 'long' : 'short'}`, `${STAKE_PLANS[st.plan].label} · ${st.apr}%`))
+        top.append(icon(m), names, earned)
+        grid.append(h('dt', '', 'Staked'), h('dd', '', `${formatQty(st.qty)} ${m.sym}`), h('dt', '', 'Status'), status)
+        const btn = h('button', 'xch-close')
+        btn.type = 'button'
+        btn.onclick = () => done(unstakeCoin(st.id), true)
+        card.append(top, grid, btn)
+        book.append(card)
+        rows.set(st.id, { earned, status, btn })
+      }
+    }
+    live.push(() => {
+      const stakes = getSave().stakes ?? [], ids = stakes.map((x) => x.id).join()
+      if (ids !== shown) { shown = ids; build(stakes) }
+      const now = Date.now()
+      for (const st of stakes) {
+        const r = rows.get(st.id)
+        if (!r) continue
+        const sym = asset(st.coin).sym, got = accrued(st, now), lock = isLocked(st, now)
+        r.earned.textContent = `+${formatQty(got)} ${sym}`
+        r.earned.dataset.dir = 'up'
+        r.earned.title = `≈ ${money(got * priceOf(asset(st.coin)))}`
+        r.status.textContent = st.plan === 'flex' ? 'Flexible · leave any time' : lock ? `Locked · opens in ${left(unlockAt(st) - now)}` : 'Lock ended · ready to claim'
+        r.btn.textContent = st.plan === 'flex' ? 'Unstake and claim' : lock ? 'Unstake early (lose the reward)' : 'Claim and unstake'
+      }
+    })
+    pane.append(book, note(`Rewards are paid in the same coin, in-game only. One real hour is one game day. A locked plan earns until its lock ends; leaving early gives the coins back without the reward. Rates are estimates and stay fixed for each stake. Nothing here is real money.`), courses(['staking', 'risk']))
+    return pane
+  }
+
   // ------------------------------- P2P -------------------------------
   // Practice peer-to-peer: pick a merchant, the coin sits in escrow, money moves bank to bank, escrow releases.
   // Two of the merchants are sharks. Walk into one and the order is cancelled with the lesson; nothing is taken.
@@ -589,8 +671,8 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   }
 
   const body = h('div', 'xch-body')
-  const show = () => { live = []; dropCharts(); body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : tab === 'defi' ? renderDefi({ done: (m) => hooks.finish(m), live: (f) => live.push(f) }) : p2pPane()); paintNow() }
-  root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P', 'DeFi'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p', 'defi'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
+  const show = () => { live = []; dropCharts(); body.replaceChildren(tab === 'spot' ? spot() : tab === 'perps' ? perpsPane() : tab === 'convert' ? convertPane() : tab === 'stake' ? stakePane() : tab === 'defi' ? renderDefi({ done: (m) => hooks.finish(m), live: (f) => live.push(f) }) : p2pPane()); paintNow() }
+  root.append(segmented(['Spot', 'Perps', 'Convert', 'P2P', 'Stake', 'DeFi'], 0, (i) => { tab = (['spot', 'perps', 'convert', 'p2p', 'stake', 'defi'] as const)[i]!; p2pOrder = null; result.textContent = ''; show() }, 'tabs'), body)
   // New prices (or a chart's hourly closes) landed: repaint what is on screen.
   let seen = false
   const born = performance.now()

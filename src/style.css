@@ -2509,6 +2509,10 @@ html[data-ui='light'] .sheet-card .xch-live { color: #6b655a; } html[data-ui='li
 .sheet-card .xch-result[data-ok='false'] { color: #f3a1a8; }
 .sheet-card .xch-result:empty { display: none; }
 .sheet-card .xch-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+.sheet-card .xch-stake-learn { display: grid; gap: 4px; padding: 12px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.sheet-card .xch-stake-learn b { font-size: 14px; }
+.sheet-card .xch-stake-learn p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+.sheet-card .xch-seg.stake-plan button { font-size: 12.5px; line-height: 1.2; }
 /* Market list */
 .sheet-card .xch-list, .sheet-card .xch-book { display: grid; gap: 2px; min-width: 0; }
 .sheet-card .xch-group { margin: 12px 0 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #d9b26a; }
@@ -2810,6 +2814,9 @@ html body #sheet .sheet-card .share-strip button { width: auto !important; min-w
 
 /* ===== Trading card: P2P orders and the course rows under each tab ===== */
 .sheet-card .xch-seg.tabs button { font-size: 14px; padding: 8px 2px !important; }
+.sheet-card .xch-seg.tabs, .sheet-card .xch-seg.stake-plan { grid-auto-columns: minmax(0, 1fr); }
+.sheet-card .xch-seg.tabs button, .sheet-card .xch-seg.stake-plan button { min-width: 0 !important; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .sheet-card .xch-seg.tabs button { font-size: 12.5px; padding: 8px 1px !important; } }
 .sheet-card .xch-learn { display: grid; gap: 6px; margin-top: 4px; }
 html body .sheet-card .xch-course { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; width: 100% !important; min-height: 54px; padding: 8px 12px !important; border-radius: 14px !important; border: 1px solid rgba(0, 0, 0, 0.7) !important; background: var(--key-dark) !important; box-shadow: var(--key-dark-sh) !important; color: #f6f1e6; text-align: left !important; }
 html body .sheet-card .xch-course:active { translate: 0 2px; box-shadow: var(--key-down) !important; }

@@ -126,6 +126,7 @@ const ROWS: string[][] = [
   // Trading
   ['Spot', 'فوري', '现货', 'Spot', 'Nan take', 'Papo hapo', '現物', '현물', 'Spot', 'Spot', 'Spot', 'स्पॉट', 'Lẹ́sẹ̀kẹsẹ̀'],
   ['Perps', 'عقود دائمة', '永续合约', 'Perpetuos', 'Kwangiloli', 'Mikataba ya kudumu', '無期限先物', '무기한 선물', 'Vadeli', 'Perpétuels', 'Perpétuos', 'पर्प्स', 'Àdéhùn àìnípẹ̀kun'],
+  ['Stake', 'التخزين', '质押', 'Staking', 'Staking', 'Staking', 'ステーキング', '스테이킹', 'Staking', 'Staking', 'Staking', 'स्टेकिंग', 'Staking'],
   ['Convert', 'تحويل', '兑换', 'Convertir', 'Canja', 'Badilisha', '両替', '전환', 'Dönüştür', 'Convertir', 'Converter', 'बदलें', 'Pàṣípààrọ̀'],
   ['Buy', 'شراء', '买入', 'Comprar', 'Saya', 'Nunua', '買う', '매수', 'Al', 'Acheter', 'Comprar', 'खरीदें', 'Rà'],
   ['Sell', 'بيع', '卖出', 'Vender', 'Sayar', 'Uza', '売る', '매도', 'Sat', 'Vendre', 'Vender', 'बेचें', 'Tà'],
