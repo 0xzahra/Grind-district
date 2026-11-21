@@ -4398,3 +4398,13 @@ html[data-ui='light'] .sheet-card .xch-chartbox[data-mode='candles'] { backgroun
 .sheet-card a.xch-tv, html body .sheet-card a.xch-tv { all: unset; display: block; justify-self: end; margin: 3px 2px 0; font-size: 10px; letter-spacing: 0.02em; color: rgba(246, 241, 230, 0.45); cursor: pointer; }
 .sheet-card a.xch-tv[hidden] { display: none; }
 html[data-ui='light'] .sheet-card a.xch-tv { color: #6b655a; }
+/* Optional rails (Solana / other chains): same look as the other top-up panels. */
+.topup-rail { display: grid; gap: 10px; }
+.topup-rail .topup-presets button { flex: 1 1 auto; }
+.topup-railpay:empty { display: none; }
+.topup-railpay .topup-addr { grid-template-columns: 112px minmax(0, 1fr); }
+.topup-railpay strong { display: block; margin-bottom: 6px; }
+.topup-tabs:has(> :nth-child(3)) { grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); }
+.topup-tabs:has(> :nth-child(4)) button { padding: 10px 4px; font-size: 13.5px; }
+.topup-refund { font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: inherit; width: 100%; box-sizing: border-box; }
+.topup-refund:focus { outline: none; border-color: #f2c94c; }

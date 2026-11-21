@@ -3,6 +3,7 @@ import { GRIND_TREASURY_VAULT, BASE_USDC, breakdown, ethToUsdMicro } from './gri
 import { applyTopup } from './state.ts'
 import { nearTopupOn, renderNearTopup, NEAR_TOPUP_NET } from './topupNear.ts'
 import { ethPrice } from './topupPrice.ts'
+import { railOn, renderRailTopup } from './topupRails.ts'
 import { gameWalletAddress, payUsdcFromGameWallet, checkGameWalletUsdc, WalletNotSent, GAS_SPONSOR } from './privyWallet.ts'
 import { track, flushTracking } from './track.ts'
 /** Custom top-up range (mirrors api/_topupAuto.ts MIN_USDC / MAX_USDC). Default stays 5 USDC. */
@@ -71,7 +72,7 @@ async function api(path: string, init?: RequestInit): Promise<Response> {
 
 export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { demo?: boolean } = {}): void {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
-  let asset: 'USDC' | 'ETH' | 'NEAR' = 'USDC'
+  let asset: 'USDC' | 'ETH' | 'NEAR' | 'SOLANA' | 'ANY' = 'USDC'
   let dollars = 5
   const usdcOk = () => Number.isFinite(dollars) && dollars >= MIN_USDC && dollars <= MAX_USDC && Math.abs(dollars * 100 - Math.round(dollars * 100)) < 1e-6
   let milliEth = 1
@@ -91,6 +92,12 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   const baseHidden = nearTopupOn() && Date.now() < Date.parse('2026-11-19T00:00:00Z')
   if (!baseHidden) tabs.append(tUsdc, tEth)
   if (nearTopupOn()) tabs.append(tNear)
+  // Optional rails: hidden unless switched on at build time (VITE_TOPUP_RAILS) or by a tester flag.
+  const tSol = el('button', 'Solana') as HTMLButtonElement
+  const tAny = el('button', 'Other chains') as HTMLButtonElement
+  tSol.type = tAny.type = 'button'
+  if (railOn('solana')) tabs.append(tSol)
+  if (railOn('intents')) tabs.append(tAny)
   const amtLabel = el('label', 'Amount', 'topup-label')
   const presets = el('div', '', 'topup-presets')
   const table = el('dl', '', 'topup-break')
@@ -113,6 +120,8 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   // NEAR mainnet panel: built only when the NEAR receiver is configured at build time.
   const nearPanel = nearTopupOn() ? renderNearTopup(box, () => onCredited(), opts) : null
   nearPanel?.show(false)
+  const solPanel = railOn('solana') ? renderRailTopup(box, 'solana', () => onCredited()) : null
+  const anyPanel = railOn('intents') ? renderRailTopup(box, 'intents', () => onCredited()) : null
 
   const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
 
@@ -133,9 +142,13 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     tUsdc.classList.toggle('on', asset === 'USDC')
     tEth.classList.toggle('on', asset === 'ETH')
     tNear.classList.toggle('on', asset === 'NEAR')
-    baseBox.hidden = asset === 'NEAR'
+    tSol.classList.toggle('on', asset === 'SOLANA')
+    tAny.classList.toggle('on', asset === 'ANY')
+    baseBox.hidden = asset === 'NEAR' || asset === 'SOLANA' || asset === 'ANY'
     nearPanel?.show(asset === 'NEAR')
-    if (asset === 'NEAR') return
+    solPanel?.show(asset === 'SOLANA')
+    anyPanel?.show(asset === 'ANY')
+    if (asset === 'NEAR' || asset === 'SOLANA' || asset === 'ANY') return
     paintPresets()
     table.replaceChildren()
     const ex = asset === 'USDC' ? (usdcOk() ? BigInt(Math.round(dollars * 100)) * 10_000n : 0n) : price ? ethToUsdMicro(BigInt(milliEth) * 10n ** 15n, price) : 0n
@@ -276,6 +289,8 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   tUsdc.onclick = () => { asset = 'USDC'; paint() }
   tEth.onclick = () => { asset = 'ETH'; paint() }
   tNear.onclick = () => { if (!busy) { asset = 'NEAR'; paint() } }
+  tSol.onclick = () => { if (!busy) { asset = 'SOLANA'; paint() } }
+  tAny.onclick = () => { if (!busy) { asset = 'ANY'; paint() } }
   pay.onclick = () => { if (!opts.demo) void payNow('external') }
   payGame.onclick = () => { if (!opts.demo) void payNow('game') }
   custom.oninput = () => { const v = Number(custom.value); dollars = Number.isFinite(v) ? v : 0; paint() }

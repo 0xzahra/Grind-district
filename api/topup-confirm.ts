@@ -6,6 +6,7 @@ import {
   TRANSFER_TOPIC, ETH_DEPOSITED, TREASURY, USDC, type ChainLog,
 } from './_topupAuto.js'
 import { nearRoute } from './_nearRoute.js'
+import { railsRoute } from './_railsRoute.js'
 
 // Automatic top-up: exact preset amount (e.g. 5 USDC = 5000000) + connected payer address.
 // Server finds Transfer/EthDeposited from that payer to the treasury, verifies via confirmTopup, credits once.
@@ -69,6 +70,10 @@ export default async function handler(req: Req, res: Res) {
   // NEAR mainnet top-ups (off until NEAR_TOPUP_ACCOUNT is set). Same function: Vercel Hobby caps at 12 functions.
   if ((req.method === 'GET' && req.query?.near) || (req.method === 'POST' && String(req.body?.op ?? '').startsWith('near-'))) {
     return nearRoute(req, res, db, await authUserId(req.headers))
+  }
+  // Optional rails (Solana Pay, NEAR Intents): each answers 503 until its env var is set.
+  if ((req.method === 'GET' && req.query?.rails) || (req.method === 'POST' && /^(intents|sol)-/.test(String(req.body?.op ?? '')))) {
+    return railsRoute(req, res, db, await authUserId(req.headers))
   }
 
   if (req.method === 'GET') {
