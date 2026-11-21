@@ -488,11 +488,47 @@ const apiAgents = createRemoteAgents(scene)
       gpuTimer = window.setTimeout(() => { k.hidden = false }, 5000)
     }, 1200)
   })
+  // Everything the GPU holds that the game cannot get back by itself: the reflected light (environment map, drawn
+  // on the GPU), the sun's shadow map, the effects stack, and every uploaded picture (facades, ground, signs).
+  // Facades are part metal, so without the environment map or their pictures they read as black blocks.
+  // Pictures are sent again from the copies the game keeps (canvases and images); nothing is downloaded again.
+  // While a menu holds the city still nothing redraws; after a refresh draw a few fresh frames (set once the loop exists).
+  let redrawSoon = () => { /* set with the render loop */ }
+  const refreshGpu = (why: string) => {
+    try { applyEnvironment(renderer, scene, true) } catch (e) { console.warn('[grind] env', why, e) }
+    try {
+      const seen = new Set<THREE.Texture>()
+      const touch = (t: unknown) => {
+        const x = t as THREE.Texture | null | undefined
+        if (!x || !(x as THREE.Texture).isTexture || seen.has(x) || (x as THREE.Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) return
+        seen.add(x)
+        const img = x.image as { width?: number; data?: unknown } | null | undefined
+        if (img && (img.width || img.data) && !(x as THREE.CubeTexture).isCubeTexture) x.needsUpdate = true
+      }
+      if (scene.background instanceof THREE.Texture) touch(scene.background)
+      scene.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
+        if (!m) return
+        for (const mat of Array.isArray(m) ? m : [m]) {
+          for (const k of Object.keys(mat)) { const v = (mat as unknown as Record<string, unknown>)[k]; if (v && (v as THREE.Texture).isTexture) touch(v) }
+          // Shader-material uniforms, and the ones added in onBeforeCompile (the ground's stone, asphalt and grass),
+          // which only the compiled program's uniform list knows about.
+          for (const u of [(mat as THREE.ShaderMaterial).uniforms, (renderer.properties.get(mat) as { uniforms?: Record<string, { value?: unknown }> }).uniforms]) {
+            if (u) for (const k of Object.keys(u)) touch(u[k]?.value)
+          }
+        }
+      })
+    } catch (e) { console.warn('[grind] textures', why, e) }
+    try { world.sun.shadow.map?.dispose(); world.sun.shadow.map = null; renderer.shadowMap.needsUpdate = true } catch { /* no shadows */ }
+    try { post.recover() } catch (e) { console.warn('[grind] post', why, e) }
+  }
   canvas.addEventListener('webglcontextrestored', () => {
     window.clearTimeout(gpuTimer); gpuNote?.remove(); gpuNote = null
     // The reflected light every surface gets (an environment map drawn on the GPU) went with the context: without
     // it the whole city turns dark under a bright sky. Draw it again, then the effects stack and the shaders.
-    try { applyEnvironment(renderer, scene, true); post.recover(); applyGraphics() } catch (e) { console.warn('[grind] restore', e) }
+    refreshGpu('restore')
+    try { applyGraphics() } catch (e) { console.warn('[grind] restore', e) }
+    redrawSoon()
   })
   const applyBody = () => {
     const save = getSave()
@@ -1294,14 +1330,16 @@ const apiAgents = createRemoteAgents(scene)
     let hiddenAt = 0
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') { hiddenAt = performance.now(); return }
-      if (!hiddenAt || performance.now() - hiddenAt < 2500) return
+      if (!hiddenAt || performance.now() - hiddenAt < 1500) return
       hiddenAt = 0
       requestAnimationFrame(() => {
         if (renderer.getContext().isContextLost()) return // the restore handler redraws it when the context is back
-        try { applyEnvironment(renderer, scene, true); post.recover() } catch (e) { console.warn('[grind] resume', e) }
+        refreshGpu('resume'); redrawSoon()
       })
     })
   }
+  // Back from the browser's page cache (some phones keep the page frozen there when the browser is minimised).
+  window.addEventListener('pageshow', (e) => { if ((e as PageTransitionEvent).persisted && !renderer.getContext().isContextLost()) { refreshGpu('pageshow'); redrawSoon() } })
   window.addEventListener('pagehide', () => markSeen())
   setUpgradeCard(() => {
     const card = el('div', '', 'cr-card fw-card')
@@ -3008,6 +3046,7 @@ const apiAgents = createRemoteAgents(scene)
   // and phones stop paying for a full 3D frame plus the blur on every tick. Dragging a zoom/look
   // slider (cc-peek) draws live again so the change is visible.
   let holdRedraw = 0
+  redrawSoon = () => { holdRedraw = Math.max(holdRedraw, 3) }
   window.addEventListener('resize', () => { holdRedraw = 2 })
   let finalWarm: 'todo' | 'running' | 'done' = 'todo'
   const menuHold = () => {
