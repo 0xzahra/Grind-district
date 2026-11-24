@@ -1,5 +1,5 @@
-// Skits: record what the game camera sees (you, friends around you, chat bubbles, dances) as a video, up to a
-// minute, with the city sound, the music and, if you want, your microphone for voices. The menus are not in it.
+// Skits: record what the game camera sees (you, friends around you, chat bubbles, dances) as a video, up to ten
+// minutes (longer than TikTok's limit), with the city sound, the music and, if you want, your microphone for voices. The menus are not in it.
 // Each frame is copied right after it renders onto a recording canvas (the logo in the corner, an optional title
 // card at the start), so the video looks exactly like the game. Saved to My Gallery, from where it downloads or
 // goes to your socials. MP4 where the browser can record it (best for X, Instagram and TikTok), WebM otherwise.
@@ -7,7 +7,9 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''):
 const key = (label: string, cls: string, on: () => void) => { const b = el('button', label, `gm-key ${cls}`); b.type = 'button'; b.onclick = on; return b }
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
-export const MAX_SECS = 60
+export const MAX_SECS = 600
+/** Picture bitrate: sharp at 720p, and ten minutes still fit comfortably on a phone (about 190 MB). */
+export const VIDEO_BPS = 2_500_000
 type Format = 'screen' | 'portrait'
 export type SkitDeps = {
   canvas: HTMLCanvasElement
@@ -49,7 +51,7 @@ export function openSkit(d: SkitDeps): void {
   const card = el('div', '', 'gm-card sk-card')
   const close = () => shade.remove()
   const head = el('div', '', 'gm-head'), t = el('div')
-  t.append(el('p', 'Skits · up to a minute', 'gm-kick'), el('h3', 'Record a skit', 'gm-title'))
+  t.append(el('p', 'Skits · up to 10 minutes', 'gm-kick'), el('h3', 'Record a skit', 'gm-title'))
   head.append(t, key('Close', 'gm-ghost', close))
   card.append(head, el('p', 'Everything the camera sees goes in: you, friends around you, chat bubbles and dances. The menus and buttons stay out. Walk, chat and move the camera as you film.', 'gm-sub'))
   const title = el('input', '', 'sk-input'); title.type = 'text'; title.maxLength = 48; title.placeholder = 'Title card (optional), e.g. "When the presale closes in 9 minutes"'
@@ -70,6 +72,13 @@ export function openSkit(d: SkitDeps): void {
 
 async function record(d: SkitDeps, mime: string, out: HTMLCanvasElement, format: Format, mic: boolean, title: string): Promise<void> {
   busy = true
+  // The sound mixer is made here, inside the Start tap: made later (after the countdown) a phone keeps it paused,
+  // its track then carries no sound at all, and the recorder held the picture back waiting for sound, so only the
+  // first few seconds of a take were saved. A silent tone keeps the track flowing even with the music off.
+  const mixCtx = new AudioContext()
+  void mixCtx.resume().catch(() => undefined)
+  const mixOut = mixCtx.createMediaStreamDestination()
+  try { const hum = mixCtx.createOscillator(), mute = mixCtx.createGain(); mute.gain.value = 0; hum.connect(mute).connect(mixOut); hum.start() } catch { /* no silent tone */ }
   const bar = el('div', '', 'sk-bar'); bar.id = 'sk-bar'; bar.setAttribute('role', 'status')
   const dot = el('span', '', 'sk-dot'), clock = el('span', '3', 'sk-clock')
   const stop = el('button', 'Stop', 'sk-stop'); stop.type = 'button'
@@ -112,12 +121,14 @@ async function record(d: SkitDeps, mime: string, out: HTMLCanvasElement, format:
   d.onFrame(draw)
   // Picture and sound: the recording canvas at 30 fps, and one mixed audio track.
   const stream = out.captureStream(30)
-  const mixCtx = new AudioContext()
-  const mixOut = mixCtx.createMediaStreamDestination()
+  if (mixCtx.state !== 'running') await mixCtx.resume().catch(() => undefined)
   const inputs = [...(await d.sounds().catch(() => [])), ...(micStream ? [micStream] : [])]
   for (const s of inputs) if (s.getAudioTracks().length) { try { mixCtx.createMediaStreamSource(s).connect(mixOut) } catch { /* skip */ } }
-  for (const tr of mixOut.stream.getAudioTracks()) stream.addTrack(tr)
-  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5_000_000, audioBitsPerSecond: 128_000 })
+  // A phone that still keeps the mixer paused would give a sound track with no sound, and the recorder would hold
+  // the picture back waiting for it (the few-seconds skits). Then the take is recorded as picture only.
+  if (mixCtx.state === 'running') for (const tr of mixOut.stream.getAudioTracks()) stream.addTrack(tr)
+  else d.toast('This device kept the sound off, so the skit records the picture only.')
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: VIDEO_BPS, audioBitsPerSecond: 128_000 })
   const chunks: Blob[] = []
   rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
   const done = new Promise<void>((r) => { rec.onstop = () => r() })
@@ -127,6 +138,11 @@ async function record(d: SkitDeps, mime: string, out: HTMLCanvasElement, format:
   let finished = false
   const finish = () => { if (finished) return; finished = true; if (rec.state !== 'inactive') rec.stop() }
   stop.onclick = finish
+  // While a menu or panel holds the city still, no game frame arrives: touch the recording canvas a few times a
+  // second so the picture keeps flowing in step with the sound (the video holds the last frame, it never stops).
+  let lastDraw = performance.now()
+  d.onFrame(() => { draw(); lastDraw = performance.now() })
+  const keepAlive = window.setInterval(() => { if (performance.now() - lastDraw > 150) { g.fillStyle = 'rgba(0,0,0,0.004)'; g.fillRect(0, 0, 1, 1) } }, 100)
   const tick = window.setInterval(() => {
     const s = (performance.now() - t0) / 1000
     clock.textContent = `${mmss(s)} / ${mmss(MAX_SECS)}`
@@ -136,7 +152,7 @@ async function record(d: SkitDeps, mime: string, out: HTMLCanvasElement, format:
   const hide = () => { if (document.hidden) finish() }
   document.addEventListener('visibilitychange', hide)
   await done
-  window.clearInterval(tick); document.removeEventListener('visibilitychange', hide)
+  window.clearInterval(tick); window.clearInterval(keepAlive); document.removeEventListener('visibilitychange', hide)
   d.onFrame(null)
   const secs = (performance.now() - t0) / 1000
   for (const tr of stream.getTracks()) tr.stop()

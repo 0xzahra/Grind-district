@@ -180,6 +180,12 @@
       "title": "Your proof comes first on your profile",
       "body": "Your profile now opens with what you have done: courses passed, certificates and worlds finished, with Share my CV one tap away from your very first course. A Skills section shows your progress through each Campus world, and the day card leads with the courses you passed.",
       "go": "panel:profile"
+    },
+    {
+      "id": "u1124-long-skits",
+      "title": "Skits up to 10 minutes, saved in full",
+      "body": "Record a skit for up to 10 minutes and the whole take is kept, start to finish, and plays back at its full length in My Gallery. Long enough for TikTok, Reels and X.",
+      "go": "gallery"
     }
   ]
 }

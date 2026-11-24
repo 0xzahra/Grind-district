@@ -8,7 +8,7 @@ const check = (c: boolean, m: string) => { if (c) pass++; else { fail++; console
 check(pickMime(() => true).startsWith('video/mp4;codecs=avc1'), 'MP4 (H.264) first when offered')
 check(pickMime((t) => t.startsWith('video/webm')).startsWith('video/webm;codecs=vp9'), 'WebM VP9 when there is no MP4')
 check(pickMime(() => false) === '', 'nothing when the browser cannot record')
-check(MAX_SECS === 60, 'one-minute cap')
+check(MAX_SECS === 600, 'ten-minute cap (TikTok allows about eight)')
 
 for (const [cw, ch] of [[1920, 1080], [960, 540], [390 * 3, 844 * 3], [844, 390], [1280, 1280], [301, 677]]) {
   for (const f of ['screen', 'portrait'] as const) {

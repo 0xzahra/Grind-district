@@ -66,7 +66,7 @@ export function openMyGallery(d: GalleryDeps): void {
     const url = URL.createObjectURL(m.blob)
     const v = el('div', '', 'mg-view')
     const media = m.kind === 'skit' || m.type.startsWith('video/')
-      ? Object.assign(el('video'), { src: url, controls: true, playsInline: true, autoplay: true, loop: true })
+      ? fullLength(Object.assign(el('video'), { src: url, controls: true, playsInline: true, loop: true }))
       : Object.assign(el('img'), { src: url, alt: `${LABEL[m.kind]}, ${when(m.at)}` })
     media.className = 'mg-media'
     const file = new File([m.blob], fileName(m), { type: m.type })
@@ -96,4 +96,17 @@ export function flashSaved(what: string, open: () => void): void {
   b.onclick = () => { b.remove(); open() }
   document.body.append(b)
   window.setTimeout(() => b.remove(), 3500)
+}
+
+/** A browser-recorded video often carries no length (WebM): the player then shows a live bar and stops short.
+ *  Seek once past the end so the browser reads the real length, rewind, then play from the start. */
+function fullLength(v: HTMLVideoElement): HTMLVideoElement {
+  const start = () => { v.currentTime = 0; void v.play().catch(() => undefined) }
+  v.addEventListener('loadedmetadata', () => {
+    if (Number.isFinite(v.duration) && v.duration > 0) { start(); return }
+    const back = () => { if (!Number.isFinite(v.duration)) return; v.removeEventListener('durationchange', back); v.removeEventListener('timeupdate', back); start() }
+    v.addEventListener('durationchange', back); v.addEventListener('timeupdate', back)
+    v.currentTime = 1e101
+  }, { once: true })
+  return v
 }
