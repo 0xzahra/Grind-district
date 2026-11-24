@@ -1186,10 +1186,11 @@ export function mountUi(
         open('settings')
       }))
     }
-    // Lite: for low-end phones (deviceTier.ts). Auto turns it on for phones that struggle; kept on this device only.
+    // Performance, on every device (deviceTier.ts): Auto picks from the hardware and steps down if frames run slow;
+    // Light is the smoothest; Full keeps every detail the Graphics setting asks for. Kept on this device only.
     const liteRow = document.createElement('div')
     liteRow.className = 'tabs'
-    for (const [pref, label] of [['auto', 'Auto'], ['on', 'Lite'], ['off', 'Full']] as const) {
+    for (const [pref, label] of [['auto', 'Auto'], ['on', 'Light\u2060'], ['off', 'Full']] as const) { // \u2060: not the theme's Light (a colour)
       liteRow.append(button(label, litePref() === pref ? 'primary' : 'ghost', () => {
         setLitePref(pref)
         try { if (pref === 'auto') localStorage.removeItem('gd.lite.auto') } catch { /* private mode */ }
@@ -1360,9 +1361,15 @@ export function mountUi(
         medium: 'Medium: sharper, 4 street lights, soft effects. Shadows on computers.',
         high: 'High: sharpest, every street light and glow, full shadows on computers.',
       } as const)[save.graphics], 'muted'),
-      para('Phone performance', 'kicker'),
+      para('Performance', 'kicker'),
       liteRow,
-      para(liteOn() ? 'Lite is on: the city draws at 1x with one street light, fewer far-away people and cars, and no wind in the trees, so slower phones stay smooth. Edge smoothing changes after a reload.' : 'Full detail. Auto switches to Lite if this phone struggles; Lite forces it on.', 'muted'),
+      para(({
+        auto: liteOn()
+          ? 'Auto chose Light for this device: the city draws at 1x with one street light, fewer far-away people and cars, and no wind in the trees, so it stays smooth.'
+          : 'Auto: full detail for this device. If frames run slow it holds a steady pace, then lowers Graphics a step, then switches to Light.',
+        on: 'Light: smoothest on any phone or computer. The city draws at 1x with one street light, fewer far-away people and cars, and no wind in the trees.',
+        off: 'Full: every detail your Graphics setting allows. Sharpness still eases off a little while frames run long, so the city does not freeze.',
+      } as const)[litePref()] + ' Edge smoothing changes after a reload.', 'muted'),
       para('Map', 'kicker'),
       maps,
       para('Comfort', 'kicker'),

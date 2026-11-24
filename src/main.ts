@@ -55,7 +55,7 @@ import { applyPrefs } from './prefs.ts'
 import { createCrowd, label as nameLabel, type CrowdInfo } from './npcs.ts'
 import { CITIZENS } from './citizens.ts'
 import { blocked, CITY_LIMIT, PLAYER_R, resolveCollision, type Obstacle } from './physics.ts'
-import { liteOn, noteGpu, noteStruggling, setLiteNow } from './deviceTier.ts'
+import { autoPerformance, integratedGpu, liteOn, noteGpu, noteStruggling, setLiteNow } from './deviceTier.ts'
 import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememberPlace, rememberHome, setGraphics, tickMarket, spendInGame, bonusXp, isAccountBound } from './state.ts'
 import { mountUi } from './ui.ts'
 import { claimDaily, loginState } from './luxury.ts'
@@ -454,7 +454,9 @@ const apiAgents = createRemoteAgents(scene)
     // High: on computers the screen's own density, up to 4K (3840x2160 worth of pixels); the scaler (quality.ts)
     // climbs there only while frames stay easy. Phones stay at 2x: smooth beats extra pixels on a small screen.
     const native4k = Math.max(1, Math.min(dpr, 3, Math.sqrt((3840 * 2160) / Math.max(1, window.innerWidth * window.innerHeight))))
-    const ratio = graphics === 'high' ? (coarseDev ? Math.min(dpr, 2) : native4k) : Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : (coarseDev ? 1.75 : 1.5))
+    // Computers with graphics built into the processor keep High at 2x on Auto: the full 4K density made them crawl.
+    const pcHigh = autoPerformance() && integratedGpu() ? Math.min(dpr, 2) : native4k
+    const ratio = graphics === 'high' ? (coarseDev ? Math.min(dpr, 2) : pcHigh) : Math.min(dpr, graphics === 'low' ? (coarseDev ? 1.5 : 1.25) : (coarseDev ? 1.75 : 1.5))
     const drawRatio = lite ? Math.min(dpr, 1) : ratio
     renderer.setPixelRatio(drawRatio)
     // Real-time light budget: Low 3 street-lamp lights, Medium 4, High all 6 plus the 10 glow lights.
@@ -3156,11 +3158,17 @@ const apiAgents = createRemoteAgents(scene)
   const FPS_KEY = 'gd.fps30'
   let lock30 = coarseLoop && (() => { try { return localStorage.getItem(FPS_KEY) === '1' } catch { return false } })()
   let lastInput = performance.now(), paceT = 0, paceN = 0, paceSum = 0
+  let pcT = 0, pcN = 0, pcLast = performance.now(), pcStepAt = 0, revealedAt = Infinity
+  let rafEma = 16.7, rafPrev = performance.now()
   for (const ev of ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel'] as const) window.addEventListener(ev, () => { lastInput = performance.now() }, { passive: true, capture: true })
   const frame = (now: number) => {
     if (abandoned) return
     requestAnimationFrame(frame)
     if (failed) return
+    // High-refresh computer screens (120 to 165 Hz) asked the city for 2 to 3 times the frames a 60 Hz screen does:
+    // hot, throttled graphics chips and stutter. There the city draws every other screen frame (60 to 82 a second).
+    rafEma += (Math.min(50, now - rafPrev) - rafEma) * 0.05; rafPrev = now
+    if (revealed && !coarseLoop && rafEma < 9.5 && now - last < 12) return
     if (revealed && coarseLoop) {
       const still = now - lastInput > 9000 && Math.hypot(vel.x, vel.z) < 0.05 && !ride
       const budget = still ? 50 : lock30 ? 1000 / 30 : 0
@@ -3174,7 +3182,7 @@ const apiAgents = createRemoteAgents(scene)
           if (paceSum / paceN > 22) {
             lock30 = true; try { localStorage.setItem(FPS_KEY, '1') } catch { /* private mode */ }
             // A phone this slow also gets Lite, now and on later visits (unless Full was chosen in Settings).
-            if (noteStruggling()) { setLiteNow(true); applyGraphics(); ui.toast('Lite graphics on for smoother play. Change it in Settings.') }
+            if (noteStruggling()) { setLiteNow(true); applyGraphics(); ui.toast('Light performance on for smoother play. Change it in Settings > Performance.') }
           }
           paceT = paceSum = paceN = 0
         }
@@ -3196,6 +3204,25 @@ const apiAgents = createRemoteAgents(scene)
       tickMarket(dt, Date.now())
       if (holdRedraw > 0) { holdRedraw -= 1; try { post.render() } catch { /* keep the last frame */ } }
       return
+    }
+    // Computers on Auto: the same watch as phones. Judged over 5 s of the city actually drawing (not behind a panel,
+    // not in the first seconds after opening): under about 30 a second, Graphics steps down one notch (High, Medium,
+    // Low), and a computer still slow on Low goes Light. Each step waits 8 s to show its effect. Full never steps.
+    if (revealed && !coarseLoop && autoPerformance()) {
+      // Gaps longer than a quarter second are a panel or the menu just closing, not slow drawing: skipped.
+      if (now - revealedAt > 6000 && now - pcLast < 250) {
+        pcT += now - pcLast; pcN++
+        if (pcT > 5000) {
+          if (pcT / pcN > 34 && now - pcStepAt > 8000) {
+            pcStepAt = now
+            const g = getSave().graphics
+            if (g !== 'low') { setGraphics(g === 'high' ? 'medium' : 'low'); applyGraphics(); ui.toast(`Graphics set to ${g === 'high' ? 'Medium' : 'Low'} to keep the game smooth. Change it in Settings.`) }
+            else if (!liteOn() && noteStruggling()) { setLiteNow(true); applyGraphics(); ui.toast('Light performance on for smoother play. Change it in Settings > Performance.') }
+          }
+          pcT = pcN = 0
+        }
+      }
+      pcLast = now
     }
     // Second warm-up: the first update turns on what the opening scene really uses (the sun's shadow, the time
     // of day's lights), which changes some shaders. Those are compiled here, behind the loading screen, before
@@ -3224,6 +3251,7 @@ const apiAgents = createRemoteAgents(scene)
       if (revealed) probe(dt)
       if (!revealed) {
         revealed = true
+        revealedAt = performance.now()
         performance.mark('gd:revealed')
         window.dispatchEvent(new Event('gd:revealed'))
         onReveal()

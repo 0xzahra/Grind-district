@@ -178,7 +178,13 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   // High renders at the screen's own density (up to 4K, see main.ts), so there it may step further down, never
   // below 1.6x, which is what High drew before it went native.
   const FLOOR = 0.8
-  const floor = () => (base > 2 ? Math.max(0.5, Math.min(FLOOR, 1.6 / base)) : FLOOR)
+  // Computers never draw below the screen's own pixels: on a 1x monitor 80% is an upscaled, blurry picture (the
+  // haze PC players saw on the city tour). Their frame rate is kept by stepping Graphics down instead (main.ts).
+  const pcScreen = !window.matchMedia('(pointer: coarse)').matches
+  const floor = () => {
+    const f = base > 2 ? Math.max(0.5, Math.min(FLOOR, 1.6 / base)) : FLOOR
+    return pcScreen ? Math.min(1, Math.max(f, 1 / Math.max(1e-3, base))) : f
+  }
   // A step down that did not make frames faster means the phone itself caps them (battery saver, heat, a 30 Hz
   // screen while idle): the step is undone and no new one is tried for a while, so the picture stays sharp.
   let probe: { before: number; t: number } | null = null
@@ -191,7 +197,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   // High's remembered sharpness is kept under a new name: it now means a share of native (up to 4K), and starts
   // from the old 2x, climbing only while frames stay easy.
   const resKey = (g: Graphics) => (g === 'high' ? 'gd.res.high.v2' : `gd.res.${g}`)
-  const recall = (g: Graphics) => { try { const raw = localStorage.getItem(resKey(g)); const v = Number(raw); if (raw !== null && v >= 0.5 && v <= 1) return Math.round(v * 10) / 10 } catch { /* private mode */ } return g === 'high' && base > 2 ? Math.max(floor(), Math.round((2 / base) * 10) / 10) : 1 }
+  const recall = (g: Graphics) => { try { const raw = localStorage.getItem(resKey(g)); const v = Number(raw); if (raw !== null && v >= 0.5 && v <= 1) return Math.max(floor(), Math.round(v * 10) / 10) } catch { /* private mode */ } return g === 'high' && base > 2 ? Math.max(floor(), Math.round((2 / base) * 10) / 10) : 1 }
   const remember = (g: Graphics, v: number) => { try { localStorage.setItem(resKey(g), String(v)) } catch { /* private mode */ } }
   const build = () => {
     // MSAA target keeps edges clean through the composer (WebGL2).
@@ -230,10 +236,12 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     composer.addPass(new OutputPass())
     grade = new ShaderPass(Grade)
     composer.addPass(grade)
-    // SMAA after the grade on High desktop only: cleans shader/alpha edges MSAA misses (thin trims, foliage).
-    if (level === 'medium' || coarse || !gl2) {
+    // SMAA after the grade on computers (Medium and High): cleans shader/alpha edges MSAA misses (thin trims, foliage).
+    // Computers already smooth edges with MSAA on Medium and High; FXAA on top of it softened the whole picture
+    // there, so Medium on a computer gets the sharper SMAA as High does. Phones keep FXAA (no MSAA on phones).
+    if (coarse || !gl2) {
       try { composer.addPass(new FXAAPass()) } catch (error) { console.warn('[grind] FXAA unavailable', error) }
-    } else if (level === 'high') {
+    } else if (level === 'medium' || level === 'high') {
       try { composer.addPass(new SMAAPass()) } catch (error) { console.warn('[grind] SMAA unavailable', error) }
     }
     // Sharpen last, after anti-aliasing (which softens a little): Medium a touch, High a bit more.

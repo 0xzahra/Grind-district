@@ -168,6 +168,12 @@
       "title": "Pass your first lesson, see your certificate at once",
       "body": "Finish your first lesson with Zahra or on Campus and your CV opens with the course on it, with your new certificate on top, ready to share, download or mint.",
       "go": "place:Campus"
+    },
+    {
+      "id": "u1124-performance",
+      "title": "Performance: Auto, Light or Full, on phones and computers",
+      "body": "Settings now has one Performance choice for every device. Auto reads your phone or computer and eases the graphics down if frames run slow; Light is the smoothest; Full keeps every detail without freezing. Computers also draw a sharper, clearer city.",
+      "go": "panel:settings"
     }
   ]
 }
