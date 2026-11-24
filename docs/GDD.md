@@ -2,7 +2,7 @@
 
 <h1 align="center">Grind District: Game Design Document</h1>
 
-<p align="center"><b>Version 2.4 · 15 November 2026</b><br>
+<p align="center"><b>Version 2.5 · 24 November 2026</b><br>
 City · Career · Skills · CV<br>
 <a href="https://www.grinddistrict.app">www.grinddistrict.app</a> · free, in the browser, phone or desktop</p>
 
@@ -33,6 +33,7 @@ City · Career · Skills · CV<br>
 21. [Risks](#21-risks)
 22. [Hackathon fit](#22-hackathon-fit)
 23. [Appendix](#23-appendix)
+24. [Competitor research](#24-competitor-research)
 
 ---
 
@@ -494,5 +495,31 @@ Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in four tr
 - **Certificate NFT contract:** [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) (soulbound NEP-171)
 - **Skill Passport contract:** [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet)
 - **Made by:** [Zahra](https://0xzahra.github.io)
+
+---
+
+## 24. Competitor research
+
+Checked on 24 November 2026 from public pages. Several of these products are young and their own pages are the only
+source, so numbers they quote are marked as unverified. The point of this section is what each one teaches us, not a
+ranking.
+
+| Product | What it is | What players get | What we take | What we avoid |
+| --- | --- | --- | --- | --- |
+| **Lagos Life** ([fan guide](https://lagoslifeguide.com/), [overview](https://blog.gosub.ng/lagos-life-game)) | Free browser life-sim set in Lagos, often compared to The Sims. Jobs, needs, travel between neighbourhoods, renting homes. One page claims more than 60 million visits and an expansion to Abuja and Port Harcourt (unverified). | A familiar local city and a daily routine. Free to start, optional purchases. | Proof that a free, local, no-download city life-sim can spread fast in Nigeria. Our city stays recognisably West African and opens in the browser with no install. | A life-sim with no outcome. Every hour in Grind District should leave something on the CV. |
+| **CT Life** ([source](https://github.com/Horkays-Degen/ct-life)) | Multiplayer life-sim set in "Crypto Twitter": a random origin, then content, trading, building and networking. A 3D version targets the Solana Seeker phone. Its repositories describe play money with no real value, and later work adds on-chain escrow and a play-money casino. | Crypto culture as a game, social status, jokes. | Crypto culture is a strong hook, and play money keeps the stakes low. | Casino mechanics and prediction markets (owner's rule). Satire of the industry in place of teaching it. |
+| **Web3 Life** ([site](https://playweb3.life/)) | Browser 3D crypto city: trade markets, build a career, buy a home, meet other players. | The same broad promise as ours: a crypto city in the browser. | Confirms the category exists; the difference has to be proof of learning, not the city itself. | Competing on city size or graphics alone. |
+| **BaseCity** ([README](https://github.com/madebyshun/blocky-game)) | A shared voxel city on Base that grows from empty land: each token buy adds a builder, and the land expands in rings as residents arrive. | Watching a shared place grow because of what everyone did. | The living-city idea, without a token: the Graduation Garden at Campus grows a banner at each city-wide milestone of courses passed (1, 5, 10 ... 2,000). Growth is earned by learning, not bought. | Growth tied to buying a token. No token in this phase. |
+| **Credly** ([what a badge is](https://support.credly.com/hc/en-us/articles/360021222071-What-is-a-badge), [Cisco FAQ](https://www.cisco.com/site/us/en/learn/training-certifications/certifications/digital-badges/credly-faq.html)) | The standard for professional digital badges. Each badge links to a verification page; it can be added to LinkedIn under Licenses & Certifications. | A credential employers can click and check. | Every certificate has its own public page and image, a one-tap share, and a CV page. Next: an "Add to LinkedIn" link that fills in the certificate's name, issuer and URL. | Badges that only show an image. Reviews note employers find verification confusing, so our page says plainly what was passed and how it was checked (a short server-graded exam). |
+| **Coinbase learning rewards and quests** ([page](https://www.coinbase.com/learning-rewards), [quests](https://www.coinbase.com/wallet/quests)) | Short lessons and quizzes, paid in small amounts of a project's token, in some countries only; quests reward on-chain actions. | A few dollars for a few minutes. | Short lessons with a clear finish, and on-chain practice tasks after learning. | Paying people to click through quizzes: it attracts answer-sharing and leaves no skill. Our rewards are reputation and proof, never XP or points. |
+| **Layer3, Galxe, RabbitHole** ([comparison](https://www.earnifyhub.com/blog/crypto/learn-to-earn-crypto-platforms-2026)) | Quest platforms: on-chain tasks, credentials, hopes of airdrops. | Lists of tasks across many apps. | Credentials that apps can read. | Farming for airdrops. Points are a score, never a promise, and the courses say so. |
+
+**Where Grind District stands apart:** a free 3D city where the playing *is* the learning, and the result is a CV, a
+résumé and certificates with public pages, plus practice trading with earned in-game cash only. None of the products
+above combine a city with checked, shareable proof of what was learned.
+
+**What this research changed in the build (24 November 2026):** the title line "Walk out with a CV, resume and
+portfolio"; the first lesson leading straight to the certificate and the CV; certificate and CV views counted; the
+Graduation Garden; Zahra's gestures while she talks; and tracking of where first sessions stop (`/stats.html`).
 
 <p align="center"><img src="../public/brand/logo-new.png" alt="Grind District" width="220"></p>
