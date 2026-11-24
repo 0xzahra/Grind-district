@@ -10,10 +10,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const DAY = 86_400_000
 const dayOf = (ms: number) => Math.floor((ms + 3_600_000) / DAY) // Lagos (WAT) days, like the city stats
-const ORDER = ['opened', 'enter_city', 'learn_open', 'lesson_start', 'exercise_start', 'lesson_complete', 'cv_seen'] as const
+const ORDER = ['opened', 'auth_open', 'signed_in', 'enter_city', 'learn_open', 'lesson_start', 'exercise_start', 'lesson_complete', 'cv_seen'] as const
 type Stage = (typeof ORDER)[number]
 const LABEL: Record<Stage | 'menu_open' | 'lesson_leave', string> = {
   opened: 'Opened the game (title screen)',
+  auth_open: 'Tapped Sign up or Sign in',
+  signed_in: 'Finished signing up / in',
   enter_city: 'Entered the city',
   menu_open: 'Opened the menu',
   learn_open: 'Opened Campus (Learning Center)',
@@ -93,28 +95,31 @@ export async function buildFunnel(db: SupabaseClient, days: number, now: number)
   const journey = await pageAll(db, ['step', 'session_length', 'first_visit', 'opened_page'], windowStart)
   const stepRows = journey.filter((r) => r.name === 'step')
   const trackingSince = stepRows.length ? stepRows[0].created_at : null
-  type S = { reached: Set<string>; last: string | null; lastAt: number; secs: number; leaves: Array<{ course: string; card: number; where: string }> }
+  // One first session per browser (visitor id): a sign-in with Google or X reloads the page, which starts a new page
+  // session, but it is still the same new player's first visit.
+  type S = { reached: Set<string>; last: string | null; lastAt: number; secsBy: Map<string, number>; leaves: Array<{ course: string; card: number; where: string }> }
   const sessions = new Map<string, S>()
-  const get = (id: string) => { let s = sessions.get(id); if (!s) { s = { reached: new Set(['opened']), last: null, lastAt: 0, secs: 0, leaves: [] }; sessions.set(id, s) } return s }
+  const get = (id: string) => { let s = sessions.get(id); if (!s) { s = { reached: new Set(['opened']), last: null, lastAt: 0, secsBy: new Map(), leaves: [] }; sessions.set(id, s) } return s }
   const timeOn = new Map<string, number[]>()
   let menuOpened = 0
   for (const r of journey) {
-    if (!r.session_id) continue
+    const who = r.anon_id && r.anon_id !== 'unknown' ? r.anon_id : r.session_id
+    if (!who) continue
     const p = (r.props ?? {}) as Record<string, unknown>
     const at = Date.parse(r.created_at)
-    if (r.name === 'first_visit') { if (trackingSince && r.created_at >= trackingSince) get(r.session_id); continue }
+    if (r.name === 'first_visit') { if (trackingSince && r.created_at >= trackingSince) get(who); continue }
     if (r.name === 'opened_page') continue
     if (r.name === 'session_length') {
       if (p.first !== true) continue
-      const s = get(r.session_id)
-      s.secs = Math.max(s.secs, Number(p.secs) || 0)
+      const s = get(who)
+      s.secsBy.set(r.session_id, Math.max(s.secsBy.get(r.session_id) ?? 0, Number(p.secs) || 0))
       if (at >= s.lastAt) { s.last = String(p.last ?? ''); s.lastAt = at }
       const ms = Number(p.ms)
       if (Number.isFinite(ms) && ms > 0 && p.last) { const k = String(p.last); (timeOn.get(k) ?? timeOn.set(k, []).get(k)!).push(ms / 1000) }
       continue
     }
     // step
-    const s = get(r.session_id)
+    const s = get(who)
     const st = String(p.step ?? '')
     if (st === 'menu_open') { if (!s.reached.has('menu_open')) menuOpened += 1 }
     if (st === 'lesson_leave') s.leaves.push({ course: String(p.course ?? ''), card: Number(p.card) || 0, where: String(p.where ?? 'lesson') })
@@ -144,7 +149,7 @@ export async function buildFunnel(db: SupabaseClient, days: number, now: number)
   for (const s of all) for (const l of s.leaves) { const k = `${l.course}|${l.card}|${l.where}`; leaveCount.set(k, (leaveCount.get(k) ?? 0) + 1) }
   const lessonLeaves = [...leaveCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([k, count]) => { const [course, card, where] = k.split('|'); return { course, card: Number(card), where, count } })
-  const lengths = all.map((s) => s.secs).filter((x) => x > 0)
+  const lengths = all.map((s) => [...s.secsBy.values()].reduce((a, b) => a + b, 0)).filter((x) => x > 0)
   const mfs = median(lengths)
 
   // --- Retention (all time since tracking began): visit days per visitor ---

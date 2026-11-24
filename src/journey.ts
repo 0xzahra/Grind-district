@@ -6,7 +6,7 @@
 import { track, flushTracking } from './track.ts'
 
 export type Step =
-  | 'enter_city' | 'menu_open' | 'learn_open' | 'lesson_start' | 'exercise_start'
+  | 'auth_open' | 'signed_in' | 'enter_city' | 'menu_open' | 'learn_open' | 'lesson_start' | 'exercise_start'
   | 'lesson_leave' | 'lesson_resume' | 'lesson_complete' | 'cv_seen'
 
 const FIRST_SEEN = 'gd.firstSeen'
@@ -50,6 +50,8 @@ export function startJourney(): void {
     if (document.hidden) { pause(); end() } else { visibleSince = Date.now(); ended = false }
   })
   window.addEventListener('pagehide', () => { pause(); end() })
+  // Signing up or in happens before the city opens; the login code announces it with this event.
+  window.addEventListener('gd-auth-changed', () => step('signed_in'))
 }
 
 const pause = () => { if (visibleSince) { visibleMs += Date.now() - visibleSince; visibleSince = 0 } }

@@ -1052,7 +1052,7 @@ const apiAgents = createRemoteAgents(scene)
     nav.inert = !open // keyboard and screen readers skip the shut menu too
     railToggle.setAttribute('aria-expanded', String(open))
     // One layer at a time: opening the menu shuts any open panel, so the two never stack.
-    if (open) { journeyStep('menu_open'); if (ui.isOpen()) ui.close(); paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
+    if (open) { if (ui.isOpen()) ui.close(); paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
     else closeSheet()
   }
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
@@ -1243,7 +1243,7 @@ const apiAgents = createRemoteAgents(scene)
     sheetBody.append(topSlot, recent, assets, spend)
   })
   must('#cc-sheet-back').addEventListener('click', closeSheet)
-  railToggle.addEventListener('click', () => setCC(document.body.classList.contains('rail-shut')))
+  railToggle.addEventListener('click', () => { const opening = document.body.classList.contains('rail-shut'); if (opening) journeyStep('menu_open'); setCC(opening) })
   nav.addEventListener('click', (event) => {
     const target = event.target as HTMLElement
     if (target === nav) { setCC(false); return } // tap outside the modules closes

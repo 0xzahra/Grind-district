@@ -1,4 +1,5 @@
 import { COURSES } from './courses.ts'
+import { step as journeyStep } from './journey.ts'
 import { GUIDE } from './guide.ts'
 import { SKILL_META } from './logic.ts'
 import { getSave, signUp } from './state.ts'
@@ -168,6 +169,7 @@ export function mountMenu(enter: () => void): void {
 
   play.addEventListener('click', enterIfSignedIn)
   const openAuth = (mode: 'signup' | 'signin') => {
+    journeyStep('auth_open', { mode })
     const note = document.getElementById('menu-note')
     if (note) note.textContent = mode === 'signup' ? 'Opening sign up…' : 'Opening sign in…'
     void import('./login.ts')
