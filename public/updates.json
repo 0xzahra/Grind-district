@@ -236,6 +236,13 @@
       "body": "Each world on Campus now folds under its header. Finished worlds close with a tick, the world you are on stays open, and a passed lesson has a Next lesson key so you never have to scroll to find it.",
       "go": "panel:learn",
       "push": false
+    },
+    {
+      "id": "u1124-travel-arrive",
+      "title": "Travel lands on the place, not a black screen",
+      "body": "Tapping a place on the map now shows the place itself when you arrive, with its panel opening a moment later, instead of a dark or frozen screen.",
+      "go": "panel:city",
+      "push": false
     }
   ]
 }

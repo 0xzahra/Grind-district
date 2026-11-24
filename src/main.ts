@@ -783,12 +783,16 @@ const apiAgents = createRemoteAgents(scene)
     const len = Math.hypot(spot.x, spot.z) || 1
     const step = Math.min(2.4, len)
     ui.close()
+    // The menu holds the city still while it is open: close it too, so the city keeps drawing during the trip.
+    setCCRef?.(false)
     const tx = spot.x - (spot.x / len) * step, tz = spot.z - (spot.z / len) * step
     const arrive = () => {
       hooksTeleport(tx, tz)
       ui.setPlace(districtName(pos.x, pos.z))
       ui.toast(`You are at ${spot.title}.`)
-      then?.()
+      // Let the city draw the new place before its panel opens: a panel freezes the view behind it, and opening
+      // it at once left the old spot (or, on phones, a black screen) behind the panel instead of the destination.
+      if (then) window.setTimeout(then, 450)
     }
     target = null
     if (Math.hypot(tx - pos.x, tz - pos.z) < 6 || homes?.inside) { arrive(); return }
