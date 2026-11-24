@@ -4470,3 +4470,9 @@ body.sheet-open #drive-pedals { display: none; }
 .rp-mentor-tip { margin: 0; font-size: 14.5px; line-height: 1.45; color: #f0f2ef; }
 .rp-mentor-next { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: rgba(245, 245, 247, 0.78); }
 #npc-card .npc-mentor { font-size: 12px; font-weight: 700; color: #8ff0bd; margin-top: 2px; }
+
+/* Balance: Recent rows keep long names inside the card; the split's one-line note. */
+#cc-sheet-body .wal-tx { min-width: 0; grid-template-columns: 38px minmax(0, 1fr) auto; }
+#cc-sheet-body .wal-tx div { min-width: 0; overflow: hidden; }
+#cc-sheet-body .wal-tx div b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wal-split-note { margin: 8px 4px 0; font-size: 12px; line-height: 1.35; color: rgba(16, 40, 30, 0.7); text-align: center; }

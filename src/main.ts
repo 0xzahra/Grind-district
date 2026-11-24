@@ -1157,10 +1157,12 @@ const apiAgents = createRemoteAgents(scene)
     else idRow.append(el('small', `Wallet ID ${save.username ? '@' + save.username : 'guest'}`))
     idRow.append(el('span', 'USD', 'wal-cur'))
     const split = el('p', '', 'cc-split wal-split')
-    const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)); split.append(c) } }
+    const paintSplit = () => { const b = balanceSplit(); split.replaceChildren(); for (const [k, v] of [['Earned in the city', b.earned], ['Topped up', b.toppedUp]] as const) { const c = el('span'); c.append(el('small', k), el('b', `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)); split.append(c) } }
     paintSplit()
     const roundActs = el('div', '', 'wal-round')
-    hero.append(greet, label, big, idRow, roundActs, split)
+    // Which money goes first, in one line (state.ts settleBuckets): earned, then topped up.
+    const splitNote = el('p', 'Spending uses earned money first. In-game dollars cannot be withdrawn.', 'wal-split-note')
+    hero.append(greet, label, big, idRow, roundActs, split, splitNote)
     sheetBody.replaceChildren(hero)
     const tick = window.setInterval(() => {
       if (ccSheet.hidden || sheetTitle.textContent !== 'Balance' || !big.isConnected) { clearInterval(tick); return }
