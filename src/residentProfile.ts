@@ -3,6 +3,9 @@
 // their persona (npcs.ts). Residents are city characters, not players, and the page says so. Nothing here shows
 // anyone's balance. Say hello and Gift are the same friendship actions as the small card had (town.ts).
 import { SKILL_META, type SkillId } from './logic.ts'
+import { TRACKS } from './careerData.ts'
+import { getSave } from './state.ts'
+import { nextMission, lockReason } from './worlds.ts'
 
 export type ResidentInfo = { name: string; trait: string; routine: string; doing: string; lines?: string[] }
 
@@ -28,6 +31,29 @@ const BIOS: Record<string, Bio> = {
 }
 const DEFAULT_BIO: Bio = { about: 'Lives and works in Grind District.', tags: ['Grind District'], courses: ['internet', 'wallets'] }
 export const bioFor = (trait: string): Bio => BIOS[trait] ?? DEFAULT_BIO
+
+/** Residents whose work is a career path mentor it: a short tip from that path, and the lesson to take next. */
+const MENTOR_TRACK: Record<string, string> = {
+  'Builder': 'building', 'Researcher': 'infofi', 'Designer': 'nfts', 'Founder': 'business', 'Analyst': 'trading',
+  'Community manager': 'jobs', 'Product designer': 'building', 'Content creator': 'content', 'Careful trader': 'trading',
+  'Community lead': 'daos', 'Security nerd': 'scams', 'Calm saver': 'defi', 'Smart-contract dev': 'building',
+  'Market maker': 'trading', 'Game designer': 'gaming',
+}
+export type Mentoring = { track: string; tip: string; next: SkillId | null; nextNote: string }
+/** What this resident mentors and what they would have you study next (from your own progress). */
+export function mentoringFor(trait: string, passed: (id: SkillId) => boolean = (id) => !!getSave().skills[id]?.passed): Mentoring | null {
+  const t = TRACKS.find((x) => x.id === MENTOR_TRACK[trait])
+  if (!t) return null
+  const tip = (t.lesson.match(/^[^.!?]+[.!?]/)?.[0] ?? t.lesson).trim()
+  // Their own courses first (open ones only), then the next mission on your Campus path.
+  const pool = [...bioFor(trait).courses, ...t.courses]
+  const open = pool.find((id) => !passed(id) && !lockReason(id))
+  if (open) return { track: t.title, tip, next: open, nextNote: 'Their pick for you' }
+  const mission = nextMission() ?? null
+  return { track: t.title, tip, next: mission, nextNote: mission ? 'Next on your Campus path' : 'You have passed every course they would set' }
+}
+/** Short label for the nearby card: "Mentor · Trading". */
+export const mentorLabel = (trait: string): string | null => { const t = TRACKS.find((x) => x.id === MENTOR_TRACK[trait]); return t ? `Mentor · ${t.title}` : null }
 
 const hash = (s: string): number => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h }
 /** A stable handle and standing for a resident, so the same person always shows the same page. */
@@ -67,6 +93,19 @@ export function openResidentProfile(r: ResidentInfo, o: { shot: string | null; f
   const you = el('div', '', 'rp-fact'); you.append(el('span', 'You and them'), el('b', '…')); facts.append(you)
   top.append(facts)
   card.append(top)
+  // Career mentor: one tip from their path and the lesson they would set you next, one tap away.
+  const m = mentoringFor(r.trait)
+  if (m) {
+    const box = el('div', '', 'rp-mentor')
+    box.append(el('p', `Career mentor · ${m.track}`, 'gm-kick'), el('p', m.tip, 'rp-mentor-tip'))
+    if (m.next) {
+      const row = el('div', '', 'rp-mentor-next')
+      row.append(el('span', `${m.nextNote}: ${SKILL_META[m.next]?.title ?? m.next}`))
+      const go = key('Start this lesson', 'gm-go', () => { close(); window.dispatchEvent(new CustomEvent('gd:course', { detail: m.next })) })
+      row.append(go); box.append(row)
+    } else box.append(el('p', m.nextNote, 'gm-sub'))
+    card.append(box)
+  }
   card.append(el('h4', 'About', 'rp-h'), el('p', bio.about, 'rp-about'))
   const tags = el('div', '', 'rp-tags'); for (const tg of bio.tags) tags.append(el('span', tg, 'rp-tag'))
   card.append(tags)

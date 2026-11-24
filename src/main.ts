@@ -1711,6 +1711,8 @@ const apiAgents = createRemoteAgents(scene)
     const c = document.createElement('div'); c.id = 'npc-card'; c.setAttribute('role', 'status')
     const h = document.createElement('strong'); h.textContent = `${n.name} · ${n.trait}`
     const d = document.createElement('div'); d.className = 'npc-doing'; d.textContent = n.doing
+    // Career mentors say so on the card: tap them for a tip and the lesson they would set you next.
+    void import('./residentProfile.ts').then((rp) => { const label = rp.mentorLabel(n.trait); if (label && c.isConnected) { const m = document.createElement('div'); m.className = 'npc-mentor'; m.textContent = `${label} · tap them for a tip`; h.after(m) } })
     const r = document.createElement('div'); r.className = 'npc-routine'; r.textContent = n.routine
     c.append(h, d, r); c.onclick = () => { c.remove(); if (npcCard === c) npcCard = null }
     // Friendship and the resident's own wallet (town.ts): say hello once a day, or bring a small gift.
