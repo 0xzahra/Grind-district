@@ -256,6 +256,13 @@
       "title": "Lessons: clearer pictures, trading terms, a line to remember",
       "body": "Lessons now open with their own illustrations instead of stock photos. Spot trading explains the trade screen, perps and futures, slippage, priority fees, market makers and arbitrage. Every lesson ends with one line to remember before the quick check.",
       "go": "panel:learn"
+    },
+    {
+      "id": "u1124-defi-bridge",
+      "title": "DeFi desk: Bridge and cross-chain in one place",
+      "body": "On the DeFi desk, Bridge now holds both moves: Same token (USDC on Base to USDC on Arbitrum) or Swap across chains (USDC on Base to SOL on Solana), with the difference explained in one tap. Swap and Bridge are tidier on phones.",
+      "go": "panel:trade",
+      "push": false
     }
   ]
 }

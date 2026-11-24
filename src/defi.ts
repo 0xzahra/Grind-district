@@ -288,7 +288,8 @@ export function vote(pid: string, choice: 'for' | 'against' | 'abstain'): R {
 
 // ---------------------------------------------------------------- the screen
 type Desk = 'wallet' | 'swap' | 'vaults' | 'bridge' | 'cross' | 'lend' | 'borrow' | 'dao'
-const DESKS: Array<[Desk, string]> = [['wallet', 'Wallet'], ['swap', 'Swap'], ['vaults', 'Vaults'], ['bridge', 'Bridge'], ['cross', 'Cross-chain'], ['lend', 'Lend'], ['borrow', 'Borrow'], ['dao', 'DAO']]
+// Cross-chain lives inside Bridge (one tab, two modes), so the two look as related as they are.
+const DESKS: Array<[Desk, string]> = [['wallet', 'Wallet'], ['swap', 'Swap'], ['vaults', 'Vaults'], ['bridge', 'Bridge'], ['lend', 'Lend'], ['borrow', 'Borrow'], ['dao', 'DAO']]
 const ui = { desk: 'wallet' as Desk, chain: 'base' as Chain, from: 'USDC' as Tok, to: 'ETH' as Tok, frac: 0.5, slip: 0.5, btok: 'USDC' as Tok, bfrom: 'base' as Chain, bto: 'arbitrum' as Chain, cfrom: 'base' as Chain, cin: 'USDC' as Tok, cto: 'solana' as Chain, cout: 'SOL' as Tok, ltok: 'ETH' as LendTok }
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n }
@@ -309,13 +310,26 @@ export function renderDefi(o: { done: (message: string) => void; live: (f: () =>
   { const s = load(); const news = settle(s); save(s); if (news.length) { result.textContent = news.join(' '); result.dataset.ok = 'true' } }
   const s = load()
   const tabs = h('div', 'df-tabs')
-  for (const [d, t] of DESKS) { const b = btn(t, `df-tab${ui.desk === d ? ' on' : ''}`, () => { ui.desk = d; redraw() }); b.setAttribute('aria-pressed', String(ui.desk === d)); tabs.append(b) }
+  for (const [d, t] of DESKS) { const on = ui.desk === d || (d === 'bridge' && ui.desk === 'cross'); const b = btn(t, `df-tab${on ? ' on' : ''}`, () => { ui.desk = d; redraw() }); b.setAttribute('aria-pressed', String(on)); tabs.append(b) }
   const top = h('div', 'df-top'), worth = h('b', 'df-worth'), sub = h('small', '', 'Practice DeFi wallet · real prices · in-game money')
   top.append(h('span', 'df-k', 'Wallet value'), worth, sub)
   o.live(() => { worth.textContent = money(netWorth()) })
   root.append(top, tabs)
   const body = h('div', 'df-body')
   const fracs = (now: number, set: (f: number) => void) => pick('Amount', [['0.25', '25%'], ['0.5', '50%'], ['1', 'Max']], String(now) as '0.25' | '0.5' | '1', (v) => set(Number(v)))
+  // Longer explanations fold away under one line, so each tab leads with the choices.
+  const explain = (lead: string, more: string[]) => { const d = h('details', 'df-explain'); d.append(h('summary', '', lead)); for (const m of more) d.append(h('p', '', m)); return d }
+  // Bridge and cross-chain side by side: same token to another chain, or a different token on another chain.
+  const moveMode = () => {
+    const row = h('div', 'df-mode')
+    row.append(pick('Move', [['bridge', 'Same token'], ['cross', 'Swap across chains']], ui.desk === 'cross' ? 'cross' : 'bridge', (v) => { ui.desk = v as Desk; redraw() }))
+    row.append(explain('Bridge or cross-chain: what is the difference?', [
+      'Bridge: the same token moves to another chain. USDC on Base becomes USDC on Arbitrum. Official rollup bridges are the safest; going back to Ethereum waits out a challenge window.',
+      'Cross-chain swap: you send one token and receive a different one on another chain, in one step. USDC on Base becomes SOL on Solana. A solver does the swap and the move for a fee.',
+      'Use a bridge when you want the same coin somewhere else; use a cross-chain swap when you also want a different coin.',
+    ]))
+    return row
+  }
   const quote = (lines: Array<[string, string]>) => { const dl = h('dl', 'xch-preview'); for (const [k, v] of lines) dl.append(h('dt', '', k), h('dd', '', v)); return dl }
   const chainOpts = (list: Chain[] = CHAIN_IDS): Array<[Chain, string]> => list.map((c) => [c, CHAINS[c].name])
   const tokOpts = (c: Chain): Array<[Tok, string]> => CHAINS[c].toks.map((t) => [t, t])
@@ -348,7 +362,7 @@ export function renderDefi(o: { done: (message: string) => void; live: (f: () =>
     const amount = usable(s, ui.chain, ui.from, ui.frac)
     const q = swapQuote(amount, px(ui.from), px(ui.to), CHAINS[ui.chain].depth)
     body.append(
-      h('p', 'xch-note', 'A DEX: you trade against a pool of two tokens. Bigger trades move the pool\'s price more (price impact); slippage tolerance is the worst rate you accept before the swap reverts.'),
+      explain('Swap one token for another on the same chain', ['A DEX: you trade against a pool of two tokens. Bigger trades move the pool\'s price more (price impact).', 'Slippage tolerance is the worst rate you accept before the swap cancels itself; the minimum received below is that floor.']),
       pick('Chain', chainOpts(), ui.chain, (v) => { ui.chain = v; redraw() }),
       pick('You pay', tokOpts(ui.chain), ui.from, (v) => { ui.from = v; redraw() }),
       pick('You get', tokOpts(ui.chain).filter(([t]) => t !== ui.from), ui.to, (v) => { ui.to = v; redraw() }),
@@ -382,7 +396,7 @@ export function renderDefi(o: { done: (message: string) => void; live: (f: () =>
     if (!okChains.includes(ui.bto) || ui.bto === ui.bfrom) ui.bto = okChains.find((c) => c !== ui.bfrom)!
     const r = bridgeRoute(ui.bfrom, ui.bto, ui.btok), amount = usable(s, ui.bfrom, ui.btok, ui.frac)
     body.append(
-      h('p', 'xch-note', 'A bridge moves the same token from one chain to another. Official rollup bridges are the safest; withdrawals back to Ethereum wait out a challenge window.'),
+      moveMode(),
       pick('Token', pairs.map((t) => [t, t] as [Tok, string]), ui.btok, (v) => { ui.btok = v; redraw() }),
       pick('From', chainOpts(okChains), ui.bfrom, (v) => { ui.bfrom = v; redraw() }),
       pick('To', chainOpts(okChains.filter((c) => c !== ui.bfrom)), ui.bto, (v) => { ui.bto = v; redraw() }),
@@ -398,7 +412,7 @@ export function renderDefi(o: { done: (message: string) => void; live: (f: () =>
     const r = crossRoute(ui.cfrom, ui.cto, ui.cin, ui.cout), amount = usable(s, ui.cfrom, ui.cin, ui.frac)
     const getUsd = r ? amount * px(ui.cin) * (1 - r.feePct / 100) - r.feeUsd : 0
     body.append(
-      h('p', 'xch-note', 'Cross-chain: send one token on one chain and receive a different token on another, in one step. A solver fills your order on the far side.'),
+      moveMode(),
       pick('From chain', chainOpts(), ui.cfrom, (v) => { ui.cfrom = v; redraw() }),
       pick('You send', tokOpts(ui.cfrom), ui.cin, (v) => { ui.cin = v; redraw() }),
       pick('To chain', chainOpts(CHAIN_IDS.filter((c) => c !== ui.cfrom)), ui.cto, (v) => { ui.cto = v; redraw() }),
