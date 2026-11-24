@@ -4449,3 +4449,17 @@ html body #sheet .sheet-card .cert-list button.cert-chip { color: #f3e2b8 !impor
 .skill-world-head span { color: rgba(245, 245, 247, 0.6); font-variant-numeric: tabular-nums; }
 .skill-world.done .skill-world-head strong { color: #8ff0bd; }
 .skill-world-list { font-size: 12px !important; margin: 0 !important; }
+
+/* At the wheel: Horn, Brake and Gas beside the steering stick (the stick steers). Big, thumb-sized keys. */
+#drive-pedals { position: fixed; z-index: 6; left: max(14px, env(safe-area-inset-left)); bottom: calc(max(18px, env(safe-area-inset-bottom)) + 4px); display: grid; grid-template-columns: 74px 74px; grid-template-rows: auto 74px; gap: 10px; user-select: none; -webkit-user-select: none; touch-action: none; }
+#drive-pedals[hidden] { display: none; }
+body.sheet-open #drive-pedals { display: none; }
+.drive-key { border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(10, 14, 13, 0.72); color: #f5f5f7; font-weight: 800; font-size: 15px; letter-spacing: 0.01em; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); touch-action: none; -webkit-tap-highlight-color: transparent; }
+.drive-key.on { transform: scale(0.95); filter: brightness(1.25); }
+.drive-horn { grid-column: 1 / -1; height: 40px; border-radius: 999px; font-size: 13px; color: #f3e2b8; }
+.drive-brake { background: linear-gradient(180deg, rgba(196, 52, 52, 0.85), rgba(120, 24, 24, 0.9)); }
+.drive-gas { background: linear-gradient(180deg, rgba(36, 214, 128, 0.92), rgba(14, 140, 80, 0.95)); color: #04170d; }
+/* Auto-drive: where the car is taking you, and Stop. */
+#auto-drive { position: fixed; z-index: 7; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 130px); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px; background: rgba(8, 12, 11, 0.86); border: 1px solid rgba(46, 230, 138, 0.45); color: #f5f5f7; font-size: 13.5px; font-weight: 600; max-width: calc(100vw - 32px); }
+#auto-drive[hidden] { display: none; }
+#auto-drive .auto-stop { border-radius: 999px; padding: 6px 12px; background: rgba(255, 255, 255, 0.12); color: #fff; border: 0; font-weight: 700; }

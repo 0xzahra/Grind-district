@@ -1,5 +1,6 @@
 import { nextMission } from './worlds.ts'
 import { step as journeyStep } from './journey.ts'
+import { createDriveUi } from './drive.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { nearWalletChip } from './nearWallet.ts'
@@ -761,6 +762,13 @@ const apiAgents = createRemoteAgents(scene)
     window.setTimeout(() => { done(); card.classList.remove('in'); window.setTimeout(() => card.remove(), 400) }, ms)
   })
   const travelTo = (spot: Hotspot, then?: () => void) => {
+    // At the wheel of a car in the city: drive there by itself instead of jumping (places beyond the city's
+    // roads, and a route that cannot be found, still travel the usual way).
+    if (ride && ride.driving && ride.kind === 'car' && ride.mode === 'free' && !interiors.inside && Math.max(Math.abs(spot.x), Math.abs(spot.z)) < CITY_LIMIT - 1) {
+      const len0 = Math.hypot(spot.x, spot.z) || 1, back = Math.min(3, len0)
+      const dest = { x: spot.x - (spot.x / len0) * back, z: spot.z - (spot.z / len0) * back }
+      if (drive.autoTo(spot.title, dest, { x: ride.x, z: ride.z }, world.obstacles, CITY_LIMIT - 1)) { ui.close(); setCCRef?.(false); return }
+    }
     if (interiors.inside) leaveRoom()
     const len = Math.hypot(spot.x, spot.z) || 1
     const step = Math.min(2.4, len)
@@ -2086,6 +2094,10 @@ const apiAgents = createRemoteAgents(scene)
   const HARBOUR = { x: 36, z: -44.6 }
   const RACEWAY_DOOR = { x: -12, z: 53.4 }
   const DRIVABLE = ['cityhatch', 'familysedan', 'saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
+  const drive = createDriveUi((m) => ui.toast(m), (t) => ui.toast(`You are at ${t}. Tap Get out when you are ready.`))
+  // Gas, Brake and Horn show while you are at the wheel (a car or the boat), and go when you step out.
+  let pedalsShown = false
+  window.setInterval(() => { const want = !!(ride && ride.driving); if (want !== pedalsShown) { pedalsShown = want; drive.show(want) } }, 200)
   const rideSpot: Hotspot = { id: '__ride__', x: 0, z: 0, r: 99, title: '', body: 'Stick up to go, back to brake, left and right to steer.', enter: 'Get out', use: () => endRide() }
   const parkedSpot: Hotspot = { id: '__parked__', x: 0, z: 0, r: 3.4, title: 'Your car', body: 'Parked. Take the wheel any time.', enter: 'Drive', use: () => takeWheel() }
   const bestOwnedCar = () => {
@@ -2713,7 +2725,8 @@ const apiAgents = createRemoteAgents(scene)
       // At the wheel: the stick drives, taps on the ground do nothing, the body stays in the car.
       rideBlockers.length = 0
       rideBlockers.push(...world.obstacles, ...crowdObstacles)
-      ride.step(dt, paused || busyFor > 0 ? null : { x: frame.x, y: frame.y }, rideBlockers, world.obstacles)
+      // The stick steers; the Gas and Brake keys (and auto-drive, when a place was picked on the map) drive.
+      ride.step(dt, paused || busyFor > 0 ? null : drive.input({ x: frame.x, y: frame.y }, ride, 16, dt), rideBlockers, world.obstacles)
       pos.x = ride.x; pos.z = ride.z
       vel.x = 0; vel.z = 0
       moving = Math.abs(ride.speed) > 0.5

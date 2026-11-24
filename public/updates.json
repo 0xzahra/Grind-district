@@ -186,6 +186,12 @@
       "title": "Skits up to 10 minutes, saved in full",
       "body": "Record a skit for up to 10 minutes and the whole take is kept, start to finish, and plays back at its full length in My Gallery. Long enough for TikTok, Reels and X.",
       "go": "gallery"
+    },
+    {
+      "id": "u1124-drive-keys",
+      "title": "Gas, Brake, Horn and auto-drive",
+      "body": "At the wheel you now have Gas, Brake and Horn keys beside the steering stick (Space brakes and H honks on a keyboard). In your own car, pick any place on the map and the car drives you there by itself; touch the stick or a pedal to take the wheel back.",
+      "go": "panel:dealer"
     }
   ]
 }
