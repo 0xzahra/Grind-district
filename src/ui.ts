@@ -675,7 +675,9 @@ export function mountUi(
         }
         if (passed && nearPassportOn()) wrap.append(nearPassportPanel(id, passed))
         // Bite-size cards (one or two sentences, large type) instead of a wall of small text.
-        const cards = biteCards(course.paragraphs)
+        // The last card is the one line to keep (the same line your CV gets): easier to remember than a paragraph.
+        const keep = SKILL_META[id].cv.split(' — ')[1]
+        const cards = [...biteCards(course.paragraphs), ...(keep ? [`Remember this: ${keep.charAt(0).toUpperCase()}${keep.slice(1)}.`] : [])]
         const sources = course.paragraphs.find((p) => /^Sources?:/i.test(p.trim()))
         const cardBox = document.createElement('div')
         cardBox.className = 'bite'

@@ -21,13 +21,17 @@ export type Course = {
 const BASE_COURSES: Course[] = [
   {
     id: 'spot',
-    minutes: '8 min',
+    minutes: '11 min',
     paragraphs: [
       'A spot trade is a trade for the asset itself, for delivery now, at the price someone will actually deal. When a buy of a coin fills on the spot desk, you hold that coin. A futures or perpetual contract is a different instrument: it can give you price exposure without handing you the asset.',
       'The bid is the highest price a buyer will pay. The ask, or offer, is the lowest price a seller will accept. The spread is ask minus bid. Crossing it is a cost before any fee. A tight spread usually means a deeper book. A wide spread means it costs more to get in or out, which is common when few people are quoting.',
       'The spot price is the price for that immediate trade. It moves as orders fill. A market order takes the quotes that are already there, so a large order in a thin book can fill at worse prices as it walks up the offers. That gap between the price you saw and the price you got is slippage. A limit order waits for your price or better, and it can also wait forever.',
+      'Reading the trade screen: the chart is made of candles, each one a slice of time with its open, high, low and close. Green closed higher than it opened, red lower. Cash is what you can spend, Held is what you own, and Open P&L is your profit or loss if you sold right now at the market price, before fees.',
+      'Futures and perpetuals ("perps") are contracts on the price, not the coin. A future has an expiry date. A perp never expires; a small funding payment between buyers and sellers every few hours keeps its price near spot. Both use leverage: at 10x, a 10% move against you wipes out your margin. That is liquidation.',
+      'On a DEX you set two more things. Slippage tolerance is the worst price move you will accept before the swap cancels itself. A priority fee is a tip to the network, paid on top of the normal fee, so your transaction is picked up sooner when the chain is busy. A bigger tip buys speed, not a better price.',
+      'Market makers are traders and firms that quote a bid and an ask all day, earning the spread for keeping the book easy to trade. Arbitrage is buying where a coin is cheaper and selling where it is dearer at the same moment. Arbitrage traders are why the same coin costs almost the same on every exchange.',
       'On this street the book is practice coins and tokens. Owning the clip is not the same thing as being right about the next mark. Size it before you care about the story.',
-      'Sources: Investopedia, spot market and bid-ask spread; Crypto.com, spot ownership versus a futures contract.',
+      'Sources: Investopedia, spot market, bid-ask spread, market makers and arbitrage; Crypto.com, spot ownership versus a futures contract; ethereum.org, gas and priority fees.',
     ],
     questions: [
       {

@@ -3,7 +3,6 @@
 // with rims, bevels and highlights, a floor shadow, and a few sparkles. Each picture says what the course is about:
 // a candlestick chart for spot trading, a vault door for custody, a baited hook for scams, a trophy for a final check.
 import type { SkillId } from './logic.ts'
-import { COURSE_PHOTOS } from './coursePhotos.ts'
 
 type Stop = [number, string, number?]
 let seq = 0
@@ -386,16 +385,9 @@ const TRACK_ART: Record<string, SkillId> = {
 export function careerArt(track: string, cls = 'cr-art'): HTMLElement { return courseArt(TRACK_ART[track] ?? 'useCases', cls) }
 
 /** A real photo or diagram for the course (Wikimedia Commons, credited under it); the drawn art when there is none. */
+/** The picture at the top of a lesson: the course's own original illustration (the same art as its Campus
+ *  card), drawn for the topic. Stock photos from Wikimedia (an old AOL CD, a bank's phishing email) read as
+ *  placeholders, so lessons no longer use them. */
 export function courseVisual(id: SkillId, cls = 'lx-hero'): HTMLElement {
-  const p = COURSE_PHOTOS[id]
-  if (!p) return courseArt(id, cls)
-  const fig = document.createElement('figure'); fig.className = 'lx-photo'
-  const img = document.createElement('img')
-  img.src = `/img/courses/${id}.webp`; img.alt = p.alt; img.loading = 'lazy'; img.decoding = 'async'
-  img.onerror = () => fig.replaceWith(courseArt(id, cls))
-  const cap = document.createElement('figcaption'); cap.dataset.noI18n = ''
-  const a = document.createElement('a'); a.href = p.page; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Wikimedia Commons'
-  cap.append(`${p.author ? `${p.author} · ` : ''}${p.license} · `, a)
-  fig.append(img, cap)
-  return fig
+  return courseArt(id, cls)
 }

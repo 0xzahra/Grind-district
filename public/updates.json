@@ -250,6 +250,12 @@
       "body": "Unit 4, the city's labelled AI agent, stops and turns to greet you when you walk up. Ask it what agents are, how many are in the city right now, and jump to the AI agents lesson.",
       "go": "place:Grind Ring",
       "push": false
+    },
+    {
+      "id": "u1124-lessons-art-terms",
+      "title": "Lessons: clearer pictures, trading terms, a line to remember",
+      "body": "Lessons now open with their own illustrations instead of stock photos. Spot trading explains the trade screen, perps and futures, slippage, priority fees, market makers and arbitrage. Every lesson ends with one line to remember before the quick check.",
+      "go": "panel:learn"
     }
   ]
 }
