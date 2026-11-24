@@ -4475,4 +4475,8 @@ body.sheet-open #drive-pedals { display: none; }
 #cc-sheet-body .wal-tx { min-width: 0; grid-template-columns: 38px minmax(0, 1fr) auto; }
 #cc-sheet-body .wal-tx div { min-width: 0; overflow: hidden; }
 #cc-sheet-body .wal-tx div b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* At the wheel the speed chip and the trip chip say what matters; the Next step pill waits until you step out. */
+body.riding .goal-pill { display: none !important; }
+/* Calm: a notification banner steps aside while a panel, a menu sheet or Zahra's card is open. */
+body.sheet-open .note-banner:not(.pt-banner), body.cc-sheet-on .note-banner:not(.pt-banner), body.mentor-on .note-banner:not(.pt-banner) { display: none; }
 .wal-split-note { margin: 8px 4px 0; font-size: 12px; line-height: 1.35; color: rgba(16, 40, 30, 0.7); text-align: center; }

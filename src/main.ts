@@ -1469,7 +1469,12 @@ const apiAgents = createRemoteAgents(scene)
   const menuCount = document.createElement('span'); menuCount.className = 'cc-count'; menuCount.hidden = true; railToggle.append(menuCount)
   let banner: HTMLElement | null = null, bannerTimer = 0, seenUnread = -1
   const openNotes = () => { setCC(true); openSheet('Notifications', renderNotes) }
+  // Calm: the banner waits until nothing else is on screen (a panel, a menu sheet, Zahra's card), then shows
+  // for five seconds. It never lands on top of something the player is reading.
+  let bannerWait = 0
   const showBanner = (n: number) => {
+    const busy = document.body.classList.contains('sheet-open') || document.body.classList.contains('cc-sheet-on') || document.body.classList.contains('mentor-on') || !!document.getElementById('cert-dlg') || !!document.getElementById('gd-modal')
+    if (busy) { window.clearTimeout(bannerWait); bannerWait = window.setTimeout(() => { const now = unreadCount(); if (now > 0) showBanner(now) }, 4000); return }
     banner?.remove(); window.clearTimeout(bannerTimer)
     const first = getNotes().find((x) => !x.read)
     const b = document.createElement('button'); b.type = 'button'; b.className = 'note-banner'
@@ -1482,7 +1487,7 @@ const apiAgents = createRemoteAgents(scene)
     b.onclick = () => { b.remove(); banner = null; openNotes() }
     document.body.append(b); banner = b
     requestAnimationFrame(() => b.classList.add('in'))
-    bannerTimer = window.setTimeout(() => { b.classList.remove('in'); window.setTimeout(() => { b.remove(); if (banner === b) banner = null }, 400) }, 7000)
+    bannerTimer = window.setTimeout(() => { b.classList.remove('in'); window.setTimeout(() => { b.remove(); if (banner === b) banner = null }, 400) }, 5000)
   }
   // Prayer reminders (prayer.ts, opt-in on the Masjid card): the same banner, with the crescent; tap for the times.
   startPrayerReminders((title, line) => {
