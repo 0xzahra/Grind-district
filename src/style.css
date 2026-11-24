@@ -4433,3 +4433,19 @@ html body #nav.cc #cc-streak .cc-claim:active { translate: 0 2px; box-shadow: in
 
 /* Title card: what a player walks out with reads as a promise, not fine print. */
 html body #menu #menu-home .title-desc { text-transform: none !important; letter-spacing: 0 !important; font-size: 13.5px !important; font-weight: 600 !important; color: #e9cd8f !important; line-height: 1.35 !important; max-width: 230px; margin: 8px auto 10px !important; text-wrap: balance; }
+
+/* Profile proof strip: what the player has done comes first, with the two things worth sharing. */
+.proof-strip { display: grid; gap: 12px; margin: 4px 0 6px; padding: 14px; border-radius: 16px; background: linear-gradient(180deg, rgba(46, 230, 138, 0.10), rgba(46, 230, 138, 0.03)); border: 1px solid rgba(46, 230, 138, 0.28); }
+.proof-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.proof-stat strong { display: block; font-size: 26px; line-height: 1.1; font-weight: 800; color: #f5f5f7; font-variant-numeric: tabular-nums; }
+.proof-stat span { display: block; margin-top: 2px; font-size: 12px; color: rgba(245, 245, 247, 0.66); }
+.proof-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.proof-acts > button:only-child { grid-column: 1 / -1; }
+html body #sheet .sheet-card .cert-list button.cert-chip { color: #f3e2b8 !important; }
+/* Skills: one row per Campus world with its progress. */
+.skill-worlds { display: grid; gap: 10px; }
+.skill-world { display: grid; gap: 6px; }
+.skill-world-head { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.skill-world-head span { color: rgba(245, 245, 247, 0.6); font-variant-numeric: tabular-nums; }
+.skill-world.done .skill-world-head strong { color: #8ff0bd; }
+.skill-world-list { font-size: 12px !important; margin: 0 !important; }

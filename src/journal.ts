@@ -24,6 +24,8 @@ export function journalLines(activities: Act[], now = Date.now()): JournalLine[]
   const today = activities
     .filter((a) => a && a.at >= start.getTime() && a.at <= now + 60_000)
     .filter((a) => !isWalletActivity({ kind: a.kind, label: a.label, detail: a.detail }) && !/\$|\d+\s*(usd|usdc|near|eth)\b/i.test(a.label))
+    // The pass itself is the proof; its reputation entry would only repeat it ("Reputation: course passed ×3").
+    .filter((a) => !/^Reputation: course passed/i.test(a.label.trim()))
     .sort((x, y) => x.at - y.at)
   const out: JournalLine[] = []
   const seen = new Map<string, { line: JournalLine; n: number }>()
@@ -50,8 +52,9 @@ export function journalCloser(lines: JournalLine[]): string {
 
 /** The text for a post: the day's first lines, the closer and the invite link (fits one post on X). */
 export function journalPost(lines: JournalLine[], link: string): string {
-  const head = 'A day in my Web3 life in Grind District 🏙️'
-  const body = lines.slice(0, 4).map((l) => `• ${l.text}`)
+  const passes = lines.filter((l) => l.kind === 'skill' && /^Passed /.test(l.text)).length
+  const head = passes ? `Passed ${passes} Web3 course${passes === 1 ? '' : 's'} today in Grind District ✓` : 'A day in my Web3 life in Grind District 🏙️'
+  const body = [...lines.filter((l) => l.kind === 'skill'), ...lines.filter((l) => l.kind !== 'skill')].slice(0, 4).map((l) => `• ${l.text}`)
   const compose = () => [head, '', ...body, '', journalCloser(lines)].join('\n')
   // X counts a link as 23 characters; keep the whole post within 280.
   while (compose().length + 24 > 280 && body.length > 1) body.pop()
@@ -73,6 +76,7 @@ function wrap(g: CanvasRenderingContext2D, text: string, maxW: number): string[]
 export async function drawJournal(now = Date.now()): Promise<HTMLCanvasElement> {
   const s = getSave()
   const lines = journalLines(s.activities as Act[], now)
+  const passedToday = lines.filter((l) => l.kind === 'skill' && /^Passed /.test(l.text)).length
   const c = document.createElement('canvas'); c.width = W; c.height = H
   const g = c.getContext('2d')!
   try { await document.fonts.load(`800 40px "Inter Variable"`) } catch { /* system font */ }
@@ -90,8 +94,10 @@ export async function drawJournal(now = Date.now()): Promise<HTMLCanvasElement> 
   g.textBaseline = 'alphabetic'; g.textAlign = 'left'
   g.fillStyle = '#06ee74'; g.font = `700 26px ${F}`
   const date = new Date(now).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()
-  g.fillText(date, X, 236)
-  g.fillStyle = '#f7f3ea'; g.font = `800 66px ${F}`; g.fillText('A day in my Web3 life', X, 312)
+  g.fillText(passedToday ? `${date}  ·  A DAY IN MY WEB3 LIFE` : date, X, 236)
+  // Lead with what the player did: courses passed today make the headline; otherwise the day itself.
+  const headline = passedToday ? `Passed ${passedToday} course${passedToday === 1 ? '' : 's'} today` : 'A day in my Web3 life'
+  g.fillStyle = '#f7f3ea'; g.font = `800 66px ${F}`; g.fillText(headline, X, 312)
   const who = `${s.name || 'Player'}${s.username ? `  ·  @${s.username}` : ''}  ·  ${rankFor(s.xp).label}`
   g.fillStyle = '#b9c3bc'; g.font = `600 28px ${F}`; g.fillText(who, X, 362)
   // The day, first thing to last.
@@ -105,11 +111,14 @@ export async function drawJournal(now = Date.now()): Promise<HTMLCanvasElement> 
   if (lines.length) { g.fillText('TODAY', X, y); y += 52 }
   let shown = 0
   g.font = `500 36px ${F}`
-  for (const l of lines) {
+  // Passes first (the proof), then the rest of the day in order.
+  const ordered = [...lines.filter((l) => l.kind === 'skill'), ...lines.filter((l) => l.kind !== 'skill')]
+  for (const l of ordered) {
     const parts = wrap(g, l.text, W - X * 2 - 40)
     if (y + (parts.length - 1) * 48 > maxY) break
     for (const [i, t] of parts.entries()) {
-      if (!i) { g.fillStyle = '#06ee74'; g.beginPath(); g.arc(X + 8, y - 12, 6, 0, Math.PI * 2); g.fill() }
+      if (!i && l.kind === 'skill') { g.fillStyle = '#06ee74'; g.font = `800 30px ${F}`; g.fillText('✓', X - 2, y); g.font = `500 36px ${F}` }
+      else if (!i) { g.fillStyle = '#06ee74'; g.beginPath(); g.arc(X + 8, y - 12, 6, 0, Math.PI * 2); g.fill() }
       g.fillStyle = i ? '#dfe6e1' : '#f7f3ea'; g.fillText(t, X + 32, y); y += 48
     }
     y += 8; shown += 1

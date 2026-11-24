@@ -11,7 +11,7 @@ import { SKILL_META, SKILL_ORDER, money } from './logic.ts'
 import { nextMission } from './worlds.ts'
 import { adjust, needs, NEEDS } from './needs.ts'
 import { getBirthday, upcoming } from './calendar.ts'
-import { note as personaNote, personaBrief } from './persona.ts'
+import { note as personaNote } from './persona.ts'
 import type { Obstacle } from './physics.ts'
 
 export type RoleId = 'help' | 'chef' | 'pa' | 'driver' | 'guard' | 'gardener'
@@ -296,10 +296,9 @@ function openBrief(h: Hire): void {
   }
   const hol = upcoming(10)[0]
   if (hol) lines.push(`Coming up: ${hol.h.name} on ${hol.date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })}.`)
-  lines.push(...personaBrief())
   const ul = el('ul', '', 'gm-brief')
   for (const l of lines) ul.append(el('li', l))
   const keys = el('div', '', 'gm-keys')
-  keys.append(key2('My personality', 'gm-go', () => { close(); hooks.openPanel('profile') }), key2(next ? 'Go to Campus' : 'Close', 'gm-ghost', () => { close(); if (next) hooks.openPanel('learn') }))
+  keys.append(key2('My CV', 'gm-go', () => { close(); hooks.openPanel('profile') }), key2(next ? 'Go to Campus' : 'Close', 'gm-ghost', () => { close(); if (next) hooks.openPanel('learn') }))
   card.append(ul, keys)
 }

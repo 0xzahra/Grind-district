@@ -1,5 +1,5 @@
 import { itemPic } from './itemPics.ts'
-import { personaNodes, note as personaNote } from './persona.ts'
+import { note as personaNote } from './persona.ts'
 import { getMorph, setMorph, HAIRS, SKIN_TONES } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
@@ -8,7 +8,7 @@ import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { renderCvPaper, printCv } from './cvPaper.ts'
-import { lockReason, worldOf } from './worlds.ts'
+import { lockReason, worldOf, WORLDS, worldDone } from './worlds.ts'
 import { equippedFrame } from './career.ts'
 // Signed-in players: the look saves to the account through the existing profile upsert (debounced).
 let lookTimer = 0
@@ -428,11 +428,30 @@ export function mountUi(
     markPlate(plate)
     hero.append(plate, renderBadges())
     const certIds = (Object.keys(save.skills) as SkillId[]).filter((k) => save.skills[k]?.passed)
+    // Proof first: what this player has done, in three numbers, with the two things worth sharing one tap away.
+    const proof = document.createElement('div')
+    proof.className = 'proof-strip'
+    {
+      const worldsDone = WORLDS.filter((w) => worldDone(w.n)).length
+      const stat = (n: number, label: string) => { const d = document.createElement('div'); d.className = 'proof-stat'; const b = document.createElement('strong'); b.textContent = String(n); const t = document.createElement('span'); t.textContent = label; d.append(b, t); return d }
+      const nums = document.createElement('div'); nums.className = 'proof-nums'
+      nums.append(stat(certIds.length, certIds.length === 1 ? 'course passed' : 'courses passed'), stat(certIds.length, certIds.length === 1 ? 'certificate' : 'certificates'), stat(worldsDone, worldsDone === 1 ? 'world finished' : 'worlds finished'))
+      proof.append(nums)
+      const acts = document.createElement('div'); acts.className = 'proof-acts'
+      if (certIds.length) {
+        const latest = [...certIds].reverse().find(Boolean)!
+        acts.append(button('Share my CV', 'primary', () => void shareCv().then((r) => toast(r === 'copied' ? 'CV link copied.' : r === 'shared' ? 'CV shared.' : 'Could not share just now.'))))
+        acts.append(button('Latest certificate', 'ghost', () => void openCertificate(latest)))
+      } else {
+        acts.append(button('Pass your first course', 'primary', () => open('learn')))
+      }
+      proof.append(acts)
+    }
     // The core loop's payoff comes first: the CV and its certificates, right under the name card. The CV opens by
     // itself the first time a player comes to see their first course on it.
-    const cvFold = fold('CV', cvFirst && certIds.length > 0, (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length >= 3) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (certIds.length < 3) wrap.append(para(`Pass ${3 - certIds.length} more course${certIds.length === 2 ? '' : 's'} to unlock your shareable CV page.`, 'muted')); return wrap })())
+    const cvFold = fold('CV', cvFirst && certIds.length > 0, (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (!certIds.length) wrap.append(para('Pass a course on Campus and it goes on your CV, with a page you can share.', 'muted')); return wrap })())
     // Certificates sit with the CV they belong to.
-    const certFold = fold('Certificates', false, (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(SKILL_META[id].title, 'ghost', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })())
+    const certFold = fold('Certificates', false, (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(`✓ ${SKILL_META[id].title}`, 'ghost cert-chip', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })())
     // Certificates minted on NEAR are read back from the chain and marked Verified (CV, list, nameplate).
     if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(cvFold); void m.markVerified(certFold) })
     const share = document.createElement('div')
@@ -465,13 +484,26 @@ export function mountUi(
       // Referrals: link opens, friends who joined and how far they got, rewards to collect, top inviters.
       referralNodes({ para, button }, (m) => toast(m)),
     )
-    // Your Web3 personality: traits, roles and niche read from how you play (persona.ts).
-    let persona: HTMLElement
-    try { persona = personaNodes({ para, button }, (m) => toast(m)) } catch { persona = document.createElement('div') }
+    // Skills: the worlds of Campus and how far this player is through each (replaces the personality reading).
+    const skills = document.createElement('div')
+    skills.className = 'skill-worlds'
+    for (const w of WORLDS) {
+      const ids = [...w.missions, ...(w.boss ? [w.boss] : []), ...(w.extra?.missions ?? [])]
+      const got = ids.filter((id) => save.skills[id]?.passed).length
+      const row = document.createElement('div'); row.className = `skill-world${got === ids.length ? ' done' : ''}`
+      const head = document.createElement('div'); head.className = 'skill-world-head'
+      const t = document.createElement('strong'); t.textContent = `${got === ids.length ? '✓ ' : ''}World ${w.n} · ${w.title}`
+      const n = document.createElement('span'); n.textContent = `${got}/${ids.length}`
+      head.append(t, n)
+      const bar = document.createElement('div'); bar.className = 'bar'; const f = document.createElement('div'); f.className = 'bar-fill'; f.style.width = `${Math.round((got / ids.length) * 100)}%`; bar.append(f)
+      row.append(head, bar)
+      if (got && got < ids.length) row.append(para(ids.filter((id) => save.skills[id]?.passed).map((id) => SKILL_META[id].title).join(' · '), 'muted skill-world-list'))
+      skills.append(row)
+    }
     const card = frame(save.name, stack(
-      hero, cvFold, certFold,
+      hero, proof, cvFold, certFold,
+      fold('Skills', certIds.length > 0, skills),
       fold('Today: balance, streak and quests', false, renderToday(save)),
-      foldOwn(persona, 'Your Web3 personality'),
       foldOwn(renderLuxury(), 'Status & unlocks'),
       fold('Birthday and calendar', false, renderCalendar()),
       fold('Books', false, renderBooks()),
