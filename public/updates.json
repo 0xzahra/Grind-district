@@ -276,6 +276,12 @@
       "body": "Zahra at Campus now waves when you say hello, points out what she shows you on the tour, and nods and gestures while she talks, in every language.",
       "go": "place:Campus",
       "push": false
+    },
+    {
+      "id": "u1124-graduation-garden",
+      "title": "New: the Graduation Garden at Campus",
+      "body": "The lawns in front of Campus now grow a banner each time players across the city pass a milestone of courses. The board shows how many courses everyone has passed so far and when the next banner goes up.",
+      "go": "place:Campus"
     }
   ]
 }

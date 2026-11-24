@@ -2,6 +2,7 @@ import { nextMission } from './worlds.ts'
 import { step as journeyStep } from './journey.ts'
 import { createDriveUi, nearestRoad, planRoute } from './drive.ts'
 import { talkGestures } from './gestures.ts'
+import { createGarden } from './cityGrowth.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { nearWalletChip } from './nearWallet.ts'
@@ -302,6 +303,8 @@ const apiAgents = createRemoteAgents(scene)
   performance.mark('gd:crowd-agents')
   const physSky = createPhysicalSky(scene)
   createEstate(scene, { graphics: getSave().graphics, obstacles: world.obstacles, hotspots: world.hotspots, toast: (m) => ui.toast(m) })
+  // The Graduation Garden at Campus grows a banner at each city-wide milestone of courses passed (see cityGrowth.ts).
+  const garden = createGarden(scene, { graphics: getSave().graphics, obstacles: world.obstacles, hotspots: world.hotspots, toast: (m) => ui.toast(m) })
   const beach = createBeach(scene, getSave().graphics)
   const ambient = createAmbient(scene, world.obstacles, window.matchMedia('(pointer: coarse)').matches)
   const watch = createWatch(scene, getSave().graphics === 'low' ? 1 : 3)
@@ -1593,6 +1596,7 @@ const apiAgents = createRemoteAgents(scene)
   const loadOnlineStats = async () => {
     const raw = await fetch('/api/track?op=stats').then((r) => r.ok ? r.json() : null).catch(() => null)
     const st = isPublicStats(raw) ? raw : lastStats
+    if (isPublicStats(raw)) garden.set(raw.lessonsPassed, raw.certificates)
     if (st) { lastStats = st; activeToday = st.activeToday; visitorsAll = st.visitorsAll ?? 0; paintChip() }
     if (!onlineCard.hidden) paintOnlineCard(st)
   }
