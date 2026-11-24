@@ -4475,6 +4475,12 @@ body.sheet-open #drive-pedals { display: none; }
 #cc-sheet-body .wal-tx { min-width: 0; grid-template-columns: 38px minmax(0, 1fr) auto; }
 #cc-sheet-body .wal-tx div { min-width: 0; overflow: hidden; }
 #cc-sheet-body .wal-tx div b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Trade: P2P currency picker. */
+.xch-fiat { min-height: 40px; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); color: #f5f5f7; border: 1px solid rgba(255, 255, 255, 0.14); font: inherit; font-size: 14px; }
+.xch-fiat option { background: #121715; color: #f5f5f7; }
+/* Trade: type an exact amount (dollars to buy, the coin to sell). */
+.xch-amount { width: 100%; min-height: 44px; margin: 8px 0 2px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); color: #f5f5f7; border: 1px solid rgba(255, 255, 255, 0.14); font: inherit; font-size: 16px; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.xch-amount:focus { outline: none; border-color: rgba(46, 230, 138, 0.6); }
 /* At the wheel the speed chip and the trip chip say what matters; the Next step pill waits until you step out. */
 body.riding .goal-pill { display: none !important; }
 /* Calm: a notification banner steps aside while a panel, a menu sheet or Zahra's card is open. */

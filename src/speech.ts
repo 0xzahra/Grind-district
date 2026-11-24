@@ -79,7 +79,9 @@ export function speak(text: string, who: { gender: 'f' | 'm'; seed?: number; voi
   }
   try {
     stopSpeaking()
-    const u = new SpeechSynthesisUtterance(text.replace(/[·•]/g, ',').replace(/[\u{1F300}-\u{1FAFF}]/gu, ''))
+    // Web addresses read the way people say them ("revoke dot cash", not "revoke cache").
+    const said = text.replace(/\b([a-z0-9-]+)\.(cash|com|app|org|io|xyz|near)\b/gi, '$1 dot $2')
+    const u = new SpeechSynthesisUtterance(said.replace(/[·•]/g, ',').replace(/[\u{1F300}-\u{1FAFF}]/gu, ''))
     const v = pick(who.gender, want2)
     if (v) { u.voice = v; u.lang = v.lang } else if (want2 !== 'en') u.lang = speechLang()
     const k = ((who.seed ?? 0) * 0.618) % 1

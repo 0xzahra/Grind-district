@@ -210,6 +210,19 @@
       "title": "Grind Cab and Grind Premium",
       "body": "No car yet? On the city map choose Travel by Cab ($4) or Premium ($9), then tap a place: a car pulls up at the nearest kerb and drives you there through the streets. Tap Stop here to hop out early. Quick travel and the Metro still work as before.",
       "go": "panel:city"
+    },
+    {
+      "id": "u1124-trade-amounts",
+      "title": "Trade: type your own amount, P2P in your money, stake USDC and USDT",
+      "body": "On Spot you can now type an exact amount: dollars when buying (the coin you get shows as you type) or the coin when selling (the dollars show as you type). P2P now quotes in your own currency, such as naira, cedis or shillings, at the live rate. Stake also takes USDC and USDT from your earned cash.",
+      "go": "panel:trade"
+    },
+    {
+      "id": "u1124-lessons-voice",
+      "title": "Lessons: Zahra reads the exercises, and P2P now covers fiat",
+      "body": "With lesson voice on, Zahra now reads each exercise question and its choices too. The P2P lesson explains fiat money and how P2P differs from OTC, and the scams lesson explains approval checkers like Revoke.cash, said properly at last.",
+      "go": "panel:learn",
+      "push": false
     }
   ]
 }

@@ -2,12 +2,13 @@
 // a simple line chart and a single order ticket; the market list sits underneath. Practice prices only.
 import { COINS, COIN_CATEGORIES, RANKS, SKILL_META, TOKEN_IDS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId, type SkillId } from './logic.ts'
 import { lockReason } from './worlds.ts'
-import { convertCoin, getSave, stakeCoin, trade, tradeCoin, unstakeCoin } from './state.ts'
+import { balanceSplit, convertCoin, getSave, stakeCoin, trade, tradeCoin, unstakeCoin } from './state.ts'
 import { MAX_STAKES, MIN_STAKE_USD, STAKE_PLANS, accrued, canStake, isLocked, planApr, unlockAt, type Stake, type StakePlan } from './staking.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
 import { hourly, hourlyBars, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
 import { barsFromSeries, candleChart, type CandleView } from './candleChart.ts'
 import { renderDefi } from './defi.ts'
+import { STABLES, stableAccrued, stableApr, stableLocked, stableStakes, stakeStable, unstakeStable, type StableId } from './stableEarn.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
 const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', xrp: '#8a96a3', link: '#3d6fe6', near: '#00c08b', sui: '#4da2ff', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', shib: '#e8761c', pepe: '#4c9a2a', wif: '#b98a5e', bonk: '#f5a623' }
@@ -32,6 +33,33 @@ const SELL_OFFERS: Offer[] = [
   { name: 'ZeeMerchant', trades: 640, rate: 97.8, spread: 0, pay: 'Bank transfer', verified: true },
   { name: 'FastPay_01', trades: 9, rate: 66, spread: 0.04, pay: 'Bank transfer', trap: 'fake' },
 ]
+// P2P is mostly crypto to local money and back: merchants quote, and you pay or get paid, in the fiat picked here.
+// The game's own cash stays in-game dollars; this converts at the live rate (Coinbase), an estimate otherwise.
+const FIATS = [
+  { id: 'NGN', sym: '₦', name: 'Naira' }, { id: 'GHS', sym: 'GH₵', name: 'Cedi' }, { id: 'KES', sym: 'KSh ', name: 'Shilling' },
+  { id: 'ZAR', sym: 'R', name: 'Rand' }, { id: 'USD', sym: '$', name: 'Dollar' }, { id: 'EUR', sym: '€', name: 'Euro' }, { id: 'GBP', sym: '£', name: 'Pound' },
+] as const
+type FiatId = (typeof FIATS)[number]['id']
+const fiatRates: Record<string, number> = { NGN: 1357, GHS: 11.8, KES: 130, ZAR: 17.5, USD: 1, EUR: 0.91, GBP: 0.76 }
+let fiatLive = false, fiatAt = 0
+function loadFiat(): void {
+  if (Date.now() - fiatAt < 600_000) return
+  fiatAt = Date.now()
+  void fetch('https://api.coinbase.com/v2/exchange-rates?currency=USD', { signal: AbortSignal.timeout(5000) })
+    .then((r) => r.json()).then((j: { data?: { rates?: Record<string, string> } }) => { for (const f of FIATS) { const v = Number(j.data?.rates?.[f.id]); if (v > 0) { fiatRates[f.id] = v; fiatLive = true } } })
+    .catch(() => undefined)
+}
+const homeFiat = (): FiatId => {
+  const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return '' } })()
+  return tz === 'Africa/Lagos' ? 'NGN' : tz === 'Africa/Accra' ? 'GHS' : tz === 'Africa/Nairobi' ? 'KES' : tz === 'Africa/Johannesburg' ? 'ZAR' : tz === 'Europe/London' ? 'GBP' : tz.startsWith('Europe/') ? 'EUR' : 'USD'
+}
+let p2pFiat: FiatId = (() => { try { const v = localStorage.getItem('gd.p2p.fiat'); return FIATS.some((f) => f.id === v) ? v as FiatId : homeFiat() } catch { return homeFiat() } })()
+/** In-game dollars shown in the picked fiat: ₦573,120 or $422.49. */
+const fiatMoney = (usd: number): string => {
+  const f = FIATS.find((x) => x.id === p2pFiat) ?? FIATS[4]
+  const v = usd * (fiatRates[f.id] ?? 1)
+  return `${f.sym}${v.toLocaleString('en-US', { minimumFractionDigits: v >= 1000 ? 0 : 2, maximumFractionDigits: v >= 1000 ? 0 : 2 })}`
+}
 const CASH: Asset = { id: 'usd', sym: 'USD', name: 'Cash', tint: '#5fae7d', group: '', minRank: 'shrimp' }
 const asset = (id: string): Asset => (id === 'usd' ? CASH : ASSETS.find((a) => a.id === id) ?? ASSETS[0]!)
 const priceOf = (a: Asset): number => { const s = getSave(); return a.id === 'usd' ? 1 : a.desk === 'unit' ? s.unitPrice : a.desk === 'meme' ? s.memePrice : markPrice(a.id) }
@@ -120,9 +148,11 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   // What each tab has selected; kept while the screen is open so switching tabs loses nothing.
   // District Coin is no longer listed (only a sell-all for anyone who still holds some): open on Bitcoin instead.
   let spotId: string = desk === 'unit' ? 'btc' : desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
+  let spotCustom: number | null = null
   let perpId = 'btc', perpSide: 'long' | 'short' = 'long', perpLev = 5, perpFrac = 0.25
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
   let stakeId = 'eth', stakePlan: StakePlan = 'd7', stakeFrac = 0.5
+  let stableCoin: StableId = 'usdc', stablePlan: StakePlan = 'flex', stableFrac = 0.25
   let p2pSide: 'buy' | 'sell' = 'buy', p2pCoin = 'btc', p2pFrac = 0.25, p2pOrder: { offer: Offer; stage: 'open' | 'bank' | 'releasing' } | null = null
   const paintNow = () => { for (const f of live) f() }
   // Candle charts made for the pane on screen; dropped whenever the pane is rebuilt or the screen closes.
@@ -328,9 +358,19 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       const sell = spotSide === 'sell'
       const pv = preview(sell ? ['You sell', 'You get'] : ['You pay', 'You get'])
       const go = cta(sell ? 'sell' : 'buy')
+      // Or type an exact amount: dollars when buying (the coin you get shows as you type), the coin when selling
+      // (the dollars you get show as you type). The 25 / 50 / Max keys clear it.
+      const custom = h('input', 'xch-amount') as HTMLInputElement
+      custom.type = 'number'; custom.inputMode = 'decimal'; custom.min = '0'; custom.step = 'any'
+      custom.placeholder = sell ? `Or type ${a.sym}, e.g. 0.01` : 'Or type dollars, e.g. 25'
+      custom.setAttribute('aria-label', sell ? `Amount of ${a.sym} to sell` : 'Dollars to spend')
+      const fracs = segmented(['25%', '50%', 'Max'], spotCustom === null ? [0.25, 0.5, 1].indexOf(spotFrac) : -1, (i) => { spotFrac = [0.25, 0.5, 1][i]!; spotCustom = null; custom.value = ''; paintNow() }, 'amt')
+      if (spotCustom !== null) custom.value = String(spotCustom)
+      custom.oninput = () => { const v = Number(custom.value); spotCustom = custom.value.trim() && Number.isFinite(v) && v > 0 ? v : null; fracs.querySelectorAll('[aria-selected]').forEach((b) => b.setAttribute('aria-selected', 'false')); paintNow() }
       ticket.append(
-        segmented(['Buy', 'Sell'], sell ? 1 : 0, (i) => { spotSide = i ? 'sell' : 'buy'; show() }, 'side'),
-        row(sell ? 'Amount of your holding' : 'Amount of your cash', segmented(['25%', '50%', 'Max'], [0.25, 0.5, 1].indexOf(spotFrac), (i) => { spotFrac = [0.25, 0.5, 1][i]!; paintNow() }, 'amt')),
+        segmented(['Buy', 'Sell'], sell ? 1 : 0, (i) => { spotSide = i ? 'sell' : 'buy'; spotCustom = null; show() }, 'side'),
+        row(sell ? 'Amount of your holding' : 'Amount of your cash', fracs),
+        custom,
         pv.box,
       )
       if (a.desk && sell) {
@@ -340,7 +380,14 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         ticket.append(label)
       }
       ticket.append(go)
-      go.onclick = () => done(a.desk ? trade(a.desk, spotSide, spotFrac, plan) : tradeCoin(a.id, spotSide, spotFrac))
+      // The share of your cash (buy) or holding (sell) this ticket is for: a key, or the typed amount.
+      const share = (): number => {
+        const s = getSave(), hd = holdingOf(a)
+        if (spotCustom === null) return spotFrac
+        const total = sell ? hd.qty : s.ledger
+        return total > 0 ? Math.min(1, spotCustom / total) : 0
+      }
+      go.onclick = () => { const f = share(); if (f <= 0) return; done(a.desk ? trade(a.desk, spotSide, f, plan) : tradeCoin(a.id, spotSide, f)) }
       live.push(() => {
         const s = getSave(), hd = holdingOf(a), p = priceOf(a)
         cash.v.textContent = money(s.ledger)
@@ -350,18 +397,19 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         pnl.v.textContent = hd.qty > 0 ? signed(open) : '$0.00'
         pnl.v.dataset.dir = hd.qty > 0 ? dir(open) : ''
         pnl.s.textContent = hd.qty > 0 ? `avg ${coinPrice(hd.avg)}` : ''
+        const over = spotCustom !== null && spotCustom > (sell ? hd.qty : s.ledger) + 1e-9
         if (sell) {
-          const qty = hd.qty * spotFrac
+          const qty = hd.qty * share()
           pv.values[0]!.textContent = `${formatQty(qty)} ${a.sym}`
           pv.values[1]!.textContent = `≈ ${money(qty * p)}`
-          go.textContent = `Sell ${a.sym}`
-          go.disabled = !(hd.qty > 0)
+          go.textContent = over ? `You hold ${formatQty(hd.qty)} ${a.sym}` : `Sell ${a.sym}`
+          go.disabled = !(hd.qty > 0) || over || qty <= 0
         } else {
-          const pay = cents(s.ledger * spotFrac)
+          const pay = cents(s.ledger * share())
           pv.values[0]!.textContent = money(pay)
           pv.values[1]!.textContent = `≈ ${formatQty(p > 0 ? pay / p : 0)} ${a.sym}`
-          go.textContent = `Buy ${a.sym}`
-          go.disabled = pay < 1
+          go.textContent = over ? `You have ${money(s.ledger)}` : `Buy ${a.sym}`
+          go.disabled = pay < 1 || over
         }
       })
       pane.append(tiles, ticket, result)
@@ -547,6 +595,45 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       })
       pane.append(ticket, result)
     }
+    // Stablecoins: your in-game dollars as USDC or USDT, earning a lending yield (no chain to secure, no slashing).
+    {
+      const plans: StakePlan[] = ['flex', 'd7', 'd30']
+      const card = h('div', 'xch-ticket xch-stable')
+      const sPv = preview(['You stake', 'Est. APR', 'Est. reward'])
+      const sGo = cta('buy')
+      sGo.onclick = () => done(stakeStable(stableCoin, stableFrac, stablePlan), true)
+      card.append(
+        h('h3', 'xch-group', 'Stablecoins · USDC · USDT'),
+        note('Stablecoins are not staked to secure a chain: platforms pay a yield for lending them out ("earn" or savings). The risks are the platform and the peg, not slashing. Uses earned in-game cash only.'),
+        row('Coin', segmented(STABLES.map((x) => x.sym), STABLES.findIndex((x) => x.id === stableCoin), (i) => { stableCoin = STABLES[i]!.id; show() }, 'amt')),
+        row('Plan', segmented(plans.map((p) => `${STAKE_PLANS[p].label} · ${stableApr(stableCoin, p)}%`), plans.indexOf(stablePlan), (i) => { stablePlan = plans[i]!; paintNow() }, 'amt stake-plan')),
+        row('Amount of your earned cash', segmented(['25%', '50%', 'Max'], [0.25, 0.5, 1].indexOf(stableFrac), (i) => { stableFrac = [0.25, 0.5, 1][i]!; paintNow() }, 'amt')),
+        sPv.box, sGo,
+      )
+      const mine = h('div', 'xch-stable-list')
+      const rowsS = new Map<string, HTMLElement>()
+      for (const st of stableStakes()) {
+        const r = h('div', 'xch-pos'), top = h('div', 'xch-pos-top'), names = h('div', 'xch-names'), earned = h('b', 'xch-pnl')
+        names.append(h('b', '', `${money(st.qty)} ${st.coin.toUpperCase()}`), h('small', `xch-tag ${st.plan === 'flex' ? 'long' : 'short'}`, `${STAKE_PLANS[st.plan].label} · ${st.apr}%`))
+        top.append(names, earned)
+        const btn = h('button', 'xch-close'); btn.type = 'button'
+        btn.textContent = st.plan === 'flex' ? 'Unstake and claim' : stableLocked(st) ? 'Unstake early (lose the reward)' : 'Claim and unstake'
+        btn.onclick = () => done(unstakeStable(st.id), true)
+        r.append(top, btn); mine.append(r); rowsS.set(st.id, earned)
+      }
+      card.append(mine)
+      live.push(() => {
+        const earnedCash = balanceSplit().earned, qty = Math.floor(earnedCash * stableFrac * 100) / 100
+        const plan = STAKE_PLANS[stablePlan], apr = stableApr(stableCoin, stablePlan)
+        sPv.values[0]!.textContent = `${money(qty)} of ${stableCoin.toUpperCase()}`
+        sPv.values[1]!.textContent = `~${apr}% a year (estimate)`
+        sPv.values[2]!.textContent = `≈ ${money(qty * apr / 100 * (plan.days || 7) / 365)} ${plan.days ? `after ${plan.days} game days` : 'per game week'}`
+        sGo.textContent = qty < 1 ? 'Earn $1 in the city to stake it' : `Stake ${stableCoin.toUpperCase()}`
+        sGo.disabled = qty < 1
+        for (const st of stableStakes()) { const e = rowsS.get(st.id); if (e) { e.textContent = `+${money(stableAccrued(st))}`; e.dataset.dir = 'up' } }
+      })
+      pane.append(card)
+    }
     // Active stakes, with what each has earned so far.
     const book = h('div', 'xch-book')
     let shown = '\u0000'
@@ -595,14 +682,23 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     const a = asset(p2pCoin), sym = a.sym, buying = p2pSide === 'buy'
     const pane = h('div', 'xch-pane')
     const amount = () => { const s = getSave(), hd = holdingOf(a), p = priceOf(a); const cash = buying ? cents(s.ledger * p2pFrac) : cents(hd.qty * p2pFrac * p); return { cash, qty: p > 0 ? cash / p : 0, ok: buying ? cash >= 1 : hd.qty > 0 } }
+    loadFiat()
+    const usdNote = p2pFiat === 'USD' ? '' : ` (${money(1)} in-game = ${fiatMoney(1)}${fiatLive ? ', live rate' : ', estimate'})`
     if (!p2pOrder) {
+      // Your money: the local currency merchants quote in and your bank pays or receives.
+      const fiatSel = h('select', 'xch-fiat') as HTMLSelectElement
+      for (const f of FIATS) { const o = h('option', '', `${f.id} · ${f.name}`) as HTMLOptionElement; o.value = f.id; o.selected = f.id === p2pFiat; fiatSel.append(o) }
+      fiatSel.setAttribute('aria-label', 'Your currency')
+      fiatSel.onchange = () => { p2pFiat = fiatSel.value as FiatId; try { localStorage.setItem('gd.p2p.fiat', p2pFiat) } catch { /* private mode */ } show() }
       pane.append(
+        note(`P2P: swap crypto for ${p2pFiat === 'USD' ? 'cash' : (FIATS.find((f) => f.id === p2pFiat)?.name ?? 'cash').toLowerCase()} in your bank, person to person, with the coin held in escrow.`),
+        row('Your currency', fiatSel),
         segmented(['Buy', 'Sell'], buying ? 0 : 1, (i) => { p2pSide = i ? 'sell' : 'buy'; result.textContent = ''; show() }, 'side'),
         chips(ASSETS.filter((x) => ['btc', 'eth', 'sol'].includes(x.id)), p2pCoin, (x) => { p2pCoin = x.id; show() }),
         row(buying ? 'Amount of your cash' : `Amount of your ${sym}`, segmented(['25%', '50%', 'Max'], [0.25, 0.5, 1].indexOf(p2pFrac), (i) => { p2pFrac = [0.25, 0.5, 1][i]!; paintNow() }, 'amt')),
       )
       const sum = h('p', 'xch-note')
-      live.push(() => { const m = amount(); sum.textContent = buying ? `You pay ${money(m.cash)} by bank transfer and receive about ${formatQty(m.qty)} ${sym}.` : m.ok ? `You sell about ${formatQty(m.qty)} ${sym} and receive ${money(m.cash)} in your bank.` : `You hold no ${sym} to sell yet.` })
+      live.push(() => { const m = amount(); sum.textContent = (buying ? `You pay ${fiatMoney(m.cash)} by bank transfer and receive about ${formatQty(m.qty)} ${sym}.` : m.ok ? `You sell about ${formatQty(m.qty)} ${sym} and receive ${fiatMoney(m.cash)} in your bank.` : `You hold no ${sym} to sell yet.`) + usdNote })
       const list = h('div', 'xch-list')
       list.append(h('h3', 'xch-group', buying ? `Merchants selling ${sym}` : `Merchants buying ${sym}`))
       for (const o of buying ? BUY_OFFERS : SELL_OFFERS) {
@@ -612,7 +708,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         nums.append(price, h('small', '', o.pay))
         const ico = h('span', 'xch-ico', o.name[0]); ico.style.setProperty('--tint', o.verified ? '#2f7d5b' : '#6b6f78')
         item.append(ico, names, nums)
-        live.push(() => { price.textContent = coinPrice(priceOf(a) * (1 + o.spread)) })
+        live.push(() => { price.textContent = p2pFiat === 'USD' ? coinPrice(priceOf(a) * (1 + o.spread)) : fiatMoney(priceOf(a) * (1 + o.spread)) })
         item.onclick = () => { if (!amount().ok) { result.textContent = buying ? 'You need at least $1 of in-game cash.' : `You hold no ${sym} to sell.`; result.dataset.ok = 'false'; return } p2pOrder = { offer: o, stage: 'open' }; result.textContent = ''; show() }
         list.append(item)
       }
@@ -629,9 +725,9 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     names.append(h('b', '', `${buying ? 'Buy' : 'Sell'} ${sym} · ${o.name}${o.verified ? ' ✓' : ''}`), h('small', '', `${o.trades.toLocaleString('en-US')} trades · ${o.rate}% completed`))
     top.append(icon(a), names)
     const pv = preview(buying ? ['You pay', 'You receive', 'Payment'] : ['You sell', 'You receive', 'Payment'])
-    pv.values[0]!.textContent = buying ? money(m.cash) : `${formatQty(m.qty)} ${sym}`
-    pv.values[1]!.textContent = buying ? `≈ ${formatQty(m.qty)} ${sym}` : money(m.cash)
-    pv.values[2]!.textContent = 'Bank transfer'
+    pv.values[0]!.textContent = buying ? fiatMoney(m.cash) : `${formatQty(m.qty)} ${sym}`
+    pv.values[1]!.textContent = buying ? `≈ ${formatQty(m.qty)} ${sym}` : fiatMoney(m.cash)
+    pv.values[2]!.textContent = `Bank transfer (${p2pFiat})`
     const steps = h('ol', 'xch-steps')
     const at = order.stage === 'open' ? 1 : order.stage === 'bank' ? 2 : 2
     const labels = buying
@@ -657,7 +753,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       key('Take it off the platform', 'xch-close', () => scam('Off the platform there is no escrow, no dispute and no record: you pay and the coin never comes.'))
       key('Stay in escrow: cancel', 'xch-close', () => safe('A price far below the book and a push to leave the platform are both red flags.'))
     } else if (order.stage === 'bank') {
-      say.textContent = o.trap ? 'Your bank: no new transfer has arrived.' : `Your bank: +${money(m.cash)} received from ${o.name}.`
+      say.textContent = o.trap ? 'Your bank: no new transfer has arrived.' : `Your bank: +${fiatMoney(m.cash)} received from ${o.name}.`
       if (o.trap) key('Cancel and report', 'xch-close', () => safe('A screenshot is not money. Release only when your own bank shows the payment.'))
       else key(`Release ${sym}`, 'xch-go sell', () => complete())
     } else {

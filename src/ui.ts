@@ -709,8 +709,17 @@ export function mountUi(
         bar.className = 'ex-bar'
         bar.style.setProperty('--p', String((questionIndex + 1) / total))
         head.append(bar)
+        // Zahra reads the question and its choices too (the same voice switch as the lesson cards).
+        const sayQuestion = () => speak(`${question.prompt} ${question.choices.map((c, k) => `${k + 1}: ${c}.`).join(' ')}`, ZAHRA)
+        const qVoice = button(lessonVoiceOn() ? '⏸ Pause voice' : '▶ Play voice', 'ghost lx-voice', () => {
+          const on = !lessonVoiceOn(); setLessonVoice(on)
+          qVoice.textContent = on ? '⏸ Pause voice' : '▶ Play voice'
+          if (on) sayQuestion(); else stopSpeaking()
+        })
+        head.append(qVoice)
         if (question.kind) wrap.append(head, para(question.kind === 'sort' ? 'Sort it' : question.kind === 'match' ? 'Match it' : 'Slide it', 'ex-kind'), para(question.prompt, 'ex-prompt'))
         else wrap.append(head, para(question.prompt, 'ex-prompt'))
+        if (lessonVoiceOn()) window.setTimeout(() => { if (wrap.isConnected) sayQuestion() }, 250)
         const result = para('', 'result')
         if (question.kind === 'slider') {
           // Slider check: drag along the options (timeline / trilemma tightrope); the stop you leave it on is your answer.

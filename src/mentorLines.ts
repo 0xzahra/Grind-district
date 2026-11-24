@@ -32,7 +32,10 @@ export function biteCards(paragraphs: string[]): string[] {
   const out: string[] = []
   for (const p of paragraphs) {
     if (/^Sources?:/i.test(p.trim())) continue
-    const sentences = p.match(/[^.!?]+[.!?]+["”’)]*\s*|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [p]
+    // A dot inside a word (revoke.cash, x.com, 0.5) is not the end of a sentence: hide it while splitting.
+    const DOT = '\u0007'
+    const kept = p.replace(/(\w)\.(?=\w)/g, `$1${DOT}`)
+    const sentences = (kept.match(/[^.!?]+[.!?]+["”’)]*\s*|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [kept]).map((s) => s.split(DOT).join('.'))
     let cur = ''
     let n = 0
     for (const s of sentences) {

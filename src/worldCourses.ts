@@ -62,8 +62,10 @@ export const WORLD_COURSES: Course[] = [
     q('Flag it: a link says "claim your airdrop in 10 minutes or lose it".', ['Safe', 'Red flag'], 1, 'Urgency plus a claim link is a classic trap.', 'sort'),
     q('The best first move when unsure is:', ['Click quickly before it expires', 'Go to the official site yourself and check', 'Ask the sender if it is real', 'Send a small amount to test'], 1, 'Verify through a source you found yourself.'),
   ] },
-  { id: 'p2pSharks', minutes: '2 min', paragraphs: [
-    'P2P means you trade directly with another person, usually through an exchange that holds the crypto in escrow. OTC means a large trade arranged privately with a dealer.',
+  { id: 'p2pSharks', minutes: '3 min', paragraphs: [
+    'Fiat is the everyday money a government issues: naira, cedis, shillings, dollars, euros. It lives in your bank account or mobile money wallet, not on a blockchain.',
+    'P2P (peer to peer) is mostly how people turn crypto into fiat and back. You sell USDT to another person on an exchange\'s P2P page, they pay naira into your bank account, and the exchange holds your coins in escrow until you confirm the money arrived. Some P2P desks also swap one coin for another, but cash in and cash out is the main use.',
+    'OTC (over the counter) is different: one large trade, usually many thousands of dollars, agreed privately with a dealer or an exchange\'s OTC desk at a single price, so it does not move the public market. P2P is many small trades between ordinary people; OTC is one big trade with a professional.',
     'Sharks try to pull you off the platform: "pay me directly, it is faster". Off-platform you lose the escrow, the dispute process and the record.',
     'Common tricks: fake payment screenshots, reversed bank transfers, and third-party payments from accounts that are not the trader\'s own name.',
     'Sources: major exchanges\' P2P safety guides (escrow, disputes, third-party payment rules).',
