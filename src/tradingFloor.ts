@@ -1,6 +1,7 @@
 // The trading floor's screens and seats: exchange-style crypto charts for the walls and desk monitors (candles,
 // volume, moving averages, a market heat map, an order-book depth chart, a movers board, a ticker tape), and an
-// ergonomic task chair. Everything is painted or built in code; prices on the walls are set dressing.
+// ergonomic task chair. Everything is painted or built in code. Prices and day moves on the walls are the same
+// ones the Trade screen shows (live where there is a live feed), set with setWallQuotes and repainted while open.
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
@@ -10,8 +11,17 @@ const UP = '#0ecb81', DOWN = '#f6465d', BG = '#0b0e11', GRID = 'rgba(255,255,255
 function rng(seed: number): () => number { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0) / 4294967296 }
 const fmt = (v: number) => (v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 1 }) : v >= 1 ? v.toFixed(2) : v.toPrecision(3))
 
-/** A full exchange chart: header with last price and change, candles with wicks, MA lines, volume, axes. */
-export function paintCandles(g: G, w: number, h: number, o: { pair: string; price: number; seed: number; frame?: string; bars?: number; trend?: number }): void {
+/** A quote for a coin id (btc, eth...): its price and its day's move in %, as the Trade screen shows them. */
+export type WallQuote = { price: number; change?: number }
+let quoteOf: (id: string) => WallQuote | null = () => null
+/** Hook the walls to the market (interiors.ts passes the Trade screen's own prices). */
+export function setWallQuotes(fn: (id: string) => WallQuote | null): void { quoteOf = fn }
+
+/** A full exchange chart: header with last price and change, candles with wicks, MA lines, volume, axes.
+ *  With `coin`, the last price and the day's move follow that coin's live quote. */
+export function paintCandles(g: G, w: number, h: number, o: { pair: string; price: number; seed: number; frame?: string; bars?: number; trend?: number; coin?: string }): void {
+  const q = o.coin ? quoteOf(o.coin) : null
+  if (q && q.price > 0) o = { ...o, price: q.price, ...(q.change !== undefined ? { trend: Math.max(-0.2, Math.min(0.2, q.change / 100)) } : {}) }
   const r = rng(o.seed), n = o.bars ?? 72, k = h / 512
   g.fillStyle = BG; g.fillRect(0, 0, w, h)
   // A believable walk: drift, clustered volatility, the odd impulse bar.
@@ -48,7 +58,7 @@ export function paintCandles(g: G, w: number, h: number, o: { pair: string; pric
   const ma = (len: number, col: string) => { g.strokeStyle = col; g.lineWidth = 1.6 * k; g.beginPath(); let on = false; for (let i = len - 1; i < n; i++) { let s = 0; for (let j = 0; j < len; j++) s += bars[i - j]!.c; const y = Y(s / len); if (on) g.lineTo(X(i), y); else { g.moveTo(X(i), y); on = true } } g.stroke() }
   ma(7, '#f0b90b'); ma(25, '#c26bd8')
   // Last price line and tag.
-  const last = bars[n - 1]!, first = bars[0]!, chg = (last.c / first.o - 1) * 100, col = chg >= 0 ? UP : DOWN
+  const last = bars[n - 1]!, first = bars[0]!, chg = q && q.change !== undefined ? q.change : (last.c / first.o - 1) * 100, col = chg >= 0 ? UP : DOWN
   g.setLineDash([4 * k, 4 * k]); g.strokeStyle = col; g.lineWidth = 1; g.beginPath(); g.moveTo(x0, Y(last.c)); g.lineTo(x1, Y(last.c)); g.stroke(); g.setLineDash([])
   g.fillStyle = col; g.fillRect(x1 + 2 * k, Y(last.c) - 10 * k, axis - 6 * k, 20 * k)
   g.fillStyle = '#fff'; g.textAlign = 'left'; g.font = `600 ${13 * k}px ${FONT}`; g.fillText(fmt(last.c), x1 + 8 * k, Y(last.c))
@@ -62,8 +72,11 @@ export function paintCandles(g: G, w: number, h: number, o: { pair: string; pric
   g.fillText(`${o.frame ?? '15m'}   O ${fmt(last.o)}   H ${fmt(hi)}   L ${fmt(lo)}   C ${fmt(last.c)}   MA(7)  MA(25)   Vol`, 14 * k, 56 * k)
 }
 
-const COINS: Array<[string, number, number]> = [['BTC', 64280, 9], ['ETH', 3214, 6], ['SOL', 151.4, 4], ['BNB', 592, 3], ['XRP', 0.61, 2.4], ['DOGE', 0.152, 2], ['ADA', 0.46, 1.8], ['AVAX', 30.2, 1.6], ['LINK', 15.1, 1.5], ['DOT', 6.05, 1.3], ['TON', 6.8, 1.3], ['WIF', 2.12, 1], ['BONK', 0.00003, 0.9], ['NEAR', 5.4, 1.1], ['SUI', 0.62, 1], ['ARB', 0.94, 0.9], ['OP', 1.9, 0.9]]
-const change = (r: () => number) => +((r() - 0.46) * 9).toFixed(2)
+// The coins listed on the Trade screen (only those), their tile weight on the heat map, and a fallback price.
+const LIST: Array<[string, string, number, number]> = [['BTC', 'btc', 64280, 9], ['ETH', 'eth', 3214, 6], ['SOL', 'sol', 151.4, 4], ['XRP', 'xrp', 0.61, 2.4], ['DOGE', 'doge', 0.152, 2], ['LINK', 'link', 15.1, 1.5], ['AVAX', 'avax', 30.2, 1.6], ['DOT', 'dot', 6.05, 1.3], ['NEAR', 'near', 5.4, 1.1], ['SUI', 'sui', 0.62, 1], ['WIF', 'wif', 2.12, 1], ['PEPE', 'pepe', 0.00001, 0.9], ['SHIB', 'shib', 0.00002, 0.9], ['BONK', 'bonk', 0.00003, 0.9]]
+const fallbackMove = (r: () => number) => +((r() - 0.46) * 9).toFixed(2)
+/** [symbol, price, weight, day move %] for every listed coin, from the live quotes (a seeded estimate otherwise). */
+const coinsNow = (r: () => number): Array<[string, number, number, number]> => LIST.map(([sym, id, px, wt]) => { const q = quoteOf(id), mv = fallbackMove(r); return [sym, q && q.price > 0 ? q.price : px, wt, q && q.change !== undefined ? +q.change.toFixed(2) : mv] })
 
 /** Market heat map: one tile per coin, sized by weight, green or red by the day's move. */
 export function paintHeatmap(g: G, w: number, h: number, seed: number): void {
@@ -71,14 +84,15 @@ export function paintHeatmap(g: G, w: number, h: number, seed: number): void {
   g.fillStyle = BG; g.fillRect(0, 0, w, h)
   g.fillStyle = TEXT; g.font = `700 ${h * 0.05}px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText('MARKET MAP · 24H', w * 0.02, h * 0.075)
   // Slice-and-dice layout: rows of decreasing height.
-  const top = h * 0.1, rows: Array<Array<[string, number, number]>> = [COINS.slice(0, 2), COINS.slice(2, 5), COINS.slice(5, 10), COINS.slice(10, 16)]
+  const C = coinsNow(r)
+  const top = h * 0.1, rows: Array<Array<[string, number, number, number]>> = [C.slice(0, 2), C.slice(2, 5), C.slice(5, 10), C.slice(10, 14)]
   const heights = [0.36, 0.26, 0.2, 0.18]
   let y = top
   rows.forEach((row, ri) => {
     const rh = (h - top - 4) * heights[ri]!, total = row.reduce((s, c) => s + c[2], 0)
     let x = 4
-    for (const [sym, , wt] of row) {
-      const tw = ((w - 8) * wt) / total, c = change(r), a = Math.min(1, 0.28 + Math.abs(c) / 6)
+    for (const [sym, , wt, c] of row) {
+      const tw = ((w - 8) * wt) / total, a = Math.min(1, 0.28 + Math.abs(c) / 6)
       g.fillStyle = c >= 0 ? `rgba(14,150,98,${a})` : `rgba(200,52,72,${a})`
       g.fillRect(x + 2, y + 2, tw - 4, rh - 4)
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'
@@ -108,9 +122,10 @@ export function paintDepth(g: G, w: number, h: number, seed: number): void {
     g.lineTo(mid + dir * (mid - 8 * k), y1); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = col; g.lineWidth = 2 * k; g.stroke()
   }
   side(-1, UP, 'rgba(14,203,129,0.2)'); side(1, DOWN, 'rgba(246,70,93,0.2)')
-  g.fillStyle = TEXT; g.font = `700 ${18 * k}px ${FONT}`; g.textAlign = 'center'; g.fillText('64,281.5', mid, y0 + 6 * k)
+  const btc = quoteOf('btc')?.price || 64281.5
+  g.fillStyle = TEXT; g.font = `700 ${18 * k}px ${FONT}`; g.textAlign = 'center'; g.fillText(fmt(btc), mid, y0 + 6 * k)
   g.fillStyle = DIM; g.font = `500 ${13 * k}px ${FONT}`
-  for (const [t, x] of [['63,900', 0.12], ['64,100', 0.31], ['64,460', 0.69], ['64,660', 0.88]] as const) g.fillText(t, w * x, h - 12 * k)
+  for (const [f, x] of [[0.994, 0.12], [0.997, 0.31], [1.003, 0.69], [1.006, 0.88]] as const) g.fillText(fmt(btc * f), w * x, h - 12 * k)
   g.textAlign = 'left'; g.fillStyle = UP; g.fillText('BIDS', 14 * k, y0 + 6 * k); g.textAlign = 'right'; g.fillStyle = DOWN; g.fillText('ASKS', w - 14 * k, y0 + 6 * k)
 }
 
@@ -121,7 +136,7 @@ export function paintMovers(g: G, w: number, h: number, seed: number): void {
   g.fillStyle = TEXT; g.font = `700 ${22 * k}px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText('TOP MOVERS · 24H', 14 * k, 34 * k)
   g.fillStyle = DIM; g.font = `600 ${12 * k}px ${FONT}`
   g.fillText('PAIR', 14 * k, 60 * k); g.textAlign = 'right'; g.fillText('LAST', w * 0.52, 60 * k); g.fillText('24H', w * 0.72, 60 * k)
-  const rows = COINS.slice(0, 9).map(([sym, price]) => ({ sym, price, c: change(r) })).sort((a, b) => b.c - a.c)
+  const rows = coinsNow(r).slice(0, 9).map(([sym, price, , c]) => ({ sym, price, c })).sort((a, b) => b.c - a.c)
   rows.forEach((row, i) => {
     const y = (88 + i * 33) * k, col = row.c >= 0 ? UP : DOWN
     g.strokeStyle = GRID; g.beginPath(); g.moveTo(10 * k, y - 20 * k); g.lineTo(w - 10 * k, y - 20 * k); g.stroke()
@@ -142,8 +157,9 @@ export function paintTicker(g: G, w: number, h: number, seed: number): void {
   g.textBaseline = 'middle'; g.textAlign = 'left'
   let x = 14
   const fs = h * 0.5
+  const C = coinsNow(r)
   for (let i = 0; x < w - 40; i++) {
-    const [sym, price] = COINS[i % COINS.length]!, c = change(r)
+    const [sym, price, , c] = C[i % C.length]!
     g.font = `700 ${fs}px ${FONT}`; g.fillStyle = '#f0b90b'; g.fillText(sym, x, h / 2); x += g.measureText(sym).width + fs * 0.35
     g.font = `600 ${fs}px ${FONT}`; g.fillStyle = TEXT; g.fillText(fmt(price), x, h / 2); x += g.measureText(fmt(price)).width + fs * 0.35
     g.fillStyle = c >= 0 ? UP : DOWN; const t = `${c >= 0 ? '▲' : '▼'} ${Math.abs(c).toFixed(2)}%`; g.fillText(t, x, h / 2); x += g.measureText(t).width + fs * 1.1

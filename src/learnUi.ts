@@ -70,10 +70,16 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
     const ids = [...w.missions, ...(w.boss ? [w.boss] : [])]
     const got = ids.filter(passed).length
     const open = worldOpen(w.n)
-    const unit = h('section', `lx-unit lx-world${open ? '' : ' locked'}${worldDone(w.n) && w.n < 6 ? ' won' : ''}`)
-    const uh = h('div', 'lx-unit-h'); uh.append(ring(got / ids.length, 40, `${got}/${ids.length}`))
-    const ut = h('div'); ut.append(h('small', '', `World ${w.n}${open ? '' : ' · 🔒 locked'}`), h('b', '', w.title), h('small', 'lx-badge', w.n < 6 ? `${worldDone(w.n) ? '🏅' : '◇'} Reward: ${w.reward} · ${w.unlocks}` : `${open ? '' : '🔒 '}The open city: ${w.unlocks}`))
-    uh.append(ut); unit.append(uh)
+    // Each world folds under its header so Campus is not one long scroll: a finished world closes with a tick,
+    // the world you are on opens, locked ones stay shut. Tap a header to open or close it.
+    const done = worldDone(w.n)
+    const unit = h('details', `lx-unit lx-world${open ? '' : ' locked'}${done && w.n < 6 ? ' won' : ''}`) as HTMLDetailsElement
+    const hasNext = [...ids, ...(w.extra?.missions ?? [])].includes(nextId as SkillId)
+    unit.open = open && (hasNext || !done)
+    const sum = h('summary', 'lx-unit-sum')
+    const uh = h('div', 'lx-unit-h'); uh.append(ring(got / ids.length, 40, done ? '✓' : `${got}/${ids.length}`))
+    const ut = h('div'); ut.append(h('small', '', `World ${w.n}${open ? '' : ' · 🔒 locked'}${done ? ' · ✓ done' : ''}`), h('b', '', w.title), h('small', 'lx-badge', w.n < 6 ? `${done ? '🏅' : '◇'} Reward: ${w.reward} · ${w.unlocks}` : `${open ? '' : '🔒 '}The open city: ${w.unlocks}`))
+    uh.append(ut, h('span', 'lx-chev')); sum.append(uh); unit.append(sum)
     const grid = h('div', 'lx-grid')
     const addCard = (id: SkillId, boss = false, target = grid) => {
       const c = COURSES.find((x) => x.id === id); if (!c) return

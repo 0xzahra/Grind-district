@@ -8,7 +8,7 @@ import { notificationsOn, setNotifications } from './agent.ts'
 import { type MaskId } from './logic.ts'
 import { openCertificate, shareCv } from './certs.ts'
 import { renderCvPaper, printCv } from './cvPaper.ts'
-import { lockReason, worldOf, WORLDS, worldDone } from './worlds.ts'
+import { lockReason, nextMission, worldOf, WORLDS, worldDone } from './worlds.ts'
 import { equippedFrame } from './career.ts'
 // Signed-in players: the look saves to the account through the existing profile upsert (debounced).
 let lookTimer = 0
@@ -665,7 +665,14 @@ export function mountUi(
       const showLesson = () => {
         const wrap = stack(button('← Your path', 'ghost', showList), courseVisual(id), para(SKILL_META[id].title, 'kicker'))
         if (save.focus && !passed) wrap.append(para('Prayer focus is on. This pass counts a quarter more.'))
-        if (passed) wrap.append(button('View certificate', 'primary', () => void openCertificate(id)))
+        if (passed) {
+          // Passed: the way forward first (the next lesson on your path), then this course's certificate.
+          const next = nextMission()
+          const keys = document.createElement('div'); keys.className = 'lx-passed-keys'
+          if (next && next !== id) keys.append(button(`Next lesson: ${SKILL_META[next].title} →`, 'primary', () => showCourse(next)))
+          keys.append(button('View certificate', next && next !== id ? 'ghost' : 'primary', () => void openCertificate(id)))
+          wrap.append(keys)
+        }
         if (passed && nearPassportOn()) wrap.append(nearPassportPanel(id, passed))
         // Bite-size cards (one or two sentences, large type) instead of a wall of small text.
         const cards = biteCards(course.paragraphs)

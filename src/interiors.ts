@@ -17,7 +17,12 @@ import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
 import { paintSchedule } from './events.ts'
-import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers, paintTicker } from './tradingFloor.ts'
+import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers, paintTicker, setWallQuotes } from './tradingFloor.ts'
+import { markPrice } from './perps.ts'
+import { liveChange } from './livePrices.ts'
+
+// The trading floor's walls show the Trade screen's own prices and day moves (live where there is a feed).
+setWallQuotes((id) => { const price = markPrice(id); return price > 0 ? { price, change: liveChange(id) } : null })
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
 export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
@@ -52,7 +57,10 @@ function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
   return t
 }
 
+let repaintWalls: (() => void) | null = null
 export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
+  // While you are on the trading floor its walls follow the market (every 30 s; nothing is painted elsewhere).
+  window.setInterval(() => { if (inside === 'trading' && !document.hidden) repaintWalls?.() }, 30_000)
   const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[] }>()
   let housePool: { x0: number; x1: number; z0: number; z1: number } | null = null
   const lamp = new THREE.PointLight(0xffd29a, 0, 18, 1.6)
@@ -572,22 +580,26 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     if (id === 'trading') {
       // Trading floor: a video wall of exchange charts across the north wall, boards on the side walls, fourteen
       // desks with triple monitors and ergonomic chairs, and a glass corner office (tradingFloor.ts).
-      const screenOf = (wpx: number, hpx: number, draw: (g: CanvasRenderingContext2D) => void) => { const t = canvasTex(wpx, hpx, draw); t.anisotropy = 4; return new THREE.MeshBasicMaterial({ map: t }) }
+      // Every wall screen is kept with its painter, so the prices can be painted again while you are in the room.
+      const walls: Array<{ t: THREE.CanvasTexture; draw: (g: CanvasRenderingContext2D) => void }> = []
+      const screenOf = (wpx: number, hpx: number, draw: (g: CanvasRenderingContext2D) => void) => { const t = canvasTex(wpx, hpx, draw); t.anisotropy = 4; walls.push({ t, draw }); return new THREE.MeshBasicMaterial({ map: t }) }
+      repaintWalls = () => { for (const s of walls) { const g = (s.t.image as HTMLCanvasElement).getContext('2d'); if (g) { s.draw(g); s.t.needsUpdate = true } } }
       const blackMat = std(0x15171a, 0.4, 0.4)
       const deskMat = std(0x2c3037, 0.42, 0.15)
       const steelMat = std(0x9aa1a9, 0.3, 0.8)
       // --- North wall: BTC chart, market map, ETH chart, under a moving ticker tape. ---
       const NZ = -d / 2 + 0.05
       box(15.0, 2.62, 0.05, blackMat, 0.1, -d / 2 + 0.03, 0.5, false)
-      add(new THREE.PlaneGeometry(6.0, 2.0), screenOf(1536, 512, (g) => paintCandles(g, 1536, 512, { pair: 'BTC/USDT', price: 64281.5, seed: 11, frame: '15m', bars: 110 })), -4.1, 1.62, NZ + 0.02)
+      add(new THREE.PlaneGeometry(6.0, 2.0), screenOf(1536, 512, (g) => paintCandles(g, 1536, 512, { pair: 'BTC/USDT', price: 64281.5, seed: 11, coin: 'btc', frame: '15m', bars: 110 })), -4.1, 1.62, NZ + 0.02)
       add(new THREE.PlaneGeometry(3.5, 2.0), screenOf(896, 512, (g) => paintHeatmap(g, 896, 512, 5)), 0.8, 1.62, NZ + 0.02)
-      add(new THREE.PlaneGeometry(4.5, 2.0), screenOf(1152, 512, (g) => paintCandles(g, 1152, 512, { pair: 'ETH/USDT', price: 3214.6, seed: 29, frame: '1h', bars: 84, trend: -0.03 })), 5.0, 1.62, NZ + 0.02)
+      add(new THREE.PlaneGeometry(4.5, 2.0), screenOf(1152, 512, (g) => paintCandles(g, 1152, 512, { pair: 'ETH/USDT', price: 3214.6, seed: 29, coin: 'eth', frame: '1h', bars: 84, trend: -0.03 })), 5.0, 1.62, NZ + 0.02)
       const tape = canvasTex(2048, 64, (g) => paintTicker(g, 2048, 64, 3))
+      walls.push({ t: tape, draw: (g) => paintTicker(g, 2048, 64, 3) })
       tape.wrapS = THREE.RepeatWrapping; tape.repeat.x = 1.4; tape.anisotropy = 4
       const band = add(new THREE.PlaneGeometry(14.6, 0.3), new THREE.MeshBasicMaterial({ map: tape }), 0.1, 2.87, NZ + 0.02)
       band.onBeforeRender = () => { tape.offset.x = (performance.now() / 1000 * 0.012) % 1 }
       // --- Side walls: SOL chart and movers (west, either side of the door), depth and District Coin (east). ---
-      add(new THREE.PlaneGeometry(4.2, 1.87), screenOf(1152, 512, (g) => paintCandles(g, 1152, 512, { pair: 'SOL/USDT', price: 151.4, seed: 47, frame: '4h', bars: 84, trend: 0.07 })), -w / 2 + 0.03, 1.62, -3.7, false, Math.PI / 2)
+      add(new THREE.PlaneGeometry(4.2, 1.87), screenOf(1152, 512, (g) => paintCandles(g, 1152, 512, { pair: 'SOL/USDT', price: 151.4, seed: 47, coin: 'sol', frame: '4h', bars: 84, trend: 0.07 })), -w / 2 + 0.03, 1.62, -3.7, false, Math.PI / 2)
       add(new THREE.PlaneGeometry(3.4, 1.7), screenOf(768, 384, (g) => paintMovers(g, 768, 384, 17)), -w / 2 + 0.03, 1.62, 3.7, false, Math.PI / 2)
       add(new THREE.PlaneGeometry(3.6, 1.8), screenOf(768, 384, (g) => paintDepth(g, 768, 384, 23)), w / 2 - 0.03, 1.62, -4.1, false, -Math.PI / 2)
       add(new THREE.PlaneGeometry(3.6, 1.8), screenOf(1024, 512, (g) => paintCandles(g, 1024, 512, { pair: 'COIN/USDT', price: 0.842, seed: 61, frame: '1D', bars: 72, trend: 0.05 })), w / 2 - 0.03, 1.62, 0.0, false, -Math.PI / 2)
@@ -608,8 +620,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inst(new THREE.BoxGeometry(0.58, 0.36, 0.03), blackMat, bezels)
       inst(new THREE.BoxGeometry(0.04, 0.2, 0.03), blackMat, stands)
       inst(new THREE.BoxGeometry(0.22, 0.015, 0.16), blackMat, stands.map(([x, , z, ry]) => [x, 0.758, z + 0.02, ry]))
-      const mini = [['BTC/USDT', 64281.5, 71], ['ETH/USDT', 3214.6, 83], ['SOL/USDT', 151.4, 97]] as const
-      faces.forEach((list, k) => inst(new THREE.PlaneGeometry(0.54, 0.32), screenOf(432, 256, (g) => paintCandles(g, 432, 256, { pair: mini[k]![0], price: mini[k]![1], seed: mini[k]![2], bars: 48 })), list))
+      const mini = [['BTC/USDT', 64281.5, 71, 'btc'], ['ETH/USDT', 3214.6, 83, 'eth'], ['SOL/USDT', 151.4, 97, 'sol']] as const
+      faces.forEach((list, k) => inst(new THREE.PlaneGeometry(0.54, 0.32), screenOf(432, 256, (g) => paintCandles(g, 432, 256, { pair: mini[k]![0], price: mini[k]![1], seed: mini[k]![2], bars: 48, coin: mini[k]![3] })), list))
       inst(new THREE.BoxGeometry(0.42, 0.02, 0.14), std(0x2a2d31, 0.5), desks.map(([x, z]) => [x, 0.762, z + 0.18]))
       inst(new THREE.BoxGeometry(0.06, 0.025, 0.1), std(0x2a2d31, 0.5), desks.map(([x, z]) => [x + 0.34, 0.764, z + 0.2]))
       // Ergonomic chairs: mesh back with lumbar pad and headrest, arms, gas lift, five-star base.
@@ -618,7 +630,11 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const chair = ergoChairGeometry()
       inst(chair.frame, steelMat, chairSpots)
       inst(chair.pad, std(0x1d2126, 0.85), chairSpots)
-      desks.forEach(([x, z], i) => seat(`desk${i}`, 'Desk chair', x, z + 0.82, Math.PI, 0.5))
+      // Every desk is a trading seat: sit down and the screens open (Spot, Perps, Convert, P2P, Stake, DeFi).
+      desks.forEach(([x, z], i) => {
+        const sp = seatSpot(`${id}-seat-desk${i}`, 'Trading desk', { x: o.x + x, z: o.z + z + 0.82, yaw: Math.PI, y: 0.5 }, hooks.sit, 1.3)
+        uses.push({ ...sp, body: 'Sit down and the trading screens open. Practice prices, in-game money only.', enter: 'Sit and trade', run: () => { sp.use(); window.setTimeout(() => hooks.openPanel('trade'), 450) } })
+      })
       // Glass corner office.
       const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xdfe8ec, roughness: 0.05, transmission: 0, transparent: true, opacity: 0.22 })
       box(0.05, 2.6, 4.0, glassMat, w / 2 - 3.5, d / 2 - 2.0, 0, true)
@@ -1021,6 +1037,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (!room.group.userData.props && id !== 'house' && id !== 'mosque') { room.group.userData.props = true; addProps(room.group, id) }
       room.group.visible = true
       inside = id
+      if (id === 'trading') repaintWalls?.() // the walls show this minute's prices from the moment you walk in
       const o = ORIGIN[id]
       lamp.position.set(o.x, 2.9, o.z)
       if (id === 'house') { syncFurniture(room.group); floorLevel = 0 }

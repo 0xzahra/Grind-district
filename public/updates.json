@@ -223,6 +223,19 @@
       "body": "With lesson voice on, Zahra now reads each exercise question and its choices too. The P2P lesson explains fiat money and how P2P differs from OTC, and the scams lesson explains approval checkers like Revoke.cash, said properly at last.",
       "go": "panel:learn",
       "push": false
+    },
+    {
+      "id": "u1124-trading-floor",
+      "title": "Trading floor: live walls, and every desk trades",
+      "body": "The trading floor's walls now show the same prices and day moves as the Trade screen, updated while you are there, and only coins you can actually trade. Sit at any desk and the trading screens open.",
+      "go": "place:Trading floor"
+    },
+    {
+      "id": "u1124-campus-folds",
+      "title": "Campus is tidier: finished worlds fold away",
+      "body": "Each world on Campus now folds under its header. Finished worlds close with a tick, the world you are on stays open, and a passed lesson has a Next lesson key so you never have to scroll to find it.",
+      "go": "panel:learn",
+      "push": false
     }
   ]
 }
