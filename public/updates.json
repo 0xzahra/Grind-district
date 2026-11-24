@@ -269,6 +269,13 @@
       "title": "30 coins on the Trade screen, with search",
       "body": "Sixteen more major coins are on the Trade screen at live prices, including Cardano, Litecoin, Bitcoin Cash, Uniswap, Aave, Cosmos, Arbitrum, Optimism, Polygon and Stellar. Type a name or symbol in the new search box to find one fast.",
       "go": "panel:trade"
+    },
+    {
+      "id": "u1124-zahra-gestures",
+      "title": "Zahra talks with her hands",
+      "body": "Zahra at Campus now waves when you say hello, points out what she shows you on the tour, and nods and gestures while she talks, in every language.",
+      "go": "place:Campus",
+      "push": false
     }
   ]
 }

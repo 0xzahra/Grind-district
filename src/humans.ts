@@ -762,7 +762,7 @@ function dancePose(person: THREE.Object3D, rig: Limbs, t: number): void {
     }
   }
 }
-function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): void {
+export function aim(bone: THREE.Object3D, child: THREE.Object3D, want: THREE.Vector3): void {
   bone.getWorldPosition(vA); child.getWorldPosition(vB)
   vDir.subVectors(vB, vA).normalize()
   qTurn.setFromUnitVectors(vDir, want)

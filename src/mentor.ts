@@ -189,6 +189,7 @@ export function createMentorCard(hooks: MentorHooks) {
       const [head, dots] = shell(`Welcome tour \u00b7 ${i + 1} of ${TOUR.length}`, TOUR.length, i)
       head.querySelector('.mentor-x')?.addEventListener('click', () => { dismissed = true; end(false) })
       light(step.spot)
+      if (step.spot) window.dispatchEvent(new CustomEvent('gd:gesture', { detail: 'point' })) // she points out what she is showing
       root.classList.toggle('tour-up', step.spot === '#stick') // keep the joystick she points at in view
       const nav = h('div', 'mentor-nav')
       const last = i === TOUR.length - 1
@@ -207,6 +208,7 @@ export function createMentorCard(hooks: MentorHooks) {
     if (open) return
     open = true
     hooks.face?.()
+    window.dispatchEvent(new CustomEvent('gd:gesture', { detail: 'wave' })) // she waves hello
     root.hidden = false
     document.body.classList.add('mentor-on')
     const next = nextMission()

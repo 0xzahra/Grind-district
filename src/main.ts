@@ -1,6 +1,7 @@
 import { nextMission } from './worlds.ts'
 import { step as journeyStep } from './journey.ts'
 import { createDriveUi, nearestRoad, planRoute } from './drive.ts'
+import { talkGestures } from './gestures.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { nearWalletChip } from './nearWallet.ts'
@@ -362,6 +363,9 @@ const apiAgents = createRemoteAgents(scene)
   }
   ada.userData.ghost = true
   scene.add(ada)
+  // Zahra's body language follows her voice in any language: nods and an open hand while she talks, a wave hello.
+  const zahraMoves = talkGestures(ada, 'zahra')
+  window.addEventListener('gd:gesture', (e) => { const g = (e as CustomEvent<string>).detail; if (g === 'wave' || g === 'nod' || g === 'point') zahraMoves.play(g) })
   {
     const server = posedHuman('man1', { pose: 'stand', height: 1.76, look: { top: 0x1f5a4c, bottom: 0x23262a, shoes: 0x16181b } })
     server.position.set(0.35, 0.2, 0.32)
@@ -2658,6 +2662,7 @@ const apiAgents = createRemoteAgents(scene)
   }
 
   const update = (dt: number) => {
+    zahraMoves.tick(dt)
     const now = Date.now()
     tickMarket(dt, now)
     const nextSeason = seasonAt(now)
