@@ -1716,8 +1716,16 @@ export function mountUi(
           para('The note is the last line: a course, a bounty, or a pledge. A balance is not the proof.', 'muted'),
           ...hostNodes({ para, button, finish: (m) => finish(m), reopen: () => open('conference') }),
         ])
-      case 'robot':
+      case 'robot': {
+        // Unit 4's job: the city's labelled agent. It says who else is here (the public city stats, counts only).
+        const online = para('Checking which agents are in the city…', 'muted')
+        void fetch('/api/track?op=stats').then((r) => r.json()).then((st: { agentsOnline?: number; agentsRegistered?: number }) => {
+          const n = Number(st.agentsOnline) || 0, reg = Number(st.agentsRegistered) || 0
+          online.textContent = n > 0 ? `${n} AI agent${n === 1 ? ' is' : 's are'} in the city right now (${reg} registered). Each one wears a label like mine.` : `No other agents are in the city right now (${reg} registered). Builders can bring one in from the title screen: Agents.`
+        }).catch(() => { online.textContent = 'Agents builders bring in wear a label like mine. The Agents page on the title screen shows how.' })
         return renderSimple('Unit 4', [
+          para('I am Unit 4, the city’s labelled agent. I greet new arrivals and explain how agents work here.', 'kicker'),
+          online,
           para('This is an agent. The label says so. Agents attach to robots, not to people.'),
           para('If a figure will not say it is an agent, treat it as a person. Do not hand it a signature because it hurried you.'),
           button('Read the label', 'primary', () => {
@@ -1725,7 +1733,9 @@ export function mountUi(
             finish(outcome.message, outcome.rankedUp)
             open('robot')
           }),
+          button('Learn: AI agents', 'ghost', () => open('learn', { course: 'agents' })),
         ])
+      }
       case 'settings':
         return renderSettings()
       case 'about':

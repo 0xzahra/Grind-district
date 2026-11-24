@@ -159,7 +159,7 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
   return along > 0 ? along : null
 }
 
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; robotAt: () => { x: number; z: number }; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
   // Each resident gets a name that fits the figure: women's names on women, men's names on men.
   const personas = new Map<Person, Persona>()
@@ -288,6 +288,8 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       const p = people[best]!
       return { name: persona(p).name, gender: p.sim.spec.body === 'zuri' ? 'f' : 'm', seed: best }
     },
+    /** Unit 4, the labelled agent: where it stands (a tap there opens its card). */
+    robotAt() { return { x: robotX, z: robotZ } },
     debug() { return people.map((p, i) => ({ x: +p.sim.x.toFixed(2), z: +p.sim.z.toFixed(2), state: posed.some((q) => q.p === p) ? 'seated' : still.has(i) ? 'idle' : 'walking', body: p.sim.spec.body })) },
     tick(dt, player) {
       lastPlayer = player ?? null
@@ -364,9 +366,19 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         if (!away) obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })
       })
 
-      // Unit 4 wanders its corner: a fresh random spot each time, a varied pause, a varied pace, and it waits
+      // Unit 4 has a job: it is the city's labelled agent and greets whoever comes near. With a player within
+      // 6 m it stops, turns to face them and waits to be asked (tap it: what agents are, who is online now).
+      // Otherwise it tends its corner: a fresh random spot each time, a varied pause, a varied pace, and it waits
       // or steps round anyone in its way instead of walking through them.
-      if (robotWait > 0) robotWait -= dt
+      const greet = player && Math.hypot(player.x - robotX, player.z - robotZ) < 6
+      if (greet) {
+        const want = Math.atan2(player.x - robotX, player.z - robotZ)
+        let d = want - unit.object.rotation.y
+        while (d > Math.PI) d -= Math.PI * 2
+        while (d < -Math.PI) d += Math.PI * 2
+        unit.object.rotation.y += d * Math.min(1, dt * 4)
+        robotWait = Math.max(robotWait, 1.5)
+      } else if (robotWait > 0) robotWait -= dt
       else {
         const dx = robotGoal.x - robotX, dz = robotGoal.z - robotZ, dist = Math.hypot(dx, dz)
         if (dist < 0.2) {

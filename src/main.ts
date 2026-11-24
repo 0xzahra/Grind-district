@@ -2025,6 +2025,10 @@ const apiAgents = createRemoteAgents(scene)
   }
   streetSpots.push({ id: 'graduation', x: 4.6, z: -41.2, r: 1.4, title: 'Graduation 🎓', body: 'Pass every course in the six Campus worlds to graduate: cap and gown, your name called, the diploma from Zahra.', enter: 'Graduation', use: () => ui.open('diploma') })
   window.addEventListener('gd:graduated', () => { notify('Graduate 🎓', 'Diploma in Web3 Foundations. Download it or share it from Graduation.', 'graduated', 'panel:diploma'); window.setTimeout(() => ui.open('diploma'), 4200) })
+  // Unit 4, the labelled agent, has a job: walk up (it stops and turns to you) and ask it about agents.
+  const unitSpot: Hotspot = { id: 'unit4', x: 10.1, z: 7.6, r: 1.9, title: 'Unit 4 · labelled agent', body: 'The city\u2019s labelled agent. Ask it what agents are and which are in the city now.', enter: 'Ask Unit 4', use: () => ui.open('robot') }
+  streetSpots.push(unitSpot)
+  window.setInterval(() => { const at = crowd.robotAt(); unitSpot.x = at.x; unitSpot.z = at.z }, 250)
   streetSpots.push({ id: 'kiosk', x: 0, z: 3.15, r: 1.5, title: 'Grind Ring kiosk', body: 'Welcome to Grind. Tea or coffee?', enter: 'Order', use: () => {
     speak(SERVER_LINES[Math.floor(Math.random() * SERVER_LINES.length)]!, { gender: 'm', seed: 7 })
     ui.open('kiosk')

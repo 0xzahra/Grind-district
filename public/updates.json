@@ -243,6 +243,13 @@
       "body": "Tapping a place on the map now shows the place itself when you arrive, with its panel opening a moment later, instead of a dark or frozen screen.",
       "go": "panel:city",
       "push": false
+    },
+    {
+      "id": "u1124-unit4",
+      "title": "Unit 4 has a job now",
+      "body": "Unit 4, the city's labelled AI agent, stops and turns to greet you when you walk up. Ask it what agents are, how many are in the city right now, and jump to the AI agents lesson.",
+      "go": "place:Grind Ring",
+      "push": false
     }
   ]
 }
