@@ -23,6 +23,8 @@ export type RideOpts = {
   /** Handed back when you get out (test drives, the club car, the boat); your own car stays parked. */
   temp?: boolean
   at?: { x: number; z: number; heading: number }
+  /** Raceway auto race: your car drives itself with the three rivals (watch); touch the stick or a pedal to join. */
+  autoRace?: boolean
 }
 export type Ride = ReturnType<typeof createRide>
 type Input = { x: number; y: number } | null
@@ -438,7 +440,9 @@ export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m
   const rivalObs: Obstacle[] = []
 
   /** Debug: drive the route by itself (used to set the par time and check the circuit). */
-  let auto = false
+  let auto = !!(opts.autoRace && opts.mode === 'race')
+  // A run the autopilot drove (even in part) is a show, not a lap time: no best, ghost, medal or reputation.
+  let watched = auto
   let turbo = 1, inTurbo = false
   const autopilot = (): { x: number; y: number } => {
     if (!route) return { x: 0, y: 0 }
@@ -462,6 +466,18 @@ export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m
     const sec = Math.round(raceT * 100) / 100
     const n = race!.pts.length
     place = 1 + rivals.filter((r) => r.d >= RACE_LAPS * n).length
+    if (watched) {
+      // An auto race: the result is shown, but it is not your time.
+      const msg = `Auto race · your car P${place} of ${RIVALS.length + 1} · ${fmt(sec)}`
+      line.textContent = msg; resultUntil = elapsed + 10
+      count.hidden = false; count.textContent = `P${place}`
+      window.setTimeout(() => { count.hidden = true }, 2200)
+      deps.toast(`${msg}. Race it yourself for a time, a medal and reputation. Get out to hand the car back.`)
+      for (const gm of gateMeshes) gm.visible = false
+      chevron.visible = false
+      if (ghost) ghost.visible = false
+      return
+    }
     const r = readRec()
     const medal = medalFor(sec)
     const better = !r.best || sec < r.best
@@ -584,6 +600,8 @@ export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m
       elapsed += dt
       let ix = 0, iy = 0
       if (driving && input) { ix = input.x; iy = input.y }
+      // Watching an auto race: the player's own stick (or a pedal) joins it, from wherever the car is.
+      if (auto && watched && driving && input && Math.hypot(input.x, input.y) > 0.3 && phase !== 'done') { auto = false; deps.toast('You have the wheel. Race on!') }
       if (auto && driving) { const a = autopilot(); ix = a.x; iy = a.y }
       // Countdown before a race: everyone waits on the grid.
       if (phase === 'count') {
@@ -732,7 +750,7 @@ export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m
           }
           if (phase === 'go') {
             place = 1 + rivals.filter((r) => r.d > playerD).length
-            line.textContent = `P${place}/${RIVALS.length + 1} · lap ${lap}/${RACE_LAPS} · ${fmt(raceT)}`
+            line.textContent = `${auto && watched ? 'Watching · stick to join · ' : ''}P${place}/${RIVALS.length + 1} · lap ${lap}/${RACE_LAPS} · ${fmt(raceT)}`
           }
           trailT += dt
           if (trailT > 0.1) { trailT = 0; trail.push(Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(heading * 100) / 100) }
@@ -748,7 +766,7 @@ export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m
             ghost.rotation.y = rec0.ghost[k * 3 + 2]!
           }
         } else if (phase === 'count') {
-          line.textContent = `Grid · P${RIVALS.length + 1}/${RIVALS.length + 1}`
+          line.textContent = auto && watched ? 'Auto race · 4 cars · touch the stick to join' : `Grid · P${RIVALS.length + 1}/${RIVALS.length + 1}`
           gateMeshes.forEach((gm, i) => { gm.visible = i === 0; for (const c of gm.children) (c as THREE.Mesh).material = hot })
         }
       }

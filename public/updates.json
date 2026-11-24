@@ -198,6 +198,12 @@
       "title": "Career mentors on the street",
       "body": "Residents who work in a Web3 career (traders, builders, security nerds, creators and more) now mentor it. Tap one for a short tip from their path and the lesson they would set you next, with a Start button.",
       "go": "place:Campus"
+    },
+    {
+      "id": "u1124-auto-race",
+      "title": "Watch an auto race at the Raceway",
+      "body": "At the Raceway, Watch an auto race puts four cars on the circuit, yours on autopilot. Sit back and watch, or touch the stick or Gas to take the wheel and race it out.",
+      "go": "place:Raceway"
     }
   ]
 }

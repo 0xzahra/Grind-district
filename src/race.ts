@@ -196,6 +196,10 @@ export function raceNodes(h: H): HTMLElement[] {
     h.button('Race on the circuit', 'primary', () => {
       window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'car', model: car.id, label: car.label, mode: 'race', temp: true } }))
     }),
+    // Four cars race themselves (yours on autopilot): watch from your seat, or touch the stick to join in.
+    h.button('Watch an auto race (4 cars)', 'ghost', () => {
+      window.dispatchEvent(new CustomEvent('gd:ride', { detail: { kind: 'car', model: car.id, label: car.label, mode: 'race', temp: true, autoRace: true } }))
+    }),
   )
   root.append(city, h.para('Time trial', 'kicker'), h.para('A five-lap time trial. Hold to accelerate, let go to brake. No bets and no prize money: you race the clock.'), picks, hud, cv, noteEl, pedal, info)
   if (cars.length === 1) root.append(h.para('Cars from the dealership are quicker than the club kart.', 'muted'))
