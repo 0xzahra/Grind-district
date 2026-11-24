@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="dark">
+<title>Grind District stats</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<style>
+:root{--bg:#070a09;--card:#111614;--line:#1f2925;--ink:#eef3ef;--mute:#8d9a94;--green:#2ee68a;--gold:#d8b26a;--red:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:4px 0 2px}h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin:28px 0 10px;font-weight:600}
+.sub{color:var(--mute);margin:0 0 14px;font-size:13px}
+.hero{background:linear-gradient(180deg,#13201a,#0d1411);border:1px solid #234032;border-radius:16px;padding:16px 18px}
+.hero b{color:var(--green)}.hero p{margin:4px 0}
+.pick{display:flex;gap:6px;margin:12px 0 0}
+.pick button{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.pick button[aria-pressed=true]{background:var(--green);color:#06120c;border-color:var(--green);font-weight:600}
+.step{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.step .bar{grid-column:1/-1;height:8px;background:#18201c;border-radius:6px;overflow:hidden}
+.step .bar i{display:block;height:100%;background:var(--green);border-radius:6px}
+.step.worst .bar i{background:var(--gold)}
+.step small{color:var(--mute);grid-column:1/-1;font-size:12px}
+.num{font-variant-numeric:tabular-nums;font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.tile span{display:block;color:var(--mute);font-size:12px}.tile strong{font-size:22px;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line)}th:first-child,td:first-child{text-align:left}
+th{color:var(--mute);font-weight:500}
+.wrap{overflow-x:auto}
+.note{color:var(--mute);font-size:12px;margin-top:8px}
+.err{color:var(--red)}
+</style>
+</head>
+<body>
+<main>
+<h1>Where do players leave?</h1>
+<p class="sub">Grind District · first sessions and returns · counts only, no names or wallets</p>
+<div class="hero" id="hero"><p>Loading…</p></div>
+<div class="pick" id="pick"><button data-d="7">7 days</button><button data-d="14">14 days</button><button data-d="30">30 days</button></div>
+
+<h2>First session, step by step</h2>
+<div id="steps"></div>
+<p class="note" id="stepsNote"></p>
+
+<h2>Lessons left unfinished</h2>
+<div class="wrap"><table id="leaves"><thead><tr><th>Course</th><th>Left on card</th><th>Where</th><th>Players</th></tr></thead><tbody></tbody></table></div>
+
+<h2>Coming back</h2>
+<div class="tiles" id="ret"></div>
+<div class="wrap" style="margin-top:12px"><table id="coh"><thead><tr><th>First week</th><th>New</th><th>Next day</th><th>After 7 days</th><th>After 30 days</th><th>Passed a lesson</th></tr></thead><tbody></tbody></table></div>
+<p class="note">Next day: opened the game again the day after their first day. After 7 / 30 days: opened it again 7 or 30 or more days after their first day. A dash means that week is not old enough yet. Days run on Lagos time.</p>
+
+<h2>Proof shared</h2>
+<div class="tiles" id="proof"></div>
+
+<h2>Top-ups</h2>
+<div class="tiles" id="tops"></div>
+<p class="note" id="gen"></p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+const key = new URLSearchParams(location.search).get('key') || ''
+const pctTxt = (v) => (v == null ? '—' : `${v}%`)
+const secsTxt = (s) => (s == null ? '' : s < 90 ? `${s}s` : `${Math.round(s / 60)} min`)
+const tile = (label, value) => `<div class="tile"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`
+let days = 14
+try { days = Number(localStorage.getItem('gd.stats.days')) || 14 } catch {}
+
+async function load() {
+  document.querySelectorAll('#pick button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.d) === days)))
+  $('hero').innerHTML = '<p>Loading…</p>'
+  let d
+  try {
+    const r = await fetch(`/api/track?op=funnel&days=${days}${key ? `&key=${encodeURIComponent(key)}` : ''}`)
+    d = await r.json()
+    if (!r.ok) throw new Error(d.error || r.status)
+  } catch (e) {
+    $('hero').innerHTML = `<p class="err">Could not load the numbers (${esc(e.message || e)}).</p>`
+    return
+  }
+  const total = d.firstSessions
+  const worst = d.mostLeftAt
+  $('hero').innerHTML = total
+    ? `<p>${total} new players in the last ${d.windowDays} days.</p>
+       ${worst ? `<p>Most stop at: <b>${esc(worst.label)}</b> (${worst.count} of ${total}).</p>` : ''}
+       ${d.biggestDrop ? `<p>Biggest drop: ${esc(d.biggestDrop.from)} → ${esc(d.biggestDrop.to)}, ${d.biggestDrop.lost} players (${d.biggestDrop.pct}%).</p>` : ''}
+       ${d.medianFirstSessionSecs != null ? `<p>A first session lasts about ${secsTxt(d.medianFirstSessionSecs)} (median).</p>` : ''}`
+    : `<p>No first sessions recorded yet${d.trackingSince ? '' : ': step tracking starts with this update'}. Check back after a few new players arrive.</p>`
+  $('steps').innerHTML = d.steps.map((s) => `<div class="step${worst && worst.step === s.id ? ' worst' : ''}">
+      <span>${esc(s.label)}</span><span class="num">${s.reached} · ${s.pct}%</span>
+      <div class="bar"><i style="width:${Math.max(1, s.pct)}%"></i></div>
+      <small>${s.leftHere ? `${s.leftHere} left here` : 'nobody left here'}${s.medianSecs != null ? ` · about ${secsTxt(s.medianSecs)} spent here` : ''}</small></div>`).join('')
+  $('stepsNote').textContent = `Opened the menu: ${d.menuOpened} of ${total}. Each player counts once, at the furthest step they reached in their first visit.`
+  $('leaves').querySelector('tbody').innerHTML = d.lessonLeaves.length
+    ? d.lessonLeaves.map((l) => `<tr><td>${esc(l.course)}</td><td>${l.card + 1}</td><td>${l.where === 'check' ? 'quick check' : 'lesson cards'}</td><td>${l.count}</td></tr>`).join('')
+    : '<tr><td colspan="4">None yet.</td></tr>'
+  const rt = d.retention
+  $('ret').innerHTML = tile('Visitors (all time)', rt.visitors) + tile('Back the next day', pctTxt(rt.d1)) + tile('Back after 7 days', pctTxt(rt.d7)) + tile('Back after 30 days', pctTxt(rt.d30))
+    + tile(`Signed-up players (${rt.signedUp.players})`, `${pctTxt(rt.signedUp.d7)} after 7 days`)
+  $('coh').querySelector('tbody').innerHTML = d.cohorts.map((c) => `<tr><td>${esc(c.week)}</td><td>${c.size}</td><td>${pctTxt(c.d1)}</td><td>${pctTxt(c.d7)}</td><td>${pctTxt(c.d30)}</td><td>${c.learned}%</td></tr>`).join('')
+  const p = d.proof
+  $('proof').innerHTML = tile('Certificates shared', p.certShares) + tile('CVs shared', p.cvShares) + tile('Certificate pages opened', p.certViews) + tile('CV pages opened', p.cvViews) + tile('Certificates minted', p.mints)
+  const t = d.topups
+  $('tops').innerHTML = tile('Payments', t.payments) + tile('Players who topped up', t.payers) + tile('Total (USD)', `$${t.usd.toFixed(2)}`) + tile('Played again on a later day', t.payersBack == null ? '—' : t.payersBack) + tile('Top-up screen opened', t.attempts)
+  $('gen').textContent = `Updated ${new Date(d.generatedAt).toLocaleString()}. Shares, page views, mints and top-up screen opens are for the last ${d.windowDays} days; payments are all time.`
+}
+document.querySelectorAll('#pick button').forEach((b) => b.addEventListener('click', () => { days = Number(b.dataset.d); try { localStorage.setItem('gd.stats.days', String(days)) } catch {} void load() }))
+void load()
+</script>
+</body>
+</html>

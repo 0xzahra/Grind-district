@@ -18,7 +18,8 @@ import { publicDoc, type BookRow } from './logic.ts'
 import { guessLowEnd, liteOn, litePref, setLiteNow, setLitePref } from './deviceTier.ts'
 import { renderExchange } from './exchange.ts'
 import { watchPerps } from './perps.ts'
-import { track } from './track.ts'
+import { track, trackFunnelOnce } from './track.ts'
+import { step as journeyStep } from './journey.ts'
 import { getAddress } from 'viem'
 import { COURSES, headlines } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
@@ -330,6 +331,14 @@ export function mountUi(
   }
 
   let open!: (panel: PanelId, extra?: OpenExtra) => void
+  // The lesson in progress (first-session drop-off: which course and card a player leaves on).
+  let lessonNow: { id: SkillId; card: number; where: 'lesson' | 'check' } | null = null
+  const lessonsTried = new Set<SkillId>()
+  const leaveLesson = () => {
+    if (!lessonNow) return
+    journeyStep('lesson_leave', { course: lessonNow.id, card: lessonNow.card, where: lessonNow.where })
+    lessonNow = null
+  }
   let houseId: HouseId = 'yours'
   let courseHold: SkillId | null = null
 
@@ -342,6 +351,7 @@ export function mountUi(
   })
   const close = () => {
     const was = current
+    if (was === 'learn') leaveLesson()
     stop()
     stopSpeaking()
     current = null
@@ -396,6 +406,7 @@ export function mountUi(
   }
   const renderProfile = (cvFirst = false): HTMLElement => {
     const save = getSave()
+    if (Object.values(save.skills).some((x) => x?.passed)) journeyStep('cv_seen', { via: 'profile' })
     const hero = document.createElement('div')
     hero.className = 'profile-hero'
     // The full-body portrait is taken a frame after the profile paints, so the panel opens at once.
@@ -591,6 +602,7 @@ export function mountUi(
     const body = document.createElement('div')
     body.className = 'stack'
     const showList = () => {
+      leaveLesson()
       body.replaceChildren(renderLearnHome((id) => showCourse(id)))
       body.append(advice())
     }
@@ -610,6 +622,10 @@ export function mountUi(
           else if (fresh) localStorage.setItem('gd.firstCourseStarted', '1')
         } catch { /* private mode: still log the start */ }
         track('course_start', { course: id, first: fresh })
+        if (fresh) trackFunnelOnce('first_course_start', { course: id })
+        journeyStep(lessonsTried.has(id) ? 'lesson_resume' : 'lesson_start', { course: id })
+        lessonsTried.add(id)
+        lessonNow = { id, card: 0, where: 'lesson' }
       }
       const total = course.questions.length
       // Each view replaces the whole body and scrolls the sheet to the top, so an exercise never sits on top of lesson text.
@@ -625,6 +641,7 @@ export function mountUi(
         const cardBox = document.createElement('div')
         cardBox.className = 'bite'
         const paint = (i: number) => {
+          if (lessonNow?.id === id) { lessonNow.card = Math.max(lessonNow.card, i); lessonNow.where = 'lesson' }
           const dots = document.createElement('div')
           dots.className = 'bite-dots'
           for (let k = 0; k < cards.length; k++) { const d = document.createElement('i'); if (k < i) d.className = 'on'; else if (k === i) d.className = 'now'; dots.append(d) }
@@ -651,6 +668,7 @@ export function mountUi(
         const question = course.questions[questionIndex]
         if (!question) return
         stopSpeaking()
+        if (lessonNow?.id === id) { if (lessonNow.where !== 'check') journeyStep('exercise_start', { course: id }); lessonNow.where = 'check' }
         const wrap = stack(button('← Back to the lesson', 'ghost', showLesson))
         const head = document.createElement('div')
         head.className = 'ex-head'
@@ -700,6 +718,8 @@ export function mountUi(
             if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
             const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
             if (outcome.ok) {
+              journeyStep('lesson_complete', { course: id })
+              lessonNow = null
               const extra = (outcome.stipend ? ' Campus put $25.00 practice on your ledger.' : '') + ` +${money(COURSE_CASH)} course bonus.`
               const focus = outcome.focus ? ' Focus added a quarter.' : ''
               const bonus = outcome.bonus ? ' Streak kept.' : ''
@@ -1721,6 +1741,7 @@ export function mountUi(
     const previous = current
     stop()
     current = panel
+    if (panel === 'learn' && previous !== 'learn') journeyStep('learn_open')
     if (extra?.shared) sharedHold = extra.shared
     if (extra?.shared) peerHold = extra.peer ?? null
     if (extra?.house) houseId = extra.house

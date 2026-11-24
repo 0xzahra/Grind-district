@@ -6,6 +6,10 @@ export type EventName =
   // Dated funnel steps (Build App & Earn, 9 Nov): opened page → guest play → account → first lesson.
   | 'opened_page' | 'guest_play' | 'account_created' | 'first_lesson'
   | 'sign_in' | 'logout' | 'account_deleted' | 'wallet_connected'
+  // Retention and first-session drop-off (journey.ts): milestone steps, session length, returns on a later day,
+  // the first course started and passed, CV updates, and certificate / CV views.
+  | 'step' | 'session_length' | 'return_session' | 'first_course_start' | 'first_course_complete' | 'cv_updated'
+  | 'cert_viewed'
 
 const ON = import.meta.env.VITE_TRACKING === '1'
 const BUF = 'gd.events.buffer'
@@ -53,7 +57,7 @@ export function track(name: EventName, props: Record<string, unknown> = {}): voi
 }
 
 /** Fire a funnel step once per visitor id (dated ISO timestamp is on every event via `at`). */
-export function trackFunnelOnce(name: 'opened_page' | 'guest_play' | 'account_created' | 'first_lesson', props: Record<string, unknown> = {}): void {
+export function trackFunnelOnce(name: 'opened_page' | 'guest_play' | 'account_created' | 'first_lesson' | 'first_course_start' | 'first_course_complete', props: Record<string, unknown> = {}): void {
   try {
     const once = read<Record<string, string>>(FUNNEL_ONCE, {})
     if (once[name]) return

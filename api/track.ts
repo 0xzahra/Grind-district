@@ -4,6 +4,7 @@ import { newsHandler } from './_news.js'
 import { pricesHandler } from './_prices.js'
 import { galleryHandler } from './_gallery.js'
 import { STATS_EVENT_NAMES, collectPublicStats, publicEventProps } from './_stats.js'
+import { collectFunnel, funnelAllowed } from './_funnel.js'
 
 // Accepts batched client events and inserts them with the service role. 202 no-op until env vars exist.
 const NAMES = new Set<string>(STATS_EVENT_NAMES)
@@ -24,6 +25,15 @@ export default async function handler(req: Req, res: Res) {
     const out = await collectPublicStats()
     if ('error' in out) return res.status(out.status).json({ error: out.error })
     ;(res as unknown as { setHeader?: (k: string, v: string) => void }).setHeader?.('cache-control', 'public, max-age=30')
+    return res.status(200).json(out)
+  }
+  if (req.method === 'GET' && req.query?.op === 'funnel') {
+    // Drop-off and retention summary for /stats.html. Counts only (see _funnel.ts).
+    const q = req.query
+    if (!funnelAllowed(typeof q.key === 'string' ? q.key : undefined)) return res.status(401).json({ error: 'key needed' })
+    const out = await collectFunnel(Number(q.days) || 14).catch(() => ({ error: 'could not read events', status: 500 }))
+    if ('error' in out) return res.status(out.status).json({ error: out.error })
+    ;(res as unknown as { setHeader?: (k: string, v: string) => void }).setHeader?.('cache-control', 'private, max-age=60')
     return res.status(200).json(out)
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })

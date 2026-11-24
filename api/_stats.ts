@@ -6,6 +6,7 @@ export const STATS_EVENT_NAMES = [
   'cv_shared', 'share_click', 'transfer', 'topup_attempt',
   'opened_page', 'guest_play', 'account_created', 'first_lesson',
   'sign_in', 'logout', 'account_deleted', 'wallet_connected',
+  'step', 'session_length', 'return_session', 'first_course_start', 'first_course_complete', 'cv_updated', 'cert_viewed',
 ] as const
 
 export type PublicStats = {
@@ -110,6 +111,14 @@ export async function insertAnalyticsEvent(db: SupabaseClient, name: (typeof STA
   }
   const { error } = await db.from('events').insert({ name, anon_id: '', session_id: '', props: clean, client_at: new Date().toISOString() })
   if (error) throw error
+}
+
+/** Count a view of a public certificate or CV page (bots and link previews left out). Never throws, never waits long. */
+export async function countPageView(kind: 'cert' | 'cv', userAgent: string, valid: boolean): Promise<void> {
+  if (!valid || /bot|crawl|spider|preview|facebookexternalhit|slack|discord|whatsapp|telegram|embed|curl|python|headless/i.test(userAgent)) return
+  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return
+  await timeout(insertAnalyticsEvent(dbClient(url, key), 'cert_viewed', { page: kind }).catch(() => undefined), 800)
 }
 
 async function eventCount(db: SupabaseClient, name: string): Promise<number> {

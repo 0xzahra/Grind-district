@@ -2,6 +2,7 @@ import { SKILL_META, type SkillId } from './logic.ts'
 import { getSave } from './state.ts'
 import { shareLink, shareOrCopy, profileLink, publishProfile } from './share.ts'
 import { track } from './track.ts'
+import { step as journeyStep } from './journey.ts'
 import { encodeCertId, decodeCertId, drawCertificate, certSerial, issuedWat, CERT_W, CERT_H, type CertData } from '../api/_certArt.ts'
 import '@fontsource/outfit/latin-400.css'
 import '@fontsource/outfit/latin-500.css'
@@ -64,6 +65,7 @@ export async function paintCertificate(course: SkillId, data = certData(course))
 
 export async function openCertificate(course: SkillId): Promise<void> {
   try { localStorage.setItem('gd.certSeen', '1') } catch { /* private mode */ }
+  journeyStep('cv_seen', { via: 'certificate' })
   document.getElementById('cert-dlg')?.remove()
   const dlg = document.createElement('div')
   dlg.id = 'cert-dlg'

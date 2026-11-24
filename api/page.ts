@@ -1,6 +1,6 @@
 // Public share pages: /cv/<username>?d=<profile> and /cert/<id>. Serves OG/Twitter meta, then opens the game.
 // /cert/<id>/image.png renders the certificate (same art as the game); /cert/<id>/meta.json is the NFT metadata.
-type Req = { query: Record<string, string | undefined>; url?: string }
+type Req = { query: Record<string, string | undefined>; url?: string; headers?: Record<string, string | string[] | undefined> }
 type Res = { setHeader(k: string, v: string): void; status(n: number): { send(b: string | Buffer): void } }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
@@ -8,6 +8,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 import { getProfile } from './_profile.js'
 import { certMetadata, issuedWat, issuedIso, certPageUrl, CERT_ORIGIN, CERT_WORDING, CERT_W, CERT_H, type CertChain, type CertData } from './_certArt.js'
 import { findCert, rowData, certDb, type CertRow } from './_certStore.js'
+import { countPageView } from './_stats.js'
 
 /** A certificate is shown only from its server record; anything else (edited, made-up or unknown) is not valid. */
 async function certFor(key: string): Promise<{ row: CertRow; d: CertData } | null> {
@@ -117,6 +118,8 @@ section{margin-top:24px;border-top:1px solid #eadfcb;padding-top:16px}</style></
 <body><main>${body}
 <a class="btn" href="${game}">Open Grind District</a>
 ${kind === 'cv' ? '<section><h2>Endorsements</h2><p>Reviews and endorsements are coming soon.</p></section>' : ''}</main></body></html>`
+  // How often shared certificates and CVs are opened by people (counts only, for the stats page).
+  await countPageView(kind, String(req.headers?.['user-agent'] ?? ''), valid)
   res.setHeader('content-type', 'text/html; charset=utf-8')
   res.setHeader('cache-control', valid ? 'public, max-age=300' : 'no-store')
   res.status(valid ? 200 : 404).send(html)

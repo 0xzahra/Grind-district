@@ -10,6 +10,7 @@ import '@fontsource-variable/inter/index.css'
 import { mountMenu, hasAccountSession } from './menu.ts'
 import { loadSave } from './state.ts'
 import { startTracking } from './track.ts'
+import { startJourney, step } from './journey.ts'
 import { watchUpdates } from './update.ts'
 import { resumeMusicOnFirstTap } from './music.ts'
 import { languagePicker, startI18n } from './i18n.ts'
@@ -67,6 +68,7 @@ let opening = false
 let stopPreview: () => void = () => {}
 
 function revealCity() {
+  step('enter_city')
   menu.hidden = true
   document.documentElement.classList.remove('title-on')
   const boot = document.querySelector('#boot')
@@ -252,6 +254,7 @@ window.addEventListener('gd-enter-city', () => {
 })
 
 loadSave(window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900 ? 'low' : 'medium')
+startJourney()
 startTracking()
 
 mountMenu(() => { void begin() })

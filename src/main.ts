@@ -1,4 +1,5 @@
 import { nextMission } from './worlds.ts'
+import { step as journeyStep } from './journey.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { nearWalletChip } from './nearWallet.ts'
@@ -1051,7 +1052,7 @@ const apiAgents = createRemoteAgents(scene)
     nav.inert = !open // keyboard and screen readers skip the shut menu too
     railToggle.setAttribute('aria-expanded', String(open))
     // One layer at a time: opening the menu shuts any open panel, so the two never stack.
-    if (open) { if (ui.isOpen()) ui.close(); paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
+    if (open) { journeyStep('menu_open'); if (ui.isOpen()) ui.close(); paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
     else closeSheet()
   }
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }

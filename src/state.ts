@@ -587,6 +587,8 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   save.reputation += COURSE_REP
   track('course_complete', { course: id, tries, first, cv: true })
   if (first) trackFunnelOnce('first_lesson', { course: id })
+  if (first) trackFunnelOnce('first_course_complete', { course: id })
+  track('cv_updated', { courses: Object.values(save.skills).filter((x) => x?.passed).length })
   const rankedUp = gainXp(gained + bonus)
   const stipend = (id === 'spot' || id === 'internet') && !save.activities.some((item) => item.label === 'Campus stipend')
   log('skill', `Passed ${SKILL_META[id].title}`, focused ? 'Prayer focus added a quarter. Filed to the CV.' : 'Filed to the CV, resume, and portfolio.')
