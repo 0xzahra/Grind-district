@@ -164,7 +164,10 @@ export async function uploadShareCard(portrait: string | null): Promise<string |
 /** Share on X with the photo card as the link preview: the card is refreshed first, then X opens. */
 export function shareCardToX(portrait: () => string | null, say: (m: string) => void): void {
   const s = getSave(), u = s.username
-  const text = u ? `I'm grinding in Grind District as @${u}, ${rankFor(s.xp).label} rank. Scan my card or tap to join:` : "I'm grinding in Grind District. Come join:"
+  // Lead with what the player did: courses passed (each one a certificate), then who they are.
+  const passed = Object.values(s.skills as Record<string, { passed?: boolean } | undefined>).filter((v) => v?.passed).length
+  const did = passed ? `I've passed ${passed} Web3 course${passed === 1 ? '' : 's'} in Grind District, each with a certificate on my CV.` : "I'm learning Web3 in Grind District."
+  const text = u ? `${did} @${u}, ${rankFor(s.xp).label} rank. Scan my card or tap to join:` : `${did} Come join:`
   const open = (v: string) => {
     const intent = new URL('https://x.com/intent/post')
     intent.searchParams.set('text', text)
