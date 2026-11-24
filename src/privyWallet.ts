@@ -87,6 +87,9 @@ export function gameWalletChip(): HTMLElement[] {
 // Gas: sponsored by Privy only when VITE_GAS_SPONSOR=1 (off until Zahra enables Fee sponsorship in the
 // Privy dashboard). Otherwise, or if sponsorship is refused (cap reached), the wallet pays its own gas.
 export const GAS_SPONSOR = import.meta.env.VITE_GAS_SPONSOR === '1'
+/** Coinbase Developer Platform Paymaster route (src/gasless.ts); off by default. */
+const GASLESS = import.meta.env.VITE_GASLESS === '1'
+const chainOk = (usdc: string) => usdc.toLowerCase() === '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'
 const BASE_RPC = 'https://mainnet.base.org'
 const BASE_CAIP2 = 'eip155:8453'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
@@ -156,6 +159,10 @@ async function payUsdcInner(usdc: string, to: string, amount: bigint): Promise<{
   if (bal < amount) {
     throw new WalletNeedsFunds(`Your game wallet has ${(Number(bal) / 1e6).toFixed(2)} USDC on Base. Send at least ${(Number(amount) / 1e6).toFixed(2)} USDC on Base to ${from} first, then tap again.`)
   }
+  if (GASLESS && chainOk(usdc)) {
+    // CDP Paymaster (off unless VITE_GASLESS=1 and the server has CDP_PAYMASTER_URL). Falls back to the paths below.
+    try { const r = await (await import('./gasless.ts')).sponsoredUsdcTransfer(to as `0x${string}`, amount); return { hash: r.hash, sponsored: true, from } } catch (e) { console.warn('Gas-free top-up not used:', (e as Error).message) }
+  }
   const walletId = (wallet as { id?: string | null }).id
   if (GAS_SPONSOR && walletId) {
     try {
@@ -195,6 +202,9 @@ export async function callFromGameWallet(to: string, data: `0x${string}`, chainI
     const wallet = mod.getUserEmbeddedEthereumWallet(user)
     if (!wallet || !isAddr(wallet.address)) throw new WalletNotSent('No game wallet yet. Sign in with Google, X or email to create it.')
     const from = wallet.address
+    if (GASLESS && chainId === 8453) {
+      try { return await (await import('./gasless.ts')).sponsoredCalls([{ to: to as `0x${string}`, data }]) } catch (e) { console.warn('Gas-free mint not used:', (e as Error).message) }
+    }
     const rpcUrl = chainId === 84532 ? 'https://sepolia.base.org' : BASE_RPC
     const call = async <T = string>(method: string, params: unknown[]): Promise<T> => {
       const r = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })
@@ -215,4 +225,14 @@ export async function callFromGameWallet(to: string, data: `0x${string}`, chainI
     if (e instanceof WalletNotSent) throw e
     throw new WalletNotSent(`Game wallet could not send: ${((e as Error).message || 'unknown error').replace(/\.$/, '')}. Nothing was minted.`)
   }
+}
+
+/** The game wallet's address and its EIP-1193 provider (Privy secure context). Used by the gas-free route (src/gasless.ts). */
+export async function gameWalletSigner(): Promise<{ address: `0x${string}`; provider: Eip1193 }> {
+  const { mod, p } = await walletClient()
+  const user = (await p.user.get()).user as Parameters<typeof mod.getUserEmbeddedEthereumWallet>[0]
+  const wallet = mod.getUserEmbeddedEthereumWallet(user)
+  if (!wallet || !isAddr(wallet.address)) throw new WalletNotSent('No game wallet yet. Sign in with Google, X or email to create it.')
+  const provider = await p.embeddedWallet.getEthereumProvider({ wallet, ...mod.getEntropyDetailsFromUser(user) })
+  return { address: wallet.address as `0x${string}`, provider }
 }
