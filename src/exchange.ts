@@ -11,7 +11,7 @@ import { renderDefi } from './defi.ts'
 import { STABLES, stableAccrued, stableApr, stableLocked, stableStakes, stakeStable, unstakeStable, type StableId } from './stableEarn.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
-const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', xrp: '#8a96a3', link: '#3d6fe6', near: '#00c08b', sui: '#4da2ff', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', shib: '#e8761c', pepe: '#4c9a2a', wif: '#b98a5e', bonk: '#f5a623' }
+const TINT: Record<string, string> = { btc: '#f7931a', eth: '#7b8fe8', sol: '#19c9a0', xrp: '#8a96a3', link: '#3d6fe6', near: '#00c08b', sui: '#4da2ff', avax: '#e84142', dot: '#e6007a', doge: '#c9a93a', shib: '#e8761c', pepe: '#4c9a2a', wif: '#b98a5e', bonk: '#f5a623', ada: '#2a6bd4', ltc: '#9aa7b8', bch: '#4cc95a', uni: '#ff3d8b', aave: '#9b6fd6', atom: '#6f7390', arb: '#2d9cdb', op: '#ff3b3b', apt: '#3ccfa8', fil: '#1f8fdc', xlm: '#8fa0b3', hbar: '#5a5a5a', icp: '#f0a43a', etc: '#3ab83a', pol: '#8247e5', inj: '#14b8e6' }
 // The game has Coins and Tokens, nothing else. A coin is the money of its own chain (BTC, ETH, SOL, and the
 // listed coins); a token is issued on top of one (LINK, the Meme Token and the other meme tokens).
 const listed = COINS.map((c): Asset => ({ id: c.id, sym: c.label.split(' · ')[0]!, name: c.label.split(' · ')[1] ?? c.label, tint: TINT[c.id] ?? '#9aa3ad', group: TOKEN_IDS.has(c.id) ? 'Tokens' : 'Coins', minRank: c.minRank }))
@@ -148,7 +148,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   // What each tab has selected; kept while the screen is open so switching tabs loses nothing.
   // District Coin is no longer listed (only a sell-all for anyone who still holds some): open on Bitcoin instead.
   let spotId: string = desk === 'unit' ? 'btc' : desk, spotSide: 'buy' | 'sell' = 'buy', spotFrac = 0.5, plan = false
-  let spotCustom: number | null = null
+  let spotCustom: number | null = null, spotQuery = ''
   let perpId = 'btc', perpSide: 'long' | 'short' = 'long', perpLev = 5, perpFrac = 0.25
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
   let stakeId = 'eth', stakePlan: StakePlan = 'd7', stakeFrac = 0.5
@@ -175,7 +175,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     const strip = h('div', 'xch-chips')
     for (const a of list) {
       const b = h('button', 'xch-chip')
-      b.type = 'button'; b.append(icon(a), h('span', '', a.sym)); b.setAttribute('aria-pressed', String(a.id === active))
+      b.type = 'button'; b.append(icon(a), h('span', '', a.sym)); b.setAttribute('aria-pressed', String(a.id === active)); b.dataset.q = `${a.sym} ${a.name}`.toLowerCase()
       if (locked(a)) b.classList.add('locked')
       b.onclick = () => pick(a)
       strip.append(b)
@@ -349,7 +349,18 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   const spot = () => {
     const a = asset(spotId)
     const pane = h('div', 'xch-pane')
-    pane.append(portfolio(), chips(ASSETS, spotId, (x) => { spotId = x.id; result.textContent = ''; show() }), quote(a, a.name, a.sym))
+    // Search: type a name or symbol and the coin keys and the market list below narrow as you type.
+    const search = h('input', 'xch-search') as HTMLInputElement
+    search.type = 'search'; search.placeholder = `Search ${ASSETS.length} coins and tokens (name or symbol)`; search.setAttribute('aria-label', 'Search coins'); search.value = spotQuery
+    const strip = chips(ASSETS, spotId, (x) => { spotId = x.id; result.textContent = ''; show() })
+    const filter = () => {
+      const q = spotQuery.trim().toLowerCase()
+      for (const n of pane.querySelectorAll<HTMLElement>('[data-q]')) n.hidden = !!q && !(n.dataset.q ?? '').includes(q)
+      for (const g of pane.querySelectorAll<HTMLElement>('.xch-list h3.xch-group')) { let n = g.nextElementSibling as HTMLElement | null, any = false; while (n && !n.matches('h3')) { if (!n.hidden) any = true; n = n.nextElementSibling as HTMLElement | null } g.hidden = !any }
+    }
+    search.oninput = () => { spotQuery = search.value; filter() }
+    pane.append(portfolio(), search, strip, quote(a, a.name, a.sym))
+    requestAnimationFrame(filter)
     if (locked(a)) pane.append(note(`${a.sym} opens at ${rankLabel(a)}. Keep climbing the ladder to trade it.`))
     else {
       const tiles = h('div', 'xch-tiles'), cash = tile('Cash'), held = tile(`${a.sym} held`), pnl = tile('Open P&L')
@@ -422,6 +433,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     for (const m of ASSETS) {
       if (m.group !== group) { group = m.group; list.append(h('h3', 'xch-group', group)) }
       const item = h('button', 'xch-item'), names = h('div', 'xch-names'), nums = h('div', 'xch-nums'), price = h('b'), chg = h('small')
+      item.dataset.q = `${m.sym} ${m.name}`.toLowerCase()
       item.type = 'button'
       names.append(h('b', '', m.name), h('small', '', m.sym))
       nums.append(price, chg)

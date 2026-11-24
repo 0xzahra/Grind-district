@@ -4499,6 +4499,9 @@ html body .sheet-card .df-body .df-opts .df-opt { min-height: 36px !important; p
 /* Trade: P2P currency picker. */
 .xch-fiat { min-height: 40px; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); color: #f5f5f7; border: 1px solid rgba(255, 255, 255, 0.14); font: inherit; font-size: 14px; }
 .xch-fiat option { background: #121715; color: #f5f5f7; }
+/* Trade: search the coin list. */
+.xch-search { width: 100%; min-height: 42px; margin: 4px 0 8px; padding: 9px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: #f5f5f7; border: 1px solid rgba(255, 255, 255, 0.14); font: inherit; font-size: 15px; box-sizing: border-box; }
+.xch-search:focus { outline: none; border-color: rgba(46, 230, 138, 0.6); }
 /* Trade: type an exact amount (dollars to buy, the coin to sell). */
 .xch-amount { width: 100%; min-height: 44px; margin: 8px 0 2px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); color: #f5f5f7; border: 1px solid rgba(255, 255, 255, 0.14); font: inherit; font-size: 16px; font-variant-numeric: tabular-nums; box-sizing: border-box; }
 .xch-amount:focus { outline: none; border-color: rgba(46, 230, 138, 0.6); }

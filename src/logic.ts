@@ -268,6 +268,23 @@ export const COINS: { id: string; cat: CoinCategory; label: string; base: number
   { id: 'pepe', cat: 'meme', label: 'PEPE · Pepe', base: 0.000004, minRank: 'fish' },
   { id: 'wif', cat: 'meme', label: 'WIF · dogwifhat', base: 0.136, minRank: 'fish' },
   { id: 'bonk', cat: 'meme', label: 'BONK · Bonk', base: 0.0000024, minRank: 'fish' },
+  // Major coins added Nov 2026 (base: their Coinbase price on 24 Nov 2026; live prices replace it when reachable).
+  { id: 'ada', cat: 'big', label: 'ADA · Cardano', base: 0.144, minRank: 'shrimp' },
+  { id: 'ltc', cat: 'big', label: 'LTC · Litecoin', base: 40.9, minRank: 'shrimp' },
+  { id: 'bch', cat: 'big', label: 'BCH · Bitcoin Cash', base: 198, minRank: 'shrimp' },
+  { id: 'uni', cat: 'alt', label: 'UNI · Uniswap', base: 4.72, minRank: 'crab' },
+  { id: 'aave', cat: 'alt', label: 'AAVE · Aave', base: 94, minRank: 'crab' },
+  { id: 'atom', cat: 'alt', label: 'ATOM · Cosmos', base: 1.25, minRank: 'crab' },
+  { id: 'arb', cat: 'alt', label: 'ARB · Arbitrum', base: 0.11, minRank: 'crab' },
+  { id: 'op', cat: 'alt', label: 'OP · Optimism', base: 0.068, minRank: 'crab' },
+  { id: 'apt', cat: 'alt', label: 'APT · Aptos', base: 0.364, minRank: 'crab' },
+  { id: 'fil', cat: 'alt', label: 'FIL · Filecoin', base: 0.535, minRank: 'crab' },
+  { id: 'xlm', cat: 'alt', label: 'XLM · Stellar', base: 0.125, minRank: 'shrimp' },
+  { id: 'hbar', cat: 'alt', label: 'HBAR · Hedera', base: 0.0505, minRank: 'crab' },
+  { id: 'icp', cat: 'alt', label: 'ICP · Internet Computer', base: 1.99, minRank: 'crab' },
+  { id: 'etc', cat: 'alt', label: 'ETC · Ethereum Classic', base: 5.76, minRank: 'crab' },
+  { id: 'pol', cat: 'alt', label: 'POL · Polygon', base: 0.0759, minRank: 'crab' },
+  { id: 'inj', cat: 'alt', label: 'INJ · Injective', base: 5.85, minRank: 'fish' },
 ]
 export function coinPrice(value: number): string {
   if (value >= 1) return money(value)
