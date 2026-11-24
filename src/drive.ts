@@ -3,20 +3,47 @@
 // gentle autopilot follows it (it looks ahead along the route, slows for bends and stops at the door). The stick,
 // a pedal or the Stop key hands the wheel straight back. Nothing here touches the save.
 import type { Obstacle } from './physics.ts'
+import { RING_IN, RING_OUT, RING_R, ROAD_HALF, ROAD_END, SIDE } from './lanes.ts'
 
 export type P = { x: number; z: number }
 export type DriveCar = { x: number; z: number; heading: number; speed: number }
 
 // ---------------------------------------------------------------- route finding (pure, tested)
 
+const segDist = (p: P, a: P, b: P) => { const vx = b.x - a.x, vz = b.z - a.z, L2 = vx * vx + vz * vz || 1; const t = Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.z - a.z) * vz) / L2)); return { d: Math.hypot(a.x + vx * t - p.x, a.z + vz * t - p.z), x: a.x + vx * t, z: a.z + vz * t } }
+/** Is this point on the city's roads: the plaza ring, the four arms, or the side road past the houses? */
+export function onRoad(x: number, z: number, pad = 0.6): boolean {
+  const r = Math.hypot(x, z)
+  if (r >= RING_IN - pad && r <= RING_OUT + pad) return true
+  if (Math.abs(z) <= ROAD_HALF + pad && Math.abs(x) >= RING_IN - pad && Math.abs(x) <= ROAD_END) return true
+  if (Math.abs(x) <= ROAD_HALF + pad && Math.abs(z) >= RING_IN - pad && Math.abs(z) <= ROAD_END) return true
+  for (let i = 1; i < SIDE.length; i++) if (segDist({ x, z }, SIDE[i - 1]!, SIDE[i]!).d <= ROAD_HALF + pad) return true
+  return false
+}
+/** The nearest point on a road (the kerb a cab pulls up at). */
+export function nearestRoad(p: P): P {
+  const cands: P[] = []
+  const r = Math.hypot(p.x, p.z) || 1
+  cands.push({ x: (p.x / r) * RING_R, z: (p.z / r) * RING_R })
+  for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) cands.push(segDist(p, { x: ax * RING_R, z: az * RING_R }, { x: ax * (ROAD_END - 2), z: az * (ROAD_END - 2) }))
+  for (let i = 1; i < SIDE.length; i++) cands.push(segDist(p, SIDE[i - 1]!, SIDE[i]!))
+  let best = cands[0]!, bd = Infinity
+  for (const c of cands) { const d = Math.hypot(c.x - p.x, c.z - p.z); if (d < bd) { bd = d; best = { x: c.x, z: c.z } } }
+  return best
+}
+
 const CELL = 1
 /** A route from `from` to `to` that keeps `clear` metres from every obstacle, inside ±limit; null if none. */
-export function planRoute(from: P, to: P, obstacles: readonly Obstacle[], limit: number, clear = 1.5): P[] | null {
+/** Off-road ground costs this much more, so cars keep to the streets wherever the streets go. */
+const OFF_ROAD = 3
+export function planRoute(from: P, to: P, obstacles: readonly Obstacle[], limit: number, clear = 1.5, roads = true): P[] | null {
   const n = Math.floor((limit * 2) / CELL) + 1
   const idx = (gx: number, gz: number) => gz * n + gx
   const toG = (v: number) => Math.max(0, Math.min(n - 1, Math.round((v + limit) / CELL)))
   const toW = (g: number) => g * CELL - limit
   const blocked = new Uint8Array(n * n)
+  const weight = new Float32Array(n * n).fill(1)
+  if (roads) for (let gz = 0; gz < n; gz++) for (let gx = 0; gx < n; gx++) if (!onRoad(toW(gx), toW(gz))) weight[idx(gx, gz)] = OFF_ROAD
   for (const o of obstacles) {
     const hx = o.kind === 'circle' ? o.r : o.hx, hz = o.kind === 'circle' ? o.r : o.hz
     const x0 = toG(o.x - hx - clear), x1 = toG(o.x + hx + clear), z0 = toG(o.z - hz - clear), z1 = toG(o.z + hz + clear)
@@ -71,7 +98,7 @@ export function planRoute(from: P, to: P, obstacles: readonly Obstacle[], limit:
       const k = idx(x, z)
       if (blocked[k]) continue
       if (dx && dz && (blocked[idx(cx + dx, cz)] || blocked[idx(cx, cz + dz)])) continue // no corner cutting
-      const nc = cost[c]! + w
+      const nc = cost[c]! + w * weight[k]!
       if (nc < cost[k]!) { cost[k] = nc; came[k] = c; push(nc + h(k), k) }
     }
   }
@@ -79,18 +106,24 @@ export function planRoute(from: P, to: P, obstacles: readonly Obstacle[], limit:
   const cells: number[] = []
   for (let c = g; c >= 0; c = came[c]!) { cells.push(c); if (c === s) break }
   cells.reverse()
-  // Straighten: keep a point only where the straight line from the last kept point would cross a blocked cell.
-  const free = (a: number, b: number) => {
+  // Straighten: jump ahead to the furthest point the straight line reaches without hitting anything and without
+  // costing more than the route it replaces (so a shortcut never swaps a street for a crowded square).
+  const lineCost = (a: number, b: number): number => {
     const ax = a % n, az = Math.floor(a / n), bx = b % n, bz = Math.floor(b / n)
-    const steps = Math.max(Math.abs(bx - ax), Math.abs(bz - az)) * 2
-    for (let i = 1; i < steps; i++) { const x = Math.round(ax + ((bx - ax) * i) / steps), z = Math.round(az + ((bz - az) * i) / steps); if (blocked[idx(x, z)]) return false }
-    return true
+    const len = Math.hypot(bx - ax, bz - az), steps = Math.max(1, Math.ceil(len * 2))
+    let c = 0
+    for (let i = 0; i < steps; i++) {
+      const x = Math.round(ax + ((bx - ax) * (i + 0.5)) / steps), z = Math.round(az + ((bz - az) * (i + 0.5)) / steps)
+      if (blocked[idx(x, z)]) return Infinity
+      c += weight[idx(x, z)]! * (len / steps)
+    }
+    return c
   }
   const kept = [cells[0]!]
   let i = 0
   while (i < cells.length - 1) {
     let j = cells.length - 1
-    while (j > i + 1 && !free(cells[i]!, cells[j]!)) j--
+    while (j > i + 1 && lineCost(cells[i]!, cells[j]!) > (cost[cells[j]!]! - cost[cells[i]!]!) * 1.04 + 0.5) j--
     kept.push(cells[j]!); i = j
   }
   const pts = kept.map((c) => ({ x: toW(c % n), z: toW(Math.floor(c / n)) }))
@@ -157,13 +190,20 @@ export type DriveUi = {
   /** Merge the pedals and the autopilot into this frame's stick input. */
   input(stick: { x: number; y: number }, car: DriveCar, top: number, dt: number): { x: number; y: number }
   /** Start driving to a place; false when no route was found (the caller travels the usual way). */
-  autoTo(title: string, to: P, from: P, obstacles: readonly Obstacle[], limit: number): boolean
+  autoTo(title: string, to: P, from: P, obstacles: readonly Obstacle[], limit: number, cab?: { label: string; stop: () => void }): boolean
   stopAuto(): void
   readonly auto: boolean
+  /** Riding in a cab: the driver drives, the stick and pedals rest, and the pedals are not shown. */
+  readonly passenger: boolean
   show(on: boolean): void
 }
 
-export function createDriveUi(toast: (m: string) => void, arrived: (title: string) => void): DriveUi {
+export function createDriveUi(toast: (m: string) => void, arrived: (title: string, cab: boolean) => void, o: {
+  /** People, stalls and cars where they are now: a re-plan routes round them too. */
+  blockers?: () => readonly Obstacle[]
+  /** No way through after a few tries: a cab finishes the trip the quick way; your own car hands back the wheel. */
+  stuck?: (title: string, cab: boolean) => void
+} = {}): DriveUi {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const e = document.createElement(tag); if (text) e.textContent = text; if (cls) e.className = cls; return e }
   const pedals = el('div', '', 'drive-pedals'); pedals.id = 'drive-pedals'; pedals.hidden = true
   const held = { gas: false, brake: false }
@@ -193,35 +233,52 @@ export function createDriveUi(toast: (m: string) => void, arrived: (title: strin
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyH') hornOn(false); if (e.code === 'Space') held.brake = false })
 
   let route: P[] | null = null, title = '', stuckT = 0, backT = 0
-  const setChip = (left: number) => { chipText.textContent = `Auto-drive to ${title} · ${Math.max(0, Math.round(left))} m` }
-  const stopAuto = () => { route = null; chip.hidden = true }
-  const stopAutoBy = (why: string) => { if (route) { stopAuto(); toast(`Auto-drive off: ${why}.`) } }
-  stop.onclick = () => { stopAuto(); toast('Auto-drive stopped. The wheel is yours.') }
+  let cab: { label: string; stop: () => void } | null = null
+  // Progress watch: the distance left must keep falling. If it has not for 4 s, plan again from here (round
+  // whatever is in the way now); after three tries, give up gracefully.
+  let dest: P = { x: 0, z: 0 }, statics: readonly Obstacle[] = [], lim = 60, bestLeft = Infinity, sinceBest = 0, replans = 0
+  const setChip = (left: number) => { chipText.textContent = `${cab ? cab.label : 'Auto-drive'} to ${title} · ${Math.max(0, Math.round(left))} m` }
+  const stopAuto = () => { route = null; chip.hidden = true; cab = null; stop.textContent = 'Stop' }
+  const stopAutoBy = (why: string) => { if (route && !cab) { stopAuto(); toast(`Auto-drive off: ${why}.`) } }
+  stop.onclick = () => { if (cab) { const c = cab; stopAuto(); c.stop(); return } stopAuto(); toast('Auto-drive stopped. The wheel is yours.') }
   return {
     get auto() { return !!route },
-    show(on) { pedals.hidden = !on; if (!on) { held.gas = held.brake = false; hornOn(false); stopAuto() } },
+    get passenger() { return !!cab },
+    show(on) { pedals.hidden = !on || !!cab; if (!on) { held.gas = held.brake = false; hornOn(false) } },
     stopAuto,
-    autoTo(t, to, from, obstacles, limit) {
+    autoTo(t, to, from, obstacles, limit, asCab) {
       const path = planRoute(from, to, obstacles, limit)
       if (!path || path.length < 2) return false
       route = path; title = t; stuckT = 0; backT = 0
+      dest = { ...to }; statics = obstacles; lim = limit; bestLeft = Infinity; sinceBest = 0; replans = 0
+      cab = asCab ?? null
+      stop.textContent = cab ? 'Stop here' : 'Stop'
+      pedals.hidden = pedals.hidden || !!cab
       setChip(Math.hypot(to.x - from.x, to.z - from.z)); chip.hidden = false
-      toast(`Auto-drive to ${t}. Touch the stick or a pedal to take the wheel.`)
+      if (!cab) toast(`Auto-drive to ${t}. Touch the stick or a pedal to take the wheel.`)
       return true
     },
     input(stick, car, top, dt) {
-      // The player's own hands win: the stick (or a pedal) turns auto-drive off.
-      if (route && Math.hypot(stick.x, stick.y) > 0.3) stopAutoBy('you took the wheel')
+      // The player's own hands win: the stick (or a pedal) turns auto-drive off. In a cab the driver drives.
+      if (route && !cab && Math.hypot(stick.x, stick.y) > 0.3) stopAutoBy('you took the wheel')
       if (route) {
         if (backT > 0) { backT -= dt; return { x: 0, y: -1 } }
         const r = followRoute(route, car, top)
         setChip(r.left)
+        if (r.left < bestLeft - 0.8) { bestLeft = r.left; sinceBest = 0 } else sinceBest += dt
+        if (sinceBest > 4 && !r.done) {
+          sinceBest = 0; bestLeft = Infinity; replans += 1
+          const again = replans <= 3 ? planRoute({ x: car.x, z: car.z }, dest, [...statics, ...(o.blockers?.() ?? [])], lim) : null
+          if (again && again.length >= 2) { route = again; backT = 0.6 }
+          else { const t = title, wasCab = !!cab; stopAuto(); if (o.stuck) o.stuck(t, wasCab); else toast('Auto-drive could not find a way through. The wheel is yours.'); return { x: 0, y: 0 } }
+        }
         // Held up (a car, a person, a kerb): back off a little and carry on.
         stuckT = Math.abs(car.speed) < 0.25 && !r.done ? stuckT + dt : 0
         if (stuckT > 2.5) { stuckT = 0; backT = 0.9 }
-        if (r.done) { const t = title; stopAuto(); arrived(t) }
+        if (r.done) { const t = title, wasCab = !!cab; stopAuto(); arrived(t, wasCab) }
         return { x: r.x, y: r.y }
       }
+      if (cab) return { x: 0, y: 0 }
       let y = stick.y
       if (held.gas) y = Math.max(y, 1)
       if (held.brake) y = -1

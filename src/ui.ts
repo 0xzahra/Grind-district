@@ -1616,7 +1616,15 @@ export function mountUi(
         const entry = (text: string, tip: string, go: () => void) => { const row = document.createElement('div'); row.className = 'map-entry'; const name = button(text, 'ghost', go); name.title = tip; row.append(name); return row }
         // Which way from the plaza (north is -z, east is +x), in the guide's own words.
         const compass = (x: number, z: number) => Math.hypot(x, z) < 14 ? 'Center' : ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'][((Math.round(Math.atan2(x, -z) / (Math.PI / 4)) % 8) + 8) % 8]!
+        // How to get there: straight there (quick), or a car comes and drives you (Grind Cab, Grind Premium).
+        const by = (() => { try { return localStorage.getItem('gd.travelBy') ?? 'quick' } catch { return 'quick' } })()
+        const travelRow = document.createElement('div'); travelRow.className = 'tabs travel-by'
+        for (const [id, label] of [['quick', 'Quick'], ['cab', `Cab · ${money(4)}`], ['premium', `Premium · ${money(9)}`]] as const) {
+          travelRow.append(button(label, by === id ? 'primary' : 'ghost', () => { try { localStorage.setItem('gd.travelBy', id) } catch { /* private mode */ } open('city') }))
+        }
+        const travelNote = para(by === 'quick' ? 'Quick: tap a place and you are there.' : by === 'cab' ? 'Grind Cab: a car pulls up and drives you there through the streets. Sit back, or tap Stop here to get out early.' : 'Grind Premium: an executive car with a smooth, quiet ride to the door.', 'muted')
         return renderSimple('The city', [
+          para('Travel by', 'kicker'), travelRow, travelNote,
           nodes[0]!, nodes[1]!, toggle,
           para('Every place in the district: the doors on the street, then the rest of the city, the park, the zoo, the airport and beyond. Tap a pin or a row to go straight there.'),
           // One tap: travel there and walk straight in.

@@ -1,5 +1,5 @@
 // Auto-drive (src/drive.ts): a route around buildings, and an autopilot that follows it to the door.
-import { planRoute, followRoute, type P } from '../src/drive.ts'
+import { planRoute, followRoute, nearestRoad, onRoad, type P } from '../src/drive.ts'
 import type { Obstacle } from '../src/physics.ts'
 
 let pass = 0, fail = 0
@@ -38,5 +38,16 @@ for (; t < 90 && !done && path; t += 1 / 60) {
 }
 check(done, `the autopilot stops at the destination (t=${t.toFixed(1)} s)`)
 check(Math.hypot(x - to.x, z - to.z) < 3.5, `it stops at the door (${Math.hypot(x - to.x, z - to.z).toFixed(1)} m away)`)
+// In the real city: from the plaza to Campus the route keeps to the streets (the ring, then the north arm).
+const kerb = nearestRoad({ x: 2, z: 5 })
+check(onRoad(kerb.x, kerb.z), `a cab pulls up on a road (${kerb.x.toFixed(1)}, ${kerb.z.toFixed(1)})`)
+const campus = planRoute(kerb, { x: 0, z: -40 }, [{ kind: 'box', x: 0, z: -48, hx: 8, hz: 5.5 }], 61)
+let onLen = 0, allLen = 0
+for (let i = 0; campus && i < campus.length - 1; i++) for (let k = 0; k < 20; k++) {
+  const a = campus[i]!, b = campus[i + 1]!, l = Math.hypot(b.x - a.x, b.z - a.z) / 20
+  const x = a.x + (b.x - a.x) * (k + 0.5) / 20, z = a.z + (b.z - a.z) * (k + 0.5) / 20
+  allLen += l; if (onRoad(x, z, 1)) onLen += l
+}
+check(!!campus && onLen / allLen > 0.8, `the Campus route keeps to roads (${Math.round((onLen / Math.max(1, allLen)) * 100)}% on road)`)
 console.log(fail ? `drive: ${pass} passed, ${fail} failed` : `drive: ${pass} passed, 0 failed`)
 if (fail) process.exit(1)

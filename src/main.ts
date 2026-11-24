@@ -1,6 +1,6 @@
 import { nextMission } from './worlds.ts'
 import { step as journeyStep } from './journey.ts'
-import { createDriveUi } from './drive.ts'
+import { createDriveUi, nearestRoad, planRoute } from './drive.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
 import { nearWalletChip } from './nearWallet.ts'
@@ -764,11 +764,21 @@ const apiAgents = createRemoteAgents(scene)
   const travelTo = (spot: Hotspot, then?: () => void) => {
     // At the wheel of a car in the city: drive there by itself instead of jumping (places beyond the city's
     // roads, and a route that cannot be found, still travel the usual way).
-    if (ride && ride.driving && ride.kind === 'car' && ride.mode === 'free' && !interiors.inside && Math.max(Math.abs(spot.x), Math.abs(spot.z)) < CITY_LIMIT - 1) {
-      const len0 = Math.hypot(spot.x, spot.z) || 1, back = Math.min(3, len0)
-      const dest = { x: spot.x - (spot.x / len0) * back, z: spot.z - (spot.z / len0) * back }
+    const inCity = Math.max(Math.abs(spot.x), Math.abs(spot.z)) < CITY_LIMIT - 1
+    const len0 = Math.hypot(spot.x, spot.z) || 1, back = Math.min(3, len0)
+    const dest = { x: spot.x - (spot.x / len0) * back, z: spot.z - (spot.z / len0) * back }
+    if (ride && ride.driving && ride.kind === 'car' && ride.mode === 'free' && !drive.passenger && !interiors.inside && inCity) {
       if (drive.autoTo(spot.title, dest, { x: ride.x, z: ride.z }, world.obstacles, CITY_LIMIT - 1)) { ui.close(); setCCRef?.(false); return }
     }
+    // On foot in the city, with Cab or Premium chosen on the map: a car comes and drives you there.
+    const by = (() => { try { return localStorage.getItem('gd.travelBy') } catch { return null } })()
+    if ((by === 'cab' || by === 'premium') && !ride?.driving && !interiors.inside && !homes?.inside && !metro?.riding && inCity && Math.hypot(dest.x - pos.x, dest.z - pos.z) > 12) {
+      void callCab(spot, dest, by, then).then((ok) => { if (!ok) quickTravel(spot, then) })  // no road, or short of the fare
+      return
+    }
+    quickTravel(spot, then)
+  }
+  const quickTravel = (spot: Hotspot, then?: () => void) => {
     if (interiors.inside) leaveRoom()
     const len = Math.hypot(spot.x, spot.z) || 1
     const step = Math.min(2.4, len)
@@ -2096,10 +2106,50 @@ const apiAgents = createRemoteAgents(scene)
   const HARBOUR = { x: 36, z: -44.6 }
   const RACEWAY_DOOR = { x: -12, z: 53.4 }
   const DRIVABLE = ['cityhatch', 'familysedan', 'saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
-  const drive = createDriveUi((m) => ui.toast(m), (t) => ui.toast(`You are at ${t}. Tap Get out when you are ready.`))
+  const drive = createDriveUi((m) => ui.toast(m), (t, cab) => {
+    if (!cab) { ui.toast(`You are at ${t}. Tap Get out when you are ready.`); return }
+    // A cab drops you at the door and walks you in, as quick travel does.
+    window.setTimeout(() => { endRide(); ui.toast(`You are at ${t}. Thanks for riding.`); const then = cabThen; cabThen = null; then?.() }, 500)
+  }, {
+    // Crowds and stalls right now (only the ones near the car matter to a 1 m grid round it).
+    blockers: () => crowdObstacles.filter((b) => !ride || Math.hypot(b.x - ride.x, b.z - ride.z) < 30),
+    stuck: (t, cab) => {
+      if (!cab) { ui.toast('Auto-drive could not find a way through here. The wheel is yours.'); return }
+      // A cab that cannot get through never strands you: the rest of the way is quick travel (the fare is kept).
+      const spot = findSpot(t), then = cabThen
+      cabThen = null; endRide()
+      if (spot) { ui.toast('Traffic is heavy, so the cab took a shortcut.'); quickTravel(spot, then ?? undefined) }
+    },
+  })
+  let cabThen: (() => void) | null = null
+  /** Grind Cab and Grind Premium: a chic car pulls up where you stand and drives you to the place you picked. */
+  const callCab = async (spot: Hotspot, dest: { x: number; z: number }, tier: 'cab' | 'premium', then?: () => void): Promise<boolean> => {
+    // The cab pulls up at the nearest kerb (a short walk), not in the middle of a square full of people.
+    const kerb = nearestRoad({ x: pos.x, z: pos.z })
+    const pick = Math.hypot(kerb.x - pos.x, kerb.z - pos.z) < 30 ? kerb : { x: pos.x, z: pos.z }
+    if (!planRoute(pick, dest, world.obstacles, CITY_LIMIT - 1)) return false
+    const fare = tier === 'premium' ? 9 : 4
+    const label = tier === 'premium' ? 'Grind Premium' : 'Grind Cab'
+    const paid = spendInGame(fare, `${label} ride`, `To ${spot.title}`)
+    if (!paid.ok) { ui.toast(`${paid.message} No cab this time: straight there instead.`); return false }
+    ui.close(); setCCRef?.(false)
+    const first = planRoute(pick, dest, world.obstacles, CITY_LIMIT - 1)?.[1] ?? dest
+    await beginRide({ kind: 'car', model: tier === 'premium' ? 'executive' : 'familysedan', label, mode: 'free', temp: true, at: { x: pick.x, z: pick.z, heading: Math.atan2(first.x - pick.x, first.z - pick.z) } })
+    if (!ride) return true
+    cabThen = then ?? null
+    drive.autoTo(spot.title, dest, { x: ride.x, z: ride.z }, world.obstacles, CITY_LIMIT - 1, { label: tier === 'premium' ? 'Premium ride' : 'Cab', stop: () => { cabThen = null; endRide(); ui.toast('Dropped off here. Thanks for riding.') } })
+    ui.toast(`${label} is here (${money(fare)}). Sit back: next stop ${spot.title}.`)
+    return true
+  }
   // Gas, Brake and Horn show while you are at the wheel (a car or the boat), and go when you step out.
   let pedalsShown = false
-  window.setInterval(() => { const want = !!(ride && ride.driving); if (want !== pedalsShown) { pedalsShown = want; drive.show(want) } }, 200)
+  window.setInterval(() => {
+    const driving = !!(ride && ride.driving)
+    // Out of the car (Get out, a cab's Stop, a ride ended): any route it was following ends with it.
+    if (!driving && drive.auto) { drive.stopAuto(); cabThen = null }
+    const want = driving && !drive.passenger
+    if (want !== pedalsShown) { pedalsShown = want; drive.show(want) }
+  }, 200)
   const rideSpot: Hotspot = { id: '__ride__', x: 0, z: 0, r: 99, title: '', body: 'Stick up to go, back to brake, left and right to steer.', enter: 'Get out', use: () => endRide() }
   const parkedSpot: Hotspot = { id: '__parked__', x: 0, z: 0, r: 3.4, title: 'Your car', body: 'Parked. Take the wheel any time.', enter: 'Drive', use: () => takeWheel() }
   const bestOwnedCar = () => {
@@ -2156,7 +2206,7 @@ const apiAgents = createRemoteAgents(scene)
       ui.toast('Back at the harbour.')
     } else {
       out = r.mode === 'race' ? RACEWAY_DOOR : r.exitSpot(world.obstacles)
-      if (r.temp) { r.dispose(); ride = null; ui.toast(r.mode === 'race' ? 'Back at the Raceway.' : `${r.label} handed back.`) }
+      if (r.temp) { r.dispose(); ride = null; if (!/^Grind (Cab|Premium)$/.test(r.label)) ui.toast(r.mode === 'race' ? 'Back at the Raceway.' : `${r.label} handed back.`) }
       else r.park()
     }
     if (r.mode !== 'free') { const f = document.createElement('div'); f.className = 'ride-fade'; document.body.append(f); window.setTimeout(() => f.remove(), 900) }
