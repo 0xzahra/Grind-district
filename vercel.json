@@ -157,7 +157,8 @@
   ],
   "functions": {
     "api/page.ts": {
-      "includeFiles": "{api/_fonts/**,public/brand/lockup.png,public/brand/shrimp.png}"
+      "includeFiles": "{api/_fonts/**,public/brand/lockup.png,public/brand/shrimp.png}",
+      "excludeFiles": "node_modules/@napi-rs/canvas-linux-x64-musl/**"
     },
     "api/track.ts": {
       "maxDuration": 30

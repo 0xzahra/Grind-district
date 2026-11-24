@@ -4,6 +4,12 @@
 # docs, notes, contracts and screenshots. Every deployment keeps its own copy of the server functions, and the
 # free plan's storage for them is limited, so docs-only pushes should not create one.
 # When in doubt (no previous deployment, or its commit is not in the clone) it builds.
+# Only main is deployed. Other branches (bot work branches, merged feature branches) would each store another full
+# copy of the server functions and fill the free plan's Function Storage for a preview nobody opens.
+if [ "${VERCEL_GIT_COMMIT_REF:-}" != "main" ]; then
+  echo "Branch ${VERCEL_GIT_COMMIT_REF:-unknown} is not main: no deployment needed."
+  exit 0
+fi
 prev="${VERCEL_GIT_PREVIOUS_SHA:-}"
 [ -n "$prev" ] || exit 1
 git cat-file -e "${prev}^{commit}" 2>/dev/null || exit 1
