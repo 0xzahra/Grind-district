@@ -716,6 +716,7 @@ export function mountUi(
           const submit = button(passed ? 'On your CV' : `Check · +${money(COURSE_CASH)} · +5 reputation`, 'primary', () => {
             const missing = picks.findIndex((pick) => pick === null)
             if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
+            const firstPass = !Object.values(getSave().skills).some((x) => x?.passed)
             const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
             if (outcome.ok) {
               journeyStep('lesson_complete', { course: id })
@@ -724,6 +725,8 @@ export function mountUi(
               const focus = outcome.focus ? ' Focus added a quarter.' : ''
               const bonus = outcome.bonus ? ' Streak kept.' : ''
               finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
+              // First pass: straight to the payoff, the CV with this course on it and the certificate on top.
+              if (firstPass) { open('profile'); void openCertificate(id, { first: true }); return }
               showCourse(id)
               return
             }

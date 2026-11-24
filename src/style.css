@@ -1087,6 +1087,9 @@ body.touch .pills span, body.touch button.pill, body.touch #nav { backdrop-filte
 }
 body.touch #hint{display:none}
 .cert-dlg{width:min(94vw,720px)!important;z-index:90}
+.cert-dlg .cert-lead{display:grid;gap:4px;margin:0 0 4px;text-align:left}
+.cert-dlg .cert-lead strong{font-size:17px;color:#f3e2b8;letter-spacing:-0.01em}
+.cert-dlg .cert-lead p{margin:0;font-size:14px;line-height:1.4;color:rgba(245,245,247,.78)}
 
 /* Title screen + Apple-style menu */
 #menu, #nav, #sheet, .wallet-dlg, #cam-tools { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Inter, system-ui, sans-serif; }
@@ -4427,3 +4430,6 @@ html body #nav.cc #cc-streak strong { display: block; white-space: nowrap; overf
 html body #nav.cc #cc-streak small { display: block; }
 html body #nav.cc #cc-streak .cc-claim { flex: none; min-height: 40px; min-width: 76px; padding: 8px 16px; border-radius: 12px; border: 1px solid #04803f; background: var(--key-gold); box-shadow: var(--key-gold-sh); color: #032612; font: 700 15px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: translate 70ms ease-out, box-shadow 70ms ease-out; }
 html body #nav.cc #cc-streak .cc-claim:active { translate: 0 2px; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35); }
+
+/* Title card: what a player walks out with reads as a promise, not fine print. */
+html body #menu #menu-home .title-desc { text-transform: none !important; letter-spacing: 0 !important; font-size: 13.5px !important; font-weight: 600 !important; color: #e9cd8f !important; line-height: 1.35 !important; max-width: 230px; margin: 8px auto 10px !important; text-wrap: balance; }

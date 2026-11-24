@@ -645,6 +645,7 @@ const apiAgents = createRemoteAgents(scene)
   })
   performance.mark('gd:pre-mentor')
   let runStepRef: ((go: string) => void) | null = null
+  let setCCRef: ((open: boolean) => void) | null = null
   const mentor = createMentorCard({
     toast: (m) => ui.toast(m),
     onRank: () => world.setRank(rankFor(getSave().xp).label),
@@ -654,6 +655,7 @@ const apiAgents = createRemoteAgents(scene)
     // Camera sits on the far side of the player from Zahra, so she and the Campus door are in frame.
     face: () => { camYaw = Math.atan2(pos.x - ada.position.x, pos.z - ada.position.z) },
     toCampus: () => travelHook('Campus', false),
+    showProof: (course, first) => { setCCRef?.(false); ui.open('profile'); void import('./certs.ts').then((m) => m.openCertificate(course, { first })) },
     face3d: (() => { const shot = createPortrait(renderer!, () => ada, { w: 256, h: 256, head: true, headY: 1.5 }); return () => shot() })(),
   })
   // Zahra's welcome tour: once per device, after the first-run intro card closes; Settings can replay it.
@@ -1055,6 +1057,7 @@ const apiAgents = createRemoteAgents(scene)
     if (open) { if (ui.isOpen()) ui.close(); paintStatus(); paintNeedsCard(must('#cc-needs')); window.setTimeout(() => bakeWhenStill(), 350) }
     else closeSheet()
   }
+  setCCRef = setCC
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
   const when = (at: number) => new Date(at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   // Deep links from notifications/messages: travel to a place, open a panel, chat or balance.

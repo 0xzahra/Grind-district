@@ -63,7 +63,7 @@ export async function paintCertificate(course: SkillId, data = certData(course))
   return c
 }
 
-export async function openCertificate(course: SkillId): Promise<void> {
+export async function openCertificate(course: SkillId, opts: { first?: boolean } = {}): Promise<void> {
   try { localStorage.setItem('gd.certSeen', '1') } catch { /* private mode */ }
   journeyStep('cv_seen', { via: 'certificate' })
   document.getElementById('cert-dlg')?.remove()
@@ -139,7 +139,15 @@ export async function openCertificate(course: SkillId): Promise<void> {
   close.className = 'ghost'
   close.textContent = 'Close'
   close.onclick = () => dlg.remove()
-  dlg.append(canvas, meta, share, save, mint, close)
+  // Right after a first pass: say plainly what just happened (the CV underneath already lists the course).
+  const lead = document.createElement('div')
+  lead.className = 'cert-lead'
+  if (opts.first) {
+    const h = document.createElement('strong'); h.textContent = 'Your first certificate'
+    const p = document.createElement('p'); p.textContent = `${SKILL_META[course].title} is on your CV now. Share it, download it, or mint it on-chain (optional).`
+    lead.append(h, p)
+  }
+  dlg.append(...(opts.first ? [lead] : []), canvas, meta, share, save, mint, close)
   document.body.append(dlg)
   void fetchServer()
 }

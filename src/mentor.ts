@@ -38,6 +38,8 @@ export type MentorHooks = {
   toCampus?: () => void
   /** Zahra's face, rendered from her figure in the city (data URL), for her card. */
   face3d?: () => string | null
+  /** After a pass: open the CV with the new course on it and show the certificate on top. */
+  showProof?: (id: SkillId, first: boolean) => void
 }
 
 // Zahra's welcome tour: Web3 in two lines, then how to play. Spoken in her voice (speech.ts) as each card shows;
@@ -152,14 +154,19 @@ export function createMentorCard(hooks: MentorHooks) {
     }
     const pass = () => {
       // The remaining exercises stay in the full Campus lesson; the in-world first lesson only asks two.
+      const first = !Object.values(getSave().skills).some((x) => x?.passed)
       const outcome: CourseResult = submitCourse(id, picks)
       const [head] = shell('Lesson passed', total, total)
       if (outcome.ok) {
         if (outcome.rankedUp) hooks.onRank()
         hooks.toast(`${SKILL_META[id].title} filed to your CV.${outcome.stipend ? ' +$25 practice funds.' : ''}`)
+        // The payoff, at once: the CV with this course on it, and the certificate on top (share, download, mint).
+        if (first && hooks.showProof) { close(); hooks.showProof(id, true); return }
       }
       const nav = h('div', 'mentor-nav')
-      nav.append(btn('Read the full lesson', 'ghost', () => { close(); hooks.fullLesson(id) }), btn('What next?', 'primary', () => { close(); hooks.next() }))
+      nav.append(btn('Read the full lesson', 'ghost', () => { close(); hooks.fullLesson(id) }))
+      if (outcome.ok && hooks.showProof) nav.append(btn('See certificate', 'ghost', () => { close(); hooks.showProof?.(id, false) }))
+      nav.append(btn('What next?', 'primary', () => { close(); hooks.next() }))
       root.replaceChildren(head, h('p', 'mentor-say', LINES.pass), nav)
     }
     const lvl = getLevel()
