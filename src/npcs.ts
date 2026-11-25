@@ -209,7 +209,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
   const assignPoses = () => {
     for (const q of posed) q.seating.stand()
     posed.length = 0
-    const walkers = people.filter((p) => p.sim.spec.points.length > 1)
+    const walkers = people.filter((p) => p.sim.spec.points.length > 1 && !(p.sim.inside ?? 0))
     const women = walkers.filter((p) => p.sim.spec.body === 'zuri')
     poseSeats.forEach((seat, k) => {
       if (lastPlayer && Math.hypot(lastPlayer.x - seat.x, lastPlayer.z - seat.z) < 0.45) return
@@ -360,7 +360,9 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         const q = posed.find((o) => o.p === person)
         if (q) q.seating.apply(person.avatar.object, dt)
         if (person.drone) spinDrone(person.drone, dt, performance.now() / 1000)
-        // Gone into a building for a while: out of sight and out of the way.
+        // Gone into a building for a while: out of sight and out of the way. Someone given a bench is on it, never
+        // "inside" (that left benches looking empty while a resident was counted as sitting there).
+        if (seated && person.sim.inside) person.sim.inside = 0
         const away = (person.sim.inside ?? 0) > 0
         person.avatar.object.visible = !away && !far
         if (!away) obstacles.push({ kind: 'circle', x: person.sim.x, z: person.sim.z, r: person.radius })

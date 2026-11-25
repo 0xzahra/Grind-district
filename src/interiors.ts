@@ -16,7 +16,7 @@ import { mountStaff } from './staff.ts'
 import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
-import { ATTENDEES, hallCrowd, standing, STUDENTS, type CrowdSpot } from './hallCrowd.ts'
+import { buildCampus, buildConference, type Floor } from './halls.ts'
 import { liteOn } from './deviceTier.ts'
 import { paintSchedule } from './events.ts'
 import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers, paintTicker, setWallQuotes } from './tradingFloor.ts'
@@ -32,12 +32,12 @@ export type Use = { id: string; x: number; z: number; r: number; title: string; 
 type Hooks = { player?: () => { x: number; z: number }; toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
 
 const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
-const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2, lounge: -3 }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 30, d: 22 }, studio: { w: 14, d: 10 }, conference: { w: 32, d: 24 }, lounge: { w: 16, d: 18 } }
+const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2, lounge: -3, conference: 13 }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 40, d: 30 }, studio: { w: 14, d: 10 }, conference: { w: 40, d: 32 }, lounge: { w: 16, d: 18 } }
 // The two great halls (Campus lecture hall, conference centre): tall, wide and full of people.
 const HALL = new Set<RoomId>(['campus', 'conference'])
 /** How many people fill a hall: fewer on Low and in Light performance, a full house on High. */
-const crowdCap = () => { const g = getSave().graphics; return liteOn() || g === 'low' ? 32 : g === 'medium' ? 64 : 100 }
+const crowdCap = () => { const g = getSave().graphics; return liteOn() || g === 'low' ? 36 : g === 'medium' ? 80 : 160 }
 // Street side: building centre and door hotspot id.
 export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = {
   house: { spot: 'yours', cx: 36, cz: 32 },
@@ -67,7 +67,7 @@ let repaintWalls: (() => void) | null = null
 export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   // While you are on the trading floor its walls follow the market (every 30 s; nothing is painted elsewhere).
   window.setInterval(() => { if (inside === 'trading' && !document.hidden) repaintWalls?.() }, 30_000)
-  const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[] }>()
+  const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[]; floor?: Floor | null }>()
   let housePool: { x0: number; x1: number; z0: number; z1: number } | null = null
   const lamp = new THREE.PointLight(0xffd29a, 0, 18, 1.6)
   lamp.position.set(0, -50, 0)
@@ -650,114 +650,6 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       use({ id: 'ticker', x: 0.5, z: -d / 2 + 1.3, r: 1.8, title: 'Market wall', body: 'BTC, ETH, the market map and the tape. Open the trading screen from here.', enter: 'Trade', run: () => hooks.openPanel('trade') })
     }
 
-    if (id === 'campus') {
-      // The great lecture hall: four blocks of writing benches, three places to a bench, in nine rows facing a long
-      // chalkboard and the lectern, where a lecturer is teaching. Reading tables run along the library wall on the
-      // east side. The benches are full of students (hallCrowd.ts), so the hall is never empty; an aisle place on
-      // every other row is kept free for you.
-      const wood = std(0x6b4e37, 0.55)
-      const dark = std(0x3c2c20, 0.7)
-      const BLOCKS = [-9.0, -4.4, 2.2, 6.8]
-      const ROWS = 9
-      const benches: Array<[number, number, number, number?]> = []
-      const seats: Array<[number, number, number, number?]> = []
-      for (let r = 0; r < ROWS; r++) for (const x of BLOCKS) {
-        const z = -5.4 + r * 1.45
-        benches.push([x, 0.72 / 2, z])
-        seats.push([x, 0.22, z + 0.6])
-      }
-      // Writing desk (top on end panels, modesty panel facing the board) and a slatted bench with a backrest.
-      inst(new THREE.BoxGeometry(4.2, 0.05, 0.5), wood, benches.map(([x, , z]) => [x, 0.695, z]), [2.15, 0.3])
-      inst(new THREE.BoxGeometry(0.05, 0.67, 0.48), dark, benches.flatMap(([x, , z]) => [[x - 2.07, 0.335, z], [x + 2.07, 0.335, z]] as Array<[number, number, number]>))
-      inst(new THREE.BoxGeometry(4.1, 0.32, 0.025), wood, benches.map(([x, , z]) => [x, 0.5, z - 0.23]))
-      inst(new THREE.BoxGeometry(4.0, 0.05, 0.36), dark, seats.map(([x, , z]) => [x, 0.43, z]))
-      inst(new THREE.BoxGeometry(4.0, 0.3, 0.04), dark, seats.map(([x, , z]) => [x, 0.68, z + 0.18]))
-      inst(new THREE.BoxGeometry(0.05, 0.41, 0.34), dark, seats.flatMap(([x, , z]) => [[x - 1.9, 0.205, z], [x, 0.205, z], [x + 1.9, 0.205, z]] as Array<[number, number, number]>))
-      // The bench rows block too: you reach a place from the aisles, not by walking through the students.
-      for (const [x, , z] of seats) obstacles.push({ kind: 'box', x: o.x + x, z: o.z + z, hx: 2.05, hz: 0.2 })
-      // Places face the board (north, -z). Front rows fill first.
-      const students: CrowdSpot[] = []
-      seats.forEach(([x, , z], i) => {
-        const r = Math.floor(i / BLOCKS.length), b = i % BLOCKS.length
-        ;[-1.35, 0, 1.35].forEach((dx, k) => {
-          const yours = r % 2 === 1 && ((b === 1 && k === 2) || (b === 2 && k === 0))
-          if (yours) seat(`row${r}b${b}p${k}`, 'Lecture seat', x + dx, z, Math.PI, 0.44)
-          else students.push({ x: x + dx, z, yaw: Math.PI })
-        })
-      })
-      // The board: a long chalkboard across the north wall, and the lectern with the lecturer beside it.
-      const board = canvasTex(1024, 256, (g) => {
-        g.fillStyle = '#1f2a24'; g.fillRect(0, 0, 1024, 256)
-        g.fillStyle = '#e8e4d8'; g.font = '500 44px Georgia, serif'
-        g.fillText('Custody · Risk · Liquidity · Proof of work', 40, 76)
-        g.font = '400 30px Georgia, serif'
-        g.fillText('Not your keys, not your coins.', 40, 140); g.fillText('Size the position before the entry.', 40, 190)
-        g.fillText('Read what you sign.', 600, 140); g.fillText('Your CV is what you can show.', 600, 190)
-      })
-      add(new THREE.PlaneGeometry(12, 3), new THREE.MeshStandardMaterial({ map: board, roughness: 0.9 }), 0, 2.5, -d / 2 + 0.04)
-      box(12.4, 0.12, 0.12, wood, 0, -d / 2 + 0.08, 0.94, false)
-      box(0.8, 1.1, 0.6, wood, 0.6, -d / 2 + 2.8)
-      standing(group, { model: 'man3', look: { top: 0x3a3f46, bottom: 0x23262a, shoes: 0x1a1c1f, skin: 0x5a3825, hair: 0x16110e } }, -0.6, 0, -d / 2 + 2.9, 0.25)
-      // Library wall (east): closed back + shelf boards, then packed book spines with varied
-      // heights/depths/colours so you cannot see through gaps to a flat colour grid.
-      const shelfX = w / 2 - 0.32, SL = d - 4
-      box(0.18, 2.7, SL, wood, shelfX + 0.12, 0) // solid back
-      box(0.36, 0.08, SL, wood, shelfX, 0.04, 0, false) // plinth
-      box(0.36, 0.08, SL, wood, shelfX, 2.62, 0, false) // crown
-      for (let shelf = 0; shelf < 5; shelf++) box(0.34, 0.05, SL - 0.2, wood, shelfX, 0.48 + shelf * 0.5, 0, false)
-      // Pack books flush on each shelf board (no gaps). Four height classes x four colours = 16 draws.
-      type BookSpot = [number, number, number]
-      const tall: BookSpot[] = [], mid: BookSpot[] = [], short: BookSpot[] = [], squat: BookSpot[] = []
-      const packs = [tall, mid, short, squat]
-      const heights = [0.42, 0.36, 0.30, 0.24]
-      const depths = [0.22, 0.20, 0.18, 0.16]
-      const widths = [0.16, 0.14, 0.13, 0.15]
-      const colours = [
-        [0x6e3228, 0x2a3f52, 0x3f5a34, 0x5a3a5c],
-        [0x8a5a2c, 0x1f2a3a, 0xb08d57, 0xc4b496],
-        [0x4a2c28, 0x2c4a5c, 0x355a40, 0x6b4e37],
-        [0x7a3a2c, 0x243040, 0x8a6a3a, 0xd0c4a8],
-      ]
-      let bi = 0
-      for (let shelf = 0; shelf < 5; shelf++) {
-        let cursor = -SL / 2 + 0.15
-        while (cursor < SL / 2 - 0.15) {
-          const k = bi % 4
-          const bw = widths[k]!
-          const bh = heights[k]!
-          const bd = depths[k]!
-          const y = 0.48 + shelf * 0.5 + 0.028 + bh / 2
-          packs[k]!.push([shelfX - 0.01 - bd / 2, y, cursor + bw / 2])
-          cursor += bw + 0.004
-          bi += 1
-        }
-      }
-      packs.forEach((spots, k) => {
-        if (!spots.length) return
-        // Split each height class across its four colours by index.
-        colours[k]!.forEach((col, ci) => {
-          const subset = spots.filter((_, i) => i % 4 === ci)
-          if (!subset.length) return
-          inst(new THREE.BoxGeometry(widths[k]!, heights[k]!, depths[k]!), std(col, 0.82), subset)
-        })
-      })
-      // Reading tables along the library, with readers on both sides.
-      const readers: CrowdSpot[] = []
-      for (const tz of [-5.5, 0.5, 6.5]) {
-        box(1.1, 0.05, 3.0, wood, 11.4, tz, 0.74, false)
-        for (const sz of [-1.3, 1.3]) for (const sx of [-0.45, 0.45]) box(0.05, 0.74, 0.05, dark, 11.4 + sx, tz + sz, 0, false)
-        obstacles.push({ kind: 'box', x: o.x + 11.4, z: o.z + tz, hx: 0.6, hz: 1.55 })
-        for (const sz of [-0.8, 0.8]) { readers.push({ x: 10.55, z: tz + sz, yaw: Math.PI / 2 }); readers.push({ x: 12.25, z: tz + sz, yaw: -Math.PI / 2 }) }
-      }
-      // Stools under the readers (a low seat each).
-      inst(new THREE.CylinderGeometry(0.2, 0.2, 0.44, 10), dark, readers.map((r) => [r.x + (r.yaw > 0 ? -0.12 : 0.12), 0.22, r.z]))
-      hallCrowd(group, [...students, ...readers], STUDENTS, { cap: crowdCap(), seatY: 0.44 })
-      const glass = new THREE.MeshStandardMaterial({ color: 0xcfe0ea, emissive: 0x8fb4cf, emissiveIntensity: 0.08, roughness: 0.15, metalness: 0.05 })
-      for (const x of [-10, -4, 2, 8]) box(2.6, 2.6, 0.04, glass, x, d / 2 - 0.02, 1.2, false)
-      use({ id: 'lectern', x: 0.6, z: -d / 2 + 4.0, r: 1.5, title: 'Lectern', body: 'Twenty short courses. Pass one and it writes your CV, resume, and portfolio.', enter: 'Open the hall', run: () => hooks.openPanel('learn') })
-      use({ id: 'library', x: w / 2 - 1.6, z: 3.5, r: 1.4, title: 'Library', body: 'Every course has a source line. The shelf has the rest.', enter: 'Browse', run: () => hooks.toast('Read the source line under each course. Then do the four exercises.') })
-    }
-
     if (id === 'studio') {
       // Influencer row studio: backdrop + softbox set, podcast table with mics, lounge.
       const fabric = std(0xcfc6b8, 1)
@@ -964,65 +856,15 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       use({ id: 'holders-planner', x: 5.2, z: 6.4, r: 1.2, title: 'Planner desk', body: 'This week’s challenges, kept for Fish rank in the lounge. Open to certificate holders.', enter: 'Open', run: holdersOnly(() => hooks.openCareer?.('weekly')) })
       use({ id: 'holders-wall', x: 0, z: d / 2 - 1.3, r: 1.3, title: 'Holders’ wall', body: 'Your certificates as the chain records them. Your CV shows the same marks.', enter: 'Open my CV', run: holdersOnly(() => hooks.openPanel('profile')) })
     }
-    if (id === 'conference') {
-      // The conference hall: a wide raised walnut stage on the north wall with a speaker at the lectern and a panel
-      // of two, one big schedule screen behind them, and nine rows of upholstered seats in four blocks with a centre
-      // aisle, full of attendees (hallCrowd.ts). A few aisle seats are kept free for you.
-      const walnut = std(0x5a3e2b, 0.55)
-      const stageZ = -d / 2 + 2.4
-      box(20, 0.45, 4.8, walnut, 0, stageZ)
-      box(20, 0.06, 0.06, trim, 0, stageZ + 2.4, 0.42, false)
-      box(0.9, 1.1, 0.55, walnut, 5.4, stageZ + 0.6, 0.45)
-      box(0.5, 0.04, 0.4, trim, 5.4, stageZ + 0.6, 1.55, false)
-      // Big screen: framed, matte, gently lit (low emissive), repainted when the room is entered.
-      const sc = document.createElement('canvas'); sc.width = 1024; sc.height = 512
-      const screenTex = new THREE.CanvasTexture(sc); screenTex.colorSpace = THREE.SRGBColorSpace
-      const repaint = () => { paintSchedule(sc.getContext('2d')!, 1024, 512); screenTex.needsUpdate = true }
-      repaint()
-      group.userData.repaint = repaint
-      box(10.6, 5.1, 0.08, std(0x14161a, 0.4, 0.3), 0, -d / 2 + 0.06, 0.0, false)
-      add(new THREE.PlaneGeometry(10, 4.6), new THREE.MeshStandardMaterial({ map: screenTex, emissiveMap: screenTex, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.85 }), 0, 2.85, -d / 2 + 0.11)
-      // Speaker at the lectern, and two panellists in armchairs at the other side of the stage.
-      standing(group, { model: 'woman4', look: { top: 0x7a2a3a, bottom: 0x23262a, skin: 0x5a3825, hair: 0x16110e } }, 4.4, 0.45, stageZ + 0.75, -0.2)
-      const fabric = std(0x2e3a4a, 0.95)
-      const panel: CrowdSpot[] = []
-      for (const px of [-6.2, -4.8]) {
-        box(0.75, 0.45, 0.7, std(0x8a6a4c, 0.9), px, stageZ + 0.2, 0.45)
-        box(0.75, 0.55, 0.12, std(0x8a6a4c, 0.9), px, stageZ - 0.2, 0.9)
-        panel.push({ x: px, y: 0.45, z: stageZ + 0.2, yaw: 0 })
-      }
-      box(0.5, 0.5, 0.5, walnut, -5.5, stageZ + 0.7, 0.45) // low table between them
-      // Seats: 9 rows x 20, in four blocks (an aisle down the centre and one in each half), facing the stage.
-      const bases: Array<[number, number, number, number?]> = []
-      const backs: Array<[number, number, number, number?]> = []
-      const attendees: Array<CrowdSpot & { w: number }> = []
-      for (let r = 0; r < 9; r++) {
-        const z = -4.4 + r * 1.25
-        for (const side of [-1, 1]) for (let c = 0; c < 10; c++) {
-          const x = side * (1.5 + c * 0.72 + (c >= 5 ? 1.3 : 0))
-          bases.push([x, 0.22, z]); backs.push([x, 0.62, z + 0.27])
-          // Aisle seats on a few rows are yours; every other seat has someone in it, front rows first with a
-          // scatter of gaps further back, the way a real audience sits.
-          const aisle = c === 0 || c === 5
-          if (aisle && (r === 2 || r === 4 || r === 6) && (c === 0 || side === 1)) seat(`r${r}c${side}${c}`, 'Conference seat', x, z, Math.PI, 0.45)
-          else attendees.push({ x, z, yaw: Math.PI, w: r * 0.45 + Math.abs(Math.sin(r * 12.9898 + c * 78.233 + side * 37.719) * 43758.5453) % 1 })
-        }
-        for (const side of [-1, 1]) for (const [cx, hx] of [[side * 2.94, 1.75], [side * 7.84, 1.75]] as const) obstacles.push({ kind: 'box', x: o.x + cx, z: o.z + z + 0.1, hx, hz: 0.36 })
-      }
-      attendees.sort((a, b) => a.w - b.w)
-      inst(new THREE.BoxGeometry(0.6, 0.44, 0.55), fabric, bases)
-      inst(new THREE.BoxGeometry(0.6, 0.5, 0.08), fabric, backs)
-      inst(new THREE.BoxGeometry(0.06, 0.66, 0.5), std(0x1a1c1f, 0.5, 0.6), bases.map(([x, , z]) => [x + 0.33, 0.33, z] as [number, number, number]))
-      hallCrowd(group, [...panel, ...attendees], ATTENDEES, { cap: crowdCap() + panel.length, seatY: 0.45 })
-      // Warm wall sconces (matte, low glow) and a runner down the centre aisle.
-      const sconce = new THREE.MeshStandardMaterial({ color: 0xf3e6cf, emissive: 0xffe2b8, emissiveIntensity: 0.25, roughness: 0.7 })
-      for (const z of [-7, -2, 3, 8]) for (const x of [-w / 2 + 0.08, w / 2 - 0.08]) box(0.06, 0.4, 0.25, sconce, x, z, 2.6, false)
-      box(1.2, 0.01, 12.5, std(0x6e2f2a, 1), 0, 1.3, 0.005, false)
-      use({ id: 'event-screen', x: 0, z: stageZ + 3.6, r: 1.7, title: 'Event schedule', body: 'Upcoming AMAs, Spaces-style talks and demo days. Join for in-game cash and reputation.', enter: 'Join event', run: () => hooks.openPanel('conference') })
-      use({ id: 'stage', x: 5.4, z: stageZ + 3.1, r: 1.3, title: 'Stage', body: 'The lectern. Speakers stand here on event nights.', enter: 'See the programme', run: () => hooks.openPanel('conference') })
+    // The Campus and the conference centre are buildings of several rooms with raked seating (halls.ts).
+    let floorAt: Floor | null = null
+    if (id === 'campus' || id === 'conference') {
+      const ctx = { group, ox: o.x, oz: o.z, w, d, H, wallMat, trim, std, box, add, use, seat, obstacles, sit: hooks.sit, busy: hooks.busy, toast: hooks.toast,
+        openLearn: () => hooks.openPanel('learn'), openConference: () => hooks.openPanel('conference'), canvasTex, cap: crowdCap() }
+      floorAt = id === 'campus' ? buildCampus(ctx) : buildConference(ctx, paintSchedule)
     }
     scene.add(group)
-    const entry = { group, obstacles, uses }
+    const entry = { group, obstacles, uses, floor: floorAt }
     built.set(id, entry)
     return entry
   }
@@ -1052,7 +894,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const hw = s.w / 2 - 0.7, hd = s.d / 2 - 0.7
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
       // Skip east-wall pots in campus: they collide with the library wall and read as blank blobs.
-      if (id === 'campus' && sx > 0) continue
+      if ((id === 'campus' && sx > 0) || HALL.has(id)) continue
       at(new THREE.Mesh(propGeo.pot, propMat.pot), sx * hw, 0.22, sz * hd)
       const leaf = new THREE.Mesh(propGeo.leaf, propMat.leaf); leaf.scale.set(1, 1.4, 1); at(leaf, sx * hw, 0.95, sz * hd)
     }
@@ -1073,6 +915,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const cap = new THREE.Mesh(propGeo.shadeTop, propMat.shadeCap); cap.scale.setScalar(big); at(cap, x, drop + 0.2 * big, pz)
     }
   }
+  const buttons = new WeakMap<Use, Use & { use?: () => void }>()
+  const asButton = (u: Use) => { let b = buttons.get(u); if (!b) { b = { ...u, use: u.exit ? undefined : u.run }; buttons.set(u, b) } return b }
   return {
     get inside() { return inside },
     /** The water's surface height when (x, z) is in the home's indoor pool, else null. */
@@ -1084,6 +928,14 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const id of Object.keys(STREET) as RoomId[]) if (STREET[id].spot === spotId) return id
       return null
     },
+    /** Floor height inside the current room (the halls' seating tiers and stage); 0 elsewhere. */
+    floorY(x: number, z: number): number {
+      if (!inside) return 0
+      const f = built.get(inside)?.floor
+      return f ? f(x - ORIGIN[inside].x, z - ORIGIN[inside].z) : 0
+    },
+    /** A room's own objects (for preparing its shaders on the first visit). */
+    group(id: RoomId): THREE.Object3D | null { return built.get(id)?.group ?? null },
     /** Whether a room has been built yet (the first visit builds it). */
     isBuilt(id: RoomId): boolean { return built.has(id) },
     enter(id: RoomId): { x: number; z: number; yaw: number } {
@@ -1093,11 +945,14 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       inside = id
       if (id === 'trading') repaintWalls?.() // the walls show this minute's prices from the moment you walk in
       const o = ORIGIN[id]
-      lamp.position.set(o.x, 2.9, o.z)
+      lamp.position.set(o.x, HALL.has(id) ? 4.6 : 2.9, o.z)
       if (id === 'house') { syncFurniture(room.group); floorLevel = 0 }
       ;(room.group.userData.repaint as (() => void) | undefined)?.()
       // Indoors: no street fog (it washed the home out to white on phones) and a dimmer HDRI.
-      if (scene.fog) { savedFog = scene.fog; scene.fog = null }
+      // The street haze is thinned to nothing rather than removed: removing it changes every material's shader,
+      // and the first visit then had to make them all again behind a black screen (main.ts keeps it at 0 inside).
+      if (scene.fog instanceof THREE.FogExp2) scene.fog.density = 0
+      else if (scene.fog) { savedFog = scene.fog; scene.fog = null }
       savedEnv = scene.environmentIntensity
       scene.environmentIntensity = Math.min(savedEnv, 0.18)
       // Softer indoor light: previous values (~25 on campus) washed rooms to stark white.
@@ -1131,7 +986,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       if (inside === 'house' && floorLevel === 1 && upper) return upper.obstacles
       return inside === 'house' && homeFurn ? [...built.get(inside)!.obstacles, ...homeFurn.obstacles] : built.get(inside)!.obstacles
     },
-    uses() { return inside ? (inside === 'house' && floorLevel === 1 && upper ? upper.uses : inside === 'house' && homeFurn ? [...built.get(inside)!.uses, ...homeFurn.uses] : built.get(inside)!.uses).filter((u) => !u.when || u.when()).map((u) => ({ ...u, use: u.exit ? undefined : u.run })) : [] },
+    // The halls have a hundred and more seats: the button form of each use is made once, not every frame.
+    uses() { return inside ? (inside === 'house' && floorLevel === 1 && upper ? upper.uses : inside === 'house' && homeFurn ? [...built.get(inside)!.uses, ...homeFurn.uses] : built.get(inside)!.uses).filter((u) => !u.when || u.when()).map(asButton) : [] },
     bounds(): { x: number; z: number; hw: number; hd: number } | null {
       if (!inside) return null
       if (inside === 'house' && floorLevel === 1) return { x: UP.x, z: UP.z, hw: UP.w / 2 - 0.5, hd: UP.d / 2 - 0.5 }

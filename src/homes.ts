@@ -1195,6 +1195,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
 
   return {
     get inside() { return inside },
+    /** The area being shown (its shaders are prepared on entry, not the whole city's). */
+    get group(): THREE.Object3D | null { return root },
     get viewing() { return viewing },
     get arranging() { return arranging },
     get title() { return plan ? (plan.id === 'park' ? 'Grind Park' : plan.id === 'airport' ? 'Grind International Airport' : plan.id === 'yacht' ? 'Party yacht' : plan.id === 'surf' ? 'Grind Surf School' : plan.id === 'gallery' ? 'Grind Art Gallery' : plan.id === 'hotel' ? 'The Grind Grand' : plan.id === 'mall' ? 'Grind Mall' : plan.id === 'grad' ? 'The Great Hall' : HOMES.find((h) => h.id === plan!.id)!.title) : '' },

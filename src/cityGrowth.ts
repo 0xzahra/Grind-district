@@ -106,14 +106,14 @@ export function createGarden(scene: THREE.Scene, o: { graphics: Graphics; obstac
   MILESTONES.forEach((_, i) => {
     const { x, z, s } = slot(i)
     const u0 = px((i % 8) * CW), v0 = px(Math.floor(i / 8) * CH), u1 = u0 + px(CW), v1 = v0 + px(CH)
-    const bx = x + s * 0.42 // the banner hangs from an arm reaching away from the road
-    const front = cell(new THREE.PlaneGeometry(0.62, 1.24), u0, v0, u1, v1); front.translate(bx, 2.3, z + 0.012)
-    const back = cell(new THREE.PlaneGeometry(0.62, 1.24), u0, v0, u1, v1); back.rotateY(Math.PI); back.translate(bx, 2.3, z - 0.012) // turned round, it still reads left to right from behind
+    const bx = x + s * 0.62 // the banner hangs from an arm reaching away from the road (big enough to read from the street)
+    const front = cell(new THREE.PlaneGeometry(1.0, 2.0), u0, v0, u1, v1); front.translate(bx, 3.1, z + 0.012)
+    const back = cell(new THREE.PlaneGeometry(1.0, 2.0), u0, v0, u1, v1); back.rotateY(Math.PI); back.translate(bx, 3.1, z - 0.012) // turned round, it still reads left to right from behind
     sheet.push(front, back)
-    const pole = new THREE.CylinderGeometry(0.045, 0.06, 3.2, 8); pole.translate(x, 1.6, z)
-    const cap = new THREE.SphereGeometry(0.075, 8, 6); cap.translate(x, 3.25, z)
-    const arm = new THREE.BoxGeometry(0.82, 0.035, 0.035); arm.translate(x + s * 0.41, 2.95, z)
-    const foot = new THREE.BoxGeometry(0.82, 0.03, 0.03); foot.translate(x + s * 0.41, 1.66, z)
+    const pole = new THREE.CylinderGeometry(0.06, 0.08, 4.5, 8); pole.translate(x, 2.25, z)
+    const cap = new THREE.SphereGeometry(0.1, 8, 6); cap.translate(x, 4.55, z)
+    const arm = new THREE.BoxGeometry(1.22, 0.045, 0.045); arm.translate(x + s * 0.61, 4.12, z)
+    const foot = new THREE.BoxGeometry(1.22, 0.035, 0.035); foot.translate(x + s * 0.61, 2.08, z)
     posts.push(pole, cap, arm, foot)
     if (i === 0) { sheetPer = front.index!.count + back.index!.count; postPer = [pole, cap, arm, foot].reduce((n, q) => n + q.index!.count, 0) }
   })

@@ -63,7 +63,7 @@ import { onActivity, subscribe, setTime, getSave, balanceSplit, loadSave, rememb
 import { mountUi } from './ui.ts'
 import { claimDaily, loginState } from './luxury.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
-import { createInteriors } from './interiors.ts'
+import { createInteriors, STREET } from './interiors.ts'
 import { createAmbient } from './ambient.ts'
 import { PLAZA_BENCH_LEN, STREET_BENCH_LEN, benchSlots, pickBenchSlot, createSeating, kioskSeats, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
@@ -2070,6 +2070,15 @@ const apiAgents = createRemoteAgents(scene)
   // a second or more. So the screen fades to black first, the room is built and its shaders prepared behind it,
   // and then it fades in. Later visits are instant.
   let roomBusy = false
+  let autoSitHold: { x: number; z: number } | null = null, autoSitStill = 0
+  /** Prepare the shaders for one place and the player (lit and fogged as the scene is now), not the whole city. */
+  const prepareShaders = async (place: THREE.Object3D | null): Promise<void> => {
+    try {
+      const jobs = [renderer.compileAsync(avatar.object, camera, scene)]
+      if (place) jobs.push(renderer.compileAsync(place, camera, scene))
+      await Promise.all(jobs)
+    } catch { /* drawn on first sight instead */ }
+  }
   const enterRoom = (doorSpot: Hotspot) => {
     const room = interiors.roomFor(doorSpot.id)
     if (!room) return false
@@ -2080,15 +2089,27 @@ const apiAgents = createRemoteAgents(scene)
     requestAnimationFrame(() => veil.classList.add('on'))
     const done = () => { veil.classList.remove('on'); window.setTimeout(() => veil.remove(), 320); roomBusy = false }
     window.setTimeout(() => {
+      const t0 = performance.now()
       try { stepInto(doorSpot, room) } catch (e) { console.warn('[grind] room', e); done(); return }
-      void Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((r) => window.setTimeout(r, 1500))]).then(done)
+      const t1 = performance.now()
+      // Only the room and the player need shaders made for indoors (no street fog in here). Compiling the whole
+      // scene re-made every city material's indoor version too: three seconds and more of black on a phone.
+      void Promise.race([prepareShaders(interiors.group(room)), new Promise((r) => window.setTimeout(r, 1200))]).then(() => {
+        if (import.meta.env.DEV) ((window as unknown as { __roomTimes?: unknown[] }).__roomTimes ??= []).push({ room, build: Math.round(t1 - t0), compile: Math.round(performance.now() - t1) })
+        done()
+      })
     }, 240)
     return true
   }
+  // Which room or area the player is in, on this device only (the save keeps the city spot and the home): the next
+  // visit opens there again. Cleared on the way out.
+  const noteInside = (v: { k: 'room' | 'home'; id: string } | null) => { try { if (v) localStorage.setItem('gd.lastIn', JSON.stringify({ ...v, at: Date.now() })); else localStorage.removeItem('gd.lastIn') } catch { /* private mode */ } }
   const stepInto = (doorSpot: Hotspot, room: NonNullable<ReturnType<typeof interiors.roomFor>>) => {
     notePlace(room)
+    noteInside({ k: 'room', id: doorSpot.id })
     streetDoor = { x: doorSpot.x, z: doorSpot.z }
     const at = interiors.enter(room)
+    levelY = 0
     pos.x = at.x
     pos.z = at.z
     vel.x = 0
@@ -2102,7 +2123,9 @@ const apiAgents = createRemoteAgents(scene)
     return true
   }
   const leaveRoom = () => {
+    noteInside(null)
     const out = interiors.exit(streetDoor.x, streetDoor.z)
+    levelY = 0
     pos.x = out.x
     pos.z = out.z
     vel.x = 0
@@ -2249,7 +2272,17 @@ const apiAgents = createRemoteAgents(scene)
   window.addEventListener('gd:revealed', () => window.setTimeout(() => {
     const kind = getSave().homeAt
     const finish = () => { homeRestored = true }
-    if (!kind || interiors.inside || homes?.inside) return finish()
+    if (interiors.inside || homes?.inside) return finish()
+    if (!kind) {
+      // Not at home: back into the room or area this device was last in (a day or two at most).
+      let last: { k?: string; id?: string; at?: number } | null = null
+      try { last = JSON.parse(localStorage.getItem('gd.lastIn') ?? 'null') } catch { /* none */ }
+      if (last?.id && Date.now() - (last.at ?? 0) < 3 * 86_400_000) {
+        if (last.k === 'room') { const door = world.hotspots.find((h) => h.id === last!.id); if (door && interiors.roomFor(door.id)) enterRoom(door) }
+        else if (last.k === 'home' && /^(park|airport|yacht|hotel|mall|surf|gallery)$/.test(last.id)) void enterHome(last.id as AreaId, false)
+      }
+      return void window.setTimeout(finish, 1500)
+    }
     if (kind === 'house') {
       const door = world.hotspots.find((h) => h.id === 'yours')
       if (door) enterRoom(door)
@@ -2301,7 +2334,8 @@ const apiAgents = createRemoteAgents(scene)
       if (at && (id === 'park' || id === 'airport')) { s.x = at[0]; s.z = at[1]; s.y = 0 }
       setHomeInView(id === 'park' || id === 'airport' || id === 'yacht' || id === 'hotel' || id === 'mall' || id === 'grad' || id === 'surf' || id === 'gallery' ? null : id)
       fadeScreen()
-      await Promise.race([renderer.compileAsync(scene, camera).catch(() => undefined), new Promise((done) => window.setTimeout(done, 2500))])
+      await Promise.race([prepareShaders(h.group), new Promise((done) => window.setTimeout(done, 1500))])
+      noteInside({ k: 'home', id })
       pos.x = s.x; pos.z = s.z; levelY = s.y
       vel.x = 0; vel.z = 0; target = null
       if (!homeCam.dist) homeCam = { dist: camDistGoal, pitch: camPitch }
@@ -2314,6 +2348,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   const leaveHome = () => {
     if (!homes?.inside) return
+    noteInside(null)
     const out = homes.leave()
     setHomeInView(null)
     fadeScreen()
@@ -2639,7 +2674,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z }), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -2707,6 +2742,7 @@ const apiAgents = createRemoteAgents(scene)
       seasons.apply(scene.fog instanceof THREE.FogExp2 ? scene.fog : null, world.sun, world.hemi, nightLevel)
       if (homes?.flying && scene.fog instanceof THREE.FogExp2) scene.fog.density *= 0.45 // clearer air up high
       if (clearAir !== 1 && scene.fog instanceof THREE.FogExp2) scene.fog.density *= clearAir // dev only: poster stills
+      if (interiors.inside && scene.fog instanceof THREE.FogExp2) scene.fog.density = 0 // no street haze indoors
       hemiBase = world.hemi.intensity
       physSky.setPhase(dayPhase, focus)
       const sunUp = Math.sin((dayPhase - 0.25) * Math.PI * 2)
@@ -2922,7 +2958,9 @@ const apiAgents = createRemoteAgents(scene)
     }
     // In a luxury home: stand at its floor height, lower in a pool.
     if (homes?.inside) levelY += (homes.floorY(pos.x, pos.z) - levelY) * (1 - Math.exp(-9 * dt))
-    avatar.object.position.set(pos.x, homes?.inside ? levelY : 0, pos.z)
+    // The big halls have stepped seating tiers and a stage: the player climbs them as in the homes.
+    else if (interiors.inside) levelY += (interiors.floorY(pos.x, pos.z) - levelY) * (1 - Math.exp(-12 * dt))
+    avatar.object.position.set(pos.x, homes?.inside || interiors.inside ? levelY : 0, pos.z)
     const groundSpeed = Math.hypot(vel.x, vel.z)
     moving = groundSpeed > 0.22
     // Face where the body actually goes (after collision), falling back to the input while starting.
@@ -2947,7 +2985,7 @@ const apiAgents = createRemoteAgents(scene)
       if (inWater && !swimming) personaNote('swim')
       swimming = inWater
       swimMove += ((inWater && moving ? 1 : 0) - swimMove) * (1 - Math.exp(-4 * dt))
-      const baseY = homes?.inside ? levelY : 0
+      const baseY = homes?.inside || interiors.inside ? levelY : 0
       const bob = inWater ? Math.sin(elapsed * 2.2) * 0.03 : 0
       const wantY = inWater ? waterY - (1.32 - 0.34 * swimMove) + bob : baseY
       swimY = Math.abs(swimY - wantY) > 3 ? wantY : swimY + (wantY - swimY) * (1 - Math.exp(-8 * dt))
@@ -3015,6 +3053,20 @@ const apiAgents = createRemoteAgents(scene)
         if (score < bestScore) { best = candidate; bestScore = score }
       }
     }
+    // Walk up to a free seat anywhere (a bench, a chair, a row in a hall) and stop: you sit down by yourself.
+    // After standing up you have to step away first, so moving off a seat never drops you straight back in.
+    if (seating.sitting) { autoSitHold = { x: pos.x, z: pos.z }; autoSitStill = 0 }
+    else if (autoSitHold && Math.hypot(pos.x - autoSitHold.x, pos.z - autoSitHold.z) > 1.4) autoSitHold = null
+    if (!seating.sitting && !autoSitHold && !paused && !ride?.driving && !metro?.riding && !ui.isOpen() && !dancing && Math.hypot(vel.x, vel.z) < 0.25) {
+      let seatSpot: Hotspot | null = null, seatD = 0.85
+      for (const c of candidates) {
+        if (c.enter !== 'Sit' || !c.use) continue
+        const d = Math.hypot(pos.x - c.x, pos.z - c.z)
+        if (d < seatD) { seatD = d; seatSpot = c }
+      }
+      autoSitStill = seatSpot ? autoSitStill + dt : 0
+      if (seatSpot && autoSitStill > 0.35) { autoSitStill = 0; seatSpot.use!() }
+    } else autoSitStill = 0
     if (ride?.driving) { rideSpot.enter = ride.kind === 'boat' ? 'Back to harbour' : 'Get out'; rideSpot.title = ride.label; best = rideSpot }
     if (metro?.riding) { metroSpot.enter = `Get off at ${metro.nextTitle()}`; best = metroSpot }
     showSpot(best)
@@ -3203,7 +3255,10 @@ const apiAgents = createRemoteAgents(scene)
     saveAcc += dt
     if (saveAcc > 2) {
       saveAcc = 0
-      rememberPlace(pos.x, pos.z)
+      // Only a spot in the city is kept: rooms and homes are built far outside it, and a position from in there was
+      // out of range on the next load, which put the player back at the plaza. Indoors, the door outside is kept.
+      if (interiors.inside) { const st = STREET[interiors.inside]; const dx = streetDoor.x - st.cx, dz = streetDoor.z - st.cz, l = Math.hypot(dx, dz) || 1; rememberPlace(streetDoor.x + (dx / l) * 1.4, streetDoor.z + (dz / l) * 1.4) }
+      else if (!homes?.inside && Math.max(Math.abs(pos.x), Math.abs(pos.z)) < CITY_LIMIT) rememberPlace(pos.x, pos.z)
       if (homeRestored) rememberHome(atHome()?.home ?? null)
     }
   }
