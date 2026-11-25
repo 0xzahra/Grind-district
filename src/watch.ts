@@ -22,6 +22,9 @@ export function createWatch(scene: THREE.Scene, count: number) {
     const beam = new THREE.Mesh(beamGeo, cone)
     beam.frustumCulled = false
     g.add(beam)
+    // Visual only: the scan cone (all but invisible by day) reaches from the sky to the street, and the camera's
+    // wall check used to hit it, snapping the driving camera in behind the car. Nothing here stops the camera or a tap.
+    g.traverse((o) => { o.userData.ghost = true; o.raycast = () => undefined })
     scene.add(g)
     return { g, l, r, beam, radius: 30 + i * 18, speed: 0.05 - i * 0.012, phase: i * 2.1, h: 26 + i * 4 }
   })

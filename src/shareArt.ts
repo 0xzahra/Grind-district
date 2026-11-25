@@ -4,7 +4,7 @@
 import qrcode from 'qrcode-generator'
 import { loadPicture, SITE } from './sharePicture.ts'
 import type { Flyer } from './posters.ts'
-import type { StatCard } from './statsPanel.ts'
+import type { PublicStats } from './statsPanel.ts'
 
 const SANS = '"Inter Variable", Inter, system-ui, sans-serif'
 const DISPLAY = SANS
@@ -67,67 +67,94 @@ function ctaBand(g: CanvasRenderingContext2D, x: number, y: number, w: number, h
   g.restore()
 }
 
-/** The city stats as a premium card: the live headline figures, the learning numbers and a call to join. */
-export async function statsShareArt(card: StatCard): Promise<HTMLCanvasElement> {
+/** A number for a card: 1,587 or 12.4k. */
+const big = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
+
+/** Base's mark (a blue disc with a bar) and NEAR's (an N in a dark tile), small, for the on-chain panel. */
+function chainMarks(g: CanvasRenderingContext2D, x: number, y: number): number {
+  g.fillStyle = '#0052ff'; g.beginPath(); g.arc(x + 18, y + 18, 18, 0, Math.PI * 2); g.fill()
+  g.fillStyle = '#ffffff'; g.fillRect(x + 6, y + 15, 17, 6)
+  g.fillStyle = '#f7f3ea'; rr(g, x + 44, y, 36, 36, 9); g.fill()
+  g.strokeStyle = '#0b100d'; g.lineWidth = 4; g.lineJoin = 'round'
+  g.beginPath(); g.moveTo(x + 53, y + 27); g.lineTo(x + 53, y + 9); g.lineTo(x + 71, y + 27); g.lineTo(x + 71, y + 9); g.stroke()
+  return 80
+}
+
+/** The city stats as a premium card: the totals so far (players, courses, certificates), the city and learning
+ *  numbers, everything on-chain (Base and NEAR together), and a call to play with a QR code. No "online now". */
+export async function statsShareArt(st: PublicStats | null): Promise<HTMLCanvasElement> {
   const { logo, city } = await ready()
   const W = 1080, H = 1350
   const [c, g] = canvasOf(W, H)
   cover(g, city, W, H)
-  // Darken for the words: lighter at the top so the city shows, deep at the foot.
   const shade = g.createLinearGradient(0, 0, 0, H)
-  shade.addColorStop(0, 'rgba(4, 12, 8, 0.58)'); shade.addColorStop(0.35, 'rgba(4, 12, 8, 0.72)'); shade.addColorStop(1, 'rgba(3, 9, 6, 0.96)')
+  shade.addColorStop(0, 'rgba(4, 12, 8, 0.42)'); shade.addColorStop(0.3, 'rgba(4, 12, 8, 0.8)'); shade.addColorStop(0.5, 'rgba(4, 11, 7, 0.96)'); shade.addColorStop(1, 'rgba(3, 8, 5, 1)')
   g.fillStyle = shade; g.fillRect(0, 0, W, H)
-  const glow = g.createRadialGradient(170, 120, 10, 170, 120, 620); glow.addColorStop(0, 'rgba(233, 207, 142, 0.22)'); glow.addColorStop(1, 'rgba(233, 207, 142, 0)')
+  const glow = g.createRadialGradient(W * 0.8, 560, 10, W * 0.8, 560, 620); glow.addColorStop(0, 'rgba(59, 250, 164, 0.13)'); glow.addColorStop(1, 'rgba(59, 250, 164, 0)')
   g.fillStyle = glow; g.fillRect(0, 0, W, H)
   frame(g, W, H, 26)
-  logoAt(g, logo, 70, 66, 230)
-  // The live pill.
-  const pill = 'LIVE CITY STATS'
-  g.font = `800 24px ${SANS}`
-  const pw = g.measureText(pill).width + 76
-  g.fillStyle = 'rgba(8, 20, 14, 0.82)'; rr(g, W - 70 - pw, 82, pw, 56, 28); g.fill(); g.strokeStyle = 'rgba(59, 250, 164, 0.5)'; g.lineWidth = 2; g.stroke()
-  g.fillStyle = MINT; g.beginPath(); g.arc(W - 70 - pw + 32, 110, 9, 0, Math.PI * 2); g.fill()
-  g.fillStyle = INK; g.fillText(pill, W - 70 - pw + 52, 119)
+  logoAt(g, logo, 70, 62, 210)
+  // Date pill.
+  const pill = `CITY STATS · ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}`
+  g.font = `800 22px ${SANS}`
+  const pw = g.measureText(pill).width + 72
+  g.fillStyle = 'rgba(8, 20, 14, 0.85)'; rr(g, W - 70 - pw, 80, pw, 54, 27); g.fill(); g.strokeStyle = 'rgba(233, 207, 142, 0.6)'; g.lineWidth = 2; g.stroke()
+  g.fillStyle = GOLD; g.beginPath(); g.arc(W - 70 - pw + 30, 107, 8, 0, Math.PI * 2); g.fill()
+  g.fillStyle = INK; g.fillText(pill, W - 70 - pw + 48, 115)
   // Headline.
-  g.fillStyle = INK; g.font = `900 76px ${DISPLAY}`
-  g.fillText('A whole city', 70, 330); g.fillText('learning Web3.', 70, 414)
-  g.fillStyle = 'rgba(247, 243, 234, 0.8)'; g.font = `500 32px ${SANS}`
-  g.fillText('Real players, real lessons, one shared 3D city. Free.', 70, 470, W - 140)
-  // Headline figures: up to three glass tiles.
-  // Always three tiles: the live figures first, then plain facts if some figures did not load.
-  const facts = [{ label: 'To play', value: 'Free' }, { label: 'Live city', value: '24/7' }, { label: 'Web3 CV', value: 'Yours' }]
-  const hero = [...card.hero, ...facts].slice(0, 3)
-  const gap = 22, tw = (W - 140 - gap * (hero.length - 1)) / Math.max(1, hero.length)
-  hero.forEach((t, i) => {
-    const x = 70 + i * (tw + gap), y = 530
-    g.fillStyle = 'rgba(255, 255, 255, 0.08)'; rr(g, x, y, tw, 200, 28); g.fill()
-    g.strokeStyle = i === 0 ? 'rgba(59, 250, 164, 0.55)' : 'rgba(233, 207, 142, 0.4)'; g.lineWidth = 2; g.stroke()
-    g.fillStyle = i === 0 ? MINT : GOLD; g.font = `800 ${t.value.length > 5 ? 66 : 82}px ${SANS}`; g.fillText(t.value, x + 30, y + 112, tw - 60)
-    g.fillStyle = 'rgba(247, 243, 234, 0.78)'; g.font = `700 24px ${SANS}`; g.fillText(t.label.toUpperCase(), x + 30, y + 162, tw - 60)
+  g.fillStyle = INK; g.font = `900 78px ${SANS}`; g.fillText('Grind District', 70, 312)
+  const gold = g.createLinearGradient(70, 330, 520, 400); gold.addColorStop(0, '#f6dc96'); gold.addColorStop(1, '#c99a45')
+  g.fillStyle = gold; g.fillText('in numbers.', 70, 396)
+  g.fillStyle = 'rgba(247, 243, 234, 0.78)'; g.font = `500 28px ${SANS}`
+  g.fillText('A free 3D city where people learn Web3 together.', 70, 446, W - 140)
+  if (!st) {
+    g.fillStyle = INK; g.font = `700 40px ${SANS}`; g.fillText('Learn · Work · Trade · Get certified', 70, 560, W - 140)
+    ctaBand(g, 70, 1030, W - 140, 260, 'Learn Web3. Earn your CV.', 'Free in your browser · phone or computer', `${SITE}/?src=stats-card`)
+    return c
+  }
+  // The totals so far: three big figures.
+  const hero: Array<[string, string]> = [['Players', big(st.registered)], ['Courses passed', big(st.lessonsPassed)], ['Certificates', big(st.certificates)]]
+  const gap = 20, tw = (W - 140 - gap * 2) / 3
+  hero.forEach(([label, value], i) => {
+    const x = 70 + i * (tw + gap), y = 486
+    const face = g.createLinearGradient(0, y, 0, y + 196); face.addColorStop(0, 'rgba(255, 255, 255, 0.1)'); face.addColorStop(1, 'rgba(255, 255, 255, 0.03)')
+    g.fillStyle = face; rr(g, x, y, tw, 196, 26); g.fill()
+    g.strokeStyle = i === 0 ? 'rgba(59, 250, 164, 0.6)' : 'rgba(233, 207, 142, 0.5)'; g.lineWidth = 2; g.stroke()
+    const num = g.createLinearGradient(0, y + 40, 0, y + 130); num.addColorStop(0, i === 0 ? '#8affc9' : '#f6dc96'); num.addColorStop(1, i === 0 ? '#2fd67d' : '#c99a45')
+    g.fillStyle = num; g.font = `900 ${value.length > 5 ? 70 : 86}px ${SANS}`; g.fillText(value, x + 28, y + 118, tw - 56)
+    g.fillStyle = 'rgba(247, 243, 234, 0.8)'; g.font = `800 20px ${SANS}`; g.fillText(label.toUpperCase(), x + 28, y + 160, tw - 56)
   })
-  // Learning figures (when they loaded): a row of four.
-  const learn = card.sections.find((s) => s.title === 'Learning')?.tiles ?? card.sections.find((s) => s.title === 'Players')?.tiles ?? []
-  const row = learn.slice(0, 4)
-  if (!row.length) {
-    g.strokeStyle = 'rgba(233, 207, 142, 0.3)'; g.lineWidth = 2
-    g.beginPath(); g.moveTo(70, 770); g.lineTo(W - 70, 770); g.stroke()
-    g.fillStyle = INK; g.font = `800 46px ${SANS}`; g.fillText('Learn · Work · Trade · Get certified', 70, 860, W - 140)
-    g.fillStyle = 'rgba(247, 243, 234, 0.68)'; g.font = `600 24px ${SANS}`; g.fillText('Every course you pass goes on your CV, with a certificate you can share.', 70, 900, W - 140)
-  }
-  if (row.length) {
-    const lw = (W - 140) / row.length
-    g.strokeStyle = 'rgba(233, 207, 142, 0.3)'; g.lineWidth = 2
-    g.beginPath(); g.moveTo(70, 770); g.lineTo(W - 70, 770); g.stroke()
-    row.forEach((t, i) => {
-      const x = 70 + i * lw
-      if (i) { g.beginPath(); g.moveTo(x, 800); g.lineTo(x, 900); g.stroke() }
-      g.fillStyle = INK; g.font = `800 54px ${SANS}`; g.fillText(t.value, x + (i ? 26 : 0), 860, lw - 30)
-      g.fillStyle = 'rgba(247, 243, 234, 0.68)'; g.font = `600 22px ${SANS}`; g.fillText(t.label, x + (i ? 26 : 0), 896, lw - 30)
-    })
-  }
-  ctaBand(g, 70, 960, W - 140, 300, 'Come build your Web3 CV', 'Play free in your browser · phone or computer', `${SITE}/?src=stats-card`)
-  g.fillStyle = 'rgba(247, 243, 234, 0.5)'; g.font = `500 20px ${SANS}`; g.textAlign = 'center'
-  g.fillText(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W / 2, H - 44)
+  // The city and learning, in a row of four.
+  const row: Array<[string, string]> = []
+  if (typeof st.visitorsAll === 'number') row.push(['Visitors', big(st.visitorsAll)])
+  if (typeof st.learners === 'number') row.push(['Learners', big(st.learners)])
+  row.push(['Sign-ins', big(st.signIns)])
+  if (typeof st.returning7d === 'number') row.push(['Came back in 7 days', big(st.returning7d)])
+  const rw = (W - 140) / row.length
+  g.strokeStyle = 'rgba(233, 207, 142, 0.28)'; g.lineWidth = 2
+  row.forEach(([label, value], i) => {
+    const x = 70 + i * rw
+    if (i) { g.beginPath(); g.moveTo(x, 716); g.lineTo(x, 808); g.stroke() }
+    g.fillStyle = INK; g.font = `800 50px ${SANS}`; g.fillText(value, x + (i ? 24 : 4), 772, rw - 30)
+    g.fillStyle = 'rgba(247, 243, 234, 0.66)'; g.font = `600 20px ${SANS}`; g.fillText(label, x + (i ? 24 : 4), 804, rw - 30)
+  })
+  // On-chain: Base and NEAR together.
+  const py = 840, ph = 166
+  g.fillStyle = 'rgba(10, 26, 18, 0.88)'; rr(g, 70, py, W - 140, ph, 26); g.fill()
+  g.strokeStyle = 'rgba(233, 207, 142, 0.55)'; g.lineWidth = 2; g.stroke()
+  const mw = chainMarks(g, 100, py + 22)
+  g.fillStyle = GOLD; g.font = `800 22px ${SANS}`; g.fillText('ON-CHAIN · BASE + NEAR', 100 + mw + 18, py + 48)
+  const minted = st.mintsBase + st.mintsNear
+  const chain: Array<[string, string]> = [['Certificates minted', big(minted)], ['Wallets linked', big(st.walletConnections)]]
+  if (typeof st.nearAccounts === 'number') chain.push(['NEAR accounts', big(st.nearAccounts)])
+  chain.push(['AI agents', big(st.agentsRegistered)])
+  const cw = (W - 200) / chain.length
+  chain.forEach(([label, value], i) => {
+    const x = 100 + i * cw
+    g.fillStyle = INK; g.font = `800 46px ${SANS}`; g.fillText(value, x, py + 114, cw - 20)
+    g.fillStyle = 'rgba(247, 243, 234, 0.66)'; g.font = `600 19px ${SANS}`; g.fillText(label, x, py + 146, cw - 20)
+  })
+  ctaBand(g, 70, 1036, W - 140, 254, 'Learn Web3. Earn your CV.', 'Free in your browser · phone or computer', `${SITE}/?src=stats-card`)
   return c
 }
 

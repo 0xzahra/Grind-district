@@ -1,5 +1,5 @@
-// Grind Bank, the panel: how crypto banks work (custody, reserves, proof of reserves, ramps, where yield comes
-// from) with a short check; an ETF desk to buy and sell two spot crypto ETFs at live prices; and a halal
+// Grind Bank, the panel: how crypto institutions work (custody, reserves, proof of reserves, ramps, where yield
+// comes from) with a short check; an ETF desk to buy and sell two spot crypto ETFs at live prices; and a halal
 // profit-sharing savings account. Practice with earned in-game cash only (never a top-up), like the DeFi desk.
 // Progress lives beside the save (`<slot>.bank`), so the save format is unchanged.
 import { addReputation, balanceSplit, earnCash, slotKey, spendInGame } from './state.ts'
@@ -23,16 +23,16 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''):
 const btn = (text: string, cls: string, run: () => void) => { const b = el('button', cls, text); b.type = 'button'; b.onclick = run; return b }
 
 const LESSON: Array<{ h: string; t: string }> = [
-  { h: 'What a crypto bank does', t: 'A crypto bank (or a licensed custodian) does three jobs: it keeps coins safe for customers (custody), it moves money between your local currency and crypto (on and off ramps), and it may offer savings, loans and investment products such as ETFs. It is regulated: it checks who you are (KYC) and follows anti-money-laundering rules.' },
-  { h: 'Custody: cold and hot wallets', t: 'Most coins sit in cold storage: keys made and kept offline in vaults, often split between several people (multi-signature), so no one person can move them. A small part sits in hot wallets for daily withdrawals. With a bank the keys are theirs, not yours: easy, but you are trusting them. Self-custody means your own keys and your own responsibility.' },
-  { h: 'Reserves: one for one', t: 'Customer coins should be held one for one and kept apart from the bank\'s own money. A firm that lends out or spends customer coins can fail when everyone asks for them back at once (a bank run). That is how several crypto lenders and a large exchange collapsed in 2022.' },
-  { h: 'Proof of reserves', t: 'A proof of reserves shows the bank\'s wallets on-chain and a cryptographic list of what it owes customers (a Merkle tree), so you can check your own balance is counted. The good ones add an independent auditor\'s report on what is owed, and repeat it often. A one-off snapshot can be gamed; regular, audited proofs are better.' },
-  { h: 'Where yield comes from', t: 'If a bank pays you a return, ask where it comes from: lending to borrowers, staking, or trading. Higher yield means higher risk. A fixed, high, guaranteed return on crypto is a warning sign, not a feature.' },
+  { h: 'What crypto institutions are', t: 'Crypto institutions are the firms that stand between you and the blockchain: exchanges, custodians, crypto-friendly banks, payment companies and ETF issuers. They do three jobs: keep coins safe for customers (custody), move money between your local currency and crypto (on and off ramps), and offer products such as savings, loans and ETFs. The regulated ones check who you are (KYC) and follow anti-money-laundering rules.' },
+  { h: 'Custody: cold and hot wallets', t: 'Most coins sit in cold storage: keys made and kept offline in vaults, often split between several people (multi-signature), so no one person can move them. A small part sits in hot wallets for daily withdrawals. With an institution the keys are theirs, not yours: easy, but you are trusting them. Self-custody means your own keys and your own responsibility.' },
+  { h: 'Reserves: one for one', t: 'Customer coins should be held one for one and kept apart from the institution\'s own money. A firm that lends out or spends customer coins can fail when everyone asks for them back at once (a bank run). That is how several crypto lenders and a large exchange collapsed in 2022.' },
+  { h: 'Proof of reserves', t: 'A proof of reserves shows the institution\'s wallets on-chain and a cryptographic list of what it owes customers (a Merkle tree), so you can check your own balance is counted. The good ones add an independent auditor\'s report on what is owed, and repeat it often. A one-off snapshot can be gamed; regular, audited proofs are better.' },
+  { h: 'Where yield comes from', t: 'If an institution pays you a return, ask where it comes from: lending to borrowers, staking, or trading. Higher yield means higher risk. A fixed, high, guaranteed return on crypto is a warning sign, not a feature.' },
   { h: 'Ramps, fees and withdrawals', t: 'Paying in local currency, buying coins and withdrawing to your own wallet each cost something: spreads, trading fees and network fees. Before you withdraw, check the network and the address, and send a small test amount first.' },
 ]
 const CHECK: Array<{ q: string; o: string[]; r: number; why: string }> = [
-  { q: 'A bank keeps most customer coins offline, with keys split between several people. That is…', o: ['A hot wallet', 'Cold storage with multi-signature', 'Proof of stake'], r: 1, why: 'Offline keys, split so no one person can move the coins.' },
-  { q: 'What does a proof of reserves let you check?', o: ['That prices will go up', 'That your balance is counted in what the bank holds and owes', 'That the bank pays interest'], r: 1, why: 'You can find your own balance in the list and see the wallets on-chain.' },
+  { q: 'An institution keeps most customer coins offline, with keys split between several people. That is…', o: ['A hot wallet', 'Cold storage with multi-signature', 'Proof of stake'], r: 1, why: 'Offline keys, split so no one person can move the coins.' },
+  { q: 'What does a proof of reserves let you check?', o: ['That prices will go up', 'That your balance is counted in what the institution holds and owes', 'That the bank pays interest'], r: 1, why: 'You can find your own balance in the list and see the wallets on-chain.' },
   { q: 'A platform promises 20% a year, guaranteed, on stablecoins. The steady reading?', o: ['Move everything there', 'Ask where the yield comes from; a guarantee is a warning sign', 'It must be safe if it is popular'], r: 1, why: 'Yield comes from risk. Guarantees on crypto returns are a red flag.' },
 ]
 const ETF_FACTS = [
@@ -56,7 +56,7 @@ export function openBank(o: { tab: BankTab; toast: (m: string) => void }): void 
   const head = el('div', 'bk-head')
   const crest = el('span', 'bk-crest')
   crest.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 4l9 5.5"/><path d="M4.5 9.5h15M6 10v7M10 10v7M14 10v7M18 10v7M4 17.5h16M3 20.5h18"/></svg>'
-  const words = el('div', 'bk-words'); words.append(el('strong', '', 'Grind Bank'), el('span', '', 'Crypto banking, explained · practice with earned cash'))
+  const words = el('div', 'bk-words'); words.append(el('strong', '', 'Grind Bank'), el('span', '', 'Crypto institutions, explained · practice with earned cash'))
   const close = btn('×', 'bk-x', () => done()); close.setAttribute('aria-label', 'Close')
   head.append(crest, words, close)
   const tabs = el('div', 'bk-tabs')
@@ -89,7 +89,7 @@ export function openBank(o: { tab: BankTab; toast: (m: string) => void }): void 
       if (step > 0) row.append(btn('Back', 'bk-btn ghost', () => { step--; render() }))
       row.append(btn(step < LESSON.length - 1 ? 'Next' : s.learned ? 'Check again' : 'Quick check', 'bk-btn gold', () => { if (step < LESSON.length - 1) step++; else { check = 0; note = '' } render() }))
       body.append(dots, box, row)
-      if (s.learned) body.append(el('p', 'bk-note', 'You passed the crypto banking check. Good to revise.'))
+      if (s.learned) body.append(el('p', 'bk-note', 'You passed the crypto institutions check. Good to revise.'))
       return
     }
     const q = CHECK[check]!
@@ -100,7 +100,7 @@ export function openBank(o: { tab: BankTab; toast: (m: string) => void }): void 
       if (i !== q.r) { note = `Not quite. ${q.why}`; render(); return }
       note = ''
       if (check < CHECK.length - 1) { check++; o.toast(q.why); render(); return }
-      if (!s.learned) { s.learned = true; save(); window.setTimeout(() => addReputation(3, 'Reputation: crypto banking', 'Passed the check at Grind Bank.'), 0); o.toast('Passed: +3 reputation. Now try the ETF desk.') }
+      if (!s.learned) { s.learned = true; save(); window.setTimeout(() => addReputation(3, 'Reputation: crypto institutions', 'Passed the check at Grind Bank.'), 0); o.toast('Passed: +3 reputation. Now try the ETF desk.') }
       else o.toast('Passed again.')
       check = -1; step = 0; tab = 'etf'; render()
     })))

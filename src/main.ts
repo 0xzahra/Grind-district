@@ -86,7 +86,7 @@ import { sweepScene } from './batch.ts'
 import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
 import { installLayers } from './layers.ts'
-import { isPublicStats, statsCard, type PublicStats } from './statsPanel.ts'
+import { isPublicStats, statsCard, statsCaption, type PublicStats } from './statsPanel.ts'
 import { startPersona, note as personaNote, notePlace, notePanel } from './persona.ts'
 import { initStaff } from './staff.ts'
 watchUpdates()
@@ -1639,14 +1639,19 @@ const apiAgents = createRemoteAgents(scene)
   const paintOnlineCard = (st: PublicStats | null) => {
     const mk = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = '') => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e }
     const card = statsCard(st, onlineNow)
-    const head = mk('div', 'sc-head'); head.append(mk('p', 'stat-title', 'City stats'), mk('span', 'sc-live', `${card.online} online`))
-    const tile = (t: { label: string; value: string }, big = false) => { const d = mk('div', big ? 'sc-tile sc-big' : 'sc-tile'); d.append(mk('b', '', t.value), mk('span', '', t.label)); return d }
-    const hero = mk('div', 'sc-hero'); hero.append(...card.hero.map((t) => tile(t, true)))
-    const nodes: HTMLElement[] = [head, hero]
+    const head = mk('div', 'sc-head')
+    const words = mk('div', 'sc-words'); words.append(mk('p', 'stat-title', 'City stats'), mk('span', 'sc-sub', 'Totals since launch'))
+    head.append(words, mk('span', 'sc-live', `${card.online} online`))
+    const tile = (t: { label: string; value: string; sub?: string }, big = false) => { const d = mk('div', big ? 'sc-tile sc-big' : 'sc-tile'); d.append(mk('b', '', t.value), mk('span', '', t.label)); if (t.sub) d.append(mk('small', '', t.sub)); return d }
+    const nodes: HTMLElement[] = [head]
+    if (card.hero.length) { const hero = mk('div', 'sc-hero'); hero.append(...card.hero.map((t) => tile(t, true))); nodes.push(hero) }
     for (const sec of card.sections) {
-      const box = mk('section', 'sc-sec'); const grid = mk('div', 'sc-grid')
+      const box = mk('section', sec.kind === 'chain' ? 'sc-sec sc-chain' : 'sc-sec'); const grid = mk('div', 'sc-grid')
       grid.append(...sec.tiles.map((t) => tile(t)))
-      box.append(mk('h4', '', sec.title), grid)
+      const h = mk('h4', '', sec.title)
+      // Base's blue disc and NEAR's N, beside the on-chain heading.
+      if (sec.kind === 'chain') { const marks = mk('span', 'sc-marks'); marks.innerHTML = '<svg viewBox="0 0 40 20" aria-hidden="true"><circle cx="9" cy="10" r="9" fill="#0052ff"/><rect x="3" y="8.5" width="9" height="3" fill="#fff"/><rect x="21" y="1" width="18" height="18" rx="4.5" fill="#f7f3ea"/><path d="M25.5 15V5l9 10V5" fill="none" stroke="#0b100d" stroke-width="2.2" stroke-linejoin="round"/></svg>'; h.prepend(marks) }
+      box.append(h, grid)
       nodes.push(box)
     }
     if (card.note) { const d = mk('details', 'sc-note'); d.append(mk('summary', '', 'About these numbers'), mk('p', 'stat-note', card.note)); nodes.push(d) }
@@ -1657,8 +1662,10 @@ const apiAgents = createRemoteAgents(scene)
     share.onclick = () => {
       share.disabled = true; share.textContent = 'Making the picture…'
       void Promise.all([import('./shareArt.ts'), import('./sharePicture.ts')]).then(async ([A, S]) => {
-        const canvas = await A.statsShareArt(statsCard(lastStats, onlineNow))
-        await S.sharePicture({ canvas, name: 'grind-district-city-stats', heading: 'Share the city stats', text: 'A whole city is learning Web3 in Grind District, live. Free to play in your browser:', url: `${S.SITE}/s/stats`, toast: (m) => ui.toast(m) })
+        if (!lastStats) await loadOnlineStats()
+        const canvas = await A.statsShareArt(lastStats)
+        const cap = statsCaption(lastStats)
+        await S.sharePicture({ canvas, name: 'grind-district-city-stats', heading: 'Share the city stats', text: cap.short, caption: cap.full, url: `${S.SITE}/s/stats`, toast: (m) => ui.toast(m) })
       }).catch(() => ui.toast('Sharing is not available just now.')).finally(() => { share.disabled = false; share.textContent = 'Share the city stats' })
     }
     nodes.push(share, who)
@@ -2075,9 +2082,7 @@ const apiAgents = createRemoteAgents(scene)
     eatMeal: () => buyFood(4, 'McGrind meal', 'A burger, fries and a drink.', { hunger: 55, energy: 6 }),
     snack: () => buyFood(2, 'Market snack', 'Something hot from a trader.', { hunger: 22 }),
     bank: (tab) => void import('./bank.ts').then((m) => m.openBank({ tab, toast: (t) => ui.toast(t) })),
-    mocktail: () => buyFood(3, 'Mocktail at Barakah Club', 'No alcohol, ever.', { energy: 10, social: 12 }),
-    dance: () => { setDance(true); ui.toast(adjustNeeds({ social: 15 }, 'now') || 'On the floor. Move to stop dancing.') },
-    games: () => ui.toast(adjustNeeds({ social: 12 }, 'now') || 'A round of ludo: you won one and lost two.'),
+    dine: () => buyFood(5, 'Dinner at Barakah Club', 'Shared with friends at the table.', { hunger: 55, social: 15 }),
     market,
     openCerts: () => ui.open('profile'),
   })
@@ -2125,7 +2130,8 @@ const apiAgents = createRemoteAgents(scene)
     void Promise.all([import('./posters.ts'), import('./shareArt.ts'), import('./sharePicture.ts')]).then(async ([P, A, S]) => {
       const f = P.flyerById(id); if (!f) return
       const canvas = await A.flyerShareArt(f)
-      await S.sharePicture({ canvas, name: `grind-district-${f.id}`, heading: 'Share this poster', text: `${f.text} Spotted in Grind District, a free 3D city where you learn Web3.`, url: `${S.SITE}/p/${f.id}`, toast: (m) => ui.toast(m) })
+      const cap = P.flyerCaption(f)
+      await S.sharePicture({ canvas, name: `grind-district-${f.id}`, heading: 'Share this poster', text: cap.short, caption: cap.full, url: `${S.SITE}/p/${f.id}`, toast: (m) => ui.toast(m) })
     }).catch(() => ui.toast('Sharing is not available just now.'))
   }
   flyerSpots.forEach((f, i) => streetSpots.push({ id: `share-flyer-${i}`, x: f.x, z: f.z, r: 1.25, title: 'McGrind poster', body: 'McGrind is hiring. Share this poster: the picture goes with your post.', enter: 'Share poster', use: () => shareFlyer(f.flyer) }))
@@ -2613,6 +2619,8 @@ const apiAgents = createRemoteAgents(scene)
     if (o.userData.ghost) return 'self'
     const mat = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined
     if (mat && !Array.isArray(mat) && mat.userData?.foliage) return 'self'
+    // Near-invisible effects (light cones, glows) never stop the camera.
+    if (mat && !Array.isArray(mat) && mat.transparent && mat.opacity < 0.05) return 'self'
     return false
   })
   const pullCamera = (origin: THREE.Vector3, desired: THREE.Vector3) => {

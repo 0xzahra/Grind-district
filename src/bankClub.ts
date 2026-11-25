@@ -2,8 +2,8 @@
 // Grind Bank: a tall marble banking hall with columns, a teller counter with three windows, a live ETF board on the
 // north wall (the two spot crypto ETFs, their NAV and premium, from this minute's prices), the vault door on the
 // south wall and the halal savings desk. Every desk opens the bank (bank.ts) on its own tab.
-// Barakah Club: a halal night club. No alcohol, ever: a mocktail bar, a dance floor that lights up in waves, a DJ
-// booth, lounge sofas, a games table (ludo and ayo) and a quiet prayer corner with its own screen.
+// Barakah Club: a place for friends to gather and eat together: dining tables of four with shared dishes, a serving
+// counter with a host, and a quiet prayer corner behind its own screen.
 import * as THREE from 'three'
 import { boxes, sign, type Floor, type HallCtx } from './halls.ts'
 import { hallCrowd, standing, ATTENDEES, STUDENTS, type CrowdSpot } from './hallCrowd.ts'
@@ -39,7 +39,7 @@ export function buildBank(c: HallCtx, h: { open: (tab: BankTab) => void }): Floo
   ]
   const talkers = tellers.map((t, i) => selfTalker(t, `bank-teller-${i}`))
   const greet = (i: number, line: string, tab: BankTab) => () => { speak(line, { gender: i === 1 ? 'm' : 'f', seed: 20 + i }); sayLine(`bank-teller-${i}`, line); talkers[i]!.play('nod'); h.open(tab) }
-  c.use({ id: 'bank-teller-1', x: 6.5, z: -2.25, r: 1.2, title: 'Teller · how crypto banks work', body: 'Custody, reserves, proof of reserves and where yield comes from.', enter: 'Ask the teller', run: greet(0, 'Welcome to Grind Bank. Let me show you how a crypto bank keeps your coins.', 'learn') })
+  c.use({ id: 'bank-teller-1', x: 6.5, z: -2.25, r: 1.2, title: 'Teller · how crypto institutions work', body: 'Exchanges, custodians and crypto banks: custody, reserves, proof of reserves and where yield comes from.', enter: 'Ask the teller', run: greet(0, 'Welcome to Grind Bank. Let me show you how crypto institutions keep your coins.', 'learn') })
   c.use({ id: 'bank-teller-2', x: 6.5, z: 0, r: 1.2, title: 'Teller · ETF desk', body: 'Buy and sell shares of two spot crypto ETFs with earned in-game cash.', enter: 'Open the ETF desk', run: greet(1, 'Good to see you. Spot Bitcoin and Ether ETFs, right here.', 'etf') })
   c.use({ id: 'bank-teller-3', x: 6.5, z: 2.25, r: 1.2, title: 'Teller · halal savings', body: 'A profit-sharing account: no interest, profits shared 60:40.', enter: 'Open halal savings', run: greet(2, 'As-salaam alaikum. Our halal account shares profit, never interest.', 'halal') })
   for (const [z, t] of [[-2.25, 'Window 1 · Learn'], [0, 'Window 2 · ETFs'], [2.25, 'Window 3 · Halal savings']] as const) {
@@ -89,7 +89,7 @@ export function buildBank(c: HallCtx, h: { open: (tab: BankTab) => void }): Floo
   for (let k = 0; k < 3; k++) { const s = c.add(new THREE.BoxGeometry(1.0, 0.06, 0.06), brass, 3.4, 1.75, vz - 0.16, false); s.rotation.z = (k * Math.PI) / 3 }
   void wheel
   sign(c, 'The vault · cold storage', 'x', c.d / 2 - 0.05, 3.4, -1)
-  c.use({ id: 'bank-vault', x: 3.4, z: vz - 1.3, r: 1.5, title: 'The vault', body: 'Where a bank keeps most coins: offline keys, split between several people.', enter: 'Learn about custody', run: () => h.open('learn') })
+  c.use({ id: 'bank-vault', x: 3.4, z: vz - 1.3, r: 1.5, title: 'The vault', body: 'Where an institution keeps most coins: offline keys, split between several people.', enter: 'Learn about custody', run: () => h.open('learn') })
   // The halal savings desk: a desk, two chairs and an advisor, under its own sign.
   boxes(c, wood, [[-5.2, 0, 5.9, 2.4, 0.76, 1.0]]); boxes(c, navy, [[-5.8, 0, 5.0, 0.5, 0.46, 0.5], [-4.6, 0, 5.0, 0.5, 0.46, 0.5]])
   c.obstacles.push({ kind: 'box', x: c.ox - 5.2, z: c.oz + 5.9, hx: 1.3, hz: 0.6 })
@@ -109,87 +109,55 @@ export function buildBank(c: HallCtx, h: { open: (tab: BankTab) => void }): Floo
   return () => 0
 }
 
-export function buildClub(c: HallCtx, h: { mocktail: () => void; dance: () => void; games: () => void }): Floor {
-  const dark = c.std(0x15131c, 0.6), velvet = c.std(0x5a1f4a, 0.9), gold = c.std(0xd4af6a, 0.3, 0.8), bar = c.std(0x241d2e, 0.35, 0.2)
-  // The dance floor: 7 x 7 light tiles that wash through colours in slow waves (one draw call).
-  const N = 7, tile = 0.98, fx = 1.5, fz = 0
-  // Unlit tiles: each glows in its own colour (a lit material washed them to pastel).
-  const floor = new THREE.InstancedMesh(new THREE.BoxGeometry(tile * 0.96, 0.06, tile * 0.96), new THREE.MeshBasicMaterial({ color: 0xffffff }), N * N)
-  const m4 = new THREE.Matrix4(), col = new THREE.Color()
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) floor.setMatrixAt(i * N + j, m4.makeTranslation(fx + (i - (N - 1) / 2) * tile, 0.04, fz + (j - (N - 1) / 2) * tile))
-  const hues = [0.83, 0.55, 0.12, 0.95, 0.42]
-  const wash = (t: number) => {
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-      const w = Math.sin(t * 1.6 + i * 0.7 + j * 0.45) * 0.5 + 0.5
-      col.setHSL((hues[Math.floor(t / 4) % hues.length]! + w * 0.22) % 1, 1, 0.12 + w * 0.4)
-      floor.setColorAt(i * N + j, col)
-    }
-    floor.instanceColor!.needsUpdate = true
-  }
-  wash(0)
-  floor.receiveShadow = true; floor.computeBoundingSphere()
-  c.group.add(floor)
-  let tt = 0, acc = 0
-  c.onTick((dt) => { tt += dt; acc += dt; if (acc > 0.12) { acc = 0; wash(tt) } })
-  c.use({ id: 'club-dance', x: fx, z: fz, r: 2.6, title: 'Dance floor', body: 'Halal nights: good music, good people, no alcohol.', enter: 'Dance', run: h.dance })
-  // Dancers on the floor.
-  const dancers: CrowdSpot[] = [[-1.2, -1.6], [0.4, 1.8], [2.6, -2.2], [3.4, 1.2], [1.0, -0.2], [-0.8, 2.6], [2.2, 2.8], [3.8, -0.6]].map(([x, z], k) => ({ x: fx + x! - 1.5, z: fz + z!, yaw: k * 1.3 }))
-  hallCrowd(c.group, dancers, STUDENTS, { cap: Math.min(dancers.length, Math.max(3, Math.round(c.cap / 12))), pose: 'stand' })
-  // DJ booth on the east wall, with a glowing name board behind it.
-  boxes(c, dark, [[8.2, 0, 0, 1.1, 1.15, 3.2]]); boxes(c, gold, [[7.62, 1.15, 0, 0.06, 0.05, 3.2]])
-  c.obstacles.push({ kind: 'box', x: c.ox + 8.4, z: c.oz, hx: 0.9, hz: 1.7 })
-  standing(c.group, { model: 'man3', look: { top: 0x23232b, bottom: 0x1a1a1f, skin: 0x5a3825, hair: 0x0e0c0b } }, 8.95, 0, 0, -Math.PI / 2)
-  const glow = c.canvasTex(1024, 300, (g) => {
-    g.fillStyle = '#100c16'; g.fillRect(0, 0, 1024, 300)
-    const grd = g.createLinearGradient(0, 0, 1024, 0); grd.addColorStop(0, '#ff4fd8'); grd.addColorStop(0.5, '#f2c46a'); grd.addColorStop(1, '#3bfaa4')
-    g.fillStyle = grd; g.font = `900 150px ${SANS}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BARAKAH', 512, 130, 980)
-    g.fillStyle = '#f4efe2'; g.font = `600 44px ${SANS}`; g.fillText('HALAL NIGHTS · NO ALCOHOL', 512, 245, 980)
+export function buildClub(c: HallCtx, h: { dine: () => void }): Floor {
+  const oak = c.std(0x7a5236, 0.55), cloth = c.std(0xf4efe4, 0.85), seatMat = c.std(0x2f5a46, 0.8), brass = c.std(0xc9a25e, 0.3, 0.8)
+  // The serving counter along the north wall: warm dishes under brass lamps, and the host who serves you.
+  const bz = -c.d / 2 + 1.3
+  boxes(c, oak, [[-1.0, 0, bz, 8.4, 0.95, 0.8]]); boxes(c, brass, [[-1.0, 0.95, bz, 8.6, 0.04, 0.9]])
+  c.obstacles.push({ kind: 'box', x: c.ox - 1.0, z: c.oz + bz, hx: 4.3, hz: 0.5 })
+  const dishes = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.26, 0.2, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }), 8)
+  const food = [0xd2541f, 0xc98a3a, 0xf3e6c8, 0x5f8a3a, 0x9c3a1e, 0xe0b04a, 0xf3e6c8, 0x7a3e22].map((x) => new THREE.Color(x))
+  const m4 = new THREE.Matrix4()
+  for (let k = 0; k < 8; k++) { dishes.setMatrixAt(k, m4.makeTranslation(-4.6 + k * 1.02, 1.05, bz)); dishes.setColorAt(k, food[k]!) }
+  dishes.computeBoundingSphere(); c.group.add(dishes)
+  const host = standing(c.group, { model: 'kurta', look: { top: 0xf2efe8, skin: 0x6f4329 } }, -1.0, 0, bz - 0.85, 0)
+  const hostTalk = selfTalker(host, 'barakah-host')
+  const menu = c.canvasTex(1024, 300, (g) => {
+    g.fillStyle = '#2f5a46'; g.fillRect(0, 0, 1024, 300); g.strokeStyle = '#d4af6a'; g.lineWidth = 6; g.strokeRect(8, 8, 1008, 284)
+    g.fillStyle = '#f6e7c1'; g.font = '800 54px "Inter Variable", Inter, sans-serif'; g.fillText('TONIGHT’S TABLE · $5', 40, 84)
+    g.fillStyle = '#f4efe2'; g.font = '500 36px "Inter Variable", Inter, sans-serif'
+    ;['Jollof rice and chicken', 'Suya with onions and yaji', 'Fried rice and plantain', 'Fruit, dates and hot tea'].forEach((t, i) => g.fillText(`· ${t}`, 40 + (i % 2) * 480, 170 + Math.floor(i / 2) * 64, 460))
   })
-  const gm = c.add(new THREE.PlaneGeometry(4.8, 1.4), new THREE.MeshStandardMaterial({ map: glow, emissiveMap: glow, emissive: 0xffffff, emissiveIntensity: 0.9 }), c.w / 2 - 0.08, 3.0, 0, false, -Math.PI / 2)
-  gm.castShadow = false
-  // The mocktail bar along the north wall, with bright bottles of juice, zobo and syrup on the shelves.
-  const bz = -c.d / 2 + 1.4
-  boxes(c, bar, [[-1.5, 0, bz, 7.4, 1.08, 0.75]]); boxes(c, gold, [[-1.5, 1.08, bz, 7.6, 0.05, 0.85]])
-  boxes(c, dark, [[-1.5, 1.2, -c.d / 2 + 0.25, 7.4, 0.04, 0.4], [-1.5, 1.75, -c.d / 2 + 0.25, 7.4, 0.04, 0.4]])
-  c.obstacles.push({ kind: 'box', x: c.ox - 1.5, z: c.oz + bz, hx: 3.8, hz: 0.5 })
-  const bottles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.07, 0.34, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.15, transparent: true, opacity: 0.9 }), 28)
-  const juice = [0xff6f3c, 0xc81d4a, 0x3bfaa4, 0xf2c46a, 0x8a4ab0, 0x2fa4ff, 0xff4fd8].map((x) => new THREE.Color(x))
-  for (let k = 0; k < 28; k++) { bottles.setMatrixAt(k, m4.makeTranslation(-5 + (k % 14) * 0.52, k < 14 ? 1.39 : 1.94, -c.d / 2 + 0.25)); bottles.setColorAt(k, juice[k % juice.length]!) }
-  bottles.computeBoundingSphere(); c.group.add(bottles)
-  const barman = standing(c.group, { model: 'man2', look: { top: 0xf2efe8, bottom: 0x1a1a1f, shoes: 0x111111, skin: 0x6f4329, hair: 0x0e0c0b } }, -1.5, 0, bz - 0.8, 0)
-  const barTalk = selfTalker(barman, 'club-barman')
-  const menu = c.canvasTex(1024, 360, (g) => {
-    g.fillStyle = '#1a1424'; g.fillRect(0, 0, 1024, 360); g.strokeStyle = '#d4af6a'; g.lineWidth = 6; g.strokeRect(8, 8, 1008, 344)
-    g.fillStyle = '#f2c46a'; g.font = `800 52px ${SANS}`; g.fillText('MOCKTAILS · $3', 40, 78)
-    g.fillStyle = '#f4efe2'; g.font = `500 36px ${SANS}`
-    ;['Chapman (no alcohol, ever)', 'Zobo fizz with ginger', 'Mint lemonade', 'Tiger nut shake (kunu aya)', 'Virgin mango mojito', 'Coconut and lime cooler'].forEach((t, i) => g.fillText(`· ${t}`, 40 + (i % 2) * 480, 160 + Math.floor(i / 2) * 64, 460))
-  })
-  const mm = c.add(new THREE.PlaneGeometry(4.2, 1.48), new THREE.MeshStandardMaterial({ map: menu, emissiveMap: menu, emissive: 0xffffff, emissiveIntensity: 0.6 }), 4.4, 2.6, -c.d / 2 + 0.08, false)
+  const mm = c.add(new THREE.PlaneGeometry(4.4, 1.29), new THREE.MeshStandardMaterial({ map: menu, emissiveMap: menu, emissive: 0xffffff, emissiveIntensity: 0.45 }), -1.0, 2.6, -c.d / 2 + 0.08, false)
   mm.castShadow = false
-  const DRINKS = ['One Chapman, no alcohol, extra cucumber. Enjoy!', 'Zobo fizz coming up. Cold and spicy.', 'Mint lemonade. Fresh as the night.', 'Kunu aya, thick and sweet. Enjoy.']
+  const SERVE = ['Welcome, friend. Jollof is fresh tonight.', 'Sit with your people. Food is on its way.', 'Suya and hot tea for the table. Enjoy.']
   let served = 0
-  c.use({ id: 'club-bar', x: -1.5, z: bz + 1.0, r: 1.6, title: 'Mocktail bar', body: 'Chapman, zobo fizz, mint lemonade, kunu. No alcohol, ever.', enter: 'Order a mocktail · $3', run: () => { const l = DRINKS[served++ % DRINKS.length]!; speak(l, { gender: 'm', seed: 31 }); sayLine('club-barman', l); barTalk.play('nod'); h.mocktail() } })
-  for (const x of [-4.2, -2.6, -1.0, 0.6]) c.seat(`club-stool-${x}`, 'Bar stool', x, bz + 0.85, Math.PI, 0.72)
-  // Bar stools: a gold pole, a footrest ring and a velvet seat.
-  boxes(c, gold, [-4.2, -2.6, -1.0, 0.6].flatMap((x): B6[] => [[x, 0, bz + 0.85, 0.07, 0.66, 0.07], [x, 0, bz + 0.85, 0.42, 0.03, 0.42], [x, 0.28, bz + 0.85, 0.3, 0.025, 0.3]]))
-  boxes(c, velvet, [-4.2, -2.6, -1.0, 0.6].map((x): B6 => [x, 0.64, bz + 0.85, 0.4, 0.09, 0.4]))
-  // Lounge sofas along the south wall, and the games table.
-  const sz = c.d / 2 - 1.1
-  boxes(c, velvet, [[-1.0, 0, sz, 4.2, 0.45, 0.9], [-1.0, 0.45, sz + 0.38, 4.2, 0.5, 0.18], [4.6, 0, sz, 3.2, 0.45, 0.9], [4.6, 0.45, sz + 0.38, 3.2, 0.5, 0.18]])
-  c.obstacles.push({ kind: 'box', x: c.ox - 1.0, z: c.oz + sz, hx: 2.15, hz: 0.5 }, { kind: 'box', x: c.ox + 4.6, z: c.oz + sz, hx: 1.65, hz: 0.5 })
-  for (const x of [-2.4, -1.0, 0.4, 3.8, 5.4]) c.seat(`club-sofa-${x}`, 'Sofa', x, sz - 0.1, Math.PI, 0.45)
-  boxes(c, gold, [[-1.0, 0, sz - 1.25, 1.4, 0.4, 0.7]])
-  const games = c.canvasTex(512, 512, (g) => {
-    // A ludo board: four coloured homes and the cross of paths.
-    const cs = ['#d9534f', '#2f7a58', '#f0c419', '#3a5f8a']
-    g.fillStyle = '#f4efe2'; g.fillRect(0, 0, 512, 512)
-    ;[[0, 0], [304, 0], [304, 304], [0, 304]].forEach(([x, y], i) => { g.fillStyle = cs[i]!; g.fillRect(x!, y!, 208, 208); g.fillStyle = '#fff'; g.fillRect(x! + 40, y! + 40, 128, 128) })
-    g.strokeStyle = '#2a2418'; g.lineWidth = 2; for (let k = 0; k <= 15; k++) { g.beginPath(); g.moveTo(208, k * 34); g.lineTo(304, k * 34); g.stroke(); g.beginPath(); g.moveTo(k * 34, 208); g.lineTo(k * 34, 304); g.stroke() }
-  })
-  const tb = c.add(new THREE.PlaneGeometry(0.62, 0.62), new THREE.MeshStandardMaterial({ map: games, roughness: 0.6 }), -1.0, 0.41, sz - 1.25, false); tb.rotation.x = -Math.PI / 2
-  c.use({ id: 'club-games', x: -1.0, z: sz - 2.0, r: 1.4, title: 'Games table', body: 'Ludo and ayo with whoever is sitting there.', enter: 'Play a round', run: h.games })
-  const sitters: CrowdSpot[] = [{ x: 3.8, z: sz - 0.1, yaw: Math.PI }, { x: 5.4, z: sz - 0.1, yaw: Math.PI }]
-  hallCrowd(c.group, sitters, ATTENDEES, { cap: Math.min(2, Math.max(1, Math.round(c.cap / 40))), seatY: 0.45 })
+  c.use({ id: 'barakah-serve', x: -1.0, z: bz + 1.0, r: 1.6, title: 'Serving counter', body: 'Jollof, suya, fried rice and plantain, fruit and hot tea. Eat with your friends.', enter: 'Get a plate · $5', run: () => { const l = SERVE[served++ % SERVE.length]!; speak(l, { gender: 'm', seed: 33 }); sayLine('barakah-host', l); hostTalk.play('nod'); h.dine() } })
+  // Dining tables of four with white cloths, plates and shared dishes; friends at most of them.
+  const tables: B6[] = [], chairs: B6[] = [], plates: Array<[number, number]> = [], centre: Array<[number, number]> = []
+  const diners: CrowdSpot[] = []
+  let free = 0, seatN = 0
+  for (const tx of [-3.6, 1.2, 6.0]) for (const tz of [-2.6, 1.6, 5.4]) {
+    tables.push([tx, 0, tz, 1.5, 0.74, 1.5]); centre.push([tx, tz])
+    c.obstacles.push({ kind: 'box', x: c.ox + tx, z: c.oz + tz, hx: 0.8, hz: 0.8 })
+    for (const [sx, sz, yaw] of [[0, -1.05, 0], [0, 1.05, Math.PI], [-1.05, 0, Math.PI / 2], [1.05, 0, -Math.PI / 2]] as const) {
+      const x = tx + sx, z = tz + sz
+      chairs.push([x, 0, z, 0.46, 0.45, 0.46], [x - Math.sin(yaw) * 0.2, 0.45, z - Math.cos(yaw) * 0.2, Math.abs(sx) ? 0.07 : 0.46, 0.5, Math.abs(sx) ? 0.46 : 0.07])
+      plates.push([tx + sx * 0.45, tz + sz * 0.45])
+      // Leave a chair or two free at every table for you and your friends.
+      if ((seatN++ % 4 === 1 && free < 9) ) { free++; c.seat(`barakah-${tx}-${tz}-${sx}-${sz}`, 'Dining chair', x, z, yaw, 0.45) } else diners.push({ x, z, yaw })
+    }
+  }
+  boxes(c, oak, tables.map(([x, y, z, , hh]): B6 => [x, y, z, 0.12, hh - 0.04, 0.12]))
+  boxes(c, cloth, tables.map(([x, , z, w, hh, d]): B6 => [x, hh - 0.04, z, w + 0.1, 0.04, d + 0.1]))
+  boxes(c, seatMat, chairs)
+  const plateMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.13, 0.025, 16), c.std(0xffffff, 0.4), plates.length)
+  plates.forEach(([x, z], k) => plateMesh.setMatrixAt(k, m4.makeTranslation(x, 0.775, z)))
+  plateMesh.computeBoundingSphere(); c.group.add(plateMesh)
+  const bowls = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22, 0.16, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }), centre.length)
+  centre.forEach(([x, z], k) => { bowls.setMatrixAt(k, m4.makeTranslation(x, 0.82, z)); bowls.setColorAt(k, food[k % food.length]!) })
+  bowls.computeBoundingSphere(); c.group.add(bowls)
+  hallCrowd(c.group, diners, [...STUDENTS, ...ATTENDEES], { cap: Math.min(diners.length, Math.max(8, Math.round(c.cap / 3))), seatY: 0.45 })
   // The prayer corner in the south-west: a screen, three mats and the qibla marked on the wall.
   boxes(c, c.std(0xe9e0cc, 0.8), [[-6.6, 0, c.d / 2 - 3.2, 3.6, 2.2, 0.08]])
   const mat = c.canvasTex(256, 512, (g) => {
@@ -199,12 +167,15 @@ export function buildClub(c: HallCtx, h: { mocktail: () => void; dance: () => vo
   })
   for (const x of [-7.8, -6.6, -5.4]) { const m = c.add(new THREE.PlaneGeometry(0.75, 1.3), new THREE.MeshStandardMaterial({ map: mat, roughness: 0.9 }), x, 0.02, c.d / 2 - 1.6, false); m.rotation.x = -Math.PI / 2; m.castShadow = false }
   sign(c, 'Prayer corner', 'z', -c.w / 2 + 0.05, c.d / 2 - 1.6, 1)
-  c.use({ id: 'club-prayer', x: -6.6, z: c.d / 2 - 2.2, r: 1.4, title: 'Prayer corner', body: 'A quiet place to pray, screened from the floor.', enter: 'Rest here', run: () => c.toast('A quiet corner to pray. Prayer times are in the menu under Prayer.') })
+  c.use({ id: 'club-prayer', x: -6.6, z: c.d / 2 - 2.2, r: 1.4, title: 'Prayer corner', body: 'A quiet place to pray, screened from the dining room.', enter: 'Rest here', run: () => c.toast('A quiet corner to pray. Prayer times are in the menu under Prayer.') })
+  // The name on the east wall.
+  const name = c.canvasTex(1024, 300, (g) => {
+    g.fillStyle = '#f4ecdc'; g.fillRect(0, 0, 1024, 300); g.strokeStyle = '#c9a25e'; g.lineWidth = 6; g.strokeRect(10, 10, 1004, 280)
+    g.fillStyle = '#2f5a46'; g.font = '900 120px Georgia, "Times New Roman", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Barakah', 512, 128, 960)
+    g.fillStyle = '#8a6a1c'; g.font = '600 40px "Inter Variable", Inter, sans-serif'; g.fillText('FRIENDS · FOOD · FELLOWSHIP', 512, 236, 960)
+  })
+  const nm = c.add(new THREE.PlaneGeometry(4.4, 1.29), new THREE.MeshStandardMaterial({ map: name, roughness: 0.8 }), c.w / 2 - 0.08, 2.7, 1.6, false, -Math.PI / 2)
+  nm.castShadow = false
   sign(c, 'Barakah Club', 'z', -c.w / 2 + 0.05, -2, 1)
-  // A dark ceiling (seen only from below, so a camera above the room still looks in), with small lights in it.
-  const lid = c.add(new THREE.PlaneGeometry(c.w, c.d), new THREE.MeshBasicMaterial({ color: 0x0d0b12 }), 0, c.H - 0.02, 0, false); lid.rotation.x = Math.PI / 2; lid.castShadow = false
-  const stars = new THREE.InstancedMesh(new THREE.CircleGeometry(0.05, 8), new THREE.MeshBasicMaterial({ color: 0xffe9b8 }), 60)
-  for (let k = 0; k < 60; k++) { const a = Math.sin(k * 12.9898) * 43758.5453, b2 = Math.sin(k * 78.233) * 12345.678; stars.setMatrixAt(k, m4.compose(new THREE.Vector3((a - Math.floor(a) - 0.5) * (c.w - 1), c.H - 0.04, (b2 - Math.floor(b2) - 0.5) * (c.d - 1)), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), new THREE.Vector3(1, 1, 1))) }
-  stars.computeBoundingSphere(); c.group.add(stars)
   return () => 0
 }

@@ -399,6 +399,38 @@
       "title": "New: Grind Bank",
       "body": "See how crypto banks keep your coins safe, practise with two spot crypto ETFs at live prices, and open a halal profit-sharing savings account. Earned cash only.",
       "go": "place:Grind Bank"
+    },
+    {
+      "id": "u1126-web3-from-zero-boards",
+      "title": "Web3 From Zero, on every Campus board",
+      "body": "The boards in the Campus theatres and classrooms, and the conference stage screen, now run the Web3 From Zero slides: the internet, crypto, AI, earning and real-world assets, from the very beginning.",
+      "go": "place:Campus",
+      "push": false
+    },
+    {
+      "id": "u1126-barakah-dining",
+      "title": "Barakah Club: dinner with friends",
+      "body": "Barakah Club is now a place to gather and eat together: tables for four, jollof, suya and hot tea from the counter, and a quiet prayer corner.",
+      "go": "place:Barakah Club",
+      "push": false
+    },
+    {
+      "id": "u1126-crypto-institutions",
+      "title": "Grind Bank: how crypto institutions work",
+      "body": "The teller now walks you through crypto institutions: exchanges, custodians and crypto banks, how they keep your coins and what a proof of reserves shows.",
+      "go": "place:Grind Bank",
+      "push": false
+    },
+    {
+      "id": "u1126-driving-camera",
+      "title": "Smoother driving camera",
+      "body": "The camera no longer jumps in behind your car when you drive past street lamps.",
+      "push": false
+    },
+    {
+      "id": "u1126-city-stats-v2",
+      "title": "City stats, upgraded",
+      "body": "Tap the Online pill: the totals so far, the city, learning, and everything on-chain on Base and NEAR together. Share it as a picture with a ready-to-post caption."
     }
   ]
 }

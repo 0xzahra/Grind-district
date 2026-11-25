@@ -86,38 +86,58 @@ export function formatStatsRows(st: PublicStats | null, onlineNow: number): Stat
   return rows
 }
 
-export type StatTile = { label: string; value: string }
-export type StatCard = { online: string; hero: StatTile[]; sections: Array<{ title: string; tiles: StatTile[] }>; note: string | null }
+export type StatTile = { label: string; value: string; sub?: string }
+export type StatCard = { online: string; hero: StatTile[]; sections: Array<{ title: string; kind?: 'chain'; tiles: StatTile[] }>; note: string | null }
 
-/** The same numbers as formatStatsRows, laid out as a card: three headline figures, then short sections of tiles. */
+const kfmt = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
+
+/** The city's numbers as a card: the totals so far on top (players, courses passed, certificates), then the city,
+ *  learning, on-chain (Base and NEAR together) and players. Who is online now stays in the header pill only. */
 export function statsCard(st: PublicStats | null, onlineNow: number): StatCard {
-  const k = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
-  const hero: StatTile[] = [{ label: 'Online now', value: k(onlineNow) }]
-  if (st) hero.push({ label: 'Active today', value: k(Math.max(st.activeToday, onlineNow)) })
-  if (st && typeof st.visitorsAll === 'number') hero.push({ label: 'Visitors', value: k(st.visitorsAll) })
-  if (!st) return { online: k(onlineNow), hero, sections: [], note: 'Other counts could not load just now. Online now still updates as people arrive.' }
+  const k = kfmt
+  if (!st) return { online: k(onlineNow), hero: [], sections: [], note: 'The city\'s numbers could not load just now. They come back in a moment.' }
+  const hero: StatTile[] = [{ label: 'Players', value: k(st.registered) }, { label: 'Courses passed', value: k(st.lessonsPassed) }, { label: 'Certificates', value: k(st.certificates) }]
   const sections: StatCard['sections'] = []
-  const today: StatTile[] = []
-  if (typeof st.visitsToday === 'number') today.push({ label: 'Visits today', value: k(st.visitsToday) })
-  if (typeof st.newVisitorsToday === 'number') today.push({ label: 'New today', value: k(st.newVisitorsToday) })
-  if (today.length) sections.push({ title: 'Today', tiles: today })
-  if (typeof st.learners === 'number') sections.push({ title: 'Learning', tiles: [
-    { label: 'Learners', value: k(st.learners) }, { label: 'Courses passed', value: k(st.lessonsPassed) },
-    { label: 'Certificates', value: k(st.certificates) }, { label: 'Back in 7 days', value: k(st.returning7d) },
-  ] })
-  sections.push({ title: 'Players', tiles: [
-    { label: 'Registered', value: k(st.registered) }, { label: 'Sign-ups', value: k(st.signups) },
-    ...(typeof st.nearAccounts === 'number' ? [{ label: 'NEAR sign-ups', value: k(st.nearAccounts) }] : []),
-    { label: 'Sign-ins', value: k(st.signIns) },
-  ] })
-  sections.push({ title: 'On-chain and agents', tiles: [
-    { label: 'Mints · Base', value: k(st.mintsBase) }, { label: st.mintsNearNetwork === 'mainnet' ? 'Mints · NEAR' : 'Mints · NEAR test', value: k(st.mintsNear) },
-    { label: 'Wallets linked', value: k(st.walletConnections) }, { label: 'Agents', value: `${k(st.agentsOnline)} / ${k(st.agentsRegistered)}` },
-  ] })
-  sections.push({ title: 'Saves', tiles: [
-    { label: 'Cloud saves', value: k(st.cloudSaves) }, { label: 'Saved today', value: k(st.cloudSavesToday) },
-    { label: 'Logouts', value: k(st.logouts) }, { label: 'Deletions', value: k(st.deletions) },
-  ] })
+  const city: StatTile[] = []
+  if (typeof st.visitorsAll === 'number') city.push({ label: 'Visitors', value: k(st.visitorsAll), sub: 'all time' })
+  city.push({ label: 'Active today', value: k(Math.max(st.activeToday, onlineNow)) })
+  if (typeof st.visitsToday === 'number') city.push({ label: 'Visits today', value: k(st.visitsToday) })
+  if (typeof st.newVisitorsToday === 'number') city.push({ label: 'New today', value: k(st.newVisitorsToday) })
+  sections.push({ title: 'City', tiles: city })
+  if (typeof st.learners === 'number') sections.push({ title: 'Learning', tiles: [{ label: 'Learners', value: k(st.learners), sub: 'passed a course' }, { label: 'Came back', value: k(st.returning7d), sub: 'within 7 days' }] })
+  const chain: StatTile[] = [
+    { label: 'Certificates minted', value: k(st.mintsBase + st.mintsNear), sub: `Base ${k(st.mintsBase)} · NEAR ${k(st.mintsNear)}${st.mintsNearNetwork === 'mainnet' ? '' : ' (test)'}` },
+    { label: 'Wallets linked', value: k(st.walletConnections) },
+  ]
+  if (typeof st.nearAccounts === 'number') chain.push({ label: 'NEAR accounts', value: k(st.nearAccounts), sub: 'signed up with NEAR' })
+  chain.push({ label: 'AI agents', value: k(st.agentsRegistered), sub: `${k(st.agentsOnline)} online now` })
+  sections.push({ title: 'On-chain · Base + NEAR', kind: 'chain', tiles: chain })
+  sections.push({ title: 'Players', tiles: [{ label: 'Sign-ups', value: k(st.signups) }, { label: 'Sign-ins', value: k(st.signIns) }, { label: 'Cloud saves', value: k(st.cloudSaves), sub: `${k(st.cloudSavesToday)} today` }, { label: 'Logouts · deletions', value: `${k(st.logouts)} · ${k(st.deletions)}` }] })
   const notes = formatStatsRows(st, onlineNow).filter((r) => r.kind === 'note').map((r) => r.label)
-  return { online: k(onlineNow), hero, sections, note: [...notes, 'Agents: online now / registered.'].join(' ') }
+  return { online: k(onlineNow), hero, sections, note: [...notes, 'Certificates minted counts both chains together. AI agents: registered, with how many are online now.'].join(' ') }
+}
+
+/** The words that go with a shared stats picture: the totals so far, with the on-chain numbers of Base and NEAR
+ *  together. `short` fits a post on X or Farcaster (the link is added after it); `full` is for the phone's share
+ *  sheet and Copy caption. Counts only, never who. */
+export function statsCaption(st: PublicStats | null): { short: string; full: string } {
+  if (!st) {
+    const t = 'Grind District: a free 3D city where you learn Web3, work real jobs and earn a CV with certificates.'
+    return { short: `${t} Play free 👇`, full: `${t}\n\nPlay in your browser, no download:` }
+  }
+  const k = kfmt, minted = st.mintsBase + st.mintsNear
+  const players = `👥 ${k(st.registered)} players${typeof st.visitorsAll === 'number' ? ` · ${k(st.visitorsAll)} visitors` : ''}`
+  const learn = `🎓 ${k(st.lessonsPassed)} courses passed · ${k(st.certificates)} certificates`
+  const chain = `⛓️ ${k(minted)} certificates minted on Base + NEAR · ${k(st.walletConnections)} wallets linked`
+  const short = ['Grind District in numbers 📊', players, learn, chain, 'Learn Web3 free in a 3D city 👇'].join('\n')
+  const full = [
+    'Grind District in numbers 📊', '',
+    players,
+    `${learn}${typeof st.learners === 'number' ? ` · ${k(st.learners)} learners` : ''}`,
+    `${chain}${typeof st.nearAccounts === 'number' ? ` · ${k(st.nearAccounts)} NEAR accounts` : ''}`,
+    `🤖 ${k(st.agentsRegistered)} AI agents in the city`, '',
+    'A free 3D city where you learn Web3, work real jobs and earn a CV with certificates you can mint on-chain.', '',
+    'Play in your browser, no download:',
+  ].join('\n')
+  return { short, full }
 }

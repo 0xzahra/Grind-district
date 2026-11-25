@@ -12,8 +12,10 @@ export type ShareJob = {
   name: string
   /** Heading over the preview, e.g. "Share the city stats". */
   heading: string
-  /** The words that go with the post (the link is added after them). */
+  /** The words for a post on X or Farcaster (short; the link is added after them). */
   text: string
+  /** The full caption: with the picture on a phone's share sheet, and what Copy caption copies. Defaults to `text`. */
+  caption?: string
   /** The public page for this picture (its preview card is the picture). */
   url: string
   toast: (m: string) => void
@@ -55,7 +57,7 @@ export async function sharePicture(job: ShareJob): Promise<void> {
 
   if (canFiles) {
     key('Share picture', 'gold', () => {
-      void nav.share({ files: [file], title: job.heading, text: `${job.text} ${tagged(job.url, 'image')}` }).catch(() => undefined)
+      void nav.share({ files: [file], title: job.heading, text: `${job.caption ?? job.text}\n${tagged(job.url, 'image')}` }).catch(() => undefined)
     })
   }
   key('Post on X', 'x', () => { window.open(`https://x.com/intent/post?text=${encodeURIComponent(job.text)}&url=${encodeURIComponent(tagged(job.url, 'x'))}`, '_blank', 'noopener') })
@@ -66,12 +68,17 @@ export async function sharePicture(job: ShareJob): Promise<void> {
       navigator.clipboard.write([new ClipItem({ 'image/png': png })]).then(() => { b.textContent = 'Picture copied'; job.toast('Picture copied: paste it into your post.') }, () => job.toast('This browser would not copy the picture.'))
     })
   }
+  const cap = key('Copy caption', 'ghost', () => {
+    navigator.clipboard?.writeText(`${job.caption ?? job.text}\n${tagged(job.url, 'caption')}`).then(() => { cap.textContent = 'Caption copied' }, () => job.toast('This browser would not copy the caption.'))
+  })
   const l = key('Copy link', 'ghost', () => {
     const link = tagged(job.url, 'link')
     navigator.clipboard?.writeText(link).then(() => { l.textContent = 'Link copied' }, () => job.toast(link))
   })
   const note = el('p', 'shr-note', canFiles ? 'The picture goes with your post, with the link to play.' : 'Your post shows this picture as its preview, with the link to play.')
-  card.append(head, pic, keys, note)
+  // The caption that goes with it, so you see exactly what is posted.
+  const words = el('p', 'shr-cap', job.caption ?? job.text)
+  card.append(head, pic, words, keys, note)
   back.append(card)
   document.body.append(back)
   open = back

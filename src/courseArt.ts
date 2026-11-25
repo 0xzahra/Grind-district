@@ -379,7 +379,7 @@ export function courseArt(id: SkillId, cls = 'lx-art'): HTMLElement {
 
 /** The picture for a career track: the course art closest to that kind of work. */
 const TRACK_ART: Record<string, SkillId> = {
-  trading: 'spot', investing: 'moneyPaths', defi: 'defi', airdrops: 'airdrops', infofi: 'content', prediction: 'risk', nfts: 'nfts', gaming: 'apps',
+  trading: 'spot', investing: 'moneyPaths', defi: 'defi', airdrops: 'airdrops', infofi: 'content', nfts: 'nfts', gaming: 'apps',
   content: 'content', jobs: 'web2Skill', building: 'building', daos: 'daos', grants: 'w1Boss', infra: 'chainBlocks', business: 'custody', ai: 'agents', scams: 'scams',
 }
 export function careerArt(track: string, cls = 'cr-art'): HTMLElement { return courseArt(TRACK_ART[track] ?? 'useCases', cls) }

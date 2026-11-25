@@ -9,6 +9,7 @@ import type { Obstacle } from './physics.ts'
 import type { Seat } from './seating.ts'
 import { ATTENDEES, hallCrowd, standing, STUDENTS, type Cast, type CrowdSpot } from './hallCrowd.ts'
 import { talkGestures } from './gestures.ts'
+import { deckBoard, DECK_START } from './campusDeck.ts'
 
 type Mat = THREE.Material
 type Box = (bw: number, bh: number, bd: number, mat: Mat, x: number, z: number, y?: number, block?: boolean, ry?: number) => THREE.Mesh
@@ -197,30 +198,16 @@ function classroom(c: HallCtx, xs: number[], zs: number[], mats: { desk: Mat; ch
   return spots
 }
 
-/** A lecture board that is lit like a screen (rooms are lit from the middle, so a board on a wall facing away
- *  from the light read as a black slab) and runs through its slides while the lecture goes on. */
-function board(c: HallCtx, slides: string[][], x: number, z: number, wdt: number, faceZ: 1 | -1): { next: () => number } {
-  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 300
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
-  let k = 0
-  const paint = () => {
-    const g = cv.getContext('2d')!, lines = slides[k % slides.length]!
-    g.fillStyle = '#1f2a24'; g.fillRect(0, 0, 1024, 300)
-    g.fillStyle = 'rgba(255,255,255,0.04)'; for (let i = 0; i < 9; i++) g.fillRect(0, 34 * i, 1024, 1)
-    g.fillStyle = '#e8e4d8'; g.font = '600 50px Georgia, serif'; g.fillText(lines[0] ?? '', 40, 78, 820)
-    g.font = '400 33px Georgia, serif'
-    lines.slice(1).forEach((l, i) => g.fillText(l, 40 + (i % 2) * 490, 150 + Math.floor(i / 2) * 62, 460))
-    // A live dot and the slide number, so the board reads as a lecture in progress.
-    g.fillStyle = '#e84a3c'; g.beginPath(); g.arc(908, 52, 9, 0, Math.PI * 2); g.fill()
-    g.fillStyle = '#f2c46a'; g.font = '700 24px "Inter Variable", Inter, sans-serif'; g.fillText('LIVE', 926, 60)
-    g.fillStyle = 'rgba(232,228,216,0.7)'; g.font = '500 22px "Inter Variable", Inter, sans-serif'; g.fillText(`${(k % slides.length) + 1} / ${slides.length}`, 930, 280)
-    t.needsUpdate = true
-  }
-  paint()
-  const m = c.add(new THREE.PlaneGeometry(wdt, wdt * 0.29), new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.62, roughness: 0.9 }), x, 2.5, z + faceZ * 0.12)
+/** A lecture board: a 16:9 screen in a dark bezel showing the Campus deck ("Web3 From Zero", campusDeck.ts) from
+ *  slide `start`, lit from within (an unlit screen keeps the deck's own colours whatever the room's light). */
+function board(c: HallCtx, start: number, x: number, z: number, wdt: number, faceZ: 1 | -1, y = 2.6): { next: () => number } {
+  const hgt = (wdt * 9) / 16
+  const d = deckBoard({ width: c.cap <= 36 ? 768 : 1024, start })
+  c.box(wdt + 0.24, hgt + 0.24, 0.06, c.std(0x15181c, 0.4, 0.3), x, z + faceZ * 0.12, y - hgt / 2 - 0.12, false)
+  const m = c.add(new THREE.PlaneGeometry(wdt, hgt), new THREE.MeshBasicMaterial({ map: d.tex, color: 0xeeeeee }), x, y, z + faceZ * 0.16)
   m.castShadow = false
   m.rotation.y = faceZ > 0 ? 0 : Math.PI
-  return { next: () => { k++; paint(); return k } }
+  return { next: d.next }
 }
 
 /** A lecturer who talks with their hands, pauses for breath, and turns to point at the board on each new slide. */
@@ -255,20 +242,8 @@ export function buildCampus(c: HallCtx): Floor {
   const aislesB: Array<[number, number]> = [[2.1, 3.3], [10.4, 11.6], [18.7, 19.9]]
   const A = raked(c, { x0: -19.9, x1: 1.9, front: -5.4, dir: -1, rows: 8, rowD: 1.15, rise: 0.3, aisles: aislesA }, mats)
   const B = raked(c, { x0: 2.1, x1: 19.9, front: -5.4, dir: -1, rows: 8, rowD: 1.15, rise: 0.3, aisles: aislesB }, mats)
-  const boardA = board(c, [
-    ['Custody · Risk · Liquidity', 'Not your keys, not your coins.', 'Size the position before the entry.', 'Read what you sign.', 'Your CV is what you can show.'],
-    ['Wallets, keys and seeds', 'A seed phrase is the wallet.', 'Never type it into a site.', 'Hardware for savings.', 'Hot wallet for spending.'],
-    ['Risk sizing', 'Risk 1 to 2% per trade.', 'Stop loss before entry.', 'Leverage multiplies mistakes.', 'Journal every trade.'],
-    ['Liquidity', 'Thin books move fast.', 'Slippage is a hidden fee.', 'Check volume first.', 'Exit liquidity is real.'],
-    ['Spot the scam', 'Guaranteed returns: a lie.', 'Support never DMs first.', 'Check the contract address.', 'Revoke old approvals.'],
-  ], -9.0, -2.3, 10, -1)
-  const boardB = board(c, [
-    ['Building on chain', 'Ship small, learn fast.', 'Every course writes your CV.', 'Gas, blocks, wallets.', 'Proof beats promises.'],
-    ['What a block is', 'A batch of transactions.', 'Chained by hashes.', 'Agreed by consensus.', 'Final after confirmations.'],
-    ['Gas and fees', 'You pay for computation.', 'Busy chain, higher fee.', 'L2s batch to save gas.', 'Simulate before you send.'],
-    ['Smart contracts', 'Code that holds money.', 'Audits reduce, not remove, risk.', 'Immutable unless upgradeable.', 'Read the permissions.'],
-    ['DAOs', 'Votes by token or person.', 'Proposals, then execution.', 'Treasury is on chain.', 'Delegate if you are busy.'],
-  ], 11.0, -2.3, 9, -1)
+  const boardA = board(c, DECK_START.cover, -9.0, -2.3, 8, -1, 2.75)
+  const boardB = board(c, DECK_START.finance, 11.0, -2.3, 8, -1, 2.75)
   for (const lx of [-5.6, 14.4]) {
     c.box(0.8, 1.1, 0.6, wood, lx, -3.7)
     c.use({ id: `lectern-${lx}`, x: lx, z: -4.7, r: 1.4, title: 'Lectern', body: 'Twenty short courses. Pass one and it writes your CV, resume, and portfolio.', enter: 'Open the hall', run: c.openLearn })
@@ -315,8 +290,8 @@ export function buildCampus(c: HallCtx): Floor {
     [{ model: 'woman1', look: { top: 0x2f5d8a, bottom: 0x2b2f3a, skin: 0x4a2e20, hair: 0x16110e } }, 1.0, 13.6, Math.PI],
   ]
   const classBoards = [
-    board(c, [['Classroom 1 · Wallets', 'Seed phrase: write it, never type it.', 'Test with a small amount first.'], ['Classroom 1 · Sending', 'Check the network.', 'Check the first and last characters.', 'Send a test amount.']], -13.0, 15, 6, -1),
-    board(c, [['Classroom 2 · Trading', 'Plan, size, then enter.', 'A stop loss is a promise to yourself.'], ['Classroom 2 · Orders', 'Market fills now.', 'Limit waits for your price.', 'Fees add up.']], 1.0, 15, 6, -1),
+    board(c, DECK_START.tech, -13.0, 15, 5.2, -1, 2.2),
+    board(c, DECK_START.rwa, 1.0, 15, 5.2, -1, 2.2),
   ]
   const boardsFor = [boardA, boardB, classBoards[0]!, classBoards[1]!]
   teach.forEach(([cast, x, z, yaw], i) => {
@@ -347,15 +322,15 @@ export function buildConference(c: HallCtx, schedule: (g: CanvasRenderingContext
   const repaint = () => { schedule(sc.getContext('2d')!, 1024, 512); screenTex.needsUpdate = true }
   repaint()
   c.group.userData.repaint = repaint
-  c.box(11.6, 4.0, 0.08, c.std(0x14161a, 0.4, 0.3), -6.0, 10.0, 0.9, false)
-  const scr = c.add(new THREE.PlaneGeometry(11, 3.7), new THREE.MeshStandardMaterial({ map: screenTex, emissiveMap: screenTex, emissive: 0xffffff, emissiveIntensity: 0.35, roughness: 0.85 }), -6.0, 2.9, 9.94)
-  scr.rotation.y = Math.PI
-  scr.castShadow = false
+  // The stage screen runs the Campus deck; the event schedule is on the panel room's screen (and the Join key).
+  const stageDeck = board(c, DECK_START.cover, -6.0, 10.04, 7.6, -1, 2.95)
+  let schedT = 0
+  c.onTick((dt) => { schedT += dt; if (schedT > 60) { schedT = 0; repaint() } })
   // Lectern, the speaker beside it, and a panel of two in armchairs at the other end of the stage.
   c.box(0.9, 1.1, 0.55, walnut, 1.6, 7.6, 0.6, false)
   c.obstacles.push({ kind: 'circle', x: c.ox + 1.6, z: c.oz + 7.6, r: 0.45 })
   const speaker = standing(c.group, { model: 'woman4', look: { top: 0x7a2a3a, bottom: 0x23262a, skin: 0x5a3825, hair: 0x16110e } }, -0.4, 0.6, 7.9, Math.PI)
-  lecture(c, speaker, 'conference-speaker', { next: () => { repaint(); return 0 } }, 30)
+  lecture(c, speaker, 'conference-speaker', stageDeck, 14)
   c.obstacles.push({ kind: 'circle', x: c.ox - 0.4, z: c.oz + 7.9, r: 0.3 })
   const panel: CrowdSpot[] = []
   for (const px of [-13.2, -11.8]) {
@@ -369,7 +344,7 @@ export function buildConference(c: HallCtx, schedule: (g: CanvasRenderingContext
     id: 'take-stage', x: 1.6, z: 8.35, r: 1.2, title: 'The stage', body: 'Step up to the lectern. The hall is yours while you speak.', enter: 'Take the stage',
     run: () => { c.busy(5, c.ox + 1.6, c.oz + 8.25, Math.PI); c.toast('You have the stage. The whole hall is listening.') },
   })
-  c.use({ id: 'event-screen', x: -6.0, z: 5.4, r: 1.8, title: 'Event schedule', body: 'Upcoming AMAs, Spaces-style talks and demo days. Join for in-game cash and reputation.', enter: 'Join event', run: c.openConference })
+  c.use({ id: 'event-screen', x: -6.0, z: 5.4, r: 1.8, title: 'Events', body: 'Upcoming AMAs, Spaces-style talks and demo days (the schedule is up in the panel room). Join for in-game cash and reputation.', enter: 'Join event', run: c.openConference })
   // Raked rows rising north, away from the stage.
   const aisles: Array<[number, number]> = [[-19.9, -18.7], [-6.6, -5.4], [6.7, 7.9]]
   const hall = raked(c, { x0: -19.9, x1: 7.9, front: 4.4, dir: -1, rows: 15, rowD: 1.2, rise: 0.22, aisles, seatW: 0.8 }, { tier, chair: fabric, ledge })

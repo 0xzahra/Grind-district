@@ -22,6 +22,19 @@ const POSTERS: Array<[string, string, string]> = [
   ['STACK WHILE YOU WAIT', 'Save from every shift.', 'Invest when the bull comes back.'],
   ['GOT RUGGED?', 'Get hired.', 'Shifts by the Campus café, all day, all night.'],
 ]
+// What each one says when it is shared (posters.ts flyerCaption adds the rest).
+const POSTER_CAPTIONS = [
+  'Bear market? McGrind is hiring 🍔 Flip burgers, not your bags. Day and night shifts in Grind District: stack your pay, invest when the bull returns.',
+  'GM. Fries? 🍟 McGrind is open day and night in Grind District: burgers, shawarma, shakes and boba. Grab a meal or work a shift.',
+  'WAGMI: We\'re All Gonna Make It (fries) 🍟 Paid every shift, tips for speed. McGrind is hiring in Grind District.',
+  'No seed phrase needed. Just show up and cook 🍔 The McGrind kitchen is hiring in Grind District.',
+  'Stack while you wait 💰 Save from every McGrind shift and invest when the bull comes back. Only in Grind District.',
+  'Got rugged? Get hired 🍔 McGrind shifts by the Campus café, all day, all night, in Grind District.',
+]
+const BILLBOARD_CAPTIONS = [
+  'Bear market? McGrind is hiring 🍔 Flip burgers, not your bags. Paid every shift, by the Campus café in Grind District.',
+  'Wen bull run? Wen lunch 🍔 Work a shift at McGrind, stack your pay, invest when the market turns. Only in Grind District.',
+]
 const BILLBOARDS: Array<[string, string]> = [
   ['Bear market? McGrind is hiring.', 'Flip burgers, not your bags · Paid every shift · By the Campus café'],
   ['Wen bull run? Wen lunch.', 'Work a shift at McGrind, stack your pay, invest when the market turns.'],
@@ -76,8 +89,8 @@ function paintSheet(g: CanvasRenderingContext2D): void {
 
 /** Every McGrind poster and billboard as a shareable flyer (see posters.ts). Ids are stable: links use them. */
 export const MCGRIND_FLYERS: Flyer[] = [
-  ...POSTERS.map(([head, line], i): Flyer => ({ id: `mcgrind-${i + 1}`, title: `McGrind: ${head.replace(/\*$/, '')}`, text: `${head} ${line}`.replace('*', ''), w: 256, h: 384, paint: (g) => paintPoster(g, i, 0, 0) })),
-  ...BILLBOARDS.map(([head, line], i): Flyer => ({ id: `mcgrind-billboard-${i + 1}`, title: `McGrind: ${head}`, text: `${head} ${line}`, w: 512, h: 256, paint: (g) => paintBillboard(g, i, 0, 0) })),
+  ...POSTERS.map(([head, line], i): Flyer => ({ id: `mcgrind-${i + 1}`, title: `McGrind: ${head.replace(/\*$/, '')}`, text: `${head} ${line}`.replace('*', ''), caption: POSTER_CAPTIONS[i] ?? `${head} ${line}`, w: 256, h: 384, paint: (g) => paintPoster(g, i, 0, 0) })),
+  ...BILLBOARDS.map(([head, line], i): Flyer => ({ id: `mcgrind-billboard-${i + 1}`, title: `McGrind: ${head}`, text: `${head} ${line}`, caption: BILLBOARD_CAPTIONS[i] ?? `${head} ${line}`, w: 512, h: 256, paint: (g) => paintBillboard(g, i, 0, 0) })),
 ]
 const flyerFor = (cell: Face['cell']): string => cell[1] >= 768 ? `mcgrind-billboard-${cell[0] / 512 + 1}` : `mcgrind-${(cell[0] / 256) + 3 * (cell[1] / 384) + 1}`
 

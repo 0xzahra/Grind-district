@@ -62,14 +62,14 @@ function notePicture(q: URLSearchParams): Response {
 /** The live city stats as a 1200 x 630 link preview for /s/stats: the city photo, the logo, the headline figures
  *  and a call to play. Counts only (the same public numbers as the Online card); refreshed every hour. */
 async function statsPicture(): Promise<Response> {
-  type S = { activeToday?: number; visitorsAll?: number; learners?: number; lessonsPassed?: number; certificates?: number; registered?: number }
+  type S = { visitorsAll?: number; learners?: number; lessonsPassed?: number; certificates?: number; registered?: number; mintsBase?: number; mintsNear?: number }
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000)
   const st = await fetch(`${ORIGIN}/api/track?op=stats`, { signal: ctl.signal }).then((r) => (r.ok ? (r.json() as Promise<S>) : null)).catch(() => null)
   clearTimeout(t)
   const k = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
   const tiles: Array<[string, string]> = st ? ([
-    ['Visitors', st.visitorsAll], ['Active today', st.activeToday], ['Learners', st.learners],
-    ['Courses passed', st.lessonsPassed], ['Certificates', st.certificates], ['Players', st.registered],
+    ['Players', st.registered], ['Courses passed', st.lessonsPassed], ['Certificates', st.certificates],
+    ['Visitors', st.visitorsAll], ['Learners', st.learners], ['On-chain mints', (st.mintsBase ?? 0) + (st.mintsNear ?? 0)],
   ] as Array<[string, number | undefined]>).filter(([, v]) => typeof v === 'number').slice(0, 6).map(([l, v]) => [l, k(v)]) : []
   const facts: Array<[string, string]> = [['To play', 'Free'], ['Live city', '24/7'], ['Web3 CV', 'Yours']]
   const show = tiles.length >= 3 ? tiles : [...tiles, ...facts].slice(0, 3)
