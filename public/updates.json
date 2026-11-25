@@ -318,6 +318,24 @@
       "body": "Your certificate now has Post on X and Cast on Farcaster buttons, and on phones Share image, which sends the certificate picture itself.",
       "go": "panel:profile",
       "push": false
+    },
+    {
+      "id": "u1125-mcgrind",
+      "title": "New: McGrind, open day and night",
+      "body": "A green burger, fries, shawarma and boba restaurant by the Campus café. Order a meal when you are hungry, or work a shift in the kitchen: fry, grill, wrap and pour to each order, serve the line for tips, and save your pay for bills and the next bull run.",
+      "go": "place:McGrind"
+    },
+    {
+      "id": "u1125-grind-market",
+      "title": "New: Grind Market, rent a stall and sell",
+      "body": "A covered market hall next to the Members lounge. Rent a stall for a day, stock it with suya, jollof, plantain chips, phone cases, tees or art prints, set your price, and sell to the city and to other players who are online.",
+      "go": "place:Grind Market"
+    },
+    {
+      "id": "u1125-new-title-picture",
+      "title": "A fresh look at the city",
+      "body": "The opening picture and the link preview now show the city as it is today: paved forecourts, the Graduation Garden, McGrind and the sea.",
+      "push": false
     }
   ]
 }
