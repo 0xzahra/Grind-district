@@ -73,3 +73,32 @@ export function startCashAlert(): void {
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
 }
+
+/**
+ * Kitchen sounds for the McGrind shift, made on the spot like the ka-ching: a sizzle (patty down, a flip), the
+ * fryer's roar when the basket drops, the knife's chop and the counter bell when a tray goes out. Quiet, short, and
+ * silent until the first tap opens the audio.
+ */
+export function kitchenSound(kind: 'sizzle' | 'fry' | 'chop' | 'bell'): void {
+  const vol = Math.max(0, Math.min(100, getSave().volume ?? 70)) / 100
+  if (vol <= 0) return
+  const a = audio()
+  if (!a || a.state !== 'running') return
+  const t = a.currentTime + 0.005
+  const out = a.createGain(); out.gain.value = 0.3 * vol; out.connect(a.destination)
+  const done = (ms: number) => window.setTimeout(() => { try { out.disconnect() } catch { /* already gone */ } }, ms)
+  if (kind === 'bell') { bell(a, out, t, 0.55); done(1300); return }
+  const dur = kind === 'fry' ? 1.2 : kind === 'sizzle' ? 0.65 : 0.07
+  const len = Math.floor(a.sampleRate * dur)
+  const buf = a.createBuffer(1, len, a.sampleRate); const d = buf.getChannelData(0)
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (kind !== 'chop' && Math.random() < 0.02 ? 2.6 : 1)
+  const ns = a.createBufferSource(); ns.buffer = buf
+  const f = a.createBiquadFilter()
+  if (kind === 'chop') { f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 1.6 } else { f.type = 'highpass'; f.frequency.value = kind === 'fry' ? 1800 : 2600 }
+  const env = a.createGain()
+  env.gain.setValueAtTime(0.0001, t)
+  env.gain.exponentialRampToValueAtTime(kind === 'chop' ? 0.9 : kind === 'fry' ? 0.7 : 0.5, t + (kind === 'chop' ? 0.004 : 0.03))
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  ns.connect(f).connect(env).connect(out); ns.start(t); ns.stop(t + dur + 0.02)
+  done(dur * 1000 + 400)
+}

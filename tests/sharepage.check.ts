@@ -27,7 +27,7 @@ await t('a flyer page shows the flyer picture', async () => {
   const r = await call({ kind: 'poster', id: 'mcgrind-1' })
   assert.equal(r.status, 200)
   assert.match(r.body, /og:image" content="https:\/\/www\.grinddistrict\.app\/posters\/mcgrind-1\.jpg"/)
-  assert.match(r.body, /Bear market\? McGrind is hiring\./)
+  assert.match(r.body, /Get hired at McGrind in Grind District/)
 })
 await t('an unknown flyer goes to the game', async () => {
   const r = await call({ kind: 'poster', id: 'nope<script>' })

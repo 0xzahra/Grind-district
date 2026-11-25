@@ -431,6 +431,12 @@
       "id": "u1126-city-stats-v2",
       "title": "City stats, upgraded",
       "body": "Tap the Online pill: the totals so far, the city, learning, and everything on-chain on Base and NEAR together. Share it as a picture with a ready-to-post caption."
+    },
+    {
+      "id": "u1126-mcgrind-kitchen",
+      "title": "McGrind kitchen, hands-on",
+      "body": "Work a shift and watch your hands drop the fries, flip the patty, shave the shawarma and pour the drinks, then slide the tray to each customer. Taps now answer the moment you press.",
+      "go": "place:McGrind"
     }
   ]
 }

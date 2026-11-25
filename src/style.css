@@ -4680,26 +4680,25 @@ body.sheet-open .note-banner:not(.pt-banner), body.cc-sheet-on .note-banner:not(
 .mg-clock{font:700 20px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#fff;background:#0f7a48;border-radius:10px;padding:8px 10px;min-width:58px;text-align:center}
 .mg-till{font-weight:700;color:#ffe3a3;font-variant-numeric:tabular-nums}
 .mg-quit{min-height:38px}
-.mg-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.mg-order{background:#10211a;border:1px solid #1f4a35;border-radius:12px;padding:8px 10px;display:grid;gap:6px}
-.mg-who{display:flex;justify-content:space-between;gap:8px;align-items:center}.mg-items{font-size:20px;letter-spacing:2px}
-.mg-pat{height:7px;background:#1c2a23;border-radius:5px;overflow:hidden}.mg-pat i{display:block;height:100%;background:#17f790;transition:width .1s linear}.mg-pat.low i{background:#ff6b5b}
-.mg-serve{min-height:40px;font-weight:700}
-.mg-empty,.mg-more{margin:0;color:#9fb8aa;font-size:13px}
-.mg-tray{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#0c1712;border:1px dashed #2a5a42;border-radius:12px;padding:8px 10px;min-height:44px}
-.mg-tray-l{color:#9fb8aa;font-size:13px}.mg-tray-e{color:#6f8a7c;font-size:13px}
-.mg-chip{background:#0f7a48;border-radius:999px;padding:4px 10px;font-weight:700}
+.mg-shift>*{width:100%;max-width:1080px;justify-self:center}
+.mg-front{display:grid;gap:6px;justify-items:center}
+.mg-counter{display:block;width:100%;max-width:820px;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer;touch-action:manipulation;background:#efe6d6}
+.mg-serves{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%;max-width:820px}
+.mg-shift .mg-sv{min-height:40px;padding:6px 4px;font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;touch-action:none;-webkit-user-select:none;user-select:none}
 .mg-stations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 @media (min-width:860px){.mg-stations{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.mg-st{background:#111c17;border:1px solid #23352c;border-radius:14px;padding:10px;display:grid;gap:7px}
-.mg-st-h{display:flex;gap:8px;align-items:center}.mg-ic{font-size:24px}
-.mg-meter{position:relative;height:16px;background:#1c2722;border-radius:8px;overflow:hidden}
-.mg-meter i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#f3d27a,#e08a2f);border-radius:8px}
-.mg-zone{position:absolute;top:0;bottom:0;background:rgba(23,247,144,.32);border-left:2px solid #17f790;border-right:2px solid #17f790}
-.mg-mk{display:none;position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#fff;border-radius:2px}
-.mg-beat .mg-mk{display:block}
-.mg-note{color:#a9c2b4;min-height:2.4em;font-size:12px}
-.mg-row{display:grid;gap:6px}.mg-row button{min-height:44px;font-weight:700;touch-action:none;-webkit-user-select:none;user-select:none}
+.mg-st{position:relative;background:#111c17;border:1px solid #23352c;border-radius:14px;padding:6px;display:grid;gap:5px;align-content:start}
+.mg-cv{display:block;width:100%;border-radius:10px;background:#dfe6e3}
+.mg-st-l{display:flex;gap:6px;align-items:baseline;min-height:2.6em;padding:0 2px;line-height:1.3}
+.mg-st-l b{color:#eafff3;font-size:13px;white-space:nowrap}
+.mg-note{color:#a9c2b4;font-size:12px}
+.mg-row{display:grid;gap:6px}
+.mg-shift .mg-row button{min-height:44px;font-weight:700;touch-action:none;-webkit-user-select:none;user-select:none}
+.mg-two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mg-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.mg-shift .mg-three button,.mg-shift .mg-two button{padding:6px 2px;font-size:12.5px;white-space:nowrap}
+.mg-shift .mg-three button{font-size:11.5px;letter-spacing:-.01em}
+.mg-shift .mg-fill.on{filter:brightness(1.18);transform:translateY(1px)}
 .mg-sum{background:#10211a;border:1px solid #1f4a35;border-radius:16px;padding:16px;display:grid;gap:8px;max-width:520px;justify-self:center;width:100%}
 .mg-sum h3{margin:0;font-size:20px}.mg-sum p{margin:0}.mg-save{color:#ffe3a3}
 .mg-sum button{min-height:46px}

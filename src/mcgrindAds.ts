@@ -23,17 +23,19 @@ const POSTERS: Array<[string, string, string]> = [
   ['GOT RUGGED?', 'Get hired.', 'Shifts by the Campus café, all day, all night.'],
 ]
 // What each one says when it is shared (posters.ts flyerCaption adds the rest).
+// Each leads with what it is (a stranger reading it cold learns they can work a shift in the game), then the joke.
+const HIRE = 'You can now get hired at McGrind, a 3D city job that pays per shift and tips for speed'
 const POSTER_CAPTIONS = [
-  'Bear market? McGrind is hiring 🍔 Flip burgers, not your bags. Day and night shifts in Grind District: stack your pay, invest when the bull returns.',
-  'GM. Fries? 🍟 McGrind is open day and night in Grind District: burgers, shawarma, shakes and boba. Grab a meal or work a shift.',
-  'WAGMI: We\'re All Gonna Make It (fries) 🍟 Paid every shift, tips for speed. McGrind is hiring in Grind District.',
-  'No seed phrase needed. Just show up and cook 🍔 The McGrind kitchen is hiring in Grind District.',
-  'Stack while you wait 💰 Save from every McGrind shift and invest when the bull comes back. Only in Grind District.',
-  'Got rugged? Get hired 🍔 McGrind shifts by the Campus café, all day, all night, in Grind District.',
+  `${HIRE} 🍔 Bear market? Flip burgers, not your bags.`,
+  'McGrind is open day and night in Grind District, a free 3D city: grab a meal or work a paid shift 🍟 GM. Fries?',
+  `${HIRE} 🍟 WAGMI: We're All Gonna Make It (fries).`,
+  `${HIRE} 🍔 No seed phrase needed. Just show up and cook.`,
+  'Work shifts at McGrind, a 3D city job that pays per shift and tips for speed 💰 Stack while you wait, invest when the bull comes back.',
+  `${HIRE} 🍔 Got rugged? Get hired.`,
 ]
 const BILLBOARD_CAPTIONS = [
-  'Bear market? McGrind is hiring 🍔 Flip burgers, not your bags. Paid every shift, by the Campus café in Grind District.',
-  'Wen bull run? Wen lunch 🍔 Work a shift at McGrind, stack your pay, invest when the market turns. Only in Grind District.',
+  `${HIRE} 🍔 Bear market? Flip burgers, not your bags.`,
+  'Work a shift at McGrind, a 3D city job that pays per shift and tips for speed 🍔 Wen bull run? Wen lunch.',
 ]
 const BILLBOARDS: Array<[string, string]> = [
   ['Bear market? McGrind is hiring.', 'Flip burgers, not your bags · Paid every shift · By the Campus café'],

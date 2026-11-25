@@ -1,13 +1,18 @@
-// A shift at McGrind: customers queue at the counter with an order and a patience bar, and you cook to their order
-// on four stations, each a timing skill: lift the fries when they are golden, flip the patty in its window and take
-// it off when done, shave the shawarma on the beat and wrap it, and fill drinks to the line (boba needs its pearls
-// first). Serve a full order for its price plus a tip for speed and quality. Lunch and dinner are rushes; late night
-// is quieter with better tips. Pay is earned in-game cash at the end of the shift (full pay for three shifts a day,
-// half after), and a well-rated shift adds a little reputation. Kept on this device; nothing in the save changes.
+// A shift at McGrind: customers walk up to the counter with an order and a patience bar, and you cook to their
+// order on four stations, each a timing skill: lift the fries when they are golden, flip the patty in its window
+// and take it off when done, shave the shawarma when the knife is across the crisp band and wrap it, and fill drinks
+// to the line (boba needs its pearls first). Serve a full order for its price plus a tip for speed and quality.
+// Lunch and dinner are rushes; late night is quieter with better tips. Pay is earned in-game cash at the end of the
+// shift (full pay for three shifts a day, half after), and a well-rated shift adds a little reputation. Kept on this
+// device; nothing in the save changes.
+// Everything is drawn (kitchenArt.ts): the cook's gloved hands do each job you tap, and the customer takes the tray.
+// Timing taps answer on press, not release, and the drawing slows to 30 a second if a phone needs it.
 import { addReputation, earnCash } from './state.ts'
 import { drawMcGrindMark } from './brandFronts.ts'
+import { liteOn } from './deviceTier.ts'
+import { kitchenSound } from './sfx.ts'
+import { CounterArt, DrinksArt, FryerArt, GOOD, GrillArt, OKAY, BAD, SpitArt, kitchenDpr, type Item } from './kitchenArt.ts'
 
-type Item = 'fries' | 'burger' | 'shawarma' | 'shake' | 'smoothie' | 'boba'
 type Grade = 'perfect' | 'ok'
 const MENU: Record<Item, { icon: string; title: string; price: number }> = {
   fries: { icon: '🍟', title: 'Fries', price: 2.0 },
@@ -20,6 +25,11 @@ const MENU: Record<Item, { icon: string; title: string; price: number }> = {
 const NAMES = ['Ada', 'Tunde', 'Zainab', 'Chidi', 'Amaka', 'Musa', 'Kemi', 'Ifeanyi', 'Halima', 'Seyi', 'Bola', 'Emeka', 'Fatima', 'Uche', 'Yusuf', 'Ngozi', 'Dayo', 'Aisha']
 const SHIFT_SECS = 150
 const DAY_KEY = 'gd.mcgrind.day'
+const FRY_BAND: [number, number] = [0.7, 0.88]
+const FLIP_BAND: [number, number] = [0.4, 0.6]
+const DONE_BAND: [number, number] = [0.85, 1]
+const SPIT_BAND: [number, number] = [0.4, 0.6]
+const FILL_BAND: [number, number] = [0.85, 0.96]
 
 type Order = { id: number; name: string; items: Item[]; patience: number; max: number }
 type Period = { title: string; every: number; size: [number, number]; tip: number }
@@ -35,11 +45,21 @@ function period(): Period {
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e }
 const money = (n: number) => `$${n.toFixed(2)}`
+/** Set text only when it changed (no layout work for the same words). */
+const say0 = (e: HTMLElement, t: string) => { if (e.textContent !== t) e.textContent = t }
+/** A button that acts the moment a finger or mouse presses it (a click from the keyboard still works). */
+function pressBtn(label: string, run: () => void, primary = false): HTMLButtonElement {
+  const b = el('button', primary ? 'primary' : 'ghost', label); b.type = 'button'
+  b.addEventListener('pointerdown', (e) => { if (e.button !== 0) return; e.preventDefault(); run() })
+  b.addEventListener('click', (e) => { if (e.detail === 0) run() })
+  return b
+}
 
 /** Open a shift. `onEnd` runs when the panel closes. */
 export function openShift(o: { toast: (m: string) => void; onEnd?: () => void }): void {
   if (document.getElementById('mg-shift')) return
   const per = period()
+  const dpr = kitchenDpr(liteOn())
   const root = el('div', 'mg-shift'); root.id = 'mg-shift'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'McGrind shift')
   document.body.append(root)
   document.body.classList.add('sheet-open')
@@ -50,25 +70,25 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
   const clock = el('div', 'mg-clock'), till = el('div', 'mg-till')
   const quit = el('button', 'ghost mg-quit', 'End shift'); quit.type = 'button'
   head.append(markC, title, clock, till, quit)
-  // --- Queue of customers ---
-  const queue = el('div', 'mg-queue')
-  // --- Tray of ready food ---
-  const tray = el('div', 'mg-tray')
+  // --- The counter: customers, their orders, the pass, and a Serve button under each place in line ---
+  const counter = new CounterArt()
+  const front = el('div', 'mg-front')
+  counter.view.c.className = 'mg-counter'
+  counter.view.c.setAttribute('role', 'img')
+  const serveRow = el('div', 'mg-serves')
+  const serveBtns = [0, 1, 2, 3].map((i) => { const b = pressBtn('Serve', () => serveSlot(i)); b.classList.add('mg-sv'); serveRow.append(b); return b })
+  front.append(counter.view.c, serveRow)
+  counter.view.c.addEventListener('click', (e) => { const i = counter.slotAt(e); if (i >= 0) serveSlot(i) })
   // --- Stations ---
   const stations = el('div', 'mg-stations')
-  root.append(head, queue, tray, stations)
+  root.append(head, front, stations)
 
   let t = 0, nextIn = 2, nextId = 1, served = 0, lost = 0, earned = 0, tips = 0, stars = 0, ended = false
   const orders: Order[] = []
   const ready = new Map<Item, Grade[]>()
   const say = (m: string) => { o.toast(m) }
-  const addReady = (it: Item, g: Grade, n = 1) => { const l = ready.get(it) ?? []; for (let i = 0; i < n; i++) l.push(g); ready.set(it, l); paintTray() }
-  const paintTray = () => {
-    tray.replaceChildren(el('span', 'mg-tray-l', 'Ready:'))
-    let any = false
-    for (const [it, l] of ready) if (l.length) { any = true; const chip = el('span', 'mg-chip', `${MENU[it].icon} ×${l.length}`); chip.title = `${MENU[it].title}: ${l.filter((g) => g === 'perfect').length} perfect`; tray.append(chip) }
-    if (!any) tray.append(el('span', 'mg-tray-e', 'nothing yet: cook something below'))
-  }
+  const passList = () => [...ready].filter(([, l]) => l.length).map(([it, l]) => [it, l.length] as [Item, number])
+  const addReady = (it: Item, g: Grade, n = 1) => { const l = ready.get(it) ?? []; for (let i = 0; i < n; i++) l.push(g); ready.set(it, l); counter.setPass(passList()) }
   // --- Orders ---
   const newOrder = () => {
     const n = per.size[0] + Math.floor(Math.random() * (per.size[1] - per.size[0] + 1))
@@ -83,7 +103,7 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
     return true
   }
   const serve = (ord: Order) => {
-    if (!has(ord.items)) { say('Not everything on that order is ready yet.'); return }
+    if (!has(ord.items)) { say(`${ord.name}'s order is not all on the pass yet.`); return }
     let perfect = 0, base = 0
     for (const it of ord.items) { const g = ready.get(it)!.shift()!; if (g === 'perfect') perfect++; base += MENU[it].price }
     const q = perfect / ord.items.length, speed = ord.patience / ord.max
@@ -91,113 +111,134 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
     earned += base; tips += tip; served++
     stars += 3 + Math.round(q * 1 + speed * 1)
     orders.splice(orders.indexOf(ord), 1)
-    say(`${ord.name}: "${q === 1 ? 'Perfect, thank you!' : 'Thanks!'}" +${money(base + tip)}`)
-    paintTray(); paintQueue()
+    counter.served(ord.id, `+${money(base + tip)}`)
+    counter.setPass(passList())
+    kitchenSound('bell')
+    if (q === 1) say(`${ord.name}: "Perfect, thank you!"`)
+    syncLine()
   }
-  // The line is rebuilt only when it changes (a tap on a button that is replaced mid-press would be lost);
-  // the patience bars just move.
-  let queueSig = '', bars: Array<{ ord: Order; bar: HTMLElement; fill: HTMLElement }> = []
-  const paintQueue = () => {
-    const sig = orders.slice(0, 4).map((q) => `${q.id}:${has(q.items) ? 1 : 0}`).join(',') + `|${orders.length}`
-    if (sig !== queueSig) {
-      queueSig = sig
-      bars = []
-      queue.replaceChildren(...orders.slice(0, 4).map((ord) => {
-        const card = el('div', 'mg-order')
-        const who = el('div', 'mg-who'); who.append(el('b', '', ord.name), el('span', 'mg-items', ord.items.map((i) => MENU[i].icon).join(' ')))
-        const bar = el('div', 'mg-pat'); const fill = el('i'); bar.append(fill)
-        const b = el('button', has(ord.items) ? 'primary mg-serve' : 'ghost mg-serve', 'Serve'); b.type = 'button'; b.onclick = () => serve(ord)
-        card.append(who, bar, b)
-        bars.push({ ord, bar, fill })
-        return card
-      }))
-      if (!orders.length) queue.append(el('p', 'mg-empty', 'No one in line right now. Cook ahead: fries and drinks keep.'))
-      if (orders.length > 4) queue.append(el('p', 'mg-more', `+${orders.length - 4} more waiting`))
-    }
-    for (const { ord, bar, fill } of bars) { const k = ord.patience / ord.max; fill.style.width = `${Math.max(0, k) * 100}%`; bar.classList.toggle('low', k < 0.3) }
+  const serveSlot = (i: number) => { const ord = orders[i]; if (ord) serve(ord) }
+  // The line: four fixed buttons under the four places at the counter (never rebuilt, so no tap is lost).
+  const syncLine = () => {
+    counter.sync(orders.map((q) => ({ id: q.id, name: q.name, items: q.items, k: q.patience / q.max, ready: has(q.items) })), Math.max(0, orders.length - 4))
+    serveBtns.forEach((b, i) => {
+      const ord = orders[i]
+      b.style.visibility = ord ? 'visible' : 'hidden'
+      if (!ord) return
+      const ok = has(ord.items)
+      say0(b, `Serve ${ord.name}`)
+      b.classList.toggle('primary', ok); b.classList.toggle('ghost', !ok)
+    })
   }
 
-  // --- Station kit: a card with a meter, a target band and buttons ---
-  const station = (icon: string, name: string, band: [number, number]) => {
+  // --- Station kit: a canvas with the cook's hands, a line of guidance, and the buttons ---
+  const station = (name: string, view: HTMLCanvasElement) => {
     const card = el('div', 'mg-st')
-    const h = el('div', 'mg-st-h'); h.append(el('span', 'mg-ic', icon), el('b', '', name))
-    const meter = el('div', 'mg-meter'); const zone = el('span', 'mg-zone'); zone.style.left = `${band[0] * 100}%`; zone.style.width = `${(band[1] - band[0]) * 100}%`
-    const fill = el('i'); const mark = el('span', 'mg-mk'); meter.append(zone, fill, mark)
-    const note = el('small', 'mg-note')
+    view.className = 'mg-cv'
+    const info = el('div', 'mg-st-l'), note = el('small', 'mg-note')
+    info.append(el('b', '', name), note)
     const row = el('div', 'mg-row')
-    card.append(h, meter, note, row)
+    card.append(view, info, row)
     stations.append(card)
-    const btn = (label: string, run: () => void, primary = false) => { const b = el('button', primary ? 'primary' : 'ghost', label); b.type = 'button'; b.onclick = run; return b }
-    return { card, fill, mark, note, row, btn, zone, setZone: (a: number, b: number) => { zone.style.left = `${a * 100}%`; zone.style.width = `${(b - a) * 100}%` } }
+    return { card, note, row }
   }
 
   // Fryer: drop a basket (two portions), lift between 70% and 88% for golden; past 100% they burn.
-  const fryer = station('🍟', 'Fryer', [0.7, 0.88])
+  const fryArt = new FryerArt()
+  const fryer = station('Fryer', fryArt.view.c)
   let fry = -1
-  const fryRow = () => { fryer.row.replaceChildren(fry < 0 ? fryer.btn('Drop fries', () => { fry = 0; fryRow() }, true) : fryer.btn('Lift basket', () => {
-    const p = fry; fry = -1; fryRow()
-    if (p < 0.6) say('Pale fries: back in next time. Lift when golden.')
-    else if (p > 1) say('Burnt. Into the bin.')
-    else addReady('fries', p >= 0.7 && p <= 0.88 ? 'perfect' : 'ok', 2)
-  }, true)) }
-  fryRow()
+  const fryBtn = pressBtn('Drop fries', () => {
+    if (fry < 0) { fry = 0; fryArt.drop(); kitchenSound('fry'); fryBtn.textContent = 'Lift basket'; return }
+    const p = fry; fry = -1; fryBtn.textContent = 'Drop fries'
+    if (p < 0.6) { fryArt.lift(p, false); fryArt.pop('Pale: binned', OKAY); say('Pale fries: lift them when golden.') }
+    else if (p > 1) { fryArt.lift(p, false); fryArt.pop('Burnt', BAD) }
+    else { const g: Grade = p >= FRY_BAND[0] && p <= FRY_BAND[1] ? 'perfect' : 'ok'; fryArt.lift(p, true); fryArt.pop(g === 'perfect' ? 'Golden! ×2' : 'Fries ×2', g === 'perfect' ? GOOD : OKAY); window.setTimeout(() => addReady('fries', g, 2), 700) }
+  }, true)
+  fryer.row.append(fryBtn)
   // Grill: put a patty on, flip it between 40% and 60%, take it off between 85% and 100%; it becomes a burger.
-  const grill = station('🍔', 'Grill', [0.4, 0.6])
+  const grillArt = new GrillArt()
+  const grill = station('Grill', grillArt.view.c)
   let patty = -1, flipped: Grade | null = null
-  const grillRow = () => {
-    if (patty < 0) grill.row.replaceChildren(grill.btn('Patty on', () => { patty = 0; flipped = null; grill.setZone(0.4, 0.6); grillRow() }, true))
-    else if (!flipped) grill.row.replaceChildren(grill.btn('Flip', () => { flipped = patty >= 0.4 && patty <= 0.6 ? 'perfect' : 'ok'; grill.setZone(0.85, 1); grillRow() }, true))
-    else grill.row.replaceChildren(grill.btn('Take off & build', () => {
-      const p = patty; patty = -1; grill.setZone(0.4, 0.6); grillRow()
-      if (p < 0.75) say('Still pink inside. Leave it longer next time.')
-      else if (p > 1.08) say('Burnt patty. Binned.')
-      else addReady('burger', flipped === 'perfect' && p >= 0.85 && p <= 1 ? 'perfect' : 'ok')
-    }, true))
-  }
-  grillRow()
-  // Shawarma: a marker sweeps the spit; shave three times when it is in the band, then wrap.
-  const spit = station('🥙', 'Shawarma', [0.42, 0.58])
-  spit.card.classList.add('mg-beat')
-  let shaves: number[] = []
-  const spitRow = () => {
-    spit.row.replaceChildren(spit.btn(`Shave (${shaves.length}/3)`, () => {
-      if (shaves.length >= 3) return
-      const m = (Math.sin(t * 2.6) + 1) / 2
-      shaves.push(m >= 0.42 && m <= 0.58 ? 1 : 0); spitRow()
-    }, true), spit.btn('Wrap', () => {
-      if (shaves.length < 3) { say('Shave three times before you wrap.'); return }
-      addReady('shawarma', shaves.filter(Boolean).length >= 2 ? 'perfect' : 'ok'); shaves = []; spitRow()
-    }))
-  }
-  spitRow()
-  // Drinks: pick one (boba: add pearls first), then hold Fill and let go at the line (85% to 96%).
-  const bar = station('🥤', 'Drinks', [0.85, 0.96])
-  let pick: 'shake' | 'smoothie' | 'boba' | null = null, pearls = false, level = 0, holding = false
-  const barRow = () => {
-    if (!pick) { bar.row.replaceChildren(...(['shake', 'smoothie', 'boba'] as const).map((d) => bar.btn(`${MENU[d].icon} ${MENU[d].title}`, () => { pick = d; pearls = false; level = 0; barRow() }))); return }
-    if (pick === 'boba' && !pearls) { bar.row.replaceChildren(bar.btn('Add pearls', () => { pearls = true; barRow() }, true), bar.btn('Cancel', () => { pick = null; barRow() })); return }
-    const fillBtn = bar.btn('Hold to fill', () => undefined, true)
-    const start = (e: Event) => { e.preventDefault(); holding = true; level = 0 }
-    const stop = () => {
-      if (!holding) return
-      holding = false
-      const d = pick!; pick = null
-      if (level < 0.7) say('Half a cup. Poured away.')
-      else if (level > 1) say('Spilled over. Wiped down.')
-      else addReady(d, level >= 0.85 && level <= 0.96 ? 'perfect' : 'ok')
-      level = 0; barRow()
+  const grillBtn = pressBtn('Patty on', () => {
+    if (patty < 0) { patty = 0; flipped = null; grillArt.flipAt = -1; grillArt.put(); window.setTimeout(() => kitchenSound('sizzle'), 300); grillBtn.textContent = 'Flip'; return }
+    if (!flipped) {
+      flipped = patty >= FLIP_BAND[0] && patty <= FLIP_BAND[1] ? 'perfect' : 'ok'
+      grillArt.flipAt = patty; grillArt.flip(); window.setTimeout(() => kitchenSound('sizzle'), 380)
+      grillArt.pop(flipped === 'perfect' ? 'Nice flip!' : patty < FLIP_BAND[0] ? 'Early flip' : 'Late flip', flipped === 'perfect' ? GOOD : OKAY)
+      grillBtn.textContent = 'Take off & build'; return
     }
-    fillBtn.addEventListener('pointerdown', start); fillBtn.addEventListener('pointerup', stop); fillBtn.addEventListener('pointerleave', stop); fillBtn.addEventListener('pointercancel', stop)
-    bar.row.replaceChildren(fillBtn)
+    const p = patty; patty = -1; grillBtn.textContent = 'Patty on'
+    if (p < 0.75) { grillArt.off(false); grillArt.pop('Still pink: binned', OKAY); say('Still pink inside. Leave it longer next time.') }
+    else if (p > 1.08) { grillArt.off(false); grillArt.pop('Burnt', BAD) }
+    else { const g: Grade = flipped === 'perfect' && p >= DONE_BAND[0] && p <= DONE_BAND[1] ? 'perfect' : 'ok'; grillArt.off(true); grillArt.pop(g === 'perfect' ? 'Perfect burger!' : 'Burger', g === 'perfect' ? GOOD : OKAY, 250, 90); window.setTimeout(() => addReady('burger', g), 1100) }
+    grillArt.flipAt = -1
+  }, true)
+  grill.row.append(grillBtn)
+  // Shawarma: the knife sweeps the spit; shave three times while it is across the crisp band, then wrap.
+  const spitArt = new SpitArt()
+  const spit = station('Shawarma', spitArt.view.c)
+  let shaves: number[] = []
+  const marker = () => (Math.sin(t * 2.6) + 1) / 2
+  const shaveBtn = pressBtn('Shave (0/3)', () => {
+    if (shaves.length >= 3) { spitArt.pop('Wrap it now', OKAY); return }
+    const m = marker(), good = m >= SPIT_BAND[0] && m <= SPIT_BAND[1]
+    shaves.push(good ? 1 : 0); spitArt.shaves = shaves; spitArt.shave(m, good); kitchenSound('chop')
+    spitArt.pop(good ? 'Crisp!' : 'Off the band', good ? GOOD : OKAY, 128, 24)
+    say0(shaveBtn, `Shave (${shaves.length}/3)`)
+  }, true)
+  const wrapBtn = pressBtn('Wrap', () => {
+    if (shaves.length < 3) { spitArt.pop('Shave 3 first', OKAY); return }
+    const g: Grade = shaves.filter(Boolean).length >= 2 ? 'perfect' : 'ok'
+    spitArt.wrap(); spitArt.pop(g === 'perfect' ? 'Perfect wrap!' : 'Wrapped', g === 'perfect' ? GOOD : OKAY, 250, 120)
+    shaves = []; window.setTimeout(() => { spitArt.shaves = shaves; addReady('shawarma', g) }, 1150)
+    say0(shaveBtn, 'Shave (0/3)')
+  })
+  spit.row.classList.add('mg-two'); spit.row.append(shaveBtn, wrapBtn)
+  // Drinks: pick one (boba: add pearls first), then hold Fill and let go at the line (85% to 96%).
+  const drinkArt = new DrinksArt()
+  const bar = station('Drinks', drinkArt.view.c)
+  let pick: 'shake' | 'smoothie' | 'boba' | null = null, pearls = false, level = 0, holding = false
+  const pickRow = el('div', 'mg-three'), pearlBtn = pressBtn('Add pearls', () => { pearls = true; drinkArt.pearls = true; drinkArt.addPearls(); barRow() }, true)
+  const pickBtns = (['shake', 'smoothie', 'boba'] as const).map((d) => pressBtn(d === 'shake' ? 'Shake' : d === 'smoothie' ? 'Smoothie' : 'Boba', () => {
+    if (pick) return
+    pick = d; pearls = false; level = 0; drinkArt.pick = d; drinkArt.pearls = false; drinkArt.level = 0; drinkArt.place(d); barRow()
+  }))
+  pickRow.append(...pickBtns)
+  const fillBtn = el('button', 'primary mg-fill', 'Hold to fill'); fillBtn.type = 'button'
+  const pourStart = (e?: Event) => { e?.preventDefault(); if (!pick || holding) return; holding = true; level = 0; drinkArt.pouring = true; fillBtn.classList.add('on'); say0(fillBtn, 'Let go at the line') }
+  const pourStop = () => {
+    if (!holding) return
+    holding = false; drinkArt.pouring = false; fillBtn.classList.remove('on')
+    const d = pick!, lv = level; pick = null; drinkArt.pick = null
+    if (lv < 0.7) { drinkArt.done(d, lv, false, false); drinkArt.pop('Half a cup', OKAY); say('Half a cup. Poured away.') }
+    else if (lv > 1) { drinkArt.done(d, lv, false, true); drinkArt.pop('Spilled', BAD) }
+    else { const g: Grade = lv >= FILL_BAND[0] && lv <= FILL_BAND[1] ? 'perfect' : 'ok'; drinkArt.done(d, lv, true, false); drinkArt.pop(g === 'perfect' ? 'Right on the line!' : MENU[d].title, g === 'perfect' ? GOOD : OKAY); window.setTimeout(() => addReady(d, g), 650) }
+    level = 0; drinkArt.level = 0; barRow()
+  }
+  fillBtn.addEventListener('pointerdown', (e) => { if (e.button === 0) pourStart(e) })
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel'] as const) fillBtn.addEventListener(ev, pourStop)
+  fillBtn.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) pourStart(e) })
+  fillBtn.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') pourStop() })
+  const cancelBtn = pressBtn('Cancel', () => { pick = null; drinkArt.pick = null; drinkArt.cancel(); barRow() })
+  let barState = ''
+  const barRow = () => {
+    const st = !pick ? 'pick' : pick === 'boba' && !pearls ? 'pearls' : 'fill'
+    if (st === barState) return
+    barState = st
+    if (st === 'pick') bar.row.replaceChildren(pickRow)
+    else if (st === 'pearls') { const two = el('div', 'mg-two'); two.append(pearlBtn, cancelBtn); bar.row.replaceChildren(two) }
+    else { say0(fillBtn, 'Hold to fill'); bar.row.replaceChildren(fillBtn) }
   }
   barRow()
-  paintTray(); paintQueue()
+  counter.setPass([])
+  syncLine()
 
-  // --- The clock: customers arrive, patience runs, food cooks. ---
-  let last = performance.now(), paintAcc = 0
+  // --- The clock: customers arrive, patience runs, food cooks; the kitchen is drawn. ---
+  let last = performance.now(), textAcc = 0, lastDraw = 0, drawEvery = 0, costEma = 0
   const finish = (early: boolean) => {
     if (ended) return
     ended = true
+    for (const v of [counter.view, fryArt.view, grillArt.view, spitArt.view, drinkArt.view]) v.stop()
     const day = (() => { try { const v = JSON.parse(localStorage.getItem(DAY_KEY) ?? 'null') as { d?: string; n?: number } | null; const today = new Date(Date.now() + 3_600_000).toISOString().slice(0, 10); return v?.d === today ? { d: today, n: v.n ?? 0 } : { d: today, n: 0 } } catch { return { d: '', n: 0 } } })()
     const full = day.n < 3
     const gross = earned + tips
@@ -221,26 +262,41 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
   }
   quit.onclick = () => finish(true)
   const frame = (now: number) => {
-    if (ended || !root.isConnected) return
+    if (ended || !root.isConnected) { if (!ended) for (const v of [counter.view, fryArt.view, grillArt.view, spitArt.view, drinkArt.view]) v.stop(); return }
     const dt = Math.min(0.1, (now - last) / 1000); last = now
     t += dt
     nextIn -= dt
-    if (nextIn <= 0 && t < SHIFT_SECS - 8) { newOrder(); nextIn = per.every * (0.7 + Math.random() * 0.6) }
-    for (const ord of [...orders]) { ord.patience -= dt; if (ord.patience <= 0) { orders.splice(orders.indexOf(ord), 1); lost++; say(`${ord.name} gave up waiting and left.`) } }
-    if (fry >= 0) { fry += dt / 6; if (fry > 1.18) { fry = -1; fryRow(); say('The fries burnt. Lift them sooner.') } }
-    if (patty >= 0) { patty += dt / 8; if (patty > 1.2) { patty = -1; grill.setZone(0.4, 0.6); grillRow(); say('A patty burnt on the grill.') } }
-    if (holding) { level += dt / 2.2; if (level > 1.06) { holding = false; level = 0; pick = null; say('Spilled over. Wiped down.'); barRow() } }
-    paintAcc += dt
-    if (paintAcc > 0.05) {
-      paintAcc = 0
-      fryer.fill.style.width = `${Math.max(0, Math.min(1, fry)) * 100}%`; fryer.note.textContent = fry < 0 ? 'Two portions a basket. Golden, not pale, not burnt.' : fry < 0.6 ? 'Pale…' : fry < 0.7 ? 'Nearly…' : fry <= 0.88 ? 'Golden: lift now!' : 'Darkening!'
-      grill.fill.style.width = `${Math.max(0, Math.min(1, patty)) * 100}%`; grill.note.textContent = patty < 0 ? 'Flip in the first window, take off in the second.' : !flipped ? (patty >= 0.4 && patty <= 0.6 ? 'Flip now!' : 'Sizzling…') : patty >= 0.85 && patty <= 1 ? 'Done: take it off!' : 'Cooking the other side…'
-      const m = (Math.sin(t * 2.6) + 1) / 2
-      spit.mark.style.left = `${m * 100}%`; spit.fill.style.width = '0%'; spit.note.textContent = shaves.length >= 3 ? 'Wrap it.' : 'Tap Shave when the marker is in the band.'
-      bar.fill.style.width = `${Math.min(1, level) * 100}%`; bar.note.textContent = !pick ? 'Pick a drink.' : pick === 'boba' && !pearls ? 'Pearls in first.' : holding ? 'Filling…' : 'Hold, and let go at the line.'
-      clock.textContent = `${Math.max(0, Math.ceil(SHIFT_SECS - t))}s`
-      till.textContent = `${money(earned + tips)} · ${served} served`
-      paintQueue()
+    let lineChanged = false
+    if (nextIn <= 0 && t < SHIFT_SECS - 8) { newOrder(); nextIn = per.every * (0.7 + Math.random() * 0.6); lineChanged = true }
+    for (const ord of [...orders]) { ord.patience -= dt; if (ord.patience <= 0) { orders.splice(orders.indexOf(ord), 1); lost++; counter.left(ord.id); say(`${ord.name} gave up waiting and left.`); lineChanged = true } }
+    if (fry >= 0) { fry += dt / 6; if (fry > 1.18) { fry = -1; fryBtn.textContent = 'Drop fries'; fryArt.lift(1.2, false); fryArt.pop('Burnt', BAD); say('The fries burnt. Lift them sooner.') } }
+    if (patty >= 0) { patty += dt / 8; if (patty > 1.2) { patty = -1; flipped = null; grillBtn.textContent = 'Patty on'; grillArt.off(false); grillArt.flipAt = -1; grillArt.pop('Burnt', BAD); say('A patty burnt on the grill.') } }
+    if (holding) { level += dt / 2.2; if (level > 1.06) { level = 1.07; pourStop() } }
+    fryArt.cook = fry; grillArt.cook = patty; drinkArt.level = level
+    textAcc += dt
+    if (lineChanged || textAcc > 0.1) syncLine()
+    if (textAcc > 0.1) {
+      textAcc = 0
+      say0(fryer.note, fry < 0 ? 'Two portions a basket. Lift when golden.' : fry < 0.6 ? 'Pale…' : fry < FRY_BAND[0] ? 'Nearly…' : fry <= FRY_BAND[1] ? 'Golden: lift now!' : 'Darkening!')
+      say0(grill.note, patty < 0 ? 'Flip in the first window, take off in the second.' : !flipped ? (patty >= FLIP_BAND[0] && patty <= FLIP_BAND[1] ? 'Flip now!' : 'Sizzling…') : patty >= DONE_BAND[0] && patty <= DONE_BAND[1] ? 'Done: take it off!' : 'Cooking the other side…')
+      say0(spit.note, shaves.length >= 3 ? 'Three shaves in: wrap it.' : 'Tap Shave when the knife is on the gold band.')
+      say0(bar.note, !pick ? 'Pick a drink.' : pick === 'boba' && !pearls ? 'Pearls in first.' : holding ? 'Let go at the green line.' : 'Hold, and let go at the line.')
+      say0(clock, `${Math.max(0, Math.ceil(SHIFT_SECS - t))}s`)
+      say0(till, `${money(earned + tips)} · ${served} served`)
+      const ids = orders.slice(0, 4).map((q) => `${q.name}: ${q.items.map((i) => MENU[i].title).join(', ')}`).join('; ')
+      counter.view.c.setAttribute('aria-label', ids ? `At the counter: ${ids}` : 'No one at the counter')
+    }
+    // Draw at the screen's pace; if the kitchen takes too long to draw on this phone, every other frame instead.
+    if (!document.hidden && now - lastDraw >= drawEvery - 3) {
+      lastDraw = now
+      const c0 = performance.now(), s = c0 / 1000
+      counter.draw(s, dpr)
+      fryArt.draw(s, FRY_BAND, dpr)
+      grillArt.draw(s, flipped ? DONE_BAND : FLIP_BAND, dpr)
+      spitArt.draw(s, marker(), SPIT_BAND, dpr)
+      drinkArt.draw(s, FILL_BAND, dpr)
+      costEma += (performance.now() - c0 - costEma) * 0.1
+      if (!drawEvery && costEma > 7) drawEvery = 1000 / 30
     }
     if (t >= SHIFT_SECS && !orders.length) return finish(false)
     if (t >= SHIFT_SECS + 20) return finish(false)
