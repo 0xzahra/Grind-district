@@ -16,6 +16,7 @@ import { mountStaff } from './staff.ts'
 import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
+import type { PrayMode } from './congregation.ts'
 import { buildCampus, buildConference, type Floor } from './halls.ts'
 import { buildBank, buildClub, type BankTab } from './bankClub.ts'
 import { buildMarket, buildMcGrind } from './workplaces.ts'
@@ -568,14 +569,62 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Soft natural light: tall arched windows on the side walls, warm skylight.
       const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.55, roughness: 0.2 })
       for (let x = -5; x <= 5; x += 2.5) for (const side of [-1, 1]) box(1.0, 2.0, 0.04, glass, x, side * (d / 2 - 0.02), 0.9, false)
-      // Worshippers: real people from the city's own cast, seated on their heels in two rows facing the qibla.
-      // Still figures (no animation), one draw call each.
+      // Two sections side by side, both facing the qibla: the men's to the south with the imam at the mihrab, the
+      // women's to the north behind a carved timber screen. Both come in by the one door: the sisters turn north
+      // into their section before the screen begins. Speakers carry the imam into the women's section, so the
+      // sisters can join the same congregation from their side, or pray on their own.
+      const SZ = -1.6 // the screen's line
+      const wood = std(0x5a3f2c, 0.6), brass = std(0xb08d57, 0.35, 0.6)
+      const lattice = canvasTex(256, 256, (g) => {
+        g.clearRect(0, 0, 256, 256)
+        g.strokeStyle = '#6b4a2e'; g.lineWidth = 16; g.lineCap = 'square'
+        // A diagonal lattice with a small eight-point star at each crossing.
+        for (let k = -256; k <= 512; k += 64) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 256, 256); g.stroke(); g.beginPath(); g.moveTo(k, 256); g.lineTo(k + 256, 0); g.stroke() }
+        g.fillStyle = '#7d5836'
+        for (let x = 0; x <= 256; x += 64) for (let y = 0; y <= 256; y += 64) { g.save(); g.translate(x + ((y / 64) % 2 ? 32 : 0), y); g.rotate(Math.PI / 4); g.fillRect(-11, -11, 22, 22); g.restore(); g.save(); g.translate(x + ((y / 64) % 2 ? 32 : 0), y); g.fillRect(-11, -11, 22, 22); g.restore() }
+      })
+      lattice.wrapS = lattice.wrapT = THREE.RepeatWrapping
+      const sx0 = -w / 2 + 2.6, sx1 = w / 2 - 0.05, sLen = sx1 - sx0, sMid = (sx0 + sx1) / 2
+      lattice.repeat.set(sLen / 1.1, 2)
+      const screen = add(new THREE.PlaneGeometry(sLen, 2.2), new THREE.MeshStandardMaterial({ map: lattice, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.7 }), sMid, 1.16, SZ)
+      screen.userData.ghost = true; screen.raycast = () => undefined
+      box(sLen, 0.1, 0.12, wood, sMid, SZ, 2.26, false)
+      box(sLen, 0.08, 0.12, wood, sMid, SZ, 0.0, false)
+      for (let x = sx0; x <= sx1 + 0.01; x += sLen / 6) box(0.12, 2.36, 0.12, wood, x, SZ, 0, false)
+      obstacles.push({ kind: 'box', x: o.x + sMid, z: o.z + SZ, hx: sLen / 2, hz: 0.12 })
+      // Signs at the screen's open end, facing the door.
+      const sign = (text: string, sub: string, z: number) => {
+        const m = add(new THREE.PlaneGeometry(1.5, 0.42), new THREE.MeshBasicMaterial({ map: canvasTex(384, 108, (g) => {
+          g.fillStyle = '#123a2b'; g.fillRect(0, 0, 384, 108); g.strokeStyle = '#c9a25e'; g.lineWidth = 6; g.strokeRect(4, 4, 376, 100)
+          g.fillStyle = '#f6efe2'; g.textAlign = 'center'; g.font = '700 34px Inter, system-ui, sans-serif'; g.fillText(text, 192, 50)
+          g.fillStyle = '#c9a25e'; g.font = '600 22px Inter, system-ui, sans-serif'; g.fillText(sub, 192, 86)
+        }) }), sx0 - 0.08, 2.55, z, false, -Math.PI / 2)
+        m.userData.ghost = true
+      }
+      sign('Women’s section', 'Sisters · this way', SZ - 1.1)
+      sign('Men’s section', 'Brothers · this way', SZ + 1.6)
+      // The imam at the mihrab, a microphone before him, and the speakers in the women's section.
+      const imam = posedHuman('kurta', { pose: 'pray', height: 1.78, look: { top: 0xf6f3ec, skin: 0x8d5a3b } })
+      imam.position.set(w / 2 - 1.5, 0, 0); imam.rotation.y = Math.PI / 2
+      group.add(imam)
+      obstacles.push({ kind: 'circle', x: o.x + w / 2 - 1.5, z: o.z, r: 0.45 })
+      add(new THREE.CylinderGeometry(0.012, 0.012, 1.3, 6), brass, w / 2 - 1.05, 0.65, 0.42)
+      add(new THREE.SphereGeometry(0.035, 10, 8), std(0x1b1d20, 0.5), w / 2 - 1.1, 1.32, 0.38)
+      const spk = std(0x1d2024, 0.5), grille = std(0x3a3e44, 0.8)
+      const led = new THREE.MeshStandardMaterial({ color: 0x17f790, emissive: 0x17f790, emissiveIntensity: 1.2 })
+      for (const [x, z, ry] of [[-1.6, -d / 2 + 0.16, 0], [4.2, -d / 2 + 0.16, 0], [1.2, SZ - 0.1, Math.PI]] as Array<[number, number, number]>) {
+        box(0.34, 0.46, 0.2, spk, x, z, 2.35, false, ry)
+        add(new THREE.CircleGeometry(0.11, 16), grille, x, 2.62, z + (ry ? -0.105 : 0.105), false, ry)
+        add(new THREE.CircleGeometry(0.06, 14), grille, x, 2.44, z + (ry ? -0.105 : 0.105), false, ry)
+        add(new THREE.SphereGeometry(0.014, 6, 4), led, x + 0.12, 2.76, z + (ry ? -0.105 : 0.105))
+      }
+      // Worshippers, still figures from the city's own cast, seated on their heels facing the qibla:
+      // brothers in kufis and long shirts in the men's rows, sisters in abayas and hijabs in the women's rows.
       const robes = [0xf2efe8, 0xe4dccd, 0x4a4f57, 0x7a6a55, 0x2f3f5c, 0xd9d2c6]
       const skins = [0x8d5a3b, 0xc68a62, 0x5a3825, 0xe0b08e, 0x6f4329, 0xbf8a62]
       let n = 0
-      for (const x of [3.2, 1.6]) for (let z = -4.2; z <= 4.2; z += 1.4) {
+      for (const x of [3.2, 1.6]) for (let z = -0.5; z <= 4.8; z += 1.3) {
         const robe = robes[n % robes.length]!
-        // Two in three wear a kufi and long shirt in their own colour; the rest came in from the street as they are.
         const man = n % 3 === 2
           ? posedHuman(MEN[(n >> 1) % MEN.length]!, { pose: 'kneel', height: 1.76, look: n % 2 ? { skin: skins[(n * 5) % skins.length]!, hair: 0x16110e } : undefined })
           : posedHuman('kurta', { pose: 'kneel', height: 1.76, look: { top: robe, skin: skins[(n * 5) % skins.length]! } })
@@ -585,10 +634,35 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.4 })
         n++
       }
-      use({ id: 'pray', x: -1.0, z: 0, r: 1.4, title: 'Prayer rows', body: 'Join the back row. Quiet focus for your next course.', enter: 'Pray', run: () => {
-        hooks.busy(2.2, o.x - 0.6, o.z, Math.PI / 2)
-        hooks.toast(sitPrayer().message)
-      } })
+      const abayas = [0x1d1f2b, 0x2a2a2e, 0x5b2333, 0x3d4a3f, 0x6b5a48, 0x2f3f5c]
+      let f = 0
+      for (const x of [3.2, 1.6]) for (const z of [-5.0, -3.9, -2.8]) {
+        const sister = posedHuman('abaya', { pose: 'kneel', height: 1.64, look: { top: abayas[f % abayas.length]!, skin: skins[(f * 3 + 1) % skins.length]! } })
+        sister.position.set(x, 0, z)
+        sister.rotation.y = Math.PI / 2
+        group.add(sister)
+        obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.4 })
+        f++
+      }
+      // Where the player prays: each section has a place in the back row behind the imam's congregation, and a
+      // quiet place to pray alone. Sisters pray in the women's section, brothers in the men's.
+      const lady = () => getSave().body === 'zuri'
+      const here = (sx: number, sz: number) => () => { const p = hooks.player?.(); return !!p && Math.hypot(p.x - (o.x + sx), p.z - (o.z + sz)) < 0.4 }
+      const start = (mode: PrayMode, sx: number, sz: number) => {
+        void import('./congregation.ts').then((m) => m.pray({
+          seat: { x: o.x + sx, z: o.z + sz, yaw: Math.PI / 2, y: 0 },
+          mode,
+          sit: hooks.sit,
+          here: here(sx, sz),
+          done: (prayer) => hooks.toast(`${prayer}: ${mode === 'alone' ? 'prayed on your own' : 'prayed in congregation'}. ${sitPrayer().message}`),
+        }))
+      }
+      const forMen = (run: () => void) => () => { if (lady()) hooks.toast('Sisters pray in the women’s section, behind the screen on the north side. You can join the same congregation there: the imam is on the speakers.'); else run() }
+      const forWomen = (run: () => void) => () => { if (!lady()) hooks.toast('This is the women’s section. Brothers pray on the other side of the screen, behind the imam.'); else run() }
+      use({ id: 'pray', x: 0.0, z: 1.4, r: 1.3, title: 'Men’s rows', body: 'Join the congregation behind the imam, in the back row.', enter: 'Join the congregation', run: forMen(() => start('men', 0.0, 1.4)) })
+      use({ id: 'pray-alone-men', x: -3.0, z: 3.8, r: 1.2, title: 'Men’s section', body: 'Pray on your own, at your own pace.', enter: 'Pray on your own', run: forMen(() => start('alone', -3.0, 3.8)) })
+      use({ id: 'pray-women', x: 0.0, z: -3.9, r: 1.3, title: 'Women’s section', body: 'Join the congregation: the imam’s voice comes through the speakers.', enter: 'Join the congregation', run: forWomen(() => start('women', 0.0, -3.9)) })
+      use({ id: 'pray-alone-women', x: -3.0, z: -4.6, r: 1.2, title: 'Women’s section', body: 'Pray on your own, at your own pace.', enter: 'Pray on your own', run: forWomen(() => start('alone', -3.0, -4.6)) })
       box(1.2, 0.5, 0.4, std(0x5a3f2c, 0.7), -w / 2 + 1.0, -d / 2 + 0.6)
     }
 

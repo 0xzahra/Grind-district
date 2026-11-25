@@ -3,10 +3,13 @@ import * as THREE from 'three'
 // Sitting: a seat is a spot on the floor plan, the direction the sitter faces, and the seat-top height.
 // The sit pose is layered on the rig after the mixer runs (it works from any standing clip):
 // thighs forward, shins down, hands on the lap, and the body lowered until the hips rest on the seat.
-export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' | 'bar' }
+// Prayer positions (the masjid): qiyam standing with the hands folded, ruku bowing with the back flat, sujud
+// prostrating, jalsa sitting back on the heels. The masjid changes `pose` on the same seat as the prayer goes on.
+export type PrayerPose = 'qiyam' | 'ruku' | 'sujud' | 'jalsa'
+export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' | 'bar' | PrayerPose }
 export type SeatSpot = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; use: () => void }
 
-type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; feet: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hands: THREE.Object3D[]; hipDrop: number }
+type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; feet: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hands: THREE.Object3D[]; hipDrop: number; footY: number }
 
 const axis = new THREE.Vector3()
 const qParent = new THREE.Quaternion()
@@ -47,7 +50,8 @@ function findBones(root: THREE.Object3D): Bones | null {
   const hipY = legL.getWorldPosition(v).y
   const kneeY = kneeL.getWorldPosition(new THREE.Vector3()).y
   const rootY = root.getWorldPosition(new THREE.Vector3()).y
-  const bones: Bones = { person, hips, legs: [legL, legR], knees: [kneeL, kneeR], feet: [footL, footR], arms: [armL, armR].filter(Boolean) as THREE.Object3D[], fores: [foreL, foreR].filter(Boolean) as THREE.Object3D[], hands: [handL, handR].filter(Boolean) as THREE.Object3D[], hipDrop: hipY - rootY }
+  const footY = footL.getWorldPosition(new THREE.Vector3()).y - rootY
+  const bones: Bones = { person, hips, legs: [legL, legR], knees: [kneeL, kneeR], feet: [footL, footR], arms: [armL, armR].filter(Boolean) as THREE.Object3D[], fores: [foreL, foreR].filter(Boolean) as THREE.Object3D[], hands: [handL, handR].filter(Boolean) as THREE.Object3D[], hipDrop: hipY - rootY, footY }
   void kneeY
   person.userData.sitBones = bones
   return bones
@@ -75,13 +79,15 @@ export function createSeating() {
     /** Call after avatar.step() each frame. Cheap: a handful of quaternion multiplies while seated, nothing otherwise. */
     apply(root: THREE.Object3D, dt: number) {
       blend += ((seat ? 1 : 0) - blend) * (1 - Math.exp(-12 * dt))
-      if (blend < 0.002 && !seat) { blend = 0; const b0 = root.userData.person as THREE.Object3D | undefined; if (b0 && (b0.position.y !== 0 || b0.rotation.x !== 0)) { b0.position.y = 0; b0.rotation.x = 0 } return }
+      if (blend < 0.002 && !seat) { blend = 0; const b0 = root.userData.person as THREE.Object3D | undefined; if (b0 && (b0.position.y !== 0 || b0.position.x !== 0 || b0.position.z !== 0 || b0.rotation.x !== 0)) { b0.position.set(0, 0, 0); b0.rotation.x = 0 } return }
       const b = findBones(root)
       if (!b) return
       if (seat) {
         if (lastRoot !== root) { lastRoot = root; rootYaw0 = root.rotation.y }
         root.rotation.y = seat.yaw - b.person.rotation.y
       }
+      // The prayer positions tip and shift the body; start every frame upright and in place, then pose.
+      if (b.person.rotation.x !== 0 || b.person.position.x !== 0 || b.person.position.z !== 0) { b.person.rotation.x = 0; b.person.position.x = 0; b.person.position.z = 0 }
       root.updateMatrixWorld(true)
       b.person.getWorldQuaternion(qPerson)
       axis.set(1, 0, 0).applyQuaternion(qPerson).normalize()
@@ -103,6 +109,67 @@ export function createSeating() {
         return
       }
       if (b.person.rotation.x !== 0) b.person.rotation.x = 0
+      if (pose === 'qiyam' || pose === 'ruku' || pose === 'sujud' || pose === 'jalsa') {
+        const sc = root.scale.y || 1
+        const legs = (thigh: [number, number, number], shin: [number, number, number]) => {
+          for (let i = 0; i < 2; i++) {
+            const side = sideOf(b.legs[i]!)
+            aim(b.legs[i]!, b.knees[i]!, want(side * thigh[0], thigh[1], thigh[2]), t)
+            aim(b.knees[i]!, b.feet[i]!, want(side * shin[0], shin[1], shin[2]), t)
+          }
+        }
+        const arms = (upper: [number, number, number], fore: [number, number, number], fold = false) => {
+          for (let i = 0; i < b.arms.length; i++) {
+            const arm = b.arms[i]!, f = b.fores[i], hand = b.hands[i]
+            if (!f || !hand) continue
+            const side = sideOf(arm)
+            aim(arm, f, want(side * upper[0], upper[1], upper[2]), t)
+            aim(f, hand, want((fold ? -side : side) * fore[0], fore[1], fore[2]), t)
+          }
+        }
+        // Keep one part of the body on its mark (the feet standing, the knees kneeling), in the seat's own frame.
+        const pin = (parts: THREE.Object3D[], to: THREE.Vector3) => {
+          root.updateMatrixWorld(true)
+          const at = new THREE.Vector3()
+          for (const p of parts) at.add(p.getWorldPosition(vFrom))
+          at.multiplyScalar(1 / parts.length)
+          root.worldToLocal(at)
+          b.person.position.x += (to.x - at.x) * t
+          b.person.position.y += (to.y - at.y) * t
+          b.person.position.z += (to.z - at.z) * t
+        }
+        b.person.position.y = 0
+        if (pose === 'qiyam') {
+          // Standing, the right hand over the left on the chest.
+          legs([0.05, -1, 0.02], [0.02, -1, 0])
+          arms([0.22, -0.93, 0.28], [0.86, 0.22, 0.46], true)
+          return
+        }
+        if (pose === 'jalsa') {
+          // Sitting back on the heels, hands resting on the thighs.
+          legs([0.06, -0.36, 0.93], [0.02, -0.16, -0.98])
+          arms([0.2, -0.93, 0.3], [0.2, -0.42, 0.88], true)
+          pin(b.knees, new THREE.Vector3(0, 0.085 / sc, 0.1 / sc))
+          return
+        }
+        b.person.rotation.order = 'YXZ'
+        if (pose === 'ruku') {
+          // Bowing: the back level, legs straight, hands on the knees.
+          b.person.rotation.x = Math.PI / 2 * 0.92 * t
+          root.updateMatrixWorld(true)
+          legs([0.05, -1, -0.04], [0.02, -1, 0.02])
+          arms([0.1, -0.88, -0.46], [0.04, -0.86, -0.5])
+          pin(b.feet, new THREE.Vector3(0, b.footY / sc, 0))
+          return
+        }
+        // Sujud: knees, palms and forehead on the floor, thighs upright, shins flat behind.
+        b.person.rotation.x = 2.05 * t
+        root.updateMatrixWorld(true)
+        legs([0.08, -1, -0.06], [0.03, -0.12, -0.99])
+        arms([0.3, -0.84, 0.46], [0.06, -0.22, 0.97])
+        pin(b.knees, new THREE.Vector3(0, 0.085 / sc, -0.15 / sc))
+        return
+      }
       if (pose === 'workout') {
         // Squat loop with the arms held forward.
         const k = (Math.sin(performance.now() / 1000 * 3.2) + 1) / 2 * t

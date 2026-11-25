@@ -516,6 +516,12 @@
       "title": "New: Grind Café ☕",
       "body": "The Campus café is now Grind Café: a glass café you can see into and walk into, with a barista, people at the tables and a terrace. McGrind's patio is full of people eating outside too.",
       "go": "place:Grind Café"
+    },
+    {
+      "id": "u1126-masjid-sisters",
+      "title": "Masjid: a women's section",
+      "body": "The Grand Masjid now has a women's section behind a carved screen. Sisters can pray on their own, or join the imam's congregation through the speakers. And you now pray in full: standing, bowing, prostrating and sitting.",
+      "go": "place:Masjid"
     }
   ]
 }
