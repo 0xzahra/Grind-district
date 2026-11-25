@@ -374,6 +374,18 @@
       "title": "Smoother after switching apps",
       "body": "If the 3D view comes back blank after you switch apps, the game now repairs it by itself. Also: a cleaner wallet card in the menu and a proper seat at the kiosk stools.",
       "push": false
+    },
+    {
+      "id": "u1126-share-city-stats",
+      "title": "New: share the city stats as a picture",
+      "body": "Tap the Online pill, then Share the city stats. You get a ready-made card with the live numbers and a link to play; on phones it goes straight into your share sheet, no saving needed."
+    },
+    {
+      "id": "u1126-share-posters",
+      "title": "Share McGrind's posters",
+      "body": "Walk up to any McGrind poster, billboard or board and tap Share poster. The poster picture goes with your post.",
+      "go": "place:McGrind",
+      "push": false
     }
   ]
 }

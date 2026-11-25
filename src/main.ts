@@ -325,7 +325,7 @@ const apiAgents = createRemoteAgents(scene)
   createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics, walkLines: citizenWalkLines })
   createStreetscape(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
   // McGrind's ads round the city: billboards, bus shelters, A-frames and wall posters (two draw calls in all).
-  createMcGrindAds(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
+  const flyerSpots = createMcGrindAds(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
   performance.mark('gd:estate-beach-skyline-street')
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
@@ -1652,7 +1652,16 @@ const apiAgents = createRemoteAgents(scene)
     if (card.note) { const d = mk('details', 'sc-note'); d.append(mk('summary', '', 'About these numbers'), mk('p', 'stat-note', card.note)); nodes.push(d) }
     const who = mk('button', 'stat-players', 'See who is online · invite them home') as HTMLButtonElement; who.type = 'button'
     who.onclick = () => { closeOnlineCard(); window.dispatchEvent(new Event('gd:players')) }
-    nodes.push(who)
+    // Share the numbers as a picture card (logo, live figures, a call to play and a QR code).
+    const share = mk('button', 'stat-share', 'Share the city stats') as HTMLButtonElement; share.type = 'button'
+    share.onclick = () => {
+      share.disabled = true; share.textContent = 'Making the picture…'
+      void Promise.all([import('./shareArt.ts'), import('./sharePicture.ts')]).then(async ([A, S]) => {
+        const canvas = await A.statsShareArt(statsCard(lastStats, onlineNow))
+        await S.sharePicture({ canvas, name: 'grind-district-city-stats', heading: 'Share the city stats', text: 'A whole city is learning Web3 in Grind District, live. Free to play in your browser:', url: `${S.SITE}/s/stats`, toast: (m) => ui.toast(m) })
+      }).catch(() => ui.toast('Sharing is not available just now.')).finally(() => { share.disabled = false; share.textContent = 'Share the city stats' })
+    }
+    nodes.push(share, who)
     onlineCard.replaceChildren(...nodes)
   }
   const loadOnlineStats = async () => {
@@ -2107,6 +2116,15 @@ const apiAgents = createRemoteAgents(scene)
       streetSpots.push({ id: `${home.id}-side-${side}`, x, z, r: 1.8, title: home.spotTitle, body: `${home.body} The front door is round the ${home.door === 'nx' ? 'west' : home.door === 'px' ? 'east' : home.door === 'nz' ? 'north' : 'south'} side.`, enter: home.id === 'yours' ? 'Go inside' : 'Ring the bell', use: () => { const door = world.hotspots.find((h) => h.id === home.id); if (door) enterRoom(door) } })
     }
   }
+  // Share any poster in the city: walk up to it and tap Share poster. The picture goes with the post (share.ts).
+  const shareFlyer = (id: string) => {
+    void Promise.all([import('./posters.ts'), import('./shareArt.ts'), import('./sharePicture.ts')]).then(async ([P, A, S]) => {
+      const f = P.flyerById(id); if (!f) return
+      const canvas = await A.flyerShareArt(f)
+      await S.sharePicture({ canvas, name: `grind-district-${f.id}`, heading: 'Share this poster', text: `${f.text} Spotted in Grind District, a free 3D city where you learn Web3.`, url: `${S.SITE}/p/${f.id}`, toast: (m) => ui.toast(m) })
+    }).catch(() => ui.toast('Sharing is not available just now.'))
+  }
+  flyerSpots.forEach((f, i) => streetSpots.push({ id: `share-flyer-${i}`, x: f.x, z: f.z, r: 1.25, title: 'McGrind poster', body: 'McGrind is hiring. Share this poster: the picture goes with your post.', enter: 'Share poster', use: () => shareFlyer(f.flyer) }))
   streetSpots.push({ id: 'graduation', x: 4.6, z: -41.2, r: 1.4, title: 'Graduation 🎓', body: 'Pass every course in the six Campus worlds to graduate: cap and gown, your name called, the diploma from Zahra.', enter: 'Graduation', use: () => ui.open('diploma') })
   window.addEventListener('gd:graduated', () => { notify('Graduate 🎓', 'Diploma in Web3 Foundations. Download it or share it from Graduation.', 'graduated', 'panel:diploma'); window.setTimeout(() => ui.open('diploma'), 4200) })
   // Unit 4, the labelled agent, has a job: walk up (it stops and turns to you) and ask it about agents.

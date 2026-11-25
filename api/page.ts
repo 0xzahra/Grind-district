@@ -9,6 +9,7 @@ import { getProfile } from './_profile.js'
 import { certMetadata, issuedWat, issuedIso, certPageUrl, CERT_ORIGIN, CERT_WORDING, CERT_W, CERT_H, type CertChain, type CertData } from './_certArt.js'
 import { findCert, rowData, certDb, type CertRow } from './_certStore.js'
 import { countPageView } from './_stats.js'
+import { FLYER_PAGES } from './_posters.js'
 
 /** A certificate is shown only from its server record; anything else (edited, made-up or unknown) is not valid. */
 async function certFor(key: string): Promise<{ row: CertRow; d: CertData } | null> {
@@ -47,7 +48,39 @@ async function certAsset(req: Req, res: Res, kind: 'certpng' | 'certmeta') {
   }
 }
 
+/** /s/stats and /p/<flyer>: a page whose link preview is the shared picture (the live city stats card, or the
+ *  poster itself), with a key into the game. Posts on X and Farcaster show the picture from these. */
+function sharePage(req: Req, res: Res) {
+  const origin = ORIGIN
+  let title = 'Grind District · live city stats', desc = 'A whole city is learning Web3, live. Free to play in your browser, on a phone or a computer.'
+  let image = `${origin}/api/og?kind=stats&h=${Math.floor(Date.now() / 3_600_000)}`, imgW = 1200, imgH = 630, pageUrl = `${origin}/s/stats`, src = 'stats'
+  if (req.query.kind === 'poster') {
+    const id = String(req.query.id ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 48)
+    const f = FLYER_PAGES[id]
+    if (!f) { res.setHeader('cache-control', 'no-store'); res.setHeader('location', `${origin}/?src=poster`); return res.status(302).send('') }
+    title = `${f.title} · Grind District`; desc = `${f.text} A free 3D city where you learn Web3.`
+    image = `${origin}/posters/${id}.jpg`; pageUrl = `${origin}/p/${id}`; src = 'poster'
+  }
+  const game = `${origin}/?src=${src}`
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="${esc(desc)}">
+<meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${esc(image)}"><meta property="og:image:width" content="${imgW}"><meta property="og:image:height" content="${imgH}"><meta property="og:url" content="${esc(pageUrl)}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${esc(image)}">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 30% 0%,#183626,#07130d 60%);color:#f7f3ea;font-family:-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif}
+main{max-width:760px;margin:24px;padding:20px;border-radius:24px;border:1px solid #e9cf8e66;background:#0b120ecc;text-align:center}
+img.pic{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 14px 40px #0008}h1{font-size:24px;margin:18px 0 6px}p{color:#c3cec7;margin:0 0 16px}
+a.btn{display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(180deg,#3bfaa4,#12d77c);color:#04160e;font-weight:800;text-decoration:none}</style></head>
+<body><main><img class="pic" src="${esc(image)}" alt="${esc(title)}" width="${imgW}" height="${imgH}"><h1>${esc(title)}</h1><p>${esc(desc)}</p><a class="btn" href="${esc(game)}">Play Grind District free</a></main></body></html>`
+  res.setHeader('content-type', 'text/html; charset=utf-8')
+  res.setHeader('cache-control', 'public, max-age=300, s-maxage=600')
+  return res.status(200).send(html)
+}
+
 export default async function handler(req: Req, res: Res) {
+  if (req.query.kind === 'stats' || req.query.kind === 'poster') return sharePage(req, res)
   if (req.query.kind === 'certpng' || req.query.kind === 'certmeta') return certAsset(req, res, req.query.kind)
   const kind = req.query.kind === 'cert' ? 'cert' : 'cv'
   const origin = ORIGIN

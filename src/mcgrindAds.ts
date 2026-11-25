@@ -8,6 +8,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Obstacle } from './physics.ts'
 import type { Graphics } from './logic.ts'
 import { drawMcGrindMark, MCGRIND_BRIGHT, MCGRIND_GREEN } from './brandFronts.ts'
+import type { Flyer } from './posters.ts'
 
 const FONT = '"Inter Variable", Inter, system-ui, sans-serif'
 const DISPLAY = '"Archivo Black", "Inter Variable", Inter, system-ui, sans-serif'
@@ -26,53 +27,68 @@ const BILLBOARDS: Array<[string, string]> = [
   ['Wen bull run? Wen lunch.', 'Work a shift at McGrind, stack your pay, invest when the market turns.'],
 ]
 
+const wrapText = (g: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) => {
+  const words = text.split(' '); let line = '', yy = y
+  for (const w of words) { const t = line ? `${line} ${w}` : w; if (g.measureText(t).width > maxW && line) { g.fillText(line, x, yy); line = w; yy += lh } else line = t }
+  if (line) g.fillText(line, x, yy)
+  return yy
+}
+/** One portrait poster, 256 x 384 units, with its top-left corner at (x, y). */
+function paintPoster(g: CanvasRenderingContext2D, i: number, x: number, y: number): void {
+  const [head, line, small] = POSTERS[i % POSTERS.length]!
+  g.save(); g.beginPath(); g.rect(x, y, 256, 384); g.clip()
+  const bg = g.createLinearGradient(x, y, x, y + 384); bg.addColorStop(0, i % 2 ? '#0b5c36' : MCGRIND_GREEN); bg.addColorStop(1, '#063a22'); g.fillStyle = bg; g.fillRect(x, y, 256, 384)
+  g.fillStyle = 'rgba(23,247,144,0.08)'; for (let k = 0; k < 12; k++) g.fillRect(x - 60 + k * 36, y, 14, 384)
+  drawMcGrindMark(g, x + 16, y + 16, 56)
+  g.fillStyle = '#ffffff'; g.font = `800 16px ${FONT}`; g.fillText('McGrind', x + 80, y + 40); g.fillStyle = MCGRIND_BRIGHT; g.font = `700 11px ${FONT}`; g.fillText('NOW HIRING', x + 80, y + 60)
+  g.fillStyle = '#ffffff'; g.font = `400 ${head.length > 14 ? 30 : 38}px ${DISPLAY}`; g.textBaseline = 'top'
+  const yHead = wrapText(g, head, x + 16, y + 100, 224, head.length > 14 ? 34 : 42)
+  g.fillStyle = '#ffe3a3'; g.font = `700 20px ${FONT}`
+  const yLine = wrapText(g, line, x + 16, yHead + 56, 224, 24)
+  g.fillStyle = 'rgba(255,255,255,0.82)'; g.font = `500 14px ${FONT}`
+  wrapText(g, small, x + 16, yLine + 40, 224, 18)
+  g.fillStyle = MCGRIND_BRIGHT; g.fillRect(x, y + 344, 256, 40)
+  g.fillStyle = '#04110a'; g.font = `800 14px ${FONT}`; g.textBaseline = 'middle'; g.fillText('Work a shift · by the Campus café', x + 14, y + 364, 230)
+  g.textBaseline = 'alphabetic'
+  g.restore()
+}
+/** One billboard, 512 x 256 units, with its top-left corner at (x, y). */
+function paintBillboard(g: CanvasRenderingContext2D, i: number, x: number, y: number): void {
+  const [head, line] = BILLBOARDS[i % BILLBOARDS.length]!
+  g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip()
+  const bg = g.createLinearGradient(x, y, x + 512, y + 256); bg.addColorStop(0, MCGRIND_GREEN); bg.addColorStop(1, '#052e1b'); g.fillStyle = bg; g.fillRect(x, y, 512, 256)
+  drawMcGrindMark(g, x + 22, y + 22, 112)
+  g.fillStyle = '#ffffff'; g.font = `400 34px ${DISPLAY}`; g.textBaseline = 'top'
+  const yy = wrapText(g, head, x + 150, y + 30, 340, 38)
+  g.fillStyle = '#ffe3a3'; g.font = `600 17px ${FONT}`
+  wrapText(g, line, x + 150, yy + 50, 340, 21)
+  g.fillStyle = MCGRIND_BRIGHT; g.fillRect(x, y + 222, 512, 34)
+  g.fillStyle = '#04110a'; g.font = `800 16px ${FONT}`; g.textBaseline = 'middle'; g.fillText('McGRIND · OPEN DAY AND NIGHT · NOW HIRING', x + 22, y + 240, 470)
+  g.textBaseline = 'alphabetic'
+  g.restore()
+}
+
 /** Paint the sheet: six portrait posters (256 x 384 each) and two billboards (512 x 256), in 1024 units. */
 function paintSheet(g: CanvasRenderingContext2D): void {
-  const wrap = (text: string, x: number, y: number, maxW: number, lh: number) => {
-    const words = text.split(' '); let line = '', yy = y
-    for (const w of words) { const t = line ? `${line} ${w}` : w; if (g.measureText(t).width > maxW && line) { g.fillText(line, x, yy); line = w; yy += lh } else line = t }
-    if (line) g.fillText(line, x, yy)
-    return yy
-  }
-  POSTERS.forEach(([head, line, small], i) => {
-    const x = (i % 3) * 256, y = Math.floor(i / 3) * 384
-    g.save(); g.beginPath(); g.rect(x, y, 256, 384); g.clip()
-    const bg = g.createLinearGradient(x, y, x, y + 384); bg.addColorStop(0, i % 2 ? '#0b5c36' : MCGRIND_GREEN); bg.addColorStop(1, '#063a22'); g.fillStyle = bg; g.fillRect(x, y, 256, 384)
-    g.fillStyle = 'rgba(23,247,144,0.08)'; for (let k = 0; k < 12; k++) g.fillRect(x - 60 + k * 36, y, 14, 384)
-    drawMcGrindMark(g, x + 16, y + 16, 56)
-    g.fillStyle = '#ffffff'; g.font = `800 16px ${FONT}`; g.fillText('McGrind', x + 80, y + 40); g.fillStyle = MCGRIND_BRIGHT; g.font = `700 11px ${FONT}`; g.fillText('NOW HIRING', x + 80, y + 60)
-    g.fillStyle = '#ffffff'; g.font = `400 ${head.length > 14 ? 30 : 38}px ${DISPLAY}`; g.textBaseline = 'top'
-    const yHead = wrap(head, x + 16, y + 100, 224, head.length > 14 ? 34 : 42)
-    g.fillStyle = '#ffe3a3'; g.font = `700 20px ${FONT}`
-    const yLine = wrap(line, x + 16, yHead + 56, 224, 24)
-    g.fillStyle = 'rgba(255,255,255,0.82)'; g.font = `500 14px ${FONT}`
-    wrap(small, x + 16, yLine + 40, 224, 18)
-    g.fillStyle = MCGRIND_BRIGHT; g.fillRect(x, y + 344, 256, 40)
-    g.fillStyle = '#04110a'; g.font = `800 14px ${FONT}`; g.textBaseline = 'middle'; g.fillText('Work a shift · by the Campus café', x + 14, y + 364, 230)
-    g.textBaseline = 'alphabetic'
-    g.restore()
-  })
-  BILLBOARDS.forEach(([head, line], i) => {
-    const x = i * 512, y = 768
-    g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip()
-    const bg = g.createLinearGradient(x, y, x + 512, y + 256); bg.addColorStop(0, MCGRIND_GREEN); bg.addColorStop(1, '#052e1b'); g.fillStyle = bg; g.fillRect(x, y, 512, 256)
-    drawMcGrindMark(g, x + 22, y + 22, 112)
-    g.fillStyle = '#ffffff'; g.font = `400 34px ${DISPLAY}`; g.textBaseline = 'top'
-    const yy = wrap(head, x + 150, y + 30, 340, 38)
-    g.fillStyle = '#ffe3a3'; g.font = `600 17px ${FONT}`
-    wrap(line, x + 150, yy + 50, 340, 21)
-    g.fillStyle = MCGRIND_BRIGHT; g.fillRect(x, y + 222, 512, 34)
-    g.fillStyle = '#04110a'; g.font = `800 16px ${FONT}`; g.textBaseline = 'middle'; g.fillText('McGRIND · OPEN DAY AND NIGHT · NOW HIRING', x + 22, y + 240, 470)
-    g.textBaseline = 'alphabetic'
-    g.restore()
-  })
+  POSTERS.forEach((_, i) => paintPoster(g, i, (i % 3) * 256, Math.floor(i / 3) * 384))
+  BILLBOARDS.forEach((_, i) => paintBillboard(g, i, i * 512, 768))
 }
+
+/** Every McGrind poster and billboard as a shareable flyer (see posters.ts). Ids are stable: links use them. */
+export const MCGRIND_FLYERS: Flyer[] = [
+  ...POSTERS.map(([head, line], i): Flyer => ({ id: `mcgrind-${i + 1}`, title: `McGrind: ${head.replace(/\*$/, '')}`, text: `${head} ${line}`.replace('*', ''), w: 256, h: 384, paint: (g) => paintPoster(g, i, 0, 0) })),
+  ...BILLBOARDS.map(([head, line], i): Flyer => ({ id: `mcgrind-billboard-${i + 1}`, title: `McGrind: ${head}`, text: `${head} ${line}`, w: 512, h: 256, paint: (g) => paintBillboard(g, i, 0, 0) })),
+]
+const flyerFor = (cell: Face['cell']): string => cell[1] >= 768 ? `mcgrind-billboard-${cell[0] / 512 + 1}` : `mcgrind-${(cell[0] / 256) + 3 * (cell[1] / 384) + 1}`
 
 type Face = { w: number; h: number; x: number; y: number; z: number; ry: number; rx?: number; cell: [number, number, number, number] }
 const portrait = (i: number): Face['cell'] => { const x = (i % 3) * 256, y = Math.floor(i / 3) * 384; return [x, y, x + 256, y + 384] }
 const landscape = (i: number): Face['cell'] => [i * 512, 768, i * 512 + 512, 1024]
 
-export function createMcGrindAds(scene: THREE.Scene, o: { obstacles: Obstacle[]; graphics: Graphics }): void {
+/** Where a poster can be shared from: a step in front of it, and which flyer it shows. */
+export type FlyerSpot = { flyer: string; x: number; z: number }
+
+export function createMcGrindAds(scene: THREE.Scene, o: { obstacles: Obstacle[]; graphics: Graphics }): FlyerSpot[] {
   const free = (x: number, z: number, hx: number, hz: number) => o.obstacles.every((b) => b.kind === 'circle'
     ? Math.abs(x - b.x) > hx + b.r + 0.2 || Math.abs(z - b.z) > hz + b.r + 0.2
     : Math.abs(x - b.x) > hx + b.hx + 0.2 || Math.abs(z - b.z) > hz + b.hz + 0.2)
@@ -129,7 +145,15 @@ export function createMcGrindAds(scene: THREE.Scene, o: { obstacles: Obstacle[];
     const [bx, bz] = at(x, z, ry, 0, -0.02)
     frame(new THREE.BoxGeometry(1.2, 1.75, 0.03).rotateY(ry).translate(bx, 1.75, bz))
   }
-  if (!faces.length) return
+  if (!faces.length) return []
+  // Share spots: in front of each face a person can walk up to (billboards from the pavement below them).
+  const spotsOut: FlyerSpot[] = []
+  for (const f of faces) {
+    const reach = f.y > 3 ? 2.2 : 0.9
+    const sx = f.x + Math.sin(f.ry) * reach, sz = f.z + Math.cos(f.ry) * reach
+    if (spotsOut.some((q) => Math.hypot(q.x - sx, q.z - sz) < 1.2)) continue
+    spotsOut.push({ flyer: flyerFor(f.cell), x: sx, z: sz })
+  }
 
   // One painted sheet for every poster.
   const S = o.graphics === 'low' ? 1024 : 2048
@@ -155,4 +179,5 @@ export function createMcGrindAds(scene: THREE.Scene, o: { obstacles: Obstacle[];
     m.name = 'mcgrind-ads'
     scene.add(m)
   }
+  return spotsOut
 }

@@ -54,6 +54,14 @@
       "destination": "/api/page?kind=cert&id=:id"
     },
     {
+      "source": "/s/stats",
+      "destination": "/api/page?kind=stats"
+    },
+    {
+      "source": "/p/:id",
+      "destination": "/api/page?kind=poster&id=:id"
+    },
+    {
       "source": "/api/agent-register",
       "destination": "/api/agent?op=register"
     },

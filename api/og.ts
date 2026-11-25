@@ -59,9 +59,45 @@ function notePicture(q: URLSearchParams): Response {
   return new ImageResponse(tree as never, { width: 1024, height: 512, headers: { 'cache-control': 'public, max-age=86400, s-maxage=604800, immutable' } })
 }
 
+/** The live city stats as a 1200 x 630 link preview for /s/stats: the city photo, the logo, the headline figures
+ *  and a call to play. Counts only (the same public numbers as the Online card); refreshed every hour. */
+async function statsPicture(): Promise<Response> {
+  type S = { activeToday?: number; visitorsAll?: number; learners?: number; lessonsPassed?: number; certificates?: number; registered?: number }
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 2500)
+  const st = await fetch(`${ORIGIN}/api/track?op=stats`, { signal: ctl.signal }).then((r) => (r.ok ? (r.json() as Promise<S>) : null)).catch(() => null)
+  clearTimeout(t)
+  const k = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
+  const tiles: Array<[string, string]> = st ? ([
+    ['Visitors', st.visitorsAll], ['Active today', st.activeToday], ['Learners', st.learners],
+    ['Courses passed', st.lessonsPassed], ['Certificates', st.certificates], ['Players', st.registered],
+  ] as Array<[string, number | undefined]>).filter(([, v]) => typeof v === 'number').slice(0, 6).map(([l, v]) => [l, k(v)]) : []
+  const facts: Array<[string, string]> = [['To play', 'Free'], ['Live city', '24/7'], ['Web3 CV', 'Yours']]
+  const show = tiles.length >= 3 ? tiles : [...tiles, ...facts].slice(0, 3)
+  const tile = ([label, value]: [string, string], i: number) => h('div', { width: 172, height: 128, flexDirection: 'column', justifyContent: 'center', padding: '0 20px', borderRadius: 22, background: 'rgba(255,255,255,0.09)', border: `2px solid ${i === 0 ? 'rgba(59,250,164,0.55)' : 'rgba(233,207,142,0.42)'}` },
+    h('div', { fontSize: value.length > 5 ? 38 : 46, fontWeight: 800, color: i === 0 ? '#3bfaa4' : GOLD }, value),
+    h('div', { fontSize: 17, color: 'rgba(247,243,234,0.78)', marginTop: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }, label))
+  const tree = h('div', { width: 1200, height: 630, position: 'relative', background: '#07130d', fontFamily: 'sans-serif', overflow: 'hidden' },
+    { type: 'img', props: { src: `${ORIGIN}/brand/title-l.jpg`, width: 1200, height: 630, style: { position: 'absolute', left: 0, top: 0, objectFit: 'cover' } } },
+    h('div', { position: 'absolute', left: 0, top: 0, width: 1200, height: 630, background: 'linear-gradient(90deg, rgba(4,12,8,0.94) 0%, rgba(4,12,8,0.82) 55%, rgba(4,12,8,0.7) 100%)' }),
+    h('div', { position: 'absolute', left: 18, top: 18, width: 1164, height: 594, borderRadius: 30, border: '3px solid rgba(233,207,142,0.75)' }),
+    h('div', { position: 'absolute', left: 64, top: 56, width: 480, height: 520, flexDirection: 'column' },
+      { type: 'img', props: { src: `${ORIGIN}/brand/logo-new.png`, width: 210, height: 130 } },
+      h('div', { marginTop: 30, fontSize: 58, fontWeight: 800, color: '#f7f3ea', lineHeight: 1.08 }, 'A whole city learning Web3.'),
+      h('div', { marginTop: 16, fontSize: 25, color: '#c3cec7' }, 'Live city stats · free to play in your browser'),
+      h('div', { marginTop: 'auto' },
+        h('div', { padding: '16px 32px', borderRadius: 999, background: 'linear-gradient(180deg, #3bfaa4 0%, #12d77c 100%)', color: '#04160e', fontSize: 27, fontWeight: 800 }, 'Play free at grinddistrict.app'))),
+    h('div', { position: 'absolute', left: 590, top: 70, width: 560, flexWrap: 'wrap', gap: 14 },
+      h('div', { width: 560, alignItems: 'center', marginBottom: 6 },
+        h('div', { width: 14, height: 14, borderRadius: 7, background: '#3bfaa4', marginRight: 10 }),
+        h('div', { fontSize: 22, fontWeight: 800, color: '#f7f3ea', letterSpacing: 2 }, 'LIVE CITY STATS')),
+      ...show.map(tile)))
+  return new ImageResponse(tree as never, { width: 1200, height: 630, headers: { 'cache-control': 'public, max-age=600, s-maxage=3600' } })
+}
+
 export async function GET(req: Request): Promise<Response> {
   const q = new URL(req.url, ORIGIN).searchParams
   if (q.get('kind') === 'note') return notePicture(q)
+  if (q.get('kind') === 'stats') return statsPicture()
   const u = clean(q.get('u') ?? '')
   const card = await storedCard(u).catch(() => null)
   if (card) return new Response(card, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=300, s-maxage=300' } })
