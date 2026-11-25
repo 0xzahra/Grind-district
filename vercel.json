@@ -25,6 +25,12 @@
     }
   ],
   "rewrites": [
+    { "source": "/how-it-works", "destination": "/how-it-works.html" },
+    { "source": "/guide", "destination": "/how-it-works.html" },
+    { "source": "/start", "destination": "/how-it-works.html" },
+    { "source": "/certificates", "destination": "/certificates.html" },
+    { "source": "/vs-courses", "destination": "/vs-courses.html" },
+    { "source": "/compare", "destination": "/vs-courses.html" },
     {
       "source": "/api/stocks",
       "destination": "/api/track?op=stocks"

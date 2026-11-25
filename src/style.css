@@ -4785,4 +4785,12 @@ html[data-ui='light'] .cafe-news, html[data-ui='light'] .co2-card { background: 
 .cafe-news small, .co2-card small { font-size: 13px; line-height: 1.45; opacity: 0.82; }
 .co2-card .co2-check { opacity: 1; font-weight: 600; color: #0f7a48; }
 .co2-card > button { margin-top: 6px; justify-self: start; }
+/* Title screen: a plain link to the beginner's guide and certificates pages (readable without the game) */
+.menu-guide { margin: 12px 0 0; font-size: 13.5px; text-align: center; }
+.menu-guide a { color: rgba(245, 245, 247, 0.86); text-decoration: underline; text-underline-offset: 3px; }
+.menu-guide a:hover { color: #2ee68a; }
+.menu-guide span { color: rgba(245, 245, 247, 0.5); }
+html[data-ui='light'] .menu-guide a { color: #1d1b17; }
+.noscript-about { max-width: 720px; margin: 40px auto; padding: 0 16px; color: #eef3ef; font: 16px/1.6 Inter, system-ui, sans-serif; }
+.noscript-about a { color: #2ee68a; }
 

@@ -20,7 +20,7 @@ const POSTERS: Array<[string, string, string]> = [
   ['WAGMI*', "*We're All Gonna Make It (fries)", 'Paid every shift. Tips for speed.'],
   ['NO SEED PHRASE NEEDED', 'Just show up and cook.', 'The McGrind kitchen is hiring.'],
   ['STACK WHILE YOU WAIT', 'Save from every shift.', 'Invest when the bull comes back.'],
-  ['GOT RUGGED?', 'Get hired.', 'Shifts by the Campus café, all day, all night.'],
+  ['GOT RUGGED?', 'Get hired.', 'Shifts by Grind Café, all day, all night.'],
 ]
 // What each one says when it is shared (posters.ts flyerCaption adds the rest).
 // Each leads with what it is (a stranger reading it cold learns they can work a shift in the game), then the joke.
@@ -38,7 +38,7 @@ const BILLBOARD_CAPTIONS = [
   'Work a shift at McGrind, a 3D city job that pays per shift and tips for speed 🍔 Wen bull run? Wen lunch.',
 ]
 const BILLBOARDS: Array<[string, string]> = [
-  ['Bear market? McGrind is hiring.', 'Flip burgers, not your bags · Paid every shift · By the Campus café'],
+  ['Bear market? McGrind is hiring.', 'Flip burgers, not your bags · Paid every shift · By Grind Café'],
   ['Wen bull run? Wen lunch.', 'Work a shift at McGrind, stack your pay, invest when the market turns.'],
 ]
 
@@ -63,7 +63,7 @@ function paintPoster(g: CanvasRenderingContext2D, i: number, x: number, y: numbe
   g.fillStyle = 'rgba(255,255,255,0.82)'; g.font = `500 14px ${FONT}`
   wrapText(g, small, x + 16, yLine + 40, 224, 18)
   g.fillStyle = MCGRIND_BRIGHT; g.fillRect(x, y + 344, 256, 40)
-  g.fillStyle = '#04110a'; g.font = `800 14px ${FONT}`; g.textBaseline = 'middle'; g.fillText('Work a shift · by the Campus café', x + 14, y + 364, 230)
+  g.fillStyle = '#04110a'; g.font = `800 14px ${FONT}`; g.textBaseline = 'middle'; g.fillText('Work a shift · by Grind Café', x + 14, y + 364, 230)
   g.textBaseline = 'alphabetic'
   g.restore()
 }

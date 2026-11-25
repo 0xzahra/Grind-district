@@ -939,7 +939,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       }
       // The house has cutaway walls and no ceiling, so nothing can hang there: pendants only in roofed rooms.
       if (id === 'house') continue
-      const pz = DOOR_Z[id] ?? 0 // pendants over the main floor (the lounge's sits north of its Holders' room)
+      // Pendants over the main floor (the lounge's sits north of its Holders' room). In the smaller rooms they hang a
+      // quarter of the room off the door's line: on it, the first one filled the camera's view as you walked in.
+      const pz = (DOOR_Z[id] ?? 0) - (HALL.has(id) ? 0 : s.d * 0.25)
       // In the tall halls the globes hang lower on long rods and are larger.
       const top = HALL.has(id) ? 5.2 : 3.2, big = HALL.has(id) ? 2.2 : 1, drop = HALL.has(id) ? 4.2 : 2.68
       const stem = new THREE.Mesh(propGeo.stem, propMat.shadeCap); stem.scale.y = (top - drop - 0.2 * big) / 0.3; at(stem, x, (top + drop + 0.2 * big) / 2, pz)

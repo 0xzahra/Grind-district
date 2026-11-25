@@ -27,7 +27,7 @@ export type Footprint = { x: number; z: number; w: number; d: number; label: str
 export const FOOTPRINTS: Footprint[] = [
   { x: 0, z: -48, w: 16, d: 11, label: 'Campus' },
   { x: 16, z: -54, w: 8, d: 7, label: 'Conference' },
-  { x: -16, z: -54, w: 8, d: 7, label: 'Campus café' },
+  { x: -16, z: -54, w: 8, d: 7, label: 'Grind Café' },
   { x: -28, z: -53, w: 9, d: 7, label: 'McGrind' },
   { x: -29, z: -34, w: 9, d: 7, label: 'Grind Market' },
   { x: -53, z: -41, w: 10, d: 8, label: 'Grind Bank' },

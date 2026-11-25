@@ -81,7 +81,7 @@ function citySpots(): Spot[] {
   return [
     { id: 'learn', ...hall, r: 2.5, title: 'Campus', body: 'Take short courses. Each one you pass is added to your CV.', action: 'learn', enter: 'Open the hall' },
     { id: 'conference', ...conference, r: 2.3, title: 'Conference centre', body: 'Web3 events: AMAs, talks, demo days. Join for in-game cash.', action: 'conference', enter: 'Go inside' },
-    { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Campus café', body: 'Grab a coffee and read today\'s market headlines.', action: 'cafe', enter: 'Read the room' },
+    { id: 'campus-cafe', ...cafe, r: 2.3, title: 'Grind Café', body: 'Coffee, tea and today\'s market board in plain words.', action: 'cafe', enter: 'Read the room' },
     { id: 'booths', x: 0, z: -35.2, r: 2.2, title: 'Campus booths', body: 'Project stands. Browse what teams are building.' },
     { id: 'trade', ...floor, r: 2.6, title: 'Trading floor', body: 'Buy and sell coins and tokens with in-game cash and practise sizing your trades.', action: 'trade', enter: 'Open the book' },
     { id: 'bounty', ...row, r: 2.6, title: 'Influencer row', body: 'Post a bounty to earn in-game cash and add it to your portfolio.', action: 'bounty', enter: 'Post a bounty' },

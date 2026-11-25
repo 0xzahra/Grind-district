@@ -14,6 +14,7 @@ import { facetMap, paintFacets } from './facets.ts'
 import { createTrees, foliageMaterial } from './trees.ts'
 import { groundDetail, INTERLOCK, INTERLOCK_EDGE } from './groundDetail.ts'
 import { marketFront, mcgrindFront } from './brandFronts.ts'
+import { grindCafe, mcgrindPatio } from './grindCafe.ts'
 import { buildGrandMosque, MASJID } from './grandMosque.ts'
 
 export type Hotspot = {
@@ -403,12 +404,26 @@ export function createWorld(options: {
   spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for in-game cash.', 'conference', 'Go inside')
   const lounge = addBuilding({ x: -40, z: -36, w: 9, d: 7, h: 4.4, door: 'px', title: 'Members lounge', subtitle: 'rooms open by rank', seed: 53, style: 'brick', facade: 'charcoal' })
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
-  const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', seed: 8, style: 'brick' })
-  spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Grab a coffee and read today\'s market headlines.', 'cafe', 'Read the room')
+  // Grind Café (was the brick Campus café): a glass pavilion you can see into and walk into, with a barista,
+  // customers at the tables and outside on the terrace. Its step is where the old door was.
+  {
+    const cafe = grindCafe(-16, -54, !liteOn())
+    scene.add(cafe.group)
+    obstacles.push(...cafe.obstacles)
+    reserved.push({ kind: 'box', x: -16, z: -54, hx: 4 + 1.8, hz: 3.5 + 1.8 })
+    spot('campus-cafe', -16, -54 + 3.5 + 1.45, 2.3, 'Grind Café', 'The glass café by McGrind: coffee, tea and meat pies, and today\'s market board in plain words. Walk in.', 'cafe', 'Café menu')
+    spot('cafe-counter', -16, -54.6, 1.6, 'Grind Café counter', 'Order at the bar and read today\'s board.', 'cafe', 'Café menu')
+  }
   // McGrind: the city's burger, fries, shawarma and boba restaurant (green, its own mark). Work a shift inside.
   const mcg = addBuilding({ x: -28, z: -53, w: 9, d: 7, h: 5, door: 'pz', title: 'McGrind', subtitle: 'open day and night', seed: 61, style: 'pavilion', facade: 'render' })
   spot('mcgrind', mcg.x, mcg.z, 2.4, 'McGrind', 'Burgers, fries, shawarma and boba. Order a meal, or work a shift in the kitchen to earn cash for bills and the next bull run.', undefined, 'Go inside')
   scene.add(mcgrindFront(-28, -53, 9, 7, 5))
+  // McGrind's patio: parasols, tables of people eating, friends chatting by the hiring boards.
+  {
+    const patio = mcgrindPatio(mcg.x, mcg.z, !liteOn())
+    scene.add(patio.group)
+    obstacles.push(...patio.obstacles)
+  }
   // Grind Market: a covered market hall behind this gate. Rent a stall, stock it and sell.
   const mkt = addBuilding({ x: -29, z: -34, w: 9, d: 7, h: 4.6, door: 'pz', title: 'Grind Market', subtitle: 'stalls and traders', seed: 63, style: 'arch' })
   spot('market', mkt.x, mkt.z, 2.4, 'Grind Market', 'A covered market hall. Rent a stall, stock it, set your price and sell to the city and to other players.', undefined, 'Go inside')

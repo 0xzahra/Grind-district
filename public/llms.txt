@@ -1,0 +1,32 @@
+# Grind District
+
+> Grind District is a free 3D city game in the browser where complete beginners learn Web3 by living it: walk the city, finish short lessons with a guide named Zahra, work jobs, practise trading with in-game cash, and leave with a shareable CV and a certificate for every lesson passed, optionally minted on-chain as a soulbound NFT.
+
+Key facts:
+
+- Free to play at https://www.grinddistrict.app on a phone or computer. No download. No crypto wallet is needed to start or to earn certificates.
+- Made for beginners and non-coders. 42 short lessons in 6 worlds: The Internet; The Scam That Taught Me (scam awareness and safe wallets); Blockchain Basics; Layers and Uses; The Earning Map (the real ways people earn in Web3); Your Career.
+- The loop: walk the city, finish a short lesson, it is written onto your CV, claim a certificate.
+- Every passed lesson is added to the player's public CV at https://www.grinddistrict.app/cv/<username>, with a certificate that has its own public link at https://www.grinddistrict.app/cert/<id>.
+- On-chain proof is optional: after a short exam graded on the server, a certificate can be minted as a soulbound (non-transferable) NFT. Certificate NFTs are minted on NEAR during the beta, with Base support built in. The game reads them back from the chain and marks them Verified.
+- Jobs and careers: paid kitchen shifts at McGrind (the city's burger restaurant) and 16 career tracks that open after World 5.
+- Practice only: spot trading, perpetuals and DeFi use in-game cash earned by playing, never real money.
+- Places include Campus, McGrind, Grind Café, the Trading floor, Grind Bank (how crypto institutions and spot crypto ETFs work, plus halal savings), a conference centre with Web3 events, a player-run market, homes, a gym, a masjid and a church.
+- Plays in 13 languages: English, Arabic, Chinese, Spanish, Hausa, Swahili, Japanese, Korean, Turkish, French, Portuguese, Hindi and Yoruba.
+- Built by Zahra Usman.
+
+## Guides
+
+- [How it works: beginner's guide](https://www.grinddistrict.app/how-it-works): the loop and how to start in 5 steps
+- [Certificates](https://www.grinddistrict.app/certificates): what a certificate shows, how anyone can check it, and on-chain minting
+- [Grind District vs Web3 courses](https://www.grinddistrict.app/vs-courses): compared with CryptoZombies and LearnWeb3, and who each is for
+
+## Product
+
+- [Play Grind District](https://www.grinddistrict.app/): the game itself (a 3D web app)
+- [What we shipped](https://www.grinddistrict.app/shipped.html): every update, newest first
+- [City stats](https://www.grinddistrict.app/s/stats): players, courses passed and certificates so far
+
+## Optional
+
+- [Source code](https://github.com/0xzahra/Grind-district)

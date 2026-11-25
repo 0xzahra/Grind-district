@@ -768,7 +768,7 @@ const apiAgents = createRemoteAgents(scene)
   // Map rows, pins and feed links name places loosely ("Plaza", "The Grind Ring"); the 3D spot is "Grind Ring".
   function findSpot(title: string): Hotspot | undefined {
     const bare = (t: string) => t.replace(/^the\s+/i, '').trim().toLowerCase()
-    const alias: Record<string, string> = { plaza: 'grind ring' }
+    const alias: Record<string, string> = { plaza: 'grind ring', 'campus café': 'grind café', 'campus cafe': 'grind café' }
     const want = alias[bare(title)] ?? bare(title)
     return world.hotspots.find((h) => bare(h.title) === want) ?? world.hotspots.find((h) => want.startsWith(bare(h.title)) || bare(h.title).startsWith(want))
   }

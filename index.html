@@ -18,11 +18,15 @@
     <meta name="color-scheme" content="dark" />
     <meta
       name="description"
-      content="Live a Web3 life. Build proof that travels with you. A free 3D city where you learn Web3, work, trade with practice money and build a real CV."
+      content="Learn Web3 by living in a free 3D city. Walk in, take short lessons with Zahra, work a job, practise trading with in-game cash, and leave with a CV and certificates you can share or mint on-chain."
     />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <title>Grind District</title>
+    <title>Grind District · Learn Web3 by living in a free 3D city</title>
+    <link rel="canonical" href="https://www.grinddistrict.app/" />
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":["VideoGame","WebApplication"],"name":"Grind District","url":"https://www.grinddistrict.app/","description":"A free 3D city game in the browser where beginners learn Web3 by living it: short lessons with a guide, jobs, practice trading with in-game cash, and a CV with a certificate for every lesson passed, optionally minted on-chain as a soulbound NFT.","genre":["Educational","Life simulation"],"applicationCategory":"EducationalApplication","operatingSystem":"Web browser","gamePlatform":["Web browser","Mobile web"],"isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"inLanguage":["en","ar","zh","es","ha","sw","ja","ko","tr","fr","pt","hi","yo"],"author":{"@type":"Person","name":"Zahra Usman"},"sameAs":["https://github.com/0xzahra/Grind-district"]}
+    </script>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Grind District" />
     <meta property="og:title" content="Grind District · City · Career · Skills · CV" />
@@ -157,13 +161,14 @@
           <img class="panel-logo" src="/brand/logo-new.webp" width="733" height="453" alt="Grind District" />
           <p class="title-headline">Live a Web3 life. Build proof that travels with you.</p>
           <p class="title-desc">Walk out with a CV, resume and portfolio</p>
-                    <nav class="menu-actions" aria-label="Game menu">
+          <nav class="menu-actions" aria-label="Game menu">
             <button id="menu-create" type="button" class="glass-btn primary" autofocus>Sign up</button>
             <button id="menu-signin" type="button" class="glass-btn">Sign in</button>
             <button id="menu-agents" type="button" class="glass-btn">Agents</button>
             <button id="play" type="button" class="glass-btn primary" hidden>Continue</button>
           </nav>
           <p id="menu-note"></p>
+          <p class="menu-guide"><a href="/how-it-works">New here? How it works</a><span aria-hidden="true"> · </span><a href="/certificates">Certificates</a></p>
         </div>
         <div id="menu-account" hidden>
           <h2>Enter the district</h2>
@@ -211,6 +216,15 @@
         <p id="boot-text">Opening the district</p>
       </div>
     </div>
+    <noscript>
+      <main class="noscript-about">
+        <h1>Grind District: learn Web3 by living in a free 3D city</h1>
+        <p>Grind District is a free 3D city game in your browser for complete beginners. Walk the city, finish short lessons with your guide Zahra, and every lesson you pass is written onto your CV with a certificate anyone can check by link. Work paid shifts at McGrind, practise trading with in-game cash (never real money), and mint certificates as soulbound NFTs if you want on-chain proof.</p>
+        <p>42 short lessons in 6 worlds: The Internet, The Scam That Taught Me, Blockchain Basics, Layers and Uses, The Earning Map and Your Career. 16 career tracks. 13 languages. No wallet needed to start.</p>
+        <p><a href="/how-it-works">How it works: a beginner's guide</a> · <a href="/certificates">Certificates</a> · <a href="/vs-courses">Grind District vs Web3 courses</a> · <a href="/shipped.html">What we shipped</a></p>
+        <p>The game needs JavaScript turned on to play.</p>
+      </main>
+    </noscript>
     <script type="module" src="/src/boot.ts"></script>
   </body>
 </html>

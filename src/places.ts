@@ -18,7 +18,7 @@ const markUsed = (id: string) => { try { const u = JSON.parse(localStorage.getIt
 export const PLACES: Record<PlaceId, Place> = {
   cafe: {
     title: 'Café',
-    intro: 'Coffee, tea and something to eat by the window (the Campus café and the Internet café).',
+    intro: 'Coffee, tea and something to eat by the window (Grind Café and the Terminal café).',
     items: [
       { label: 'Coffee', usd: 3, d: { energy: 25 }, note: 'A strong cup before the next lesson.' },
       { label: 'Tea and chin chin', usd: 2, d: { energy: 10, hunger: 10 }, note: 'Hot tea and a little bowl of chin chin.' },

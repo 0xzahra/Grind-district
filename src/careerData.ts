@@ -30,9 +30,9 @@ export const TRACKS: Track[] = [
 /** Jobs: 10 levels; 2-3 daily duties tied to buildings. */
 export type Job = { id: string; title: string; duties: Array<{ id: string; text: string; kind: TaskKind; place: string }> }
 export const JOBS: Job[] = [
-  { id: 'speaker', title: 'Event speaker', duties: [{ id: 'podium', text: 'Talk at the conference podium (attend an event)', kind: 'conference', place: 'Conference centre' }, { id: 'prep', text: 'Read the café board for talking points', kind: 'cafe', place: 'Campus café' }] },
+  { id: 'speaker', title: 'Event speaker', duties: [{ id: 'podium', text: 'Talk at the conference podium (attend an event)', kind: 'conference', place: 'Conference centre' }, { id: 'prep', text: 'Read the café board for talking points', kind: 'cafe', place: 'Grind Café' }] },
   { id: 'community', title: 'Community manager', duties: [{ id: 'post', text: 'Post an update on Influencer row', kind: 'bounty', place: 'Influencer row' }, { id: 'learn', text: 'Pass or review a course in the hall', kind: 'any-course', place: 'Campus' }, { id: 'robot', text: 'Check Unit 4\u2019s agent notice', kind: 'robot', place: 'Plaza' }] },
-  { id: 'analyst', title: 'Market analyst', duties: [{ id: 'trade', text: 'Run a sized practice trade', kind: 'trade', place: 'Trading floor' }, { id: 'board', text: 'Read the season board', kind: 'cafe', place: 'Campus café' }] },
+  { id: 'analyst', title: 'Market analyst', duties: [{ id: 'trade', text: 'Run a sized practice trade', kind: 'trade', place: 'Trading floor' }, { id: 'board', text: 'Read the season board', kind: 'cafe', place: 'Grind Café' }] },
   { id: 'researcher', title: 'Researcher', duties: [{ id: 'course', text: 'Pass a course in the Campus', kind: 'any-course', place: 'Campus' }, { id: 'talk', text: 'Sit in on a conference talk', kind: 'conference', place: 'Conference centre' }, { id: 'pledge', text: 'Review a carbon project at the desk', kind: 'pledge', place: 'Carbon desk' }] },
 ]
 export const JOB_LEVELS = ['Intern', 'Junior', 'Associate', 'Mid-level', 'Senior', 'Lead', 'Principal', 'Head', 'Director', 'Partner']

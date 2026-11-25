@@ -543,7 +543,7 @@ export function mountUi(
     wrap.prepend(bal)
     const tasks = todayTasks(save)
     wrap.append(para(`Daily quests · ${tasks.filter((t) => t.done).length}/${tasks.length}`, 'kicker'))
-    const GO: Record<string, string> = { 'Pass a course': 'Campus', 'Gym set': 'Gym', 'Read the café': 'Campus café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
+    const GO: Record<string, string> = { 'Pass a course': 'Campus', 'Gym set': 'Gym', 'Read the café': 'Grind Café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
     for (const task of tasks) {
       const q = document.createElement('div'); q.className = `quest${task.done ? ' done' : ''}`
       const bar = document.createElement('div'); bar.className = 'bar'; const f = document.createElement('div'); f.className = 'bar-fill'; f.style.width = task.done ? '100%' : '0%'; bar.append(f)
@@ -1611,7 +1611,7 @@ export function mountUi(
         // and a small menu that looks after energy and hunger.
         const read = getSave().dailies.cafe
         const card = (head: string, sub: string, cls: string) => { const d = document.createElement('div'); d.className = cls; const b = document.createElement('strong'); b.textContent = head; const m = document.createElement('small'); m.textContent = sub; d.append(b, m); return d }
-        return renderSimple('Café', [
+        return renderSimple('Grind Café ☕', [
           para('Coffee, a seat by the window, and today’s market talk. Learn to tell news from noise.'),
           para(`Today’s board · ${seasonLabel(seasonAt()).toLowerCase()} market`, 'kicker'),
           ...cafeBoard(seasonAt(), getSave().dailies.day).map(([h, m]) => card(h, m, 'cafe-news')),

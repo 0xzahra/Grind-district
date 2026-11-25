@@ -497,6 +497,25 @@
       "title": "The Earning Map is open to everyone",
       "body": "World 5 on Campus opens from day one: short lessons on the real ways people earn in Web3. Finish it to open Careers and jobs.",
       "go": "place:Campus"
+    },
+    {
+      "id": "u1126-mcgrind-walk-in",
+      "title": "McGrind: walk straight in",
+      "body": "A ceiling lamp used to fill the screen as you walked into McGrind and some other rooms. The lamps now hang out of the way, and McGrind, Grind Market, Grind Bank and Barakah Club are on the city map.",
+      "go": "place:McGrind",
+      "push": false
+    },
+    {
+      "id": "u1126-beginner-guide",
+      "title": "New here? A beginner's guide",
+      "body": "Tap “New here? How it works” on the start screen for a step-by-step guide, and share it with friends: www.grinddistrict.app/how-it-works",
+      "push": false
+    },
+    {
+      "id": "u1126-grind-cafe",
+      "title": "New: Grind Café ☕",
+      "body": "The Campus café is now Grind Café: a glass café you can see into and walk into, with a barista, people at the tables and a terrace. McGrind's patio is full of people eating outside too.",
+      "go": "place:Grind Café"
     }
   ]
 }
