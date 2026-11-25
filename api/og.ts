@@ -63,7 +63,7 @@ function notePicture(q: URLSearchParams): Response {
  *  and a call to play. Counts only (the same public numbers as the Online card); refreshed every hour. */
 async function statsPicture(): Promise<Response> {
   type S = { activeToday?: number; visitorsAll?: number; learners?: number; lessonsPassed?: number; certificates?: number; registered?: number }
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 2500)
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000)
   const st = await fetch(`${ORIGIN}/api/track?op=stats`, { signal: ctl.signal }).then((r) => (r.ok ? (r.json() as Promise<S>) : null)).catch(() => null)
   clearTimeout(t)
   const k = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
@@ -91,7 +91,8 @@ async function statsPicture(): Promise<Response> {
         h('div', { width: 14, height: 14, borderRadius: 7, background: '#3bfaa4', marginRight: 10 }),
         h('div', { fontSize: 22, fontWeight: 800, color: '#f7f3ea', letterSpacing: 2 }, 'LIVE CITY STATS')),
       ...show.map(tile)))
-  return new ImageResponse(tree as never, { width: 1200, height: 630, headers: { 'cache-control': 'public, max-age=600, s-maxage=3600' } })
+  // Live numbers keep for an hour; the fallback (the numbers did not load in time) only for a minute.
+  return new ImageResponse(tree as never, { width: 1200, height: 630, headers: { 'cache-control': tiles.length >= 3 ? 'public, max-age=600, s-maxage=3600' : 'public, max-age=60, s-maxage=60' } })
 }
 
 export async function GET(req: Request): Promise<Response> {
