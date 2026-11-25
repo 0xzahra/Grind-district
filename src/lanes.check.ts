@@ -28,6 +28,26 @@ for (let arm = 0; arm < ARMS.length; arm += 1) {
   }
 }
 if (LANE_OUTER + ROAD_HALF / 2 > ROAD_END) failed += 1
+// The turning circle stays clear of every building, and a car on the U-turn (1.8 m wide, 4.4 m long) stays on it.
+{
+  const { TURN_C, TURN_R } = await import('./lanes.ts')
+  for (let arm = 0; arm < ARMS.length; arm += 1) {
+    const a = ARMS[arm]!
+    for (let k = 0; k < 48; k += 1) {
+      const ang = (k / 48) * Math.PI * 2, f = TURN_C + Math.cos(ang) * (TURN_R + 1), s = Math.sin(ang) * (TURN_R + 1)
+      const hit = insideFootprint(a.ax * f - a.az * s, a.az * f + a.ax * s, 0)
+      if (hit) { failed += 1; console.error(`turning circle of arm ${arm} reaches ${hit.label}`); break }
+    }
+    for (let i = 0; i <= 20; i += 1) {
+      const u = uturnPoint(arm, i / 20), hx = Math.sin(u.heading), hz = Math.cos(u.heading)
+      for (const [l, w] of [[2.2, 0.9], [2.2, -0.9], [-2.2, 0.9], [-2.2, -0.9]] as const) {
+        const x = u.x + hx * l + hz * w, z = u.z + hz * l - hx * w
+        const f = a.ax * x + a.az * z, s = -a.az * x + a.ax * z
+        if (f > TURN_C && Math.hypot(f - TURN_C, s) > TURN_R + 0.05) { failed += 1; console.error(`a U-turning car on arm ${arm} leaves the turning circle`); i = 99; break }
+      }
+    }
+  }
+}
 if (failed) {
   console.error(`${failed} lane check(s) failed`)
   ;(globalThis as unknown as { process: { exit(n: number): void } }).process.exit(1)

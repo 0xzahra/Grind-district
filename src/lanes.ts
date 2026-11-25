@@ -8,7 +8,13 @@ export const RING_OUT = 20.2
 export const RING_R = 17.9
 export const LANE_INNER = 21
 export const LANE_OUTER = 33 // the U-turn apex reaches LANE_OUTER + ROAD_HALF/2
-export const ROAD_END = 37 // painted asphalt ends here (turning bay)
+// Each arm ends in a turning circle short of its district hall, never at the building: TURN_C is the circle's centre
+// along the arm and TURN_R its radius (wider than the road, so a car's U-turn stays on it). The straight kerbs and
+// pavements stop where the circle flares out (FLARE); round the circle and up to the hall is the paved forecourt.
+export const TURN_C = 32.6
+export const TURN_R = 4
+export const FLARE = TURN_C - Math.sqrt(TURN_R ** 2 - ROAD_HALF ** 2) // 30.2
+export const ROAD_END = TURN_C + TURN_R // the far edge of the turning circle (36.6)
 export const ARMS = [
   { ax: 1, az: 0 },
   { ax: -1, az: 0 },

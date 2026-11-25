@@ -3,7 +3,7 @@ import { type CarKind } from './cars.ts'
 import { createFineFleet } from './fineFleet.ts'
 import type { Graphics } from './logic.ts'
 import type { Obstacle } from './physics.ts'
-import { RING_IN, RING_OUT, ROAD_END, ROAD_HALF } from './lanes.ts'
+import { FLARE, RING_IN, RING_OUT, ROAD_HALF, TURN_C, TURN_R } from './lanes.ts'
 import { pbrSet } from './pbrTex.ts'
 
 /**
@@ -36,9 +36,9 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
   const timber = new THREE.MeshStandardMaterial({ ...pbrSet('brown_planks_03', 1), color: 0x9a8670, roughness: 1 })
   const glass = new THREE.MeshStandardMaterial({ color: 0x9fb4bd, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.28, depthWrite: false })
 
-  // Arms of the cross road, from the roundabout's outer edge to the turning bays.
+  // Arms of the cross road, from the roundabout's outer edge to where each turning circle flares out.
   const arms = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
-  const A0 = RING_OUT + 1.6, A1 = ROAD_END, LEN = A1 - A0, MID = (A0 + A1) / 2
+  const A0 = RING_OUT + 1.6, A1 = FLARE, LEN = A1 - A0, MID = (A0 + A1) / 2
   const along = (dx: number, dz: number, t: number, side: number) => ({ x: dx * t - dz * side, z: dz * t + dx * side, ry: dx ? 0 : Math.PI / 2 })
 
   // Kerbs (granite, 15 cm) and paver sidewalks on both sides of every arm.
@@ -63,6 +63,16 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     const ang = ((a + 0.5) / n) * Math.PI * 2, x = Math.cos(ang) * r, z = Math.sin(ang) * r
     if (r > RING_IN && (Math.abs(x) < ROAD_HALF + 1.4 || Math.abs(z) < ROAD_HALF + 1.4)) continue
     ringKerb.push({ x, z, y: 0.07, ry: -ang, sx: 0.18, sz: (Math.PI * 2 * r) / n + 0.02 })
+  }
+  // Turning circles at the arm ends: the kerb follows the circle round its far side, from one straight kerb to
+  // the other, so each road visibly ends in a drop-off loop in front of the paved forecourt.
+  const sweep = Math.acos((FLARE - TURN_C) / TURN_R) // half the arc, measured from straight outwards
+  for (const [dx, dz] of arms) {
+    const out = Math.atan2(dz, dx), n = 22, r = TURN_R + 0.05
+    for (let k = 0; k < n; k++) {
+      const ang = out - sweep + ((k + 0.5) / n) * sweep * 2
+      ringKerb.push({ x: dx * TURN_C + Math.cos(ang) * r, z: dz * TURN_C + Math.sin(ang) * r, y: 0.07, ry: -ang, sx: 0.18, sz: (sweep * 2 * r) / n + 0.02 })
+    }
   }
   inst(new THREE.BoxGeometry(1, 0.15, 1), granite, ringKerb)
   const stripes: T[] = [], stops: T[] = [], lights: T[] = []
@@ -116,6 +126,14 @@ export function createStreetscape(scene: THREE.Scene, o: { obstacles: Obstacle[]
     const ang = (a / 64) * Math.PI * 2, x = Math.cos(ang) * 15.3, z = Math.sin(ang) * 15.3
     if (Math.abs(x) < ROAD_HALF + 0.3 || Math.abs(z) < ROAD_HALF + 0.3) continue
     if (a % 2 === 0 && free(x, z, 0.15)) bollards.push({ x, z })
+  }
+  // And a row round the far side of each turning circle, where the forecourt begins.
+  for (const [dx, dz] of arms) {
+    const out = Math.atan2(dz, dx), r = TURN_R + 1.1
+    for (let k = -5; k <= 5; k++) {
+      const ang = out + k * 0.26, x = dx * TURN_C + Math.cos(ang) * r, z = dz * TURN_C + Math.sin(ang) * r
+      if (free(x, z, 0.15)) bollards.push({ x, z })
+    }
   }
   inst(new THREE.CylinderGeometry(0.09, 0.1, 0.8, 10).translate(0, 0.4, 0), paint, bollards, true)
   inst(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 10).translate(0, 0.66, 0), new THREE.MeshStandardMaterial({ color: 0xd8d6cf, roughness: 0.5 }), bollards)

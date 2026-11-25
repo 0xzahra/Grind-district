@@ -5,14 +5,14 @@ import { LOOK, lightBudget } from './lookPalette.ts'
 import { liteOn } from './deviceTier.ts'
 import { CITY_LIMIT, type Obstacle } from './physics.ts'
 import * as THREE from 'three'
-import { FOOTPRINTS, LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS } from './lanes.ts'
+import { FLARE, FOOTPRINTS, LANE_INNER, LANE_OUTER, RING_IN, RING_OUT, ROAD_END, ROAD_HALF, SIDE_LINES, SIDE_RECTS, TURN_C, TURN_R } from './lanes.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { createArchitecture, type Facade, type Style } from './architecture.ts'
 import { buildShowroom } from './showcase.ts'
 import { createDrinkStand } from './drinkStand.ts'
 import { facetMap, paintFacets } from './facets.ts'
 import { createTrees, foliageMaterial } from './trees.ts'
-import { groundDetail } from './groundDetail.ts'
+import { groundDetail, INTERLOCK, INTERLOCK_EDGE } from './groundDetail.ts'
 import { buildGrandMosque, MASJID } from './grandMosque.ts'
 
 export type Hotspot = {
@@ -225,16 +225,16 @@ export function createWorld(options: {
     g.restore()
     g.fillStyle = '#5d7f6a'
     g.beginPath(); g.arc(toX(-40), toY(40), 6.4 * scale, 0, Math.PI * 2); g.fill()
-    // Forecourts of the four district halls: a slightly cooler, lighter stone so each has its own apron.
-    const court = (x: number, z: number, w: number, d: number, seed: number) => {
-      g.save()
-      g.beginPath(); g.rect(toX(x - w / 2), toY(z - d / 2), w * scale, d * scale); g.clip()
-      paintFacets(g, 2048, 2048, seed, 34, 0.07, [214, 208, 197])
-      g.restore()
-      g.strokeStyle = 'rgba(120,108,90,0.5)'; g.lineWidth = 3
-      g.strokeRect(toX(x - w / 2), toY(z - d / 2), w * scale, d * scale)
+    // Buildings stand on interlock pavers, never on bare street: terracotta herringbone (groundDetail.ts lays the
+    // pattern from this colour) inside a darker soldier course. Every building gets a 2 m apron; the four district
+    // halls get a whole forecourt from the facade out to where their road ends in its turning circle.
+    const lay = (x0: number, z0: number, x1: number, z1: number, edge = 0.45) => {
+      g.fillStyle = INTERLOCK_EDGE; g.fillRect(toX(x0), toY(z0), (x1 - x0) * scale, (z1 - z0) * scale)
+      g.fillStyle = INTERLOCK; g.fillRect(toX(x0 + edge), toY(z0 + edge), (x1 - x0 - 2 * edge) * scale, (z1 - z0 - 2 * edge) * scale)
     }
-    court(0, -48, 32, 26, 51); court(-48, 0, 24, 30, 53); court(48, 0, 24, 30, 57); court(0, 48, 32, 24, 59)
+    for (const f of FOOTPRINTS) lay(f.x - f.w / 2 - 2, f.z - f.d / 2 - 2, f.x + f.w / 2 + 2, f.z + f.d / 2 + 2)
+    const near = FLARE - 0.5
+    lay(-16, -61, 16, -near); lay(-16, near, 16, 60); lay(-60, -15, -near, 15); lay(near, -15, 60, 15)
   })
 
   const groundMat = new THREE.MeshStandardMaterial({ map: groundMap, roughness: 1, metalness: 0, color: 0xf2ebe0 })
@@ -398,7 +398,7 @@ export function createWorld(options: {
 
   const hall = addBuilding({ x: 0, z: -48, w: 16, d: 11, h: 5.2, door: 'pz', title: 'Campus', subtitle: 'learn', seed: 3, style: 'civic', floors: 2 })
   spot('learn', hall.x, hall.z, 2.5, 'Campus', 'Take short courses. Each one you pass is added to your CV.', 'learn', 'Open the hall')
-  const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 4.2, door: 'pz', title: 'Conference', subtitle: 'web3 events', seed: 5, style: 'glass', floors: 2 })
+  const conference = addBuilding({ x: 16, z: -54, w: 8, d: 7, h: 7.2, door: 'pz', title: 'Conference', subtitle: 'web3 events', seed: 5, style: 'glass', floors: 3 })
   spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for in-game cash.', 'conference', 'Go inside')
   const lounge = addBuilding({ x: -40, z: -36, w: 9, d: 7, h: 4.4, door: 'px', title: 'Members lounge', subtitle: 'rooms open by rank', seed: 53, style: 'brick', facade: 'charcoal' })
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
@@ -708,13 +708,14 @@ export function createWorld(options: {
       const mid = canvas.width / 2
       const fillRect = (r: Rect) => g.fillRect(mid + (r.x - r.hx) * scale, mid + (r.z - r.hz) * scale, r.hx * 2 * scale, r.hz * 2 * scale)
       const roads: Rect[] = [
-        { x: 0, z: 0, hx: ROAD_END, hz: ROAD_HALF },
-        { x: 0, z: 0, hx: ROAD_HALF, hz: ROAD_END },
+        { x: 0, z: 0, hx: TURN_C, hz: ROAD_HALF },
+        { x: 0, z: 0, hx: ROAD_HALF, hz: TURN_C },
         ...SIDE_RECTS,
       ]
-      // Sidewalks first, then the asphalt over them, then walkways.
+      // Sidewalks first, then the asphalt over them, then walkways. The arms' pavements stop where the turning
+      // circle flares out; past that the forecourt pavers meet the kerb.
       g.fillStyle = '#a7a199'
-      for (const road of roads) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
+      for (const road of [{ x: 0, z: 0, hx: FLARE, hz: ROAD_HALF }, { x: 0, z: 0, hx: ROAD_HALF, hz: FLARE }, ...SIDE_RECTS]) fillRect({ ...road, hx: road.hx + (road.hx > road.hz ? 0 : 1.3), hz: road.hz + (road.hz > road.hx ? 0 : 1.3) })
       g.fillStyle = '#8f887c'
       for (const path of paths) fillRect({ ...path, hx: path.hx + 0.14, hz: path.hz + 0.14 })
       g.fillStyle = '#b9b2a6'
@@ -727,18 +728,22 @@ export function createWorld(options: {
         g.arc(mid + cx * scale, mid + cz * scale, (ROAD_HALF + 1.2) * scale, 0, Math.PI * 2)
         g.fill()
       }
+      // Each arm ends in a turning circle, well short of its hall.
+      for (const [cx, cz] of [[TURN_C, 0], [-TURN_C, 0], [0, TURN_C], [0, -TURN_C]] as const) {
+        g.beginPath(); g.arc(mid + cx * scale, mid + cz * scale, TURN_R * scale, 0, Math.PI * 2); g.fill()
+      }
       g.strokeStyle = 'rgba(230, 236, 232, 0.5)'
       g.lineWidth = 3
       g.setLineDash([18, 16])
       g.beginPath()
-      g.moveTo(mid - ROAD_END * scale, mid)
+      g.moveTo(mid - (TURN_C - 2) * scale, mid)
       g.lineTo(mid - (RING_OUT + 1) * scale, mid)
       g.moveTo(mid + (RING_OUT + 1) * scale, mid)
-      g.lineTo(mid + ROAD_END * scale, mid)
-      g.moveTo(mid, mid - ROAD_END * scale)
+      g.lineTo(mid + (TURN_C - 2) * scale, mid)
+      g.moveTo(mid, mid - (TURN_C - 2) * scale)
       g.lineTo(mid, mid - (RING_OUT + 1) * scale)
       g.moveTo(mid, mid + (RING_OUT + 1) * scale)
-      g.lineTo(mid, mid + ROAD_END * scale)
+      g.lineTo(mid, mid + (TURN_C - 2) * scale)
       for (const l of SIDE_LINES) {
         if (l.horizontal) { g.moveTo(mid + (l.from + 3) * scale, mid + l.at * scale); g.lineTo(mid + (l.to - 3) * scale, mid + l.at * scale) }
         else { g.moveTo(mid + l.at * scale, mid + (l.from + 3) * scale); g.lineTo(mid + l.at * scale, mid + (l.to - 3) * scale) }
