@@ -1,5 +1,5 @@
 import { itemPic } from './itemPics.ts'
-import { note as personaNote } from './persona.ts'
+import { personaNodes, note as personaNote } from './persona.ts'
 import { getMorph, setMorph, HAIRS, SKIN_TONES } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
 import { schedule } from './events.ts'
@@ -21,7 +21,7 @@ import { watchPerps } from './perps.ts'
 import { track, trackFunnelOnce } from './track.ts'
 import { step as journeyStep } from './journey.ts'
 import { getAddress } from 'viem'
-import { COURSES, headlines } from './courses.ts'
+import { COURSES, cafeBoard } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
 import { biteCards } from './mentor.ts'
 import { courseVisual } from './courseArt.ts'
@@ -377,12 +377,6 @@ export function mountUi(
 
   const advice = () => para('Practice only. Not financial, legal, or investment advice.', 'muted')
 
-  const strip = (...btns: HTMLElement[]): HTMLElement => {
-    const s = document.createElement('div'); s.className = 'share-strip'
-    const labels = ['Share on X', 'Share profile link', 'Copy invite link']
-    btns.forEach((b, i) => { b.setAttribute('aria-label', labels[i] ?? ''); b.title = labels[i] ?? '' })
-    s.append(...btns); return s
-  }
   // Profile sections fold away under their titles so the sheet is not overwhelming: only the portrait, name and
   // username stay open. Each fold remembers whether the player left it open (this device only).
   const fold = (title: string, open: boolean, ...nodes: Node[]): HTMLElement => {
@@ -454,13 +448,27 @@ export function mountUi(
     const certFold = fold('Certificates', false, (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(`✓ ${SKILL_META[id].title}`, 'ghost cert-chip', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })())
     // Certificates minted on NEAR are read back from the chain and marked Verified (CV, list, nameplate).
     if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(cvFold); void m.markVerified(certFold) })
-    const share = document.createElement('div')
+    // Invite and share: two tidy boxes. Invite friends (copy the link or post it, then how invites pay and how
+    // they are going), and the picture cards to share (the photo card, today's journal card).
+    const share = document.createElement('div'); share.className = 'share-sec'
     const link = (src: 'profile' | 'invite') => src === 'profile' ? profileLink(save.username) : shareLink('/', 'invite', save.username)
     const status = para('', 'muted')
-    share.append(
-      photoCardNodes({ para, button }, () => hooks.portrait?.(0, undefined, true) ?? null, (m) => toast(m)),
+    const shareBox = (title: string) => { const b = document.createElement('section'); b.className = 'share-box'; const h = document.createElement('strong'); h.className = 'share-h'; h.textContent = title; b.append(h); return b }
+    const shareItem = (title: string, sub: string, node: HTMLElement) => { const d = document.createElement('div'); d.className = 'share-item'; const t = document.createElement('b'); t.textContent = title; const s2 = document.createElement('small'); s2.textContent = sub; d.append(t, s2, node); return d }
+    const invite = shareBox('Invite friends')
+    const acts = document.createElement('div'); acts.className = 'share-acts'
+    acts.append(
+      button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
+      // X shows the photo card (avatar, rank, reputation, invite code) under the link, never the balance.
+      button('Share on 𝕏', 'ghost', () => (personaNote('share'), shareCardToX(() => hooks.portrait?.(0, undefined, true) ?? null, (t) => toast(t)))),
+    )
+    // Referrals: how invites pay, link opens, friends who joined and how far they got, rewards to collect.
+    invite.append(acts, status, referralNodes({ para, button }, (m) => toast(m)))
+    const cards = shareBox('Cards to share')
+    cards.append(
+      shareItem('Photo card', 'Your avatar, rank and invite code as a picture, ready to post.', photoCardNodes({ para, button }, () => hooks.portrait?.(0, undefined, true) ?? null, (m) => toast(m))),
       // Today's journal: "A day in my Web3 life" as a card (journal.ts, loaded only when asked for).
-      (() => {
+      shareItem('Today’s journal card', 'A day in my Web3 life: today’s lessons, trades, visits and events.', (() => {
         const slot = document.createElement('div'); slot.className = 'journal-slot'
         const go = button('Make today’s journal card', 'ghost', () => {
           go.remove()
@@ -471,19 +479,11 @@ export function mountUi(
             nodes.querySelector<HTMLButtonElement>('button')?.click()
           }).catch(() => toast('Could not open the journal just now.'))
         })
-        slot.append(para('A day in my Web3 life: today’s lessons, trades, visits and events as a card to share.', 'muted'), go)
+        slot.append(go)
         return slot
-      })(),
-      // Two actions only: post to X, or copy the one invite link.
-      strip(
-      // X shows the photo card (avatar, rank, reputation, invite code) under the link, never the balance.
-      button('Share on 𝕏', 'ghost', () => (personaNote('share'), shareCardToX(() => hooks.portrait?.(0, undefined, true) ?? null, (t) => toast(t)))),
-      button('Copy invite link', 'primary', () => void publishProfile().then(() => copyText(link('invite'))).then(() => { status.textContent = 'Invite link copied.' })),
-      ),
-      status,
-      // Referrals: link opens, friends who joined and how far they got, rewards to collect, top inviters.
-      referralNodes({ para, button }, (m) => toast(m)),
+      })()),
     )
+    share.append(invite, cards)
     // Skills: the worlds of Campus and how far this player is through each (replaces the personality reading).
     const skills = document.createElement('div')
     skills.className = 'skill-worlds'
@@ -500,9 +500,13 @@ export function mountUi(
       if (got && got < ids.length) row.append(para(ids.filter((id) => save.skills[id]?.passed).map((id) => SKILL_META[id].title).join(' · '), 'muted skill-world-list'))
       skills.append(row)
     }
+    // Your Web3 persona: traits, best-fit roles and niche read from how you play (persona.ts). No star signs.
+    let persona: HTMLElement
+    try { persona = personaNodes({ para, button }, (m) => toast(m)) } catch { persona = document.createElement('div') }
     const card = frame(save.name, stack(
       hero, proof, cvFold, certFold,
       fold('Skills', certIds.length > 0, skills),
+      foldOwn(persona, 'Your Web3 persona'),
       fold('Today: balance, streak and quests', false, renderToday(save)),
       foldOwn(renderLuxury(), 'Status & unlocks'),
       fold('Birthday and calendar', false, renderCalendar()),
@@ -539,7 +543,7 @@ export function mountUi(
     wrap.prepend(bal)
     const tasks = todayTasks(save)
     wrap.append(para(`Daily quests · ${tasks.filter((t) => t.done).length}/${tasks.length}`, 'kicker'))
-    const GO: Record<string, string> = { 'Pass a course': 'Campus', 'Log a sized trade': 'Trading floor', 'Gym set': 'Gym', 'Read the café': 'Campus café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
+    const GO: Record<string, string> = { 'Pass a course': 'Campus', 'Gym set': 'Gym', 'Read the café': 'Campus café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
     for (const task of tasks) {
       const q = document.createElement('div'); q.className = `quest${task.done ? ' done' : ''}`
       const bar = document.createElement('div'); bar.className = 'bar'; const f = document.createElement('div'); f.className = 'bar-fill'; f.style.width = task.done ? '100%' : '0%'; bar.append(f)
@@ -1602,21 +1606,29 @@ export function mountUi(
           ...prayerNodes({ para, button }, { rerender: () => open('prayertimes'), toast }),
           button('Walk to the Grand Masjid', 'ghost', () => { close(); hooks.travel?.('Masjid', true) }),
         ])
-      case 'cafe':
-        return renderSimple('The room', [
-          ...headlines(seasonAt(), getSave().dailies.day).map((lineText) => para(lineText)),
-          para(`${seasonLabel(seasonAt())} season. The board is gossip, not a signal.`, 'muted'),
-          button('Read the room', 'primary', () => {
+      case 'cafe': {
+        // The café: today's market talk in plain words (each line says what it means for you), the daily read,
+        // and a small menu that looks after energy and hunger.
+        const read = getSave().dailies.cafe
+        const card = (head: string, sub: string, cls: string) => { const d = document.createElement('div'); d.className = cls; const b = document.createElement('strong'); b.textContent = head; const m = document.createElement('small'); m.textContent = sub; d.append(b, m); return d }
+        return renderSimple('Café', [
+          para('Coffee, a seat by the window, and today’s market talk. Learn to tell news from noise.'),
+          para(`Today’s board · ${seasonLabel(seasonAt()).toLowerCase()} market`, 'kicker'),
+          ...cafeBoard(seasonAt(), getSave().dailies.day).map(([h, m]) => card(h, m, 'cafe-news')),
+          button(read ? 'Read today ✓' : 'I’ve read today’s board', read ? 'ghost' : 'primary', () => {
             const outcome = readCafe()
             finish(outcome.message, outcome.rankedUp)
             open('cafe')
           }),
-          button('Order water', 'ghost', () => {
+          para('Menu', 'kicker'),
+          ...PLACES.cafe.items.map((it, i) => button(`${it.label} · $${it.usd}`, 'ghost', () => { finish(buyAt('cafe', i).message); open('cafe') })),
+          button('Glass of water · free', 'ghost', () => {
             finish(orderWater().message)
             open('cafe')
           }),
-          para('Water is free. It does not turn a headline into a trade.', 'muted'),
+          para('Market talk is not advice. Practice only.', 'muted'),
         ])
+      }
       case 'house':
         return renderHouse()
       case 'city': {
@@ -1657,18 +1669,37 @@ export function mountUi(
         return renderSimple('Graduation 🎓', diplomaNodes({ para, button }, () => { close(); window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: 'grad', viewing: true } })) }))
       case 'seasons':
         return renderSimple('Seasons & climate', seasonsNodes({ para, button }, () => close(), (m) => toast(m)))
-      case 'climate':
+      case 'climate': {
+        // The Carbon desk: what a carbon credit is, the three questions a good one answers, and a practice pledge
+        // to one of three projects, each explained with the check to make.
+        const pledged = getSave().dailies.climate
+        const ABOUT: Record<string, [string, string]> = {
+          mangrove: ['Mangrove forests on the coast lock carbon in their roots and mud, and shield the shore from storms.', 'Check: is the forest really protected, and who counts it?'],
+          stoves: ['Cleaner cookstoves burn less wood and charcoal, so homes breathe cleaner air and fewer trees are cut.', 'Check: are the stoves used every day, or left in a cupboard?'],
+          trees: ['Trees planted along the roads take in carbon as they grow and cool the street.', 'Check: will they still be standing in twenty years?'],
+        }
         return renderSimple('Carbon desk', [
+          para('Learn how carbon credits work, then make a practice pledge.', 'kicker'),
+          para('A carbon credit is a certificate that says one tonne of carbon dioxide was kept out of the air, or taken out of it. Companies buy them to balance pollution they cannot cut yet.'),
+          para('A good credit answers three questions: what was cut, who measured it, and would it have happened anyway without the money? A nice logo answers none of them.'),
+          para(pledged ? 'You made today’s pledge. Come back tomorrow for another.' : `Pick a project. A practice pledge costs ${money(CLIMATE_USD)} of in-game cash, adds reputation and goes on your portfolio. It does not buy a real credit.`, 'muted'),
+          ...PROJECTS.map((project) => {
+            const d = document.createElement('div'); d.className = 'co2-card'
+            const b = document.createElement('strong'); b.textContent = project.name
+            const [what, check] = ABOUT[project.id] ?? ['', '']
+            const m = document.createElement('small'); m.textContent = what
+            const c = document.createElement('small'); c.className = 'co2-check'; c.textContent = check
+            d.append(b, m, c, button(pledged ? 'Pledged today' : `Pledge ${money(CLIMATE_USD)}`, pledged ? 'ghost' : 'primary', () => {
+              const outcome = pledge(project.name)
+              finish(outcome.message, outcome.rankedUp)
+              open('climate')
+            }))
+            return d
+          }),
           button('See climate change in the city', 'ghost', () => open('seasons')),
-          para(`A practice pledge costs ${money(CLIMATE_USD)}. It does not retire a real credit. Rank does not move because you spent.`),
-          para('A method names what was reduced, who measured it, and whether the work needed the credit revenue. A logo does not. This desk records a practice note and does not issue a tonne.'),
-          ...PROJECTS.map((project) => button(project.name, 'primary', () => {
-            const outcome = pledge(project.name)
-            finish(outcome.message, outcome.rankedUp)
-            open('climate')
-          })),
           advice(),
         ])
+      }
       case 'bounty': {
         const area = document.createElement('textarea')
         area.maxLength = 180

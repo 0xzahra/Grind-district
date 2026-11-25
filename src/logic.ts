@@ -895,7 +895,7 @@ export function markDaily(save: Save, today: string, flag: RepFlag): number {
 export function todayTasks(save: Save): { label: string; done: boolean }[] {
   return [
     { label: 'Pass a course', done: save.dailies.lesson },
-    { label: 'Log a sized trade', done: save.dailies.spotPlan || save.dailies.trenchPlan },
+    // No daily trading quest: trading is not an everyday habit (a sized trade still counts toward the streak).
     { label: 'Gym set', done: save.dailies.gym },
     { label: 'Read the café', done: save.dailies.cafe },
     { label: 'Post a bounty', done: save.dailies.bounty },

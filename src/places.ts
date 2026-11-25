@@ -6,7 +6,7 @@
 import { slotKey, spendInGame, getSave } from './state.ts'
 import { adjust, needs, type Need } from './needs.ts'
 
-export type PlaceId = 'hospital' | 'grocer' | 'pharmacy' | 'bakery' | 'laundromat' | 'salon' | 'therapy' | 'clinic' | 'sweets' | 'kiosk'
+export type PlaceId = 'hospital' | 'grocer' | 'pharmacy' | 'bakery' | 'laundromat' | 'salon' | 'therapy' | 'clinic' | 'sweets' | 'kiosk' | 'cafe'
 type Item = { label: string; usd: number; d: Partial<Record<Need, number>>; note: string; once?: boolean; when?: () => string | null }
 type Place = { title: string; intro: string; items: Item[]; foot?: string }
 
@@ -16,6 +16,15 @@ const usedToday = (id: string): boolean => { try { const u = JSON.parse(localSto
 const markUsed = (id: string) => { try { const u = JSON.parse(localStorage.getItem(usedKey()) ?? '{}') as Record<string, string>; u[id] = dayKey(); localStorage.setItem(usedKey(), JSON.stringify(u)) } catch { /* private mode */ } }
 
 export const PLACES: Record<PlaceId, Place> = {
+  cafe: {
+    title: 'Café',
+    intro: 'Coffee, tea and something to eat by the window (the Campus café and the Internet café).',
+    items: [
+      { label: 'Coffee', usd: 3, d: { energy: 25 }, note: 'A strong cup before the next lesson.' },
+      { label: 'Tea and chin chin', usd: 2, d: { energy: 10, hunger: 10 }, note: 'Hot tea and a little bowl of chin chin.' },
+      { label: 'Meat pie', usd: 4, d: { hunger: 35 }, note: 'Warm from the oven.' },
+    ],
+  },
   hospital: {
     title: 'Grind District Hospital',
     intro: 'Clinic, pharmacy and a quiet ward. Look after the body that does the grinding.',

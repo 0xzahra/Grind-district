@@ -437,6 +437,66 @@
       "title": "McGrind kitchen, hands-on",
       "body": "Work a shift and watch your hands drop the fries, flip the patty, shave the shawarma and pour the drinks, then slide the tray to each customer. Taps now answer the moment you press.",
       "go": "place:McGrind"
+    },
+    {
+      "id": "u1126-cafe-board",
+      "title": "Café: today's board in plain words",
+      "body": "The Campus café and the Internet café now explain each line of market talk and what it means for you, and serve coffee, tea and meat pies.",
+      "go": "place:Campus café",
+      "push": false
+    },
+    {
+      "id": "u1126-carbon-desk-explained",
+      "title": "Carbon desk, explained",
+      "body": "What a carbon credit is, the three questions a good one answers, and what to check on each project before you make a practice pledge.",
+      "go": "place:Carbon desk",
+      "push": false
+    },
+    {
+      "id": "u1126-bounty-board",
+      "title": "Influencer Row: a bounty board by the door",
+      "body": "Post your bounty from the new board just inside the studio, or anywhere on the set. The framed covers no longer hang over the exit.",
+      "go": "place:Influencer row",
+      "push": false
+    },
+    {
+      "id": "u1126-gym-dumbbells",
+      "title": "Gym: easier to use, dumbbells count",
+      "body": "Stations answer from further away, the dumbbell rack is a station now, and any four of the five make today's set.",
+      "go": "place:Gym",
+      "push": false
+    },
+    {
+      "id": "u1126-persona-back",
+      "title": "Your Web3 persona is back",
+      "body": "Your profile reads your Web3 persona again: your traits, the roles that fit you and your corner of Web3, from how you play.",
+      "go": "panel:profile",
+      "push": false
+    },
+    {
+      "id": "u1126-profile-tidy",
+      "title": "Profile: clearer numbers, tidier sharing",
+      "body": "Courses passed, certificates and worlds finished are easy to read, and Invite and share is now two neat boxes: invite friends, and cards to share.",
+      "go": "panel:profile",
+      "push": false
+    },
+    {
+      "id": "u1126-no-daily-trade",
+      "title": "Daily quests: no daily trade",
+      "body": "Trading is not an everyday habit, so it is no longer a daily quest. A trade still keeps your streak going.",
+      "push": false
+    },
+    {
+      "id": "u1126-fixes-seats-dance",
+      "title": "Fixes: seats and the Players list",
+      "body": "Changing rooms always stands you up first, so nobody ends up sitting on the floor by a door. The Dance button is gone from Players online.",
+      "push": false
+    },
+    {
+      "id": "u1126-earning-map-open",
+      "title": "The Earning Map is open to everyone",
+      "body": "World 5 on Campus opens from day one: short lessons on the real ways people earn in Web3. Finish it to open Careers and jobs.",
+      "go": "place:Campus"
     }
   ]
 }

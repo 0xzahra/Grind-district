@@ -468,20 +468,21 @@ const BASE_COURSES: Course[] = [
   },
 ]
 
-const BULL = [
-  'Floor is bidding the open. Size still matters.',
-  'Campus stipend posts are up. Read the course before you size up.',
-  'Influencer Row is loud. A bounty is not a thesis.',
-  'The mangrove desk has a line. Practice pledges only.',
-  'The house row is lit. Knock before you size up.',
+// The café board: today's market talk in plain words, each with what it means for you.
+const BULL: Array<[string, string]> = [
+  ['Prices are climbing and the trading floor is busy.', 'Rising prices tempt people to bet big. Decide how much you can lose before you trade, not after.'],
+  ['Campus is paying stipends for passed courses.', 'Learning pays here. Understand a thing before you put money on it.'],
+  ['Influencer Row is buzzing with hot tips.', 'A loud post is not research. Ask who is talking, and what they gain if you buy.'],
+  ['The Carbon desk has a queue for pledges.', 'Pledges here are practice. A real carbon credit needs proof of what was cut and who measured it.'],
+  ['Homes on the house row are in demand.', 'When everything feels hot, slow down. A good deal is still there after a night of thinking.'],
 ]
 
-const BEAR = [
-  'Green candles left. The street is still open.',
-  'Trenches get louder when it hurts. You can walk past them.',
-  'Nobody here gets paid for panic. The gym is staffed.',
-  'Your CV does not mark to market.',
-  'The houses stay open when the marks fall.',
+const BEAR: Array<[string, string]> = [
+  ['Prices are falling, but the city is open.', 'Down markets are a good time to learn and build. Your skills keep their value.'],
+  ['Risky trades get louder when people lose money.', 'Trying to win it all back fast is how losses grow. You can walk past.'],
+  ['Nobody gets paid for panic.', 'Selling in fear locks in a loss. Take a walk, train at the gym, come back calm.'],
+  ['Your CV does not drop when prices do.', 'Courses, certificates and the work you have done stay yours, whatever the market does.'],
+  ['Homes stay open when prices fall.', 'Real life goes on in a down market. Pay your bills first, then save.'],
 ]
 
 export const COURSES: Course[] = [...BASE_COURSES, ...MORE_COURSES, ...WORLD_COURSES]
@@ -490,10 +491,15 @@ export function courseById(id: SkillId): Course | undefined {
   return COURSES.find((course) => course.id === id)
 }
 
-export function headlines(season: Season, day: string): string[] {
+/** Today's three lines on the café board, each with what it means (the same three all day). */
+export function cafeBoard(season: Season, day: string): Array<[string, string]> {
   const pool = season === 'bull' ? BULL : BEAR
   const start = [...day].reduce((sum, char) => sum + char.charCodeAt(0), 0) % pool.length
-  return [0, 1, 2].map((offset) => pool[(start + offset) % pool.length] ?? pool[0])
+  return [0, 1, 2].map((offset) => pool[(start + offset) % pool.length] ?? pool[0]!)
+}
+
+export function headlines(season: Season, day: string): string[] {
+  return cafeBoard(season, day).map(([h]) => h)
 }
 
 export function grade(course: Course, picks: number[]): { ok: boolean; hints: string[] } {

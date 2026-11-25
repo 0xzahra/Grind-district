@@ -26,7 +26,8 @@ export function worldDone(n: number): boolean {
 }
 /** Worlds open in order. A World where an old save already passed a course stays open, so nothing earned is hidden. */
 export function worldOpen(n: number): boolean {
-  if (n <= 1) return true
+  // World 1 and World 5 (The Earning Map, the way into Careers and jobs) are open to everyone from the start.
+  if (n <= 1 || n === 5) return true
   if (n === 6) return [1, 2, 3, 4, 5].every(worldDone)
   const w = WORLDS[n - 1]!
   return worldDone(n - 1) || [...w.missions, ...(w.extra?.missions ?? [])].some(passed)

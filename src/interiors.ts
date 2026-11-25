@@ -439,7 +439,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       box(10, 2.2, 0.04, mirror, 0.8, -d / 2 + 0.03, 0.4, false)
       for (let i = 0; i < 3; i++) box(1.8, 0.04, 1.0, std(0x2f5c74, 0.9), -3 + i * 2.2, 3.6, 0, false)
       const station = (sid: string, label: string, x: number, z: number, ux: number, uz: number) => use({
-        id: sid, x: ux, z: uz, r: 1.0, title: label, body: 'Use each of the four stations for today’s set.', enter: 'Use', run: () => {
+        id: sid, x: ux, z: uz, r: 1.5, title: label, body: 'Any four of the five stations make today’s set.', enter: 'Use', run: () => {
           hooks.busy(1.6, o.x + ux, o.z + uz, Math.atan2(x - ux, z - uz))
           gymDone.add(sid)
           if (gymDone.size < 4) hooks.toast(`${label} done · ${gymDone.size}/4 stations`)
@@ -469,6 +469,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Dumbbell rack on the east wall.
       box(0.6, 0.8, 3.0, black, w / 2 - 0.5, 1.6)
       for (let i = 0; i < 6; i++) add(new THREE.CylinderGeometry(0.09, 0.09, 0.4, 10), steel, w / 2 - 0.5, 0.88, 0.4 + i * 0.48).rotation.z = Math.PI / 2
+      station('dumbbells', 'Dumbbells', w / 2 - 0.5, 1.6, w / 2 - 1.7, 1.6)
       // Mat station for core work.
       station('mats', 'Mats', -0.8, 3.6, -0.8, 2.4)
       use({ id: 'board', x: -5.6, z: 3.8, r: 0.9, title: 'Whiteboard', body: 'What the set counts.', enter: 'Read', run: () => hooks.toast(walkGym().message) })
@@ -713,9 +714,25 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const studioTv = tv(w / 2 - 0.1, 1.9, -1.0, 1.6, -Math.PI / 2)
       use({ id: 'tv', x: w / 2 - 1.3, z: -1.0, r: 0.9, title: 'TV', body: 'What the city is talking about.', enter: 'Change channel', run: studioTv.toggle })
       const frames: Array<[number, number, number, number?]> = []
-      for (let i = 0; i < 4; i++) frames.push([-w / 2 + 0.06, 1.7, -3 + i * 1.3, Math.PI / 2])
+      // Framed covers on the west wall, either side of the exit door (never over it).
+      for (const z of [-3.9, -2.6, 2.6, 3.9]) frames.push([-w / 2 + 0.06, 1.7, z, Math.PI / 2])
       inst(new THREE.BoxGeometry(1.0, 0.7, 0.04), std(0xc9a25e, 0.4, 0.8), frames)
-      use({ id: 'set', x: 2.0, z: -d / 2 + 3.2, r: 1.4, title: 'Studio set', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', enter: 'Post a bounty', run: () => hooks.openPanel('bounty') })
+      inst(new THREE.BoxGeometry(0.86, 0.56, 0.02), std(0x1d2a3a, 0.5), frames.map(([x, y, z, r]) => [x + 0.025, y, z, r] as [number, number, number, number?]))
+      use({ id: 'set', x: 2.0, z: -d / 2 + 2.4, r: 2.6, title: 'Studio set', body: 'Write a bounty. Practice pay lands, and the sentence goes on your portfolio.', enter: 'Post a bounty', run: () => hooks.openPanel('bounty') })
+      // A bounty board just inside the door, so posting is one step from the street.
+      const bx = -w / 2 + 2.6, bz = -1.9
+      box(0.08, 1.15, 0.08, stand, bx, bz - 0.5, 0, false); box(0.08, 1.15, 0.08, stand, bx, bz + 0.5, 0, false)
+      const boardFace = add(new THREE.PlaneGeometry(1.2, 0.9), new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex(384, 288, (g) => {
+        g.fillStyle = '#b8844f'; g.fillRect(0, 0, 384, 288)
+        g.fillStyle = '#0f7a48'; g.fillRect(0, 0, 384, 64)
+        g.fillStyle = '#ffffff'; g.font = '800 34px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText('BOUNTY BOARD', 192, 44)
+        const notes = ['#fff6c8', '#d8f5e3', '#ffe0e6', '#e3ecff']
+        for (let i = 0; i < 6; i++) { const nx = 22 + (i % 3) * 120, ny = 84 + Math.floor(i / 3) * 98; g.fillStyle = notes[i % 4]!; g.fillRect(nx, ny, 100, 82); g.fillStyle = '#d8283f'; g.beginPath(); g.arc(nx + 50, ny + 8, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(40,40,40,0.55)'; for (let l = 0; l < 4; l++) g.fillRect(nx + 12, ny + 26 + l * 13, 76 - (l % 2) * 18, 4) }
+      }) }), bx + 0.05, 1.45, bz)
+      boardFace.rotation.y = Math.PI / 2
+      box(0.06, 1.0, 1.3, std(0x3a2a20, 0.6), bx, bz, 0.95, false)
+      obstacles.push({ kind: 'box', x: o.x + bx, z: o.z + bz, hx: 0.12, hz: 0.65 })
+      use({ id: 'bounty-board', x: bx + 1.0, z: bz, r: 1.5, title: 'Bounty board', body: 'Post today’s bounty: one honest sentence about what you did. Practice pay lands, and it goes on your portfolio.', enter: 'Post a bounty', run: () => hooks.openPanel('bounty') })
       use({ id: 'podcast', x: -3.2, z: 0.6, r: 1.2, title: 'Podcast table', body: 'Three mics. Say what you built, not what you hold.', enter: 'Record', run: () => {
         hooks.busy(1.6, o.x - 3.2, o.z + 0.8, Math.PI)
         hooks.toast('Recorded. Proof of work reads better than a price call.')

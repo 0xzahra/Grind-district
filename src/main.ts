@@ -753,7 +753,10 @@ const apiAgents = createRemoteAgents(scene)
     const shots = [0, 0.5, -0.5, 0.2].map((yaw) => portraitShot(yaw, undefined, true))
     void import('./photoBooth.ts').then((m) => m.showBoothStrip(shots))
   })
+  // Set once seating exists (further down): travel stands the player up first.
+  let standUp: (() => void) | null = null
   function hooksTeleport(x: number, z: number) {
+      standUp?.()
       pos.x = x
       pos.z = z
       vel.x = 0
@@ -2088,6 +2091,7 @@ const apiAgents = createRemoteAgents(scene)
   })
   // Sitting: move onto the seat, hold still, pose the rig; any stick, key or tap stands up.
   const seating = createSeating()
+  standUp = () => { if (seating.sitting) seating.stand() }
   const sitOn = (s: Seat) => {
     // One person per seat: a resident already sitting there keeps it.
     if (crowd.occupied(s.x, s.z)) { ui.toast('Someone is sitting there. Try another seat.'); return }
@@ -2210,6 +2214,8 @@ const apiAgents = createRemoteAgents(scene)
   // visit opens there again. Cleared on the way out.
   const noteInside = (v: { k: 'room' | 'home'; id: string } | null) => { try { if (v) localStorage.setItem('gd.lastIn', JSON.stringify({ ...v, at: Date.now() })); else localStorage.removeItem('gd.lastIn') } catch { /* private mode */ } }
   const stepInto = (doorSpot: Hotspot, room: NonNullable<ReturnType<typeof interiors.roomFor>>) => {
+    // Get up first: a seat in one place must never carry over (a player left sitting on the floor by a door).
+    if (seating.sitting) seating.stand()
     notePlace(room)
     noteInside({ k: 'room', id: doorSpot.id })
     streetDoor = { x: doorSpot.x, z: doorSpot.z }
@@ -2228,6 +2234,7 @@ const apiAgents = createRemoteAgents(scene)
     return true
   }
   const leaveRoom = () => {
+    if (seating.sitting) seating.stand()
     noteInside(null)
     const out = interiors.exit(streetDoor.x, streetDoor.z)
     levelY = 0

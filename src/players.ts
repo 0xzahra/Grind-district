@@ -49,9 +49,7 @@ export function openPlayers(d: PlayersDeps): void {
   t.append(count, el('h3', 'Players online', 'gm-title'))
   head.append(t, key('Close', 'gm-ghost', close))
   const where = el('p', '', 'gm-sub pl-where'), list = el('div', '', 'pl-list'), foot = el('div', '', 'pl-foot')
-  const moves = el('div', '', 'pl-moves')
-  if (d.dance) moves.append(key('💃 Dance', 'gm-ghost pl-chip', () => { close(); d.dance!() }))
-  card.append(head, where, list, moves, foot)
+  card.append(head, where, list, foot)
   shade.append(card); document.body.append(shade)
   const paint = () => {
     const me = d.me(), home = d.atHome(), ps = d.players()

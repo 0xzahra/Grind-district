@@ -143,6 +143,13 @@ export function feedRankUp(label: string): void { post(`${getSave().name || 'A p
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
 const bar = (label: string, v: number, max: number) => { const w = el('div', '', 'cr-bar'); const l = el('div', '', 'cr-bar-head'); l.append(el('span', label), el('span', `${Math.min(v, max)}/${max}`)); const t = el('div', '', 'cr-track'); const f = el('i'); f.style.width = `${Math.min(100, (v / max) * 100)}%`; t.append(f); w.append(l, t); return w }
 const btn = (text: string, on: () => void, cls = 'cr-btn') => { const b = el('button', text, cls); b.type = 'button'; b.onclick = on; return b }
+/** Open the first lesson of The Earning Map (World 5) not yet passed: the way into Careers and jobs. */
+const startEarningMap = () => {
+  const w5 = WORLDS.find((w) => w.n === 5)
+  const save = getSave()
+  const id = w5 ? [...w5.missions, ...(w5.boss ? [w5.boss] : [])].find((m) => !save.skills[m]?.passed && !lockReason(m)) : undefined
+  window.dispatchEvent(new CustomEvent('gd:course', { detail: id ?? nextMission() }))
+}
 
 
 type StepView = { text: string; sub: string; run: () => void }
@@ -213,7 +220,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
     }
     body.append(list)
   } else if (tab === 'paths' && !careersOpen()) {
-    body.append(el('h3', 'Careers in the city'), el('p', '🔒 Careers open with the Pathfinder badge: finish World 5, The Earning Map, on Campus.', 'cc-muted'), btn('Go to my next mission', () => { const m = nextMission(); if (m) window.dispatchEvent(new CustomEvent('gd:course', { detail: m })) }, 'cr-btn primary'))
+    body.append(el('h3', 'Careers in the city'), el('p', 'Careers and jobs open when you finish The Earning Map (World 5 on Campus): five short lessons on the real ways people earn in Web3, with your skills, your time, your money or by building, then one final check. It is open to you now.', 'cc-muted'), btn('Start The Earning Map', startEarningMap, 'cr-btn primary'))
   } else if (tab === 'paths') {
     body.append(el('h3', 'Careers in the city'), el('p', 'Pick one. Do its task at the building once a day to rank up.', 'cc-muted'))
     const first = (txt: string) => (txt.match(/^[^.!?]+[.!?]/)?.[0] ?? txt)
@@ -255,7 +262,7 @@ export function renderCareer(root: HTMLElement, go: (to: string) => void, onPins
   } else {
     const job = JOBS.find((j) => j.id === c.job)
     if (!job && !careersOpen()) {
-      body.append(el('p', '🔒 Jobs open with the Pathfinder badge (World 5, The Earning Map). Until then, your missions on Campus pay +$' + COURSE_CASH + ' each.', 'cc-muted'))
+      body.append(el('p', 'Jobs open when you finish The Earning Map (World 5 on Campus), which is open to you now. Until then, every mission you pass on Campus pays +$' + COURSE_CASH + '.', 'cc-muted'), btn('Start The Earning Map', startEarningMap, 'cr-btn primary'))
     } else if (!job) {
       body.append(el('p', 'Pick a job. Each daily duty at a city building pays +$5 or more in-game, raises Reputation and levels you through 10 ranks.', 'cc-muted'))
       for (const j of JOBS) body.append(btn(j.title, () => { c.job = j.id; c.jobXp = 0; store(); post(`Started work as ${JOB_LEVELS[0]} ${j.title}.`); renderCareer(root, go, onPins, tab) }, 'cr-btn wide'))

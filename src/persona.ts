@@ -196,7 +196,7 @@ function fitRow(f: Fit, open = () => {}): HTMLElement {
 export function personaNodes(h: H, say: (m: string) => void): HTMLElement {
   const box = el('section', '', 'glass persona')
   const p = myPersona()
-  box.append(el('h3', 'Your Web3 personality'))
+  box.append(el('h3', 'Your Web3 persona'))
   box.append(el('p', p.title, 'ps-title'), h.para(p.line, 'muted'))
   const passed = Object.values(getSave().skills).filter((s) => s?.passed).length
   box.append(h.para(`Read from ${p.evidence > 0 ? `${Math.max(0, p.evidence - passed * 3)} activities and ${passed} courses` : 'your play so far'}. It gets sharper the more you play; tap any line to see why.`, 'muted ps-note'))
@@ -210,11 +210,6 @@ export function personaNodes(h: H, say: (m: string) => void): HTMLElement {
     box.append(el('p', 'Your corner of Web3', 'kicker'))
     const l = el('div', '', 'ps-list'); for (const f of p.niches) l.append(fitRow(f)); box.append(l)
   }
-  if (p.zodiac) {
-    const z = el('div', '', 'ps-zodiac')
-    z.append(el('strong', `${p.zodiac.sign.sym} ${p.zodiac.sign.name} · for fun`), h.para(p.zodiac.note, 'muted'), h.para('Star signs never change your reading above: that comes only from how you play.', 'muted ps-small'))
-    box.append(z)
-  } else box.append(h.para('Add your birthday (below, in Birthday and calendar) to compare your star sign with how you actually play, for fun.', 'muted ps-small'))
   const row = el('div', '', 'pcard-row')
   row.append(
     h.button('Share my personality', 'primary', () => {

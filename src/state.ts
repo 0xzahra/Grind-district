@@ -707,25 +707,25 @@ export function sitPrayer(): { message: string; rankedUp?: RankId; already: bool
 
 export function orderWater(): { message: string } {
   const day = today()
-  if (!save.dailies.cafe) return { message: 'Read the board first. The water can wait.' }
-  if (save.waterDay === day) return { message: 'The glass is already on the table. It is water, and it is free.' }
+  if (!save.dailies.cafe) return { message: 'Read today’s board first, then the water is on the house.' }
+  if (save.waterDay === day) return { message: 'Your glass of water is already on the table.' }
   save.waterDay = day
   save.reputation += 1
   log('social', 'Ordered water', 'Free. The board is still gossip, not a signal.')
   persist()
   emit()
-  return { message: 'Water is free. Reputation +1. The headlines did not become a trade.' }
+  return { message: 'Water is free. Reputation +1.' }
 }
 
 export function readCafe(): { message: string; rankedUp?: RankId; already: boolean } {
   today()
-  if (save.dailies.cafe) return { already: true, message: 'You already read the room today. The board stays up.' }
+  if (save.dailies.cafe) return { already: true, message: 'You already read today’s board. New lines tomorrow.' }
   const bonus = markDaily(save, today(), 'cafe')
   const rankedUp = gainXp(8 + bonus)
   log('social', 'Read the café board', 'Gossip is the season, not a trade signal.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: 'Filed. The headlines are not a signal to size up.' }
+  return { already: false, rankedUp, message: 'Board read. News is not a signal to trade. Daily quest done.' }
 }
 
 export function postBounty(text: string): { message: string; rankedUp?: RankId; already: boolean } {
@@ -747,9 +747,9 @@ export function postBounty(text: string): { message: string; rankedUp?: RankId; 
 
 export function pledge(projectName: string): { message: string; rankedUp?: RankId; already: boolean } {
   const day = today()
-  if (save.dailies.climate) return { already: true, message: 'One pledge a day. The grove does not retire a real credit either way.' }
+  if (save.dailies.climate) return { already: true, message: 'One pledge a day. Come back tomorrow.' }
   if (save.ledger < CLIMATE_USD) {
-    return { already: false, message: `The desk asks ${money(CLIMATE_USD)} practice. Pass your first Campus mission for a stipend, or post on the row.` }
+    return { already: false, message: `A practice pledge costs ${money(CLIMATE_USD)} of in-game cash. Pass a Campus mission or post a bounty to earn some.` }
   }
   const bonus = markDaily(save, day, 'climate')
   save.ledger = cents(save.ledger - CLIMATE_USD)
@@ -759,7 +759,7 @@ export function pledge(projectName: string): { message: string; rankedUp?: RankI
   log('climate', `Pledged to ${projectName}`, 'Practice only. This does not retire a real tonne.')
   persist()
   emit(rankedUp)
-  return { already: false, rankedUp, message: `${projectName} is on your portfolio as a practice pledge. Not a retired credit.` }
+  return { already: false, rankedUp, message: `${projectName}: practice pledge added to your portfolio. Reputation +10.` }
 }
 
 export function noteTalk(): { message: string; already: boolean } {
