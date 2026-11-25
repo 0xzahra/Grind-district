@@ -413,6 +413,12 @@ export function createWorld(options: {
   const mkt = addBuilding({ x: -29, z: -34, w: 9, d: 7, h: 4.6, door: 'pz', title: 'Grind Market', subtitle: 'stalls and traders', seed: 63, style: 'arch' })
   spot('market', mkt.x, mkt.z, 2.4, 'Grind Market', 'A covered market hall. Rent a stall, stock it, set your price and sell to the city and to other players.', undefined, 'Go inside')
   scene.add(marketFront(-29, -34, 9, 7, 4.6))
+  // Grind Bank: a classical banking hall (how crypto banks keep coins, spot crypto ETFs, a halal savings account).
+  const bank = addBuilding({ x: -53, z: -41, w: 10, d: 8, h: 6, door: 'px', title: 'Grind Bank', subtitle: 'crypto · ETFs · halal savings', seed: 71, style: 'civic', facade: 'stone' })
+  spot('bank', bank.x, bank.z, 2.4, 'Grind Bank', 'How crypto banks keep your coins, two spot crypto ETFs to practise with, and a halal profit-sharing account.', undefined, 'Go inside')
+  // Barakah Club: a halal night club. Mocktails, a dance floor, a DJ, games and a prayer corner; no alcohol, ever.
+  const barakah = addBuilding({ x: -52, z: -28, w: 10, d: 8, h: 5, door: 'px', title: 'Barakah Club', subtitle: 'halal nights · no alcohol', seed: 73, style: 'glass', facade: 'charcoal' })
+  spot('barakah', barakah.x, barakah.z, 2.4, 'Barakah Club', 'A halal night club: mocktails, a dance floor that lights up, a DJ, games and a prayer corner. No alcohol, ever.', undefined, 'Go inside')
   addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 2.6, door: 'pz', title: 'Booth', subtitle: 'no seed asks', seed: 2, style: 'kiosk' })
   addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 2.6, door: 'pz', title: 'Booth', subtitle: 'one-pagers', seed: 4, style: 'kiosk' })
   spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Project stands. Browse what teams are building.')

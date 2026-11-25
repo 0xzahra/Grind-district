@@ -30,6 +30,8 @@ export const FOOTPRINTS: Footprint[] = [
   { x: -16, z: -54, w: 8, d: 7, label: 'Campus café' },
   { x: -28, z: -53, w: 9, d: 7, label: 'McGrind' },
   { x: -29, z: -34, w: 9, d: 7, label: 'Grind Market' },
+  { x: -53, z: -41, w: 10, d: 8, label: 'Grind Bank' },
+  { x: -52, z: -28, w: 10, d: 8, label: 'Barakah Club' },
   { x: -12, z: -36, w: 3.2, d: 2.2, label: 'Booth' },
   { x: 12, z: -36, w: 3.2, d: 2.2, label: 'Booth' },
   { x: -48, z: 0, w: 12, d: 16, label: 'Trading floor' },

@@ -386,6 +386,19 @@
       "body": "Walk up to any McGrind poster, billboard or board and tap Share poster. The poster picture goes with your post.",
       "go": "place:McGrind",
       "push": false
+    },
+    {
+      "id": "u1126-barakah-club",
+      "title": "New: Barakah Club, halal nights",
+      "body": "Mocktails at the bar, a dance floor that lights up, a DJ, ludo with friends and a quiet prayer corner. No alcohol, ever. West of the Stockholders' Club.",
+      "go": "place:Barakah Club",
+      "push": false
+    },
+    {
+      "id": "u1126-grind-bank",
+      "title": "New: Grind Bank",
+      "body": "See how crypto banks keep your coins safe, practise with two spot crypto ETFs at live prices, and open a halal profit-sharing savings account. Earned cash only.",
+      "go": "place:Grind Bank"
     }
   ]
 }

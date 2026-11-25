@@ -2074,6 +2074,10 @@ const apiAgents = createRemoteAgents(scene)
     shift: () => void import('./mcgrind.ts').then((m) => m.openShift({ toast: (t) => ui.toast(t) })),
     eatMeal: () => buyFood(4, 'McGrind meal', 'A burger, fries and a drink.', { hunger: 55, energy: 6 }),
     snack: () => buyFood(2, 'Market snack', 'Something hot from a trader.', { hunger: 22 }),
+    bank: (tab) => void import('./bank.ts').then((m) => m.openBank({ tab, toast: (t) => ui.toast(t) })),
+    mocktail: () => buyFood(3, 'Mocktail at Barakah Club', 'No alcohol, ever.', { energy: 10, social: 12 }),
+    dance: () => { setDance(true); ui.toast(adjustNeeds({ social: 15 }, 'now') || 'On the floor. Move to stop dancing.') },
+    games: () => ui.toast(adjustNeeds({ social: 12 }, 'now') || 'A round of ludo: you won one and lost two.'),
     market,
     openCerts: () => ui.open('profile'),
   })
