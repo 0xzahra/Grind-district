@@ -37,7 +37,7 @@ const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), vv = new THREE.Vect
 const UNIT = new THREE.BoxGeometry(1, 1, 1)
 
 /** Many boxes of one material in one draw: [x, bottom y, z, width, height, depth, yaw?]. */
-function boxes(c: HallCtx, mat: Mat, list: Array<[number, number, number, number, number, number, number?]>): void {
+export function boxes(c: HallCtx, mat: Mat, list: Array<[number, number, number, number, number, number, number?]>): void {
   if (!list.length) return
   const im = new THREE.InstancedMesh(UNIT, mat, list.length)
   list.forEach(([x, y, z, sx, sy, sz, ry = 0], i) => im.setMatrixAt(i, m4.compose(vv.set(x, y + sy / 2, z), qq.setFromAxisAngle(UP, ry), ss.set(sx, sy, sz))))
@@ -67,7 +67,7 @@ function partition(c: HallCtx, along: 'x' | 'z', at: number, from: number, to: n
 }
 
 /** A sign over a doorway, readable from the side `face` points to (+1: +z or +x, -1: -z or -x). */
-function sign(c: HallCtx, text: string, along: 'x' | 'z', at: number, mid: number, face: 1 | -1): void {
+export function sign(c: HallCtx, text: string, along: 'x' | 'z', at: number, mid: number, face: 1 | -1): void {
   const t = c.canvasTex(512, 128, (g) => {
     g.fillStyle = '#1d2a24'; g.fillRect(0, 0, 512, 128)
     g.strokeStyle = '#c9a25e'; g.lineWidth = 6; g.strokeRect(6, 6, 500, 116)

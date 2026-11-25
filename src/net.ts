@@ -60,6 +60,8 @@ export type Net = {
   invite: (username: string, v: Omit<Visit, 'from' | 'name'>) => boolean
   /** This session's id (guests' homes are keyed by it). */
   id: () => string
+  /** Grind Market: announce your stall, or buy from someone's (market.ts checks and answers). */
+  market: (payload: Record<string, unknown>) => void
 }
 
 function bubble(text: string): THREE.Sprite {
@@ -142,6 +144,8 @@ export function createNet(options: {
   getProfile?: () => string
   /** Someone invited you to their home. */
   onVisit?: (v: Visit) => void
+  /** A Grind Market message (a stall announced, a purchase, an answer). */
+  onMarket?: (m: Record<string, unknown>) => void
 }): Net {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -256,6 +260,7 @@ export function createNet(options: {
             answered.set(`v:${from}`, now)
             options.onVisit?.({ from, name: clean(String(m.name ?? '')).slice(0, 24) || from, room, home: String(m.home ?? '').slice(0, 20), label: clean(String(m.label ?? 'home')).slice(0, 40) })
           })
+          .on('broadcast', { event: 'mkt' }, ({ payload }) => { if (payload && typeof payload === 'object' && JSON.stringify(payload).length < 600) options.onMarket?.(payload as Record<string, unknown>) })
           .on('presence', { event: 'leave' }, ({ key: gone }) => drop(String(gone)))
           .on('presence', { event: 'sync' }, () => { options.onCount?.(Object.keys(room.presenceState()).length) })
           .subscribe((status) => {
@@ -306,6 +311,10 @@ export function createNet(options: {
       me = next
     },
     id: () => id,
+    market(payload) {
+      if (!connected || !channel) return
+      void channel.send({ type: 'broadcast', event: 'mkt', payload: { ...payload, from: id } })
+    },
     players() {
       const out: OnlinePlayer[] = []
       const state = (channel?.presenceState() ?? {}) as Record<string, Array<{ id?: string; u?: string }>>

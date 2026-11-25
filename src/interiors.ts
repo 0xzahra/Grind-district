@@ -17,6 +17,8 @@ import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
 import { buildCampus, buildConference, type Floor } from './halls.ts'
+import { buildMarket, buildMcGrind } from './workplaces.ts'
+import type { Market } from './market.ts'
 import { liteOn } from './deviceTier.ts'
 import { paintSchedule } from './events.ts'
 import { ergoChairGeometry, paintCandles, paintDepth, paintHeatmap, paintMovers, paintTicker, setWallQuotes } from './tradingFloor.ts'
@@ -27,15 +29,15 @@ import { liveChange } from './livePrices.ts'
 setWallQuotes((id) => { const price = markPrice(id); return price > 0 ? { price, change: liveChange(id) } : null })
 
 // Walk-in 3D rooms. Built lazily far outside the city (fog hides the street), one shared lamp.
-export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge'
+export type RoomId = 'house' | 'gym' | 'boutique' | 'mosque' | 'trading' | 'campus' | 'studio' | 'conference' | 'lounge' | 'mcgrind' | 'market'
 export type Use = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; run: () => void; exit?: boolean; /** Offered only while this is true (hired staff). */ when?: () => boolean }
-type Hooks = { player?: () => { x: number; z: number }; toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void }
+type Hooks = { player?: () => { x: number; z: number }; toast: (t: string) => void; openPanel: (p: 'profile' | 'boutique' | 'trade' | 'learn' | 'bounty' | 'conference') => void; onLook: () => void; busy: (seconds: number, x: number, z: number, faceYaw: number) => void; sit: (seat: Seat) => void; rankIndex?: () => number; openCareer?: (tab?: string) => void; openCerts?: () => void; shift?: () => void; eatMeal?: () => void; snack?: () => void; market?: Market }
 
-const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 } }
+const ORIGIN: Record<RoomId, { x: number; z: number }> = { house: { x: 400, z: 0 }, gym: { x: 400, z: 60 }, boutique: { x: 400, z: 120 }, mosque: { x: 400, z: 180 }, trading: { x: 460, z: 0 }, campus: { x: 460, z: 60 }, studio: { x: 460, z: 120 }, conference: { x: 460, z: 180 }, lounge: { x: 520, z: 0 }, mcgrind: { x: 520, z: 60 }, market: { x: 520, z: 130 } }
 const DOOR_Z: Partial<Record<RoomId, number>> = { house: -2.2, lounge: -3, conference: 13 }
-const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 40, d: 30 }, studio: { w: 14, d: 10 }, conference: { w: 40, d: 32 }, lounge: { w: 16, d: 18 } }
+const SIZE: Record<RoomId, { w: number; d: number }> = { house: { w: 20, d: 15 }, gym: { w: 15, d: 11 }, boutique: { w: 12, d: 9 }, mosque: { w: 16, d: 12 }, trading: { w: 18, d: 13 }, campus: { w: 40, d: 30 }, studio: { w: 14, d: 10 }, conference: { w: 40, d: 32 }, lounge: { w: 16, d: 18 }, mcgrind: { w: 20, d: 16 }, market: { w: 36, d: 26 } }
 // The two great halls (Campus lecture hall, conference centre): tall, wide and full of people.
-const HALL = new Set<RoomId>(['campus', 'conference'])
+const HALL = new Set<RoomId>(['campus', 'conference', 'market'])
 /** How many people fill a hall: fewer on Low and in Light performance, a full house on High. */
 const crowdCap = () => { const g = getSave().graphics; return liteOn() || g === 'low' ? 36 : g === 'medium' ? 80 : 160 }
 // Street side: building centre and door hotspot id.
@@ -49,6 +51,8 @@ export const STREET: Record<RoomId, { spot: string; cx: number; cz: number }> = 
   studio: { spot: 'bounty', cx: 48, cz: 0 },
   conference: { spot: 'conference', cx: 16, cz: -54 },
   lounge: { spot: 'lounge', cx: -40, cz: -36 },
+  mcgrind: { spot: 'mcgrind', cx: -28, cz: -53 },
+  market: { spot: 'market', cx: -29, cz: -34 },
 }
 
 const std = (color: number, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness })
@@ -207,6 +211,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const FLOOR: Record<RoomId, [FloorKind, number, number]> = {
       house: ['wood', 0xe9d6bf, 0.17], campus: ['wood', 0xf3e6d2, 0.22], conference: ['wood', 0x9c8672, 0.26], lounge: ['wood', 0x8f7862, 0.26],
       boutique: ['stone', 0xfff6ea, 0.3], studio: ['stone', 0xcfd0d2, 0.26], mosque: ['stone', 0xf2ead8, 0], trading: ['tile', 0x23262a, 0.34], gym: ['rubber', 0x2b2d30, 0],
+      mcgrind: ['tile', 0xdfe8e2, 0.22], market: ['stone', 0xd8cbb4, 0],
     }
     const [floorKind, floorTint, floorGloss] = FLOOR[id]
     const floorMat = std(floorTint, 0.7, floorKind === 'tile' ? 0.1 : 0)
@@ -215,7 +220,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     floor.rotation.x = -Math.PI / 2
     floor.castShadow = false
     if (floorGloss > 0) glossFloor(floor, floorGloss)
-    const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : id === 'boutique' ? 0xeedfd6 : 0xf1ebe2, 0.92)
+    const wallMat = std(id === 'gym' ? 0xb9b4ac : id === 'house' ? 0xe9e0d0 : id === 'trading' ? 0x3b3f44 : id === 'studio' ? 0xd8d2c8 : id === 'conference' ? 0x2f3338 : id === 'boutique' ? 0xeedfd6 : id === 'mcgrind' ? 0xeef4ef : id === 'market' ? 0xd9c9ae : 0xf1ebe2, 0.92)
     // Home: cutaway-height walls and no beams, so the phone's high follow camera sees over them.
     wallFinish(wallMat)
     const H = id === 'house' ? 2.6 : HALL.has(id) ? 5.2 : 3.2
@@ -858,10 +863,14 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
     // The Campus and the conference centre are buildings of several rooms with raked seating (halls.ts).
     let floorAt: Floor | null = null
-    if (id === 'campus' || id === 'conference') {
+    if (id === 'campus' || id === 'conference' || id === 'mcgrind' || id === 'market') {
       const ctx = { group, ox: o.x, oz: o.z, w, d, H, wallMat, trim, std, box, add, use, seat, obstacles, sit: hooks.sit, busy: hooks.busy, toast: hooks.toast,
         openLearn: () => hooks.openPanel('learn'), openConference: () => hooks.openPanel('conference'), canvasTex, cap: crowdCap() }
-      floorAt = id === 'campus' ? buildCampus(ctx) : buildConference(ctx, paintSchedule)
+      const none = () => hooks.toast('Not open yet.')
+      if (id === 'campus') floorAt = buildCampus(ctx)
+      else if (id === 'conference') floorAt = buildConference(ctx, paintSchedule)
+      else if (id === 'mcgrind') floorAt = buildMcGrind(ctx, { shift: hooks.shift ?? none, order: hooks.eatMeal ?? none })
+      else if (hooks.market) floorAt = buildMarket(ctx, hooks.market, { snack: hooks.snack ?? none })
     }
     scene.add(group)
     const entry = { group, obstacles, uses, floor: floorAt }

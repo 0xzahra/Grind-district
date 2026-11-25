@@ -64,6 +64,7 @@ import { mountUi } from './ui.ts'
 import { claimDaily, loginState } from './luxury.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors, STREET } from './interiors.ts'
+import { createMarket } from './market.ts'
 import { createAmbient } from './ambient.ts'
 import { PLAZA_BENCH_LEN, STREET_BENCH_LEN, benchSlots, pickBenchSlot, createSeating, kioskSeats, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
@@ -1626,10 +1627,18 @@ const apiAgents = createRemoteAgents(scene)
   window.setTimeout(() => { void loadOnlineStats(); window.setInterval(() => { if (!document.hidden) void loadOnlineStats() }, 600_000) }, 6000)
   document.body.append(onlineCard)
   performance.mark('gd:pre-net')
+  // Grind Market (market.ts): your stall sells while you play; online players see it and can buy.
+  const market = createMarket({ toast: (m) => ui.toast(m), myName: () => getSave().name || getSave().username || 'Trader', inMarket: () => interiors.inside === 'market' })
+  const buyFood = (usd: number, label: string, detail: string, fill: Partial<Record<'hunger' | 'energy' | 'social', number>>) => {
+    const r = spendInGame(usd, label, detail)
+    if (!r.ok) { ui.toast(r.message); return }
+    ui.toast(adjustNeeds(fill, 'now') || `${label}. Fed and ready.`)
+  }
   const net = createNet({
     scene,
     me: identity(),
     onVisit: (v) => void import('./players.ts').then((m) => m.showVisitInvite(v, () => acceptVisit(v))),
+    onMarket: (m) => market.receive(m),
     getSelf: () => avatar.object,
     onLine: ({ from, text, self, audio }) => {
       const item = document.createElement('li')
@@ -1669,6 +1678,8 @@ const apiAgents = createRemoteAgents(scene)
       if (!onlineCard.hidden) paintOnlineCard(lastStats)
     },
   })
+  market.attach({ send: (m) => net.market(m), id: () => net.id() })
+
   void import('./voice.ts').then((m) => m.mountVoice(chat, net, (t) => ui.toast(t), () => {
     if (!interiors.inside) return 'Voice notes are off on the street. Step inside a room to record.'
     if (import.meta.env.VITE_VOICE_NOTES !== '1') return 'Voice notes open soon.'
@@ -1990,6 +2001,10 @@ const apiAgents = createRemoteAgents(scene)
     },
     sit: (s) => sitOn(s),
     openCareer: (tab) => { setCC(true); openCareer(tab) },
+    shift: () => void import('./mcgrind.ts').then((m) => m.openShift({ toast: (t) => ui.toast(t) })),
+    eatMeal: () => buyFood(4, 'McGrind meal', 'A burger, fries and a drink.', { hunger: 55, energy: 6 }),
+    snack: () => buyFood(2, 'Market snack', 'Something hot from a trader.', { hunger: 22 }),
+    market,
     openCerts: () => ui.open('profile'),
   })
   // Sitting: move onto the seat, hold still, pose the rig; any stick, key or tap stands up.
@@ -2702,6 +2717,7 @@ const apiAgents = createRemoteAgents(scene)
 
   const update = (dt: number) => {
     zahraMoves.tick(dt)
+    market.tick(dt)
     const now = Date.now()
     tickMarket(dt, now)
     const nextSeason = seasonAt(now)

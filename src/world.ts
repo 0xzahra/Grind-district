@@ -13,6 +13,7 @@ import { createDrinkStand } from './drinkStand.ts'
 import { facetMap, paintFacets } from './facets.ts'
 import { createTrees, foliageMaterial } from './trees.ts'
 import { groundDetail, INTERLOCK, INTERLOCK_EDGE } from './groundDetail.ts'
+import { marketFront, mcgrindFront } from './brandFronts.ts'
 import { buildGrandMosque, MASJID } from './grandMosque.ts'
 
 export type Hotspot = {
@@ -404,6 +405,14 @@ export function createWorld(options: {
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
   const campusCafe = addBuilding({ x: -16, z: -54, w: 8, d: 7, h: 3.6, door: 'pz', title: 'Campus café', subtitle: 'the season, posted', seed: 8, style: 'brick' })
   spot('campus-cafe', campusCafe.x, campusCafe.z, 2.3, 'Campus café', 'Grab a coffee and read today\'s market headlines.', 'cafe', 'Read the room')
+  // McGrind: the city's burger, fries, shawarma and boba restaurant (green, its own mark). Work a shift inside.
+  const mcg = addBuilding({ x: -28, z: -53, w: 9, d: 7, h: 5, door: 'pz', title: 'McGrind', subtitle: 'open day and night', seed: 61, style: 'pavilion', facade: 'render' })
+  spot('mcgrind', mcg.x, mcg.z, 2.4, 'McGrind', 'Burgers, fries, shawarma and boba. Order a meal, or work a shift in the kitchen to earn cash for bills and the next bull run.', undefined, 'Go inside')
+  scene.add(mcgrindFront(-28, -53, 9, 7, 5))
+  // Grind Market: a covered market hall behind this gate. Rent a stall, stock it and sell.
+  const mkt = addBuilding({ x: -29, z: -34, w: 9, d: 7, h: 4.6, door: 'pz', title: 'Grind Market', subtitle: 'stalls and traders', seed: 63, style: 'arch' })
+  spot('market', mkt.x, mkt.z, 2.4, 'Grind Market', 'A covered market hall. Rent a stall, stock it, set your price and sell to the city and to other players.', undefined, 'Go inside')
+  scene.add(marketFront(-29, -34, 9, 7, 4.6))
   addBuilding({ x: -12, z: -36, w: 3.2, d: 2.2, h: 2.6, door: 'pz', title: 'Booth', subtitle: 'no seed asks', seed: 2, style: 'kiosk' })
   addBuilding({ x: 12, z: -36, w: 3.2, d: 2.2, h: 2.6, door: 'pz', title: 'Booth', subtitle: 'one-pagers', seed: 4, style: 'kiosk' })
   spot('booths', 0, -35.2, 2.2, 'Campus booths', 'Project stands. Browse what teams are building.')
