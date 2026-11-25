@@ -65,6 +65,7 @@ import { claimDaily, loginState } from './luxury.ts'
 import { createWorld, districtName, type Hotspot } from './world.ts'
 import { createInteriors, STREET } from './interiors.ts'
 import { createMarket } from './market.ts'
+import { createMcGrindAds } from './mcgrindAds.ts'
 import { createAmbient } from './ambient.ts'
 import { PLAZA_BENCH_LEN, STREET_BENCH_LEN, benchSlots, pickBenchSlot, createSeating, kioskSeats, plazaSeats, seatSpot, workoutSpots, type Seat } from './seating.ts'
 import { tickTvs } from './tv.ts'
@@ -85,7 +86,7 @@ import { sweepScene } from './batch.ts'
 import { createPortrait } from './portrait.ts'
 import { watchUpdates } from './update.ts'
 import { installLayers } from './layers.ts'
-import { formatStatsRows, isPublicStats, type PublicStats } from './statsPanel.ts'
+import { isPublicStats, statsCard, type PublicStats } from './statsPanel.ts'
 import { startPersona, note as personaNote, notePlace, notePanel } from './persona.ts'
 import { initStaff } from './staff.ts'
 watchUpdates()
@@ -320,6 +321,8 @@ const apiAgents = createRemoteAgents(scene)
   }))
   createStreetProps(scene, { lamps: world.lampSpots, trees: world.treeSpots, obstacles: world.obstacles, graphics: getSave().graphics, walkLines: citizenWalkLines })
   createStreetscape(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
+  // McGrind's ads round the city: billboards, bus shelters, A-frames and wall posters (two draw calls in all).
+  createMcGrindAds(scene, { obstacles: world.obstacles, graphics: getSave().graphics })
   performance.mark('gd:estate-beach-skyline-street')
   const traffic = createTraffic(scene, world.lanes, getSave().graphics)
   const weather = createWeather(scene, world.groundMat, matchMedia('(pointer: coarse)').matches ? 'low' : getSave().graphics)
@@ -1581,15 +1584,22 @@ const apiAgents = createRemoteAgents(scene)
     window.clearInterval(onlineCardTimer)
     onlineCardTimer = 0
   }
+  // A card, not a long list: three headline figures, then short sections of tiles, the small print folded away.
   const paintOnlineCard = (st: PublicStats | null) => {
-    const row = (k: string, v: string) => { const d = document.createElement('div'); d.className = 'stat'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, b); return d }
-    const nodes: HTMLElement[] = []
-    for (const item of formatStatsRows(st, onlineNow)) {
-      if (item.kind === 'title') { const h = document.createElement('p'); h.className = 'stat-title'; h.textContent = item.label; nodes.push(h) }
-      else if (item.kind === 'note') { const n = document.createElement('p'); n.className = 'stat-note'; n.textContent = item.label; nodes.push(n) }
-      else nodes.push(row(item.label, item.value ?? '0'))
+    const mk = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = '') => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e }
+    const card = statsCard(st, onlineNow)
+    const head = mk('div', 'sc-head'); head.append(mk('p', 'stat-title', 'City stats'), mk('span', 'sc-live', `${card.online} online`))
+    const tile = (t: { label: string; value: string }, big = false) => { const d = mk('div', big ? 'sc-tile sc-big' : 'sc-tile'); d.append(mk('b', '', t.value), mk('span', '', t.label)); return d }
+    const hero = mk('div', 'sc-hero'); hero.append(...card.hero.map((t) => tile(t, true)))
+    const nodes: HTMLElement[] = [head, hero]
+    for (const sec of card.sections) {
+      const box = mk('section', 'sc-sec'); const grid = mk('div', 'sc-grid')
+      grid.append(...sec.tiles.map((t) => tile(t)))
+      box.append(mk('h4', '', sec.title), grid)
+      nodes.push(box)
     }
-    const who = document.createElement('button'); who.type = 'button'; who.className = 'stat-players'; who.textContent = 'See who is online · invite them home'
+    if (card.note) { const d = mk('details', 'sc-note'); d.append(mk('summary', '', 'About these numbers'), mk('p', 'stat-note', card.note)); nodes.push(d) }
+    const who = mk('button', 'stat-players', 'See who is online · invite them home') as HTMLButtonElement; who.type = 'button'
     who.onclick = () => { closeOnlineCard(); window.dispatchEvent(new Event('gd:players')) }
     nodes.push(who)
     onlineCard.replaceChildren(...nodes)

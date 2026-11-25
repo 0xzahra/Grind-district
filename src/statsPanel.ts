@@ -85,3 +85,39 @@ export function formatStatsRows(st: PublicStats | null, onlineNow: number): Stat
   rows.push({ kind: 'note', label: bits.join(' ') })
   return rows
 }
+
+export type StatTile = { label: string; value: string }
+export type StatCard = { online: string; hero: StatTile[]; sections: Array<{ title: string; tiles: StatTile[] }>; note: string | null }
+
+/** The same numbers as formatStatsRows, laid out as a card: three headline figures, then short sections of tiles. */
+export function statsCard(st: PublicStats | null, onlineNow: number): StatCard {
+  const k = (v: number | undefined) => { const x = Math.max(0, Math.round(Number(v) || 0)); return x >= 10000 ? `${(x / 1000).toFixed(x >= 100000 ? 0 : 1)}k` : x.toLocaleString('en-US') }
+  const hero: StatTile[] = [{ label: 'Online now', value: k(onlineNow) }]
+  if (st) hero.push({ label: 'Active today', value: k(Math.max(st.activeToday, onlineNow)) })
+  if (st && typeof st.visitorsAll === 'number') hero.push({ label: 'Visitors', value: k(st.visitorsAll) })
+  if (!st) return { online: k(onlineNow), hero, sections: [], note: 'Other counts could not load just now. Online now still updates as people arrive.' }
+  const sections: StatCard['sections'] = []
+  const today: StatTile[] = []
+  if (typeof st.visitsToday === 'number') today.push({ label: 'Visits today', value: k(st.visitsToday) })
+  if (typeof st.newVisitorsToday === 'number') today.push({ label: 'New today', value: k(st.newVisitorsToday) })
+  if (today.length) sections.push({ title: 'Today', tiles: today })
+  if (typeof st.learners === 'number') sections.push({ title: 'Learning', tiles: [
+    { label: 'Learners', value: k(st.learners) }, { label: 'Courses passed', value: k(st.lessonsPassed) },
+    { label: 'Certificates', value: k(st.certificates) }, { label: 'Back in 7 days', value: k(st.returning7d) },
+  ] })
+  sections.push({ title: 'Players', tiles: [
+    { label: 'Registered', value: k(st.registered) }, { label: 'Sign-ups', value: k(st.signups) },
+    ...(typeof st.nearAccounts === 'number' ? [{ label: 'NEAR sign-ups', value: k(st.nearAccounts) }] : []),
+    { label: 'Sign-ins', value: k(st.signIns) },
+  ] })
+  sections.push({ title: 'On-chain and agents', tiles: [
+    { label: 'Mints · Base', value: k(st.mintsBase) }, { label: st.mintsNearNetwork === 'mainnet' ? 'Mints · NEAR' : 'Mints · NEAR test', value: k(st.mintsNear) },
+    { label: 'Wallets linked', value: k(st.walletConnections) }, { label: 'Agents', value: `${k(st.agentsOnline)} / ${k(st.agentsRegistered)}` },
+  ] })
+  sections.push({ title: 'Saves', tiles: [
+    { label: 'Cloud saves', value: k(st.cloudSaves) }, { label: 'Saved today', value: k(st.cloudSavesToday) },
+    { label: 'Logouts', value: k(st.logouts) }, { label: 'Deletions', value: k(st.deletions) },
+  ] })
+  const notes = formatStatsRows(st, onlineNow).filter((r) => r.kind === 'note').map((r) => r.label)
+  return { online: k(onlineNow), hero, sections, note: [...notes, 'Agents: online now / registered.'].join(' ') }
+}

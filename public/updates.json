@@ -336,6 +336,19 @@
       "title": "A fresh look at the city",
       "body": "The opening picture and the link preview now show the city as it is today: paved forecourts, the Graduation Garden, McGrind and the sea.",
       "push": false
+    },
+    {
+      "id": "u1125-mcgrind-ads",
+      "title": "McGrind is hiring, all over town",
+      "body": "Look out for McGrind's billboards, bus shelter ads, A-frame boards and posters: \"Bear market? We're hiring.\" Work a shift by the Campus café and stack your pay for the bull run.",
+      "go": "place:McGrind",
+      "push": false
+    },
+    {
+      "id": "u1125-city-stats-card",
+      "title": "A tidier city stats card",
+      "body": "Tap the Online pill: the city's numbers now sit in a neat card with the headline figures on top and short sections below.",
+      "push": false
     }
   ]
 }
