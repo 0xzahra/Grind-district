@@ -282,6 +282,18 @@
       "title": "New: the Graduation Garden at Campus",
       "body": "The lawns in front of Campus now grow a banner each time players across the city pass a milestone of courses. The board shows how many courses everyone has passed so far and when the next banner goes up.",
       "go": "place:Campus"
+    },
+    {
+      "id": "u1125-busy-halls",
+      "title": "New: huge halls, full of people",
+      "body": "The Campus lecture hall and the conference centre are now much bigger and always busy. Students fill the benches while a lecturer teaches, and the conference has a speaker, a panel and an audience. A few aisle seats are kept free for you.",
+      "go": "place:Campus"
+    },
+    {
+      "id": "u1125-paved-forecourts",
+      "title": "Paved forecourts and proper road ends",
+      "body": "Roads now end in turning circles before each district hall instead of running up to the doors, and every building stands on terracotta paving. The conference centre is taller too.",
+      "push": false
     }
   ]
 }
