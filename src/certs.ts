@@ -133,6 +133,35 @@ export async function openCertificate(course: SkillId, opts: { first?: boolean }
     share.textContent = r === 'copied' ? 'Link copied' : r === 'shared' ? 'Shared' : 'Could not share'
   }
   share.onclick = onShare
+  // One tap to the networks: the post carries the public certificate page, whose preview card is the certificate
+  // image itself; each link is tagged with where it was posted, so the stats page can show which one brings players.
+  const nets = document.createElement('div')
+  nets.className = 'cert-nets'
+  const tagged = (via: string) => { const u = new URL(link); u.searchParams.set('src', via); u.searchParams.set('utm_source', via); return u.toString() }
+  const blurb = () => `I just passed ${SKILL_META[course].title} on Grind District and earned my certificate. A free 3D city where you learn Web3 and walk out with a CV.`
+  const net = (label: string, via: string, open: () => string | null) => {
+    const b = document.createElement('button')
+    b.type = 'button'; b.className = `ghost cert-net cert-net-${via}`; b.textContent = label
+    b.onclick = async () => {
+      if (!link) return void fetchServer()
+      const url = open()
+      if (url) window.open(url, '_blank', 'noopener')
+      track('cert_shared', { course, via })
+    }
+    return b
+  }
+  nets.append(
+    net('Post on X', 'x', () => `https://x.com/intent/post?text=${encodeURIComponent(blurb())}&url=${encodeURIComponent(tagged('x'))}`),
+    net('Cast on Farcaster', 'farcaster', () => `https://warpcast.com/~/compose?text=${encodeURIComponent(blurb())}&embeds[]=${encodeURIComponent(tagged('farcaster'))}`),
+  )
+  // Phones that can share files get the certificate picture itself attached, with the link.
+  canvas.toBlob((blob) => {
+    if (!blob) return
+    const file = new File([blob], `grind-district-${course}-certificate.png`, { type: 'image/png' })
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
+    if (!nav.canShare?.({ files: [file] })) return
+    nets.append(net('Share image', 'image', () => { void nav.share({ files: [file], text: `${blurb()} ${link ? tagged('image') : ''}`.trim() }).catch(() => undefined); return null }))
+  }, 'image/png')
   const mint = document.createElement('div')
   mint.className = 'cert-mint'
   const close = document.createElement('button')
@@ -147,7 +176,7 @@ export async function openCertificate(course: SkillId, opts: { first?: boolean }
     const p = document.createElement('p'); p.textContent = `${SKILL_META[course].title} is on your CV now. Share it, download it, or mint it on-chain (optional).`
     lead.append(h, p)
   }
-  dlg.append(...(opts.first ? [lead] : []), canvas, meta, share, save, mint, close)
+  dlg.append(...(opts.first ? [lead] : []), canvas, meta, share, nets, save, mint, close)
   document.body.append(dlg)
   void fetchServer()
 }

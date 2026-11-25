@@ -1,5 +1,5 @@
 // Drop-off and retention summary (api/_funnel.ts): built from a small fake events table.
-import { buildFunnel } from '../api/_funnel.ts'
+import { buildFunnel, sourceOf } from '../api/_funnel.ts'
 
 function check(cond: boolean, msg: string): void {
   if (!cond) throw new Error(msg)
@@ -80,4 +80,13 @@ check(out.retention.signedUp.players === 1 && out.retention.signedUp.d30 === 100
 check(out.proof.certViews === 1 && out.proof.certShares === 1, 'proof counts')
 check(out.cohorts.length >= 2, 'weekly cohorts')
 check(!JSON.stringify(out).includes('"sa"') && !JSON.stringify(out).includes('"a"'), 'no visitor ids leave the summary')
+// Where new players came from.
+check(sourceOf('first_visit', { src: 'Farcaster' }) === 'farcaster', 'tagged link')
+check(sourceOf('opened_page', { utm_source: 'x' }) === 'x', 'utm source')
+check(sourceOf('first_visit', { ref: 'zara' }) === 'invite', 'invite link')
+check(sourceOf('session_start', { ref: 'https://t.co/abc' }) === 'x', 'X referrer')
+check(sourceOf('session_start', { ref: 'https://warpcast.com/~/post' }) === 'farcaster', 'Farcaster referrer')
+check(sourceOf('session_start', { ref: 'https://www.grinddistrict.app/' }) === null, 'own site is not a source')
+check(sourceOf('first_visit', { landing: '/' }) === null, 'no source')
+check(Array.isArray(out.newPlayers.byDay) && out.newPlayers.byDay.length >= 14 && Array.isArray(out.newPlayers.bySource), 'new players by day and source')
 console.log('funnel ok')

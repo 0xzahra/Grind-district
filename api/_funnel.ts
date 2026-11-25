@@ -43,6 +43,33 @@ export type FunnelOut = {
   cohorts: Cohort[]
   proof: { certShares: number; cvShares: number; pageViews: number; certViews: number; cvViews: number; mints: number }
   topups: { payments: number; payers: number; usd: number; payersBack: number | null; attempts: number }
+  /** New players in the window: per day (newest first) and per source (tagged link, invite, referring site). */
+  newPlayers: { byDay: NewRow[]; bySource: NewRow[] }
+}
+export type NewRow = { label: string; visitors: number; signedUp: number; learned: number }
+
+/** Where a new player came from: ?src= / utm_source on the link, an invite (?ref=), the site that linked, or direct. */
+export function sourceOf(name: string, props: Record<string, unknown> | null): string | null {
+  const p = props ?? {}
+  const tag = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 24) : '')
+  if (name === 'session_start') {
+    const ref = typeof p.ref === 'string' ? p.ref : ''
+    if (!ref) return null
+    let host = ''
+    try { host = new URL(ref).hostname.replace(/^www\./, '') } catch { return null }
+    if (!host || /grinddistrict|vercel\.app|localhost/.test(host)) return null
+    if (/^(t\.co|x\.com|twitter\.com)$/.test(host)) return 'x'
+    if (/warpcast|farcaster/.test(host)) return 'farcaster'
+    if (/near/.test(host)) return 'near'
+    if (/google\./.test(host)) return 'google'
+    if (/telegram|t\.me/.test(host)) return 'telegram'
+    if (/whatsapp|wa\.me/.test(host)) return 'whatsapp'
+    return host.slice(0, 24)
+  }
+  const src = tag(p.src) || tag(p.utm_source)
+  if (src) return src
+  if (tag(p.ref)) return 'invite'
+  return null
 }
 
 type Row = { name: string; anon_id: string; session_id: string; props: Record<string, unknown> | null; created_at: string }
@@ -190,6 +217,36 @@ export async function buildFunnel(db: SupabaseClient, days: number, now: number)
     week, size: c.size, d1: rate(c.d1, c.n1), d7: rate(c.d7, c.n7), d30: rate(c.d30, c.n30), learned: pct(c.learned, c.size),
   }))
 
+  // --- New players in the window: by day and by where they came from ---
+  const firstOf = new Map<string, number>()
+  for (const [a, set] of daysBy) firstOf.set(a, Math.min(...set))
+  const startDay = dayOf(Date.parse(windowStart))
+  const fresh = [...firstOf.entries()].filter(([, d]) => d >= startDay)
+  const srcRows = await pageAll(db, ['first_visit', 'opened_page', 'session_start'], new Date((startDay - 1) * DAY).toISOString(), 'name, anon_id, session_id, props, created_at', 40)
+  const srcOf = new Map<string, string>()
+  for (const r of srcRows) {
+    const a = r.anon_id
+    if (!a || a === 'unknown' || srcOf.has(a)) continue
+    const s0 = sourceOf(r.name, r.props as Record<string, unknown> | null)
+    if (s0) srcOf.set(a, s0)
+  }
+  const tally = (keyOf: (a: string, d: number) => string) => {
+    const m = new Map<string, NewRow>()
+    for (const [a, d] of fresh) {
+      const k = keyOf(a, d)
+      let row = m.get(k); if (!row) { row = { label: k, visitors: 0, signedUp: 0, learned: 0 }; m.set(k, row) }
+      row.visitors += 1
+      if (signed.has(a)) row.signedUp += 1
+      if (learned.has(a)) row.learned += 1
+    }
+    return m
+  }
+  const dayLabel = (d: number) => new Date(d * DAY).toISOString().slice(0, 10)
+  const byDayMap = tally((_, d) => dayLabel(d))
+  const byDay: NewRow[] = []
+  for (let d = today; d >= startDay; d--) byDay.push(byDayMap.get(dayLabel(d)) ?? { label: dayLabel(d), visitors: 0, signedUp: 0, learned: 0 })
+  const bySource = [...tally((a) => srcOf.get(a) ?? 'direct').values()].sort((x, y) => y.visitors - x.visitors).slice(0, 20)
+
   // --- Proof: shares, public page views, mints (window) ---
   const proofRows = await pageAll(db, ['cert_shared', 'cv_shared', 'cert_viewed', 'cert_minted', 'topup_attempt'], windowStart, 'name, anon_id, session_id, props, created_at', 20)
   const nOf = (n: string) => proofRows.filter((r) => r.name === n).length
@@ -242,6 +299,7 @@ export async function buildFunnel(db: SupabaseClient, days: number, now: number)
     },
     cohorts,
     proof,
+    newPlayers: { byDay, bySource },
     topups,
   }
   return value

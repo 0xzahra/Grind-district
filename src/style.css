@@ -2374,6 +2374,10 @@ body.online-open #cam-toggle { visibility: hidden; }
 #online-chip { top: calc(max(14px, env(safe-area-inset-top)) + 10px) !important; left: auto !important; right: calc(max(12px, env(safe-area-inset-right)) + 112px) !important; transform: none !important; }
 #online-card { top: calc(max(14px, env(safe-area-inset-top)) + 48px); left: auto; right: calc(max(12px, env(safe-area-inset-right)) + 64px); transform: none; }
 .cert-dlg a.cert-dl{color:#e9cd8f;text-align:center;font-weight:600;text-decoration:none;padding:8px 0}
+.cert-dlg .cert-nets{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.cert-dlg .cert-net{min-height:42px;font-weight:600}
+.cert-dlg .cert-net-x{background:#0b0d0f;color:#fff;border-color:rgba(255,255,255,.28)}
+.cert-dlg .cert-net-farcaster{background:#3f2a7a;color:#fff;border-color:#6c4bd1}
 
 /* ===== Phones: sharp, smooth, fast (11 Nov) =====
    A blurred backdrop over a moving 3D view has to be re-blurred on every frame; on phone GPUs that was the

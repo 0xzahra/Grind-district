@@ -55,6 +55,13 @@ th{color:var(--mute);font-weight:500}
 <div class="wrap" style="margin-top:12px"><table id="coh"><thead><tr><th>First week</th><th>New</th><th>Next day</th><th>After 7 days</th><th>After 30 days</th><th>Passed a lesson</th></tr></thead><tbody></tbody></table></div>
 <p class="note">Next day: opened the game again the day after their first day. After 7 / 30 days: opened it again 7 or 30 or more days after their first day. A dash means that week is not old enough yet. Days run on Lagos time.</p>
 
+<h2>Where new players came from</h2>
+<div class="wrap"><table id="src"><thead><tr><th>Source</th><th>New players</th><th>Signed up</th><th>Passed a lesson</th></tr></thead><tbody></tbody></table></div>
+<p class="note">Tag every link you post so it shows here by name: <code>grinddistrict.app/?src=farcaster</code>, <code>?src=x</code>, <code>?src=near</code>, <code>?src=telegram</code>. Untagged visits show the site that linked to the game, "invite" for a player's invite link, or "direct".</p>
+
+<h2>New players by day</h2>
+<div class="wrap"><table id="byday"><thead><tr><th>Day (Lagos)</th><th>New players</th><th>Signed up</th><th>Passed a lesson</th></tr></thead><tbody></tbody></table></div>
+
 <h2>Proof shared</h2>
 <div class="tiles" id="proof"></div>
 
@@ -105,6 +112,10 @@ async function load() {
     + tile(`Signed-up players (${rt.signedUp.players})`, `${pctTxt(rt.signedUp.d7)} after 7 days`)
   $('coh').querySelector('tbody').innerHTML = d.cohorts.map((c) => `<tr><td>${esc(c.week)}</td><td>${c.size}</td><td>${pctTxt(c.d1)}</td><td>${pctTxt(c.d7)}</td><td>${pctTxt(c.d30)}</td><td>${c.learned}%</td></tr>`).join('')
   const p = d.proof
+  const np = d.newPlayers || { byDay: [], bySource: [] }
+  const nrow = (r) => `<tr><td>${esc(r.label)}</td><td>${r.visitors}</td><td>${r.signedUp}</td><td>${r.learned}</td></tr>`
+  $('src').querySelector('tbody').innerHTML = np.bySource.length ? np.bySource.map(nrow).join('') : '<tr><td colspan="4">No new players in this window yet.</td></tr>'
+  $('byday').querySelector('tbody').innerHTML = np.byDay.map(nrow).join('')
   $('proof').innerHTML = tile('Certificates shared', p.certShares) + tile('CVs shared', p.cvShares) + tile('Certificate pages opened', p.certViews) + tile('CV pages opened', p.cvViews) + tile('Certificates minted', p.mints)
   const t = d.topups
   $('tops').innerHTML = tile('Payments', t.payments) + tile('Players who topped up', t.payers) + tile('Total (USD)', `$${t.usd.toFixed(2)}`) + tile('Played again on a later day', t.payersBack == null ? '—' : t.payersBack) + tile('Top-up screen opened', t.attempts)

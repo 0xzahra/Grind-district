@@ -294,6 +294,30 @@
       "title": "Paved forecourts and proper road ends",
       "body": "Roads now end in turning circles before each district hall instead of running up to the doors, and every building stands on terracotta paving. The conference centre is taller too.",
       "push": false
+    },
+    {
+      "id": "u1125-campus-rebuilt",
+      "title": "New: Campus and the conference centre, rebuilt",
+      "body": "Campus now has two lecture theatres with stepped rows so everyone sees the board, two classrooms and a library off a corridor. The conference centre has a lobby, a raked auditorium, a panel room and a workshop room, all busy with people.",
+      "go": "place:Campus"
+    },
+    {
+      "id": "u1125-auto-sit",
+      "title": "Sit anywhere by walking up",
+      "body": "Stop beside any free seat, bench or chair in the city and you sit down by yourself. In the halls, walk up an aisle and stop at a row. You can also climb onto the conference stage and take the lectern."
+    },
+    {
+      "id": "u1125-back-where-you-were",
+      "title": "Rooms open fast, and you come back where you left off",
+      "body": "Going into a room or home no longer keeps the screen dark for seconds. When you come back to the game, you are inside the room or home you were in, not out on the plaza.",
+      "push": false
+    },
+    {
+      "id": "u1125-share-certificate",
+      "title": "Share your certificate in one tap",
+      "body": "Your certificate now has Post on X and Cast on Farcaster buttons, and on phones Share image, which sends the certificate picture itself.",
+      "go": "panel:profile",
+      "push": false
     }
   ]
 }
