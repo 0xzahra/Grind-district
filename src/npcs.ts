@@ -159,8 +159,17 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
   return along > 0 ? along : null
 }
 
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; robotAt: () => { x: number; z: number }; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number; say: (text: string) => void } | null; talker: () => { x: number; z: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; robotAt: () => { x: number; z: number }; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
+  let talkingNow: { i: number; until: number } | null = null
+  /** Resident `i` says a line to the player: mouth, the talk clip and a turn to face them, for its reading time. */
+  const talkTo = (i: number, text: string) => {
+    const p = people[i]; if (!p) return
+    const until = performance.now() + Math.min(9000, 700 + text.length * 60)
+    p.avatar.object.userData.talkUntil = until
+    talkingNow = { i, until }
+    const g = gaze[i] ?? (gaze[i] = { t: 0, cool: 0 }); g.t = 0; g.cool = 0
+  }
   // Each resident gets a name that fits the figure: women's names on women, men's names on men.
   const personas = new Map<Person, Persona>()
   let womenNamed = 0, menNamed = 0
@@ -286,8 +295,10 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       people.forEach((p, i) => { const d = Math.hypot(p.sim.x - x, p.sim.z - z); if (d < bd) { bd = d; best = i } })
       if (best < 0) return null
       const p = people[best]!
-      return { name: persona(p).name, gender: p.sim.spec.body === 'zuri' ? 'f' : 'm', seed: best }
+      return { name: persona(p).name, gender: p.sim.spec.body === 'zuri' ? 'f' : 'm', seed: best, say: (text: string) => talkTo(best, text) }
     },
+    /** The resident talking to you right now (to turn and face them), if any. */
+    talker() { const t = talkingNow; if (!t || performance.now() > t.until) return null; const p = people[t.i]; return p ? { x: p.sim.x, z: p.sim.z } : null },
     /** Unit 4, the labelled agent: where it stands (a tap there opens its card). */
     robotAt() { return { x: robotX, z: robotZ } },
     debug() { return people.map((p, i) => ({ x: +p.sim.x.toFixed(2), z: +p.sim.z.toFixed(2), state: posed.some((q) => q.p === p) ? 'seated' : still.has(i) ? 'idle' : 'walking', body: p.sim.spec.body })) },
@@ -316,7 +327,7 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
           const text = turn === 0 ? `${per.name}: Feeling ${moodOf(i)} today.` : turn === 1 ? `${per.name}: ${routineNow(i)}.` : `${per.name}: ${per.lines[Math.floor(now) % per.lines.length]}`
           const sp = bubble(text); people[i]!.avatar.object.add(sp); live.push({ sp, host: people[i]!.avatar.object, ttl: 3.6 })
           speak(text.replace(/^[^:]{1,20}:\s*/, ''), { gender: people[i]!.sim.spec.body === 'zuri' ? 'f' : 'm', seed: i })
-          gaze[i] = { t: 0, cool: 0 } // turn to face you while talking
+          talkTo(i, text) // mouth moving, hands talking, turned to face you
         }
       }
       // Look at the player only when very close (< 2.2 m) and only briefly (2 s, then 12 s cooldown).
@@ -340,7 +351,9 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
         let chatting = false
         if (!moving) {
           const close = player && Math.hypot(player.x - person.sim.x, player.z - person.sim.z) < 2.2
-          if (close && g.cool <= 0 && g.t < 2) { g.t += dt; person.avatar.face(player!.x - person.sim.x, player!.z - person.sim.z, dt, true); if (g.t >= 2) g.cool = 12 }
+          const toYou = talkingNow?.i === index && performance.now() < talkingNow.until && !!player && Math.hypot(player.x - person.sim.x, player.z - person.sim.z) < 4
+          if (toYou) person.avatar.face(player!.x - person.sim.x, player!.z - person.sim.z, dt, true)
+          else if (close && g.cool <= 0 && g.t < 2) { g.t += dt; person.avatar.face(player!.x - person.sim.x, player!.z - person.sim.z, dt, true); if (g.t >= 2) g.cool = 12 }
           else {
             if (!close) g.t = 0
             let best: Person | null = null, bd = 2.6

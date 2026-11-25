@@ -64,6 +64,38 @@ const GOLD = new THREE.MeshStandardMaterial({ color: 0xd9b26a, metalness: 0.9, r
 const PEARL = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.35 })
 const STEEL = new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.85, roughness: 0.3 })
 const SHADE = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 })
+// Mouths: the figures have no jaw bone, so a small dark mouth sits on the lips and opens with speech. One shared
+// shape and material; each is hidden while its person is quiet (no draw call then).
+const MOUTH_GEO = new THREE.CircleGeometry(0.0105, 14)
+const MOUTH_MAT = new THREE.MeshBasicMaterial({ color: 0x2c0f0b })
+/** How far open a talking mouth is at time `t` (seconds): syllables inside phrases, so it reads as speech. */
+export const mouthOpen = (t: number): number => Math.max(0, Math.sin(t * 13.5)) * (0.55 + 0.45 * Math.max(0, Math.sin(t * 2.3 + 1)))
+/** Put a (hidden) mouth on a person's lips; it rides the head bone, so it turns and nods with the head whatever
+ *  the pose. Returns the mouth (scale its y to open it), or null if the figure has no head. */
+export function fitMouth(person: THREE.Object3D, t: { scene: THREE.Object3D; eye?: [number, number, number, number] | null; fit?: unknown; clips?: unknown }): THREE.Mesh | null {
+  const head = person.getObjectByName(B.head), rest = t.scene.getObjectByName(B.head)
+  if (!head || !rest) return null
+  t.scene.updateMatrixWorld(true)
+  const eye = t.eye ?? [0, 0.095, 0.12, 0.062]
+  const hp = rest.getWorldPosition(new THREE.Vector3())
+  const at = measure(t as Template)?.lips?.clone() ?? new THREE.Vector3(hp.x + eye[0], hp.y + eye[1] - 0.063, hp.z + eye[2] + 0.004)
+  // The lips and a front-facing turn, written in the head bone's own (rest) frame.
+  const inv = new THREE.Matrix4().copy(rest.matrixWorld).invert()
+  const holder = new THREE.Group()
+  const q = rest.getWorldQuaternion(new THREE.Quaternion()), sc = rest.getWorldScale(new THREE.Vector3())
+  holder.position.copy(at.applyMatrix4(inv))
+  holder.quaternion.copy(q.invert())
+  holder.scale.set(1 / (sc.x || 1), 1 / (sc.y || 1), 1 / (sc.z || 1))
+  const mouth = new THREE.Mesh(MOUTH_GEO, MOUTH_MAT)
+  mouth.scale.set(1.5, 0.12, 1)
+  mouth.visible = false
+  mouth.castShadow = false
+  mouth.userData.ghost = holder.userData.ghost = true
+  mouth.raycast = () => undefined
+  holder.add(mouth)
+  head.add(holder)
+  return mouth
+}
 const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
 const ROSE = new THREE.MeshStandardMaterial({ color: 0xd9a08a, metalness: 0.9, roughness: 0.28 })
 const GEM = new THREE.MeshStandardMaterial({ color: 0xf4fbff, metalness: 0.15, roughness: 0.04, envMapIntensity: 2.4 })
@@ -335,6 +367,8 @@ type Fit = {
   ears: [THREE.Vector3, THREE.Vector3] | null
   chest: THREE.Vector3 | null; nape: THREE.Vector3 | null; neckHalf: number
   finger: { at: THREE.Vector3; dir: THREE.Vector3; r: number } | null
+  /** Where the lips meet, on the face surface (rest space). */
+  lips: THREE.Vector3 | null
 }
 /**
  * Measure where jewellery sits from the figure's own surface (once per figure): nothing is placed by a fixed
@@ -358,6 +392,8 @@ function measure(t: Template): Fit | null {
   let earL: THREE.Vector3 | null = null, earR: THREE.Vector3 | null = null
   let chest: THREE.Vector3 | null = null, nape: THREE.Vector3 | null = null, neckHalf = 0.055
   const handVerts: THREE.Vector3[] = []
+  const lipY = eyeY - 0.063
+  let lipZ = -Infinity
   for (let i = 0; i < pos.count; i++) {
     mesh.getVertexPosition(i, v).applyMatrix4(mesh.matrixWorld)
     const [name, w] = lead(i)
@@ -371,6 +407,8 @@ function measure(t: Template): Fit | null {
     }
     if (Math.abs(v.y - (neck.y - 0.005)) < 0.02 && Math.abs(v.z - neck.z) < 0.03 && Math.abs(v.x - neck.x) < 0.1) neckHalf = Math.max(neckHalf, Math.abs(v.x - neck.x))
     if (hand && name === 'Bip01_L_Hand' && w > 0.6) handVerts.push(v.clone())
+    // The lips: the front-most point of the face on the centre line, a mouth's height below the eyes.
+    if (Math.abs(v.x - head.x) < 0.011 && Math.abs(v.y - lipY) < 0.007 && v.z > head.z && v.z > lipZ && name === B.head) lipZ = v.z
   }
   let finger: Fit['finger'] = null
   if (hand && handVerts.length > 8) {
@@ -392,7 +430,8 @@ function measure(t: Template): Fit | null {
     }
     finger = { at, dir, r }
   }
-  t.fit = { ears: earL && earR && earL.x - earR.x > 0.1 ? [earL, earR] : null, chest, nape, neckHalf, finger }
+  const lips = Number.isFinite(lipZ) && lipZ - head.z < 0.2 ? new THREE.Vector3(head.x, lipY, lipZ + 0.0015) : null
+  t.fit = { ears: earL && earR && earL.x - earR.x > 0.1 ? [earL, earR] : null, chest, nape, neckHalf, finger, lips }
   return t.fit
 }
 
@@ -592,6 +631,8 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         setExtras((root.userData.extras as Extras | undefined) ?? opts.extras)
         root.userData.setExtras = setExtras
       }
+      const mouth = fitMouth(person, t)
+      root.userData.mouth = mouth
       const dropOld = () => { if (old && old.parent) { old.removeFromParent(); const om = old.getObjectByName('Person') as THREE.SkinnedMesh | undefined; if (om) paint(om, om.userData.template as Template, undefined, detail) } }
       mesh.userData.template = t
       person.rotation.y = heading
@@ -631,7 +672,15 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       step = (dt, moving, speed) => {
         // Gait by ground speed, so feet match the pace: walk, then jog, then run.
         const gait = !moving ? 0 : speed < pace.walk * 1.75 ? 1 : speed < pace.jog * 1.6 ? 2 : 3
-        const chat = !moving && !!root.userData.chat && !!talk
+        // Talking: chatting with a neighbour, or saying a line to you (userData.talkUntil, a performance.now() time).
+        const now = performance.now()
+        const speaking = !moving && (!!root.userData.chat || (root.userData.talkUntil ?? 0) > now)
+        const chat = speaking && !!talk
+        if (mouth) {
+          const near = speaking && mixerLod(root) === 0
+          mouth.visible = near
+          if (near) mouth.scale.y = 0.12 + 0.62 * mouthOpen(now / 1000 + (root.id % 7))
+        }
         const k = 1 - Math.exp(-9 * dt)
         for (let i = 0; i < 5; i++) {
           const goal = i === 0 ? (gait === 0 && !chat ? 1 : 0) : i === 4 ? (gait === 0 && chat ? 1 : 0) : gait === i ? 1 : 0

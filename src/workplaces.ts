@@ -4,6 +4,8 @@
 // work a shift (mcgrind.ts). Grind Market: 28 stalls under coloured awnings in four rows; the 14 on the centre
 // aisle are for players (market.ts) and show who runs them, the rest have traders. Shoppers fill the aisles.
 import * as THREE from 'three'
+import { sayLine, selfTalker } from './gestures.ts'
+import { speak } from './speech.ts'
 import { boxes, sign, type Floor, type HallCtx } from './halls.ts'
 import { hallCrowd, standing, ATTENDEES, STUDENTS, type CrowdSpot } from './hallCrowd.ts'
 import { drawMcGrindMark } from './brandFronts.ts'
@@ -66,9 +68,12 @@ export function buildMcGrind(c: HallCtx, h: { shift: () => void; order: () => vo
   for (const p of line) c.obstacles.push({ kind: 'circle', x: c.ox + p.x, z: c.oz + p.z, r: 0.28 })
   const crew = { top: 0x0f7a48, bottom: 0x23262a, shoes: 0x1a1c1f }
   standing(c.group, { model: 'man2', look: { ...crew, skin: 0x5a3825, hair: 0x0e0c0b } }, 8.0, 0, -2.4, Math.PI / 2)
-  standing(c.group, { model: 'woman2', look: { ...crew, skin: 0x8d5a3b, hair: 0x16110e } }, 2.1, 0, 0.8, -Math.PI / 2)
+  const cashier = standing(c.group, { model: 'woman2', look: { ...crew, skin: 0x8d5a3b, hair: 0x16110e } }, 2.1, 0, 0.8, -Math.PI / 2)
+  const till = selfTalker(cashier, 'mcgrind-cashier')
+  const GREET = ['Welcome to McGrind! One combo coming right up.', 'Hi! Burger, fries and a cold drink. Enjoy.', 'Good to see you. Fresh fries just came out.']
+  let greets = 0
   c.obstacles.push({ kind: 'circle', x: c.ox + 8.0, z: c.oz - 2.4, r: 0.3 }, { kind: 'circle', x: c.ox + 2.1, z: c.oz + 0.8, r: 0.3 })
-  c.use({ id: 'mcgrind-order', x: 0.1, z: -1.6, r: 1.3, title: 'McGrind counter', body: 'A burger, fries and a drink. Fills you up.', enter: 'Order a meal · $4', run: h.order })
+  c.use({ id: 'mcgrind-order', x: 0.1, z: -1.6, r: 1.3, title: 'McGrind counter', body: 'A burger, fries and a drink. Fills you up.', enter: 'Order a meal · $4', run: () => { const line = GREET[greets++ % GREET.length]!; speak(line, { gender: 'f', seed: 11 }); sayLine('mcgrind-cashier', line); till.play('nod'); h.order() } })
   c.use({ id: 'mcgrind-shift', x: 2.9, z: -6.7, r: 1.4, title: 'McGrind kitchen', body: 'Cook and serve the line for two and a half minutes. Earned cash at the end, tips for speed and quality.', enter: 'Work a shift', run: h.shift })
   return () => 0
 }

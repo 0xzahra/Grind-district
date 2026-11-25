@@ -59,8 +59,13 @@ export function createMentorCard(hooks: MentorHooks) {
   let said = ''
   new MutationObserver(() => {
     const line = root.hidden ? '' : root.querySelector('.mentor-say')?.textContent?.trim() ?? ''
-    if (!line) { if (root.hidden && said) { said = ''; stopSpeaking() } return }
-    if (line !== said) { said = line; speak(line, { gender: 'f', seed: 3, voice: 'zahra' }) }
+    if (!line) { if (root.hidden && said) { said = ''; stopSpeaking(); window.dispatchEvent(new CustomEvent('gd:talk', { detail: { who: 'zahra', ms: 0 } })) } return }
+    if (line !== said) {
+      said = line
+      speak(line, { gender: 'f', seed: 3, voice: 'zahra' })
+      // Her mouth and hands move for about the time the line takes to say (voice on or off).
+      window.dispatchEvent(new CustomEvent('gd:talk', { detail: { who: 'zahra', ms: Math.min(12000, 600 + line.length * 62) } }))
+    }
   }).observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden'] })
   // Her face on the card lights up while she speaks.
   window.addEventListener('gd:voice', (e) => { const d = (e as CustomEvent<{ who: string; on: boolean }>).detail; if (d.who === 'zahra') root.classList.toggle('speaking', d.on) })

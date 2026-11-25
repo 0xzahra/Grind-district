@@ -4,8 +4,15 @@
 // (the same defence the scam lessons build), never how to use them on people.
 // Stored per save slot beside the save (save format unchanged).
 import { slotKey, addReputation } from './state.ts'
+import { etiquetteIcon } from './etiquetteIcons.ts'
 
 type Class = { id: string; title: string; cards: string[]; ask: string; options: string[]; right: number; why: string }
+/** One short line per class for its tile. */
+const LINES: Record<string, string> = {
+  intro: 'Names that stick, links that start a talk.', table: 'Cutlery, phones and pouring for others.', dress: 'Black tie to smart casual, decoded.',
+  talk: 'Open questions and real listening.', thanks: 'Three true lines, sent within a day.', calm: 'A pause between what happens and what you do.',
+  influence: 'Spot pressure tactics and say no.',
+}
 export const CLASSES: Class[] = [
   {
     id: 'intro', title: 'Introductions',
@@ -81,22 +88,36 @@ export function societyNodes(h: H): HTMLElement[] {
     root.replaceChildren()
     if (!at) {
       const d = done()
-      root.append(el('h4', 'soc-h', 'Free short classes'))
-      root.append(h.para(`Seven short classes in manners, presence and a steady mind. ${d.length} of ${CLASSES.length} passed${polished() ? ': you are Polished.' : '.'}`))
+      const sec = el('div', 'et-sec'); sec.append(el('h4', 'soc-h', 'Free short classes'), el('span', 'et-sec-tag free', `${d.length}/${CLASSES.length}`))
+      root.append(sec)
+      root.append(h.para(`Seven short classes in manners, presence and a steady mind${polished() ? ': you are Polished.' : '.'}`, 'et-lead'))
+      const grid = el('div', 'et-grid')
       for (const c of CLASSES) {
-        const b = h.button(`${d.includes(c.id) ? '✓ ' : ''}${c.title}`, d.includes(c.id) ? 'ghost' : 'primary', () => { at = c; step = 0; wrong = ''; render() })
-        root.append(b)
+        const passed = d.includes(c.id)
+        const tile = el('button', `et-tile${passed ? ' passed' : ''}`)
+        tile.type = 'button'
+        tile.append(etiquetteIcon(c.id), el('span', 'et-t', c.title), el('span', 'et-s', LINES[c.id] ?? ''))
+        const meta = el('span', 'et-meta'); meta.append(el('span', `et-chip${passed ? ' done' : ' free'}`, passed ? '✓ Passed' : 'Free'), el('span', 'et-min', '2 min'))
+        tile.append(meta)
+        tile.addEventListener('click', () => { at = c; step = 0; wrong = ''; render() })
+        grid.append(tile)
       }
+      root.append(grid)
       root.append(h.para('Life skills, not Web3 courses: reputation, no certificate.', 'muted'))
       return
     }
     const c = at
-    root.append(el('h4', 'soc-h', c.title))
+    const head = el('div', 'et-lesson-h'); const words = el('div'); words.append(el('h4', 'soc-h', c.title), el('p', 'mc-tag', LINES[c.id] ?? ''))
+    head.append(etiquetteIcon(c.id, 'et-ico big free'), words)
+    root.append(head)
+    const dd = el('div', 'et-dots'); for (let i = 0; i <= c.cards.length; i++) dd.append(el('i', i < step ? 'done' : i === step ? 'on' : '')); root.append(dd)
     if (step < c.cards.length) {
-      root.append(el('p', 'soc-count', `${step + 1} of ${c.cards.length}`), el('p', 'soc-card', c.cards[step]!))
+      const card = el('div', 'et-card'); card.append(el('p', 'mc-card-h', `${step + 1} of ${c.cards.length}`), el('p', 'soc-card-t', c.cards[step]!))
+      root.append(card)
       root.append(h.button(step === c.cards.length - 1 ? 'To the question' : 'Next', 'primary', () => { step += 1; render() }))
     } else {
-      root.append(el('p', 'soc-card', c.ask))
+      const card = el('div', 'et-card ask'); card.append(el('p', 'mc-card-h', 'Question'), el('p', 'soc-card-t', c.ask))
+      root.append(card)
       if (wrong) root.append(h.para(wrong, 'soc-wrong'))
       c.options.forEach((o, i) => root.append(h.button(o, 'ghost', () => {
         if (i === c.right) { const msg = pass(c.id); h.finish(`${c.why} ${msg}`); at = null; render() } else { wrong = 'Not quite. Think about how the other person feels, then try again.'; render() }

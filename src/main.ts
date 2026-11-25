@@ -1,7 +1,7 @@
 import { nextMission } from './worlds.ts'
 import { step as journeyStep } from './journey.ts'
 import { createDriveUi, nearestRoad, planRoute } from './drive.ts'
-import { talkGestures } from './gestures.ts'
+import { talkGestures, sayLine } from './gestures.ts'
 import { createGarden } from './cityGrowth.ts'
 import { RANKS, RANK_START, SKILL_ORDER, SKILL_META } from './logic.ts'
 import { gameWalletChip } from './privyWallet.ts'
@@ -291,6 +291,9 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
     const said = who ? `${who.name}: ${line}` : line
     greetToast(gain ? `${said} · ${gain}` : said)
     speak(line, who ? { gender: who.gender, seed: who.seed } : { gender: getSave().body === 'zuri' ? 'f' : 'm', seed: 1 })
+    // You say hello (your mouth moves), then they answer face to face.
+    avatar.object.userData.talkUntil = performance.now() + 900
+    who?.say(line)
     greetShown = 0; greetCool = 20; greetBtn.hidden = true
   })
   let greetToast: (m: string) => void = () => {}
@@ -362,7 +365,8 @@ const apiAgents = createRemoteAgents(scene)
   // Zahra, the Campus mentor, stands beside the marker: walking up to her starts the first lesson in the street.
   const ada = posedHuman('woman2', { pose: 'stand', height: 1.68 })
   ada.position.set(1.9, 0, -40.9)
-  ada.rotation.y = -0.35
+  const ZAHRA_REST = -0.35
+  ada.rotation.y = ZAHRA_REST
   {
     const tag = nameLabel('Zahra', 'Campus mentor')
     tag.position.y = 2.25
@@ -372,12 +376,14 @@ const apiAgents = createRemoteAgents(scene)
   scene.add(ada)
   // Zahra's body language follows her voice in any language: nods and an open hand while she talks, a wave hello.
   const zahraMoves = talkGestures(ada, 'zahra')
+  let serverMoves: ReturnType<typeof talkGestures> | null = null
   window.addEventListener('gd:gesture', (e) => { const g = (e as CustomEvent<string>).detail; if (g === 'wave' || g === 'nod' || g === 'point') zahraMoves.play(g) })
   {
     const server = posedHuman('man1', { pose: 'stand', height: 1.76, look: { top: 0x1f5a4c, bottom: 0x23262a, shoes: 0x16181b } })
     server.position.set(0.35, 0.2, 0.32)
     server.userData.ghost = true
     scene.add(server)
+    serverMoves = talkGestures(server, 'server')
   }
   resumeMusicOnFirstTap()
   ensureAmbientOnGesture()
@@ -542,8 +548,53 @@ const apiAgents = createRemoteAgents(scene)
     try { world.sun.shadow.map?.dispose(); world.sun.shadow.map = null; renderer.shadowMap.needsUpdate = true } catch { /* no shadows */ }
     try { post.recover() } catch (e) { console.warn('[grind] post', why, e) }
   }
+  // Blank-view watch. Some phones come back from another app with the 3D view a flat white (or black) sheet and no
+  // lost-context report, so the recovery above never ran. After a return, a few drawn frames are sampled (16 pixels
+  // read straight after drawing, only then): if every one is the same colour the effects stack and the pictures
+  // are rebuilt; if the view is still blank a moment later, a key offers to reload the city (the game is saved).
+  let blankAt = Infinity, blankStage = 0
+  const px = new Uint8Array(4)
+  const watchBlank = () => { blankStage = 0; blankAt = performance.now() + 900 }
+  const viewBlank = (): boolean => {
+    const gl = renderer.getContext()
+    if (gl.isContextLost()) return false
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight
+    if (w < 8 || h < 8) return false
+    let lo = 765, hi = 0
+    for (let i = 1; i <= 4; i++) for (let j = 1; j <= 4; j++) {
+      gl.readPixels(Math.floor((w * i) / 5), Math.floor((h * j) / 5), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px)
+      const v = px[0]! + px[1]! + px[2]!
+      lo = Math.min(lo, v); hi = Math.max(hi, v)
+    }
+    return hi - lo < 6
+  }
+  /** Called right after the city is drawn: checks the frame only while a check is due. */
+  const checkBlank = () => {
+    if (performance.now() < blankAt) return
+    blankAt = Infinity
+    let blank = false
+    try { blank = viewBlank() } catch { return }
+    if (!blank) { blankStage = 0; return }
+    if (blankStage === 0) {
+      console.warn('[grind] blank view after return: rebuilding')
+      blankStage = 1
+      refreshGpu('blank'); try { applyGraphics() } catch (e) { console.warn('[grind] blank', e) }
+      redrawSoon(); blankAt = performance.now() + 1600
+      return
+    }
+    blankStage = 2
+    gpuNote?.remove()
+    gpuNote = document.createElement('div'); gpuNote.className = 'gpu-note'; gpuNote.setAttribute('role', 'status')
+    const t = document.createElement('p'); t.textContent = 'The 3D view did not come back after switching apps. Your game is saved.'
+    const k = document.createElement('button'); k.type = 'button'; k.className = 'glass-btn primary'; k.textContent = 'Reload the city'
+    k.onclick = () => location.reload()
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'glass-btn'; x.textContent = 'Keep playing'
+    x.onclick = () => { gpuNote?.remove(); gpuNote = null }
+    gpuNote.append(t, k, x); document.body.append(gpuNote)
+  }
   canvas.addEventListener('webglcontextrestored', () => {
     window.clearTimeout(gpuTimer); gpuNote?.remove(); gpuNote = null
+    watchBlank()
     // The reflected light every surface gets (an environment map drawn on the GPU) went with the context: without
     // it the whole city turns dark under a bright sky. Draw it again, then the effects stack and the shaders.
     refreshGpu('restore')
@@ -1078,7 +1129,7 @@ const apiAgents = createRemoteAgents(scene)
       const jobTitle = jobId ? (JOBS.find((j) => j.id === jobId)?.title ?? '') : ''
       must('#cc-rank').textContent = jobTitle
         ? `${rankFor(getSave().xp).label} · ${jobTitle} · tap for history`
-        : `${rankFor(getSave().xp).label} · in-game balance · tap for history`
+        : `${rankFor(getSave().xp).label} · tap for history`
     }
   }
   nav.inert = true
@@ -1381,12 +1432,12 @@ const apiAgents = createRemoteAgents(scene)
       hiddenAt = 0
       requestAnimationFrame(() => {
         if (renderer.getContext().isContextLost()) return // the restore handler redraws it when the context is back
-        refreshGpu('resume'); redrawSoon()
+        refreshGpu('resume'); redrawSoon(); watchBlank()
       })
     })
   }
   // Back from the browser's page cache (some phones keep the page frozen there when the browser is minimised).
-  window.addEventListener('pageshow', (e) => { if ((e as PageTransitionEvent).persisted && !renderer.getContext().isContextLost()) { refreshGpu('pageshow'); redrawSoon() } })
+  window.addEventListener('pageshow', (e) => { if ((e as PageTransitionEvent).persisted && !renderer.getContext().isContextLost()) { refreshGpu('pageshow'); redrawSoon(); watchBlank() } })
   // Leaving (app switch, closing the tab): note whether the player is at home right now, not up to 2 s ago.
   const noteHome = () => { if (homeRestored) rememberHome(atHome()?.home ?? null) }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') noteHome() })
@@ -2063,7 +2114,8 @@ const apiAgents = createRemoteAgents(scene)
   streetSpots.push(unitSpot)
   window.setInterval(() => { const at = crowd.robotAt(); unitSpot.x = at.x; unitSpot.z = at.z }, 250)
   streetSpots.push({ id: 'kiosk', x: 0, z: 3.15, r: 1.5, title: 'Grind Ring kiosk', body: 'Welcome to Grind. Tea or coffee?', enter: 'Order', use: () => {
-    speak(SERVER_LINES[Math.floor(Math.random() * SERVER_LINES.length)]!, { gender: 'm', seed: 7 })
+    const line = SERVER_LINES[Math.floor(Math.random() * SERVER_LINES.length)]!
+    speak(line, { gender: 'm', seed: 7 }); sayLine('server', line)
     ui.open('kiosk')
   } })
   // The drink you ordered is set on the counter in front of you (or your stool) for a minute.
@@ -2691,6 +2743,7 @@ const apiAgents = createRemoteAgents(scene)
     },
     __rayCost: () => { const rc = new THREE.Raycaster(); const o = new THREE.Vector3(pos.x, 1.6, pos.z); camRays.hits(rc); const t0 = performance.now(); let n = 0; for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; rc.set(o, new THREE.Vector3(Math.sin(a), 0.25, Math.cos(a))); rc.far = 8; n += camRays.hits(rc).length } return { msPerRay: +((performance.now() - t0) / 40).toFixed(3), n } },
     __perf: () => { const r = { frames: perfStat.n, fps: perfStat.dt ? +(perfStat.n / perfStat.dt).toFixed(1) : 0, updMs: +(perfStat.upd / Math.max(1, perfStat.n)).toFixed(2), renMs: +(perfStat.ren / Math.max(1, perfStat.n)).toFixed(2) }; perfStat.n = perfStat.upd = perfStat.ren = perfStat.dt = 0; return r },
+    __blankCheck: () => { blankStage = 0; blankAt = 0 },
     __drawStats: () => { const i = renderer.info; i.autoReset = false; i.reset(); post.render(); const r = { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, progs: i.programs?.length ?? 0, ratio: +renderer.getPixelRatio().toFixed(2) }; i.autoReset = true; return r },
   })
   let clearAir = 1
@@ -2727,7 +2780,9 @@ const apiAgents = createRemoteAgents(scene)
 
   const update = (dt: number) => {
     zahraMoves.tick(dt)
+    serverMoves?.tick(dt)
     market.tick(dt)
+    interiors.tick(dt)
     const now = Date.now()
     tickMarket(dt, now)
     const nextSeason = seasonAt(now)
@@ -2751,7 +2806,7 @@ const apiAgents = createRemoteAgents(scene)
     if (servedCup && (cupTimer -= dt) <= 0) { scene.remove(servedCup); servedCup = null }
     if (!interiors.inside && !ui.isOpen()) {
       const d = Math.hypot(avatar.object.position.x - 0.35, avatar.object.position.z - 0.32)
-      if (d < 3.8 && elapsed - serverSpoke > 60) { serverSpoke = elapsed; speak(SERVER_LINES[Math.floor(elapsed) % SERVER_LINES.length]!, { gender: 'm', seed: 7 }) }
+      if (d < 3.8 && elapsed - serverSpoke > 60) { serverSpoke = elapsed; const line = SERVER_LINES[Math.floor(elapsed) % SERVER_LINES.length]!; speak(line, { gender: 'm', seed: 7 }); sayLine('server', line); serverMoves?.play('wave') }
     }
   apiAgents.tick(dt)
     metro?.tick(dt)
@@ -3002,6 +3057,20 @@ const apiAgents = createRemoteAgents(scene)
       if (!(wishLen > 0.05 || groundSpeed > 0.3)) for (let i = 0; i < 2; i++) avatar.face(Math.sin(faceYaw + left), Math.cos(faceYaw + left), 1, true)
     }
     avatar.face(faceX, faceZ, dt, wishLen > 0.05 || groundSpeed > 0.3)
+    // Talking with Zahra: the two of you face each other while her card is open (she turns to you, you to her);
+    // afterwards she eases back to her place by the Campus steps.
+    {
+      const dx = pos.x - ada.position.x, dz = pos.z - ada.position.z
+      const talkingTo = mentor.isOpen() && !interiors.inside && Math.hypot(dx, dz) < 9
+      if (talkingTo && groundSpeed < 0.2) avatar.face(-dx, -dz, dt, true)
+      else if (groundSpeed < 0.2 && !interiors.inside) {
+        const t = crowd.talker()
+        if (t && Math.hypot(t.x - pos.x, t.z - pos.z) < 4) avatar.face(t.x - pos.x, t.z - pos.z, dt, true)
+      }
+      const want = talkingTo ? Math.atan2(dx, dz) : ZAHRA_REST
+      const turnBy = Math.atan2(Math.sin(want - ada.rotation.y), Math.cos(want - ada.rotation.y))
+      if (Math.abs(turnBy) > 0.002) ada.rotation.y += turnBy * Math.min(1, dt * (talkingTo ? 5 : 1.5))
+    }
     avatar.step(dt, moving, Math.hypot(vel.x, vel.z))
     seating.apply(avatar.object, dt)
     // Pools (homes, the hotel and the indoor pool at home): tread water when still, swim face down when moving.
@@ -3365,14 +3434,14 @@ const apiAgents = createRemoteAgents(scene)
     if (revealed && menuHold()) {
       if (holdRedraw <= 0) return
       holdRedraw -= 1
-      try { post.render() } catch { /* keep the last frame */ }
+      try { post.render(); checkBlank() } catch { /* keep the last frame */ }
       return
     }
     // A panel (Trade, Boutique, Profile...) covers most of the screen: the city keeps its last frame and the
     // phone's whole budget goes to the panel, so taps and scrolling answer at once. Prices keep moving.
     if (revealed && document.body.classList.contains('sheet-open')) {
       tickMarket(dt, Date.now())
-      if (holdRedraw > 0) { holdRedraw -= 1; try { post.render() } catch { /* keep the last frame */ } }
+      if (holdRedraw > 0) { holdRedraw -= 1; try { post.render(); checkBlank() } catch { /* keep the last frame */ } }
       return
     }
     // Computers on Auto: the same watch as phones. Judged over 5 s of the city actually drawing (not behind a panel,
@@ -3415,6 +3484,7 @@ const apiAgents = createRemoteAgents(scene)
       const tr = DEV_PERF ? performance.now() : 0
       post.frame(dt, elapsed)
       post.render()
+      checkBlank()
       if (DEV_PERF) { const te = performance.now(); perfStat.n++; perfStat.upd += tr - tu; perfStat.ren += te - tr; perfStat.dt += dt }
       afterRender?.()
       if (snapNext) { snapNext = false; takeShot() }

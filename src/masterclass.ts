@@ -6,6 +6,8 @@
 // diploma. Paid in game dollars. Life skills: reputation and a diploma, not a Web3 certificate.
 // Progress lives beside the save (`<slot>.masterclass`), so the save format is unchanged.
 import { slotKey, addReputation, spendInGame } from './state.ts'
+import { etiquetteIcon } from './etiquetteIcons.ts'
+import { CLASSES, classesDone } from './society.ts'
 
 type Card = { h: string; t: string }
 type Q = { q: string; options: string[]; right: number; why: string }
@@ -156,19 +158,70 @@ export const MASTERCLASSES: Masterclass[] = [
       { q: 'A good concession sounds like…', options: ['"Fine, whatever you want"', '"I can do that if you can pay upfront"', '"I\'ll take less"'], right: 1, why: 'Every give gets a get.' },
     ],
   },
+  {
+    id: 'posture', title: 'Posture and Poise', tagline: 'Stand, sit and walk like you belong in any room.', minutes: 9, usd: 300,
+    cards: [
+      { h: 'The stack', t: 'Stand with your ears over your shoulders, shoulders over hips and hips over ankles. Weight even on both feet, knees soft rather than locked, chin level with the floor. Imagine a thread lifting the crown of your head: taller, not stiffer.' },
+      { h: 'Shoulders and hands', t: 'Roll your shoulders up, back, then let them drop. That opens the chest without puffing it out. Hands rest at your sides or lightly together in front at waist height: out of your pockets, and never folded across your chest when you meet someone.' },
+      { h: 'Sitting well', t: 'Sit back so the chair holds your lower back, both feet flat, knees about level with your hips. At a formal table sit upright on the front two-thirds of the seat, wrists on the table edge and elbows off it while you eat. No jiggling legs; if you cross, cross at the ankles.' },
+      { h: 'Walking in', t: 'Walk at an even pace from the hips, head level, eyes up (not on your phone), arms swinging naturally. At a doorway pause for one breath, look round the room, then walk in. That small pause reads as calm and gives you time to find your host.' },
+      { h: 'Greeting with your whole body', t: 'Stand up to greet anyone who arrives, above all elders and guests. Turn to face them fully, feet and chest, not just your head. Follow local custom: in many homes a slight bow, a bend of the knee or kneeling for elders is the greeting, so take your lead from the host.' },
+      { h: 'Phones and desks', t: 'Bring your phone up to your eyes instead of bowing your head to it; hours with a dropped head strain the neck. At a desk, top of the screen at eye level, feet flat, and stand up every 30 to 45 minutes. Good posture is mostly a good set-up.' },
+      { h: 'Build it daily', t: 'The wall check: heels a hand\'s width from a wall, then let the back of your head, shoulder blades and bottom touch it. Hold for a minute and remember how it feels. Rows, planks and chest stretches make it easy to keep. Two minutes a day beats one heroic hour.' },
+    ],
+    scenario: { q: 'You arrive for an interview and the panel is already seated. Best first move?', options: ['Hurry in with your head down and sit straight away', 'Pause at the door, walk in tall at an even pace, greet each person facing them, and sit when invited', 'Lean on the door frame and wave'], right: 1, why: 'A calm entrance, full-facing greetings and waiting to be asked to sit say confidence and respect before you say a word.' },
+    quiz: [
+      { q: 'Standing tall means…', options: ['Chest puffed out, chin held high', 'Ears over shoulders over hips, chin level, knees soft', 'Weight on one hip'], right: 1, why: 'Stacked and level reads as calm; puffed and stiff reads as tense.' },
+      { q: 'At a formal dinner, your elbows…', options: ['Rest on the table while you eat', 'Stay off the table while you eat', 'Hold your phone up'], right: 1, why: 'Wrists may rest on the edge; elbows stay off while you eat.' },
+      { q: 'The easiest fix for a bowed "phone neck"?', options: ['Lift the phone up to eye level', 'Look down harder', 'Buy a bigger phone'], right: 0, why: 'Bring the screen up instead of bowing your head down to it.' },
+    ],
+  },
 ]
 
 const REP_EACH = 8, REP_ALL = 25
+// The Society Masterclass diploma is the original eight; newer masterclasses (Posture and Poise) are extras, so
+// nobody who already holds the diploma loses it.
+const DIPLOMA = ['mindset', 'quiet', 'signal', 'dining', 'room', 'presence', 'travel', 'deals']
+const hasDiploma = (passed: string[]) => DIPLOMA.every((id) => passed.includes(id))
 const key = () => `${slotKey()}.masterclass`
 type Store = { owned: string[]; passed: string[] }
 const read = (): Store => { try { const v = JSON.parse(localStorage.getItem(key()) ?? 'null') as Store | null; if (v && Array.isArray(v.owned) && Array.isArray(v.passed)) return v } catch { /* none */ } return { owned: [], passed: [] } }
 const write = (s: Store) => { try { localStorage.setItem(key(), JSON.stringify(s)) } catch { /* private mode */ } }
 export const masterclassesPassed = (): number => read().passed.length
-export const masterclassDiploma = (): boolean => read().passed.length >= MASTERCLASSES.length
-const ALL_USD = 1800
+export const masterclassDiploma = (): boolean => hasDiploma(read().passed)
+// Unlocking the rest together costs $225 a class instead of $300 (the old "all eight for $1,800").
+const BUNDLE_EACH = 225
+const NEW_IDS = new Set(['posture'])
 
 type H = { para: (text: string, c?: string) => HTMLElement; button: (text: string, c: string, f: () => void) => HTMLElement; finish: (m: string) => void }
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n }
+
+/** Progress dots for a lesson: done, current, still to come. */
+function dots(total: number, at: number): HTMLElement {
+  const d = el('div', 'et-dots')
+  for (let i = 0; i < total; i++) d.append(el('i', i < at ? 'done' : i === at ? 'on' : ''))
+  return d
+}
+
+/** The house crest, its two progress meters and a line on what it is. */
+function hero(): HTMLElement {
+  const s = read()
+  const box = el('div', 'et-hero')
+  const words = el('div', 'et-hero-w')
+  words.append(el('strong', 'et-hero-t', 'Polish that opens doors'), el('span', 'et-hero-s', 'Manners · Presence · Poise'))
+  box.append(etiquetteIcon('crest', 'et-crest'), words)
+  const meters = el('div', 'et-meters')
+  const meter = (label: string, n: number, of: number, gold: boolean) => {
+    const m = el('div', `et-meter${gold ? ' gold' : ''}`)
+    const top = el('div', 'et-meter-t'); top.append(el('span', '', label), el('b', '', `${n}/${of}`))
+    const bar = el('div', 'et-bar'); const fill = el('i'); fill.style.width = `${Math.round((n / Math.max(1, of)) * 100)}%`; bar.append(fill)
+    m.append(top, bar); return m
+  }
+  meters.append(meter('Masterclasses', s.passed.length, MASTERCLASSES.length, true), meter('Free classes', classesDone(), CLASSES.length, false))
+  box.append(meters)
+  if (hasDiploma(s.passed)) box.append(el('p', 'et-badge', 'Society Masterclass diploma holder'))
+  return box
+}
 
 /** The Masterclasses list, a class's lessons, its scenario and its test. Re-renders itself. */
 export function masterclassNodes(h: H): HTMLElement[] {
@@ -176,57 +229,87 @@ export function masterclassNodes(h: H): HTMLElement[] {
   let at: Masterclass | null = null
   let step = 0 // cards, then the scenario, then each quiz question
   let note = ''
+  const open = (m: Masterclass) => {
+    if (!read().owned.includes(m.id)) {
+      const p = spendInGame(m.usd, `Masterclass: ${m.title}`, 'The Etiquette House')
+      if (!p.ok) { h.finish(p.message); return }
+      write({ ...read(), owned: [...read().owned, m.id] })
+    }
+    at = m; step = 0; note = ''; render()
+  }
   const render = () => {
     root.replaceChildren()
     const s = read()
     if (!at) {
-      root.append(el('h4', 'soc-h', 'Society Masterclasses'))
-      root.append(h.para(`Eight premium masterclasses with the real detail: money, manners, presence and how the polished world actually works. $${MASTERCLASSES[0]!.usd} each, or all eight for $${ALL_USD.toLocaleString('en-US')}. ${s.passed.length} of ${MASTERCLASSES.length} passed${masterclassDiploma() ? ': you hold the Society Masterclass diploma.' : '.'}`))
-      if (s.owned.length < MASTERCLASSES.length) root.append(h.button(`Unlock all eight · $${ALL_USD.toLocaleString('en-US')}`, 'primary', () => {
-        const p = spendInGame(ALL_USD, 'Society Masterclasses: all eight', 'The Etiquette House')
-        if (!p.ok) { h.finish(p.message); return }
-        write({ ...s, owned: MASTERCLASSES.map((m) => m.id) }); render()
-      }))
+      root.append(hero())
+      const sec = el('div', 'et-sec'); sec.append(el('h4', 'soc-h', 'Society Masterclasses'), el('span', 'et-sec-tag', 'Premium'))
+      root.append(sec)
+      const count = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'][MASTERCLASSES.length] ?? String(MASTERCLASSES.length)
+      root.append(h.para(`${count} in-depth classes with the real detail: money, manners, presence, posture and how the polished world actually works. Paid with game dollars you earn: $${MASTERCLASSES[0]!.usd} each, or $${BUNDLE_EACH} each when you unlock the rest together.`, 'et-lead'))
+      const locked = MASTERCLASSES.filter((m) => !s.owned.includes(m.id))
+      if (locked.length > 1) {
+        const price = locked.length * BUNDLE_EACH
+        const what = locked.length === MASTERCLASSES.length ? `Unlock all ${locked.length}` : `Unlock the other ${locked.length}`
+        root.append(h.button(`${what} · $${price.toLocaleString('en-US')}`, 'primary et-gold', () => {
+          const p = spendInGame(price, `Society Masterclasses: ${locked.length} classes`, 'The Etiquette House')
+          if (!p.ok) { h.finish(p.message); return }
+          write({ ...read(), owned: MASTERCLASSES.map((m) => m.id) }); render()
+        }))
+      }
+      const grid = el('div', 'et-grid')
       for (const m of MASTERCLASSES) {
         const passed = s.passed.includes(m.id), owned = s.owned.includes(m.id)
-        const b = h.button(`${passed ? '✓ ' : owned ? '' : '🔒 '}${m.title} · ${m.minutes} min`, passed ? 'ghost' : 'primary', () => {
-          if (!owned) {
-            const p = spendInGame(m.usd, `Masterclass: ${m.title}`, 'The Etiquette House')
-            if (!p.ok) { h.finish(p.message); return }
-            write({ ...read(), owned: [...read().owned, m.id] })
-          }
-          at = m; step = 0; note = ''; render()
-        })
-        root.append(b, el('p', 'mc-tag', m.tagline))
+        const tile = el('button', `et-tile prem${passed ? ' passed' : ''}`)
+        tile.type = 'button'
+        if (NEW_IDS.has(m.id) && !passed) tile.append(el('span', 'et-new', 'NEW'))
+        tile.append(etiquetteIcon(m.id), el('span', 'et-t', m.title), el('span', 'et-s', m.tagline))
+        const meta = el('span', 'et-meta')
+        meta.append(el('span', `et-chip${passed ? ' done' : owned ? '' : ' gold'}`, passed ? '✓ Passed' : owned ? 'Open' : `$${m.usd}`), el('span', 'et-min', `${m.minutes} min`))
+        tile.append(meta)
+        tile.addEventListener('click', () => open(m))
+        grid.append(tile)
       }
+      root.append(grid)
       root.append(h.para('Life skills for real life: reputation and a diploma, not a Web3 certificate.', 'muted'))
       return
     }
     const m = at
-    root.append(el('h4', 'soc-h', m.title))
+    const head = el('div', 'et-lesson-h')
+    const words = el('div'); words.append(el('h4', 'soc-h', m.title), el('p', 'mc-tag', m.tagline))
+    head.append(etiquetteIcon(m.id, 'et-ico big'), words)
+    root.append(head)
     const total = m.cards.length + 1 + m.quiz.length
-    root.append(el('p', 'soc-count', `${Math.min(step + 1, total)} of ${total}`))
+    root.append(dots(total, Math.min(step, total - 1)))
     if (step < m.cards.length) {
       const c = m.cards[step]!
-      root.append(el('p', 'mc-card-h', c.h), el('p', 'soc-card', c.t))
+      const card = el('div', 'et-card')
+      card.append(el('p', 'mc-card-h', `${step + 1} · ${c.h}`), el('p', 'soc-card-t', c.t))
+      root.append(card)
       root.append(h.button(step === m.cards.length - 1 ? 'To a real situation' : 'Next', 'primary', () => { step += 1; render() }))
     } else {
       const qi = step - m.cards.length
       const q = qi === 0 ? m.scenario : m.quiz[qi - 1]!
-      root.append(el('p', 'mc-card-h', qi === 0 ? 'Real situation' : `Test · question ${qi} of ${m.quiz.length}`), el('p', 'soc-card', q.q))
+      const card = el('div', 'et-card ask')
+      card.append(el('p', 'mc-card-h', qi === 0 ? 'Real situation' : `Test · question ${qi} of ${m.quiz.length}`), el('p', 'soc-card-t', q.q))
+      root.append(card)
       if (note) root.append(h.para(note, 'soc-wrong'))
       q.options.forEach((o, i) => root.append(h.button(o, 'ghost', () => {
         if (i !== q.right) { note = `Not quite. ${q.why}`; render(); return }
         note = ''
         if (qi < m.quiz.length) { step += 1; h.finish(q.why); render(); return }
         const st = read()
+        let msg = `Passed ${m.title}: +${REP_EACH} reputation.`
         if (!st.passed.includes(m.id)) {
+          const before = hasDiploma(st.passed)
           st.passed.push(m.id); write(st)
           window.setTimeout(() => addReputation(REP_EACH, `Reputation: ${m.title}`, 'Masterclass passed at the Etiquette House.'), 0)
-          if (st.passed.length >= MASTERCLASSES.length) window.setTimeout(() => addReputation(REP_ALL, 'Reputation: Society Masterclass diploma', 'All eight masterclasses passed.'), 30)
+          if (!before && hasDiploma(st.passed)) {
+            window.setTimeout(() => addReputation(REP_ALL, 'Reputation: Society Masterclass diploma', 'The eight diploma masterclasses passed.'), 30)
+            msg = `Passed. The Society Masterclass diploma is yours (+${REP_EACH + REP_ALL} reputation).`
+          }
           window.dispatchEvent(new CustomEvent('gd:masterclass', { detail: st.passed.length }))
-        }
-        h.finish(st.passed.length >= MASTERCLASSES.length ? `Passed. All eight: the Society Masterclass diploma is yours (+${REP_EACH + REP_ALL} reputation).` : `Passed ${m.title}: +${REP_EACH} reputation.`)
+        } else msg = `Passed ${m.title} again. Good to revise.`
+        h.finish(msg)
         at = null; render()
       })))
     }

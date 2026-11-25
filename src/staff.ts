@@ -6,6 +6,7 @@
 // a chat about the garden (Social). Kept on this device beside the save (the save format is untouched).
 import * as THREE from 'three'
 import { posedHuman, MEN, WOMEN } from './humans.ts'
+import { sayLine, selfTalker } from './gestures.ts'
 import { getSave, slotKey, spendInGame } from './state.ts'
 import { SKILL_META, SKILL_ORDER, money } from './logic.ts'
 import { nextMission } from './worlds.ts'
@@ -127,27 +128,29 @@ export function act(role: RoleId): void {
   const h = working(role)
   if (!h) { openStaffDesk(); return }
   personaNote('staff')
+  // What they say is said by them: mouth and hands move while the line is up.
+  const tell = (m: string) => { hooks.toast(m); sayLine(`staff-${role}`, m.replace(/^[^:“]{1,24}:\s*/, '')) }
   const left = cooling(h)
   if (role === 'chef') {
-    if (left) { hooks.toast(`${h.name} is still clearing up from the last meal. Next one in ${mins(left)}.`); return }
+    if (left) { tell(`${h.name} is still clearing up from the last meal. Next one in ${mins(left)}.`); return }
     touch(role)
-    hooks.toast(`${h.name} serves ${DISHES[Math.floor(Math.random() * DISHES.length)]}. Enjoy!`)
+    tell(`${h.name} serves ${DISHES[Math.floor(Math.random() * DISHES.length)]}. Enjoy!`)
     adjust({ hunger: 55, social: 4 }, 'later')
   } else if (role === 'help') {
-    if (left) { hooks.toast(`${h.name} cleaned up not long ago. Next round in ${mins(left)}.`); return }
+    if (left) { tell(`${h.name} cleaned up not long ago. Next round in ${mins(left)}.`); return }
     touch(role)
-    hooks.toast(`${h.name} tidies every room and folds your laundry. The house smells fresh.`)
+    tell(`${h.name} tidies every room and folds your laundry. The house smells fresh.`)
     adjust({ hygiene: 35, energy: 5, social: 3 }, 'later')
   } else if (role === 'gardener') {
-    if (left) { hooks.toast(`${h.name} is busy in the planter. Come back in ${mins(left)}.`); return }
+    if (left) { tell(`${h.name} is busy in the planter. Come back in ${mins(left)}.`); return }
     touch(role)
-    hooks.toast(`${h.name}: “${GARDEN[Math.floor(Math.random() * GARDEN.length)]}”`)
+    tell(`${h.name}: “${GARDEN[Math.floor(Math.random() * GARDEN.length)]}”`)
     adjust({ social: 10 }, 'later')
   } else if (role === 'guard') {
     personaNote('security')
-    hooks.toast(`${h.name}: “All quiet. ${TIPS[Math.floor(Math.random() * TIPS.length)]}”`)
+    tell(`${h.name}: “All quiet. ${TIPS[Math.floor(Math.random() * TIPS.length)]}”`)
   } else if (role === 'driver') {
-    hooks.toast(`${h.name} brings the car round. Tap anywhere on the map to go.`)
+    tell(`${h.name} brings the car round. Tap anywhere on the map to go.`)
     hooks.openMap()
   } else if (role === 'pa') openBrief(h)
 }
@@ -172,6 +175,7 @@ export function mountStaff(c: HouseCtx): void {
         p.rotation.y = r.post.face
         p.traverse((o) => { o.userData.ghost = true })
         c.group.add(p)
+        selfTalker(p, `staff-${r.id}`)
         const ob: Obstacle = { kind: 'circle', x: c.ox + r.post.x, z: c.oz + r.post.z, r: 0.28 }
         c.obstacles.push(ob)
         figures.set(r.id, { obj: p, ob, name: h.name })

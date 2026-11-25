@@ -71,7 +71,7 @@ let repaintWalls: (() => void) | null = null
 export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   // While you are on the trading floor its walls follow the market (every 30 s; nothing is painted elsewhere).
   window.setInterval(() => { if (inside === 'trading' && !document.hidden) repaintWalls?.() }, 30_000)
-  const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[]; floor?: Floor | null }>()
+  const built = new Map<RoomId, { group: THREE.Group; obstacles: Obstacle[]; uses: Use[]; floor?: Floor | null; tick?: ((dt: number) => void) | null }>()
   let housePool: { x0: number; x1: number; z0: number; z1: number } | null = null
   const lamp = new THREE.PointLight(0xffd29a, 0, 18, 1.6)
   lamp.position.set(0, -50, 0)
@@ -863,9 +863,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
     // The Campus and the conference centre are buildings of several rooms with raked seating (halls.ts).
     let floorAt: Floor | null = null
+    const ticks: Array<(dt: number) => void> = []
     if (id === 'campus' || id === 'conference' || id === 'mcgrind' || id === 'market') {
       const ctx = { group, ox: o.x, oz: o.z, w, d, H, wallMat, trim, std, box, add, use, seat, obstacles, sit: hooks.sit, busy: hooks.busy, toast: hooks.toast,
-        openLearn: () => hooks.openPanel('learn'), openConference: () => hooks.openPanel('conference'), canvasTex, cap: crowdCap() }
+        openLearn: () => hooks.openPanel('learn'), openConference: () => hooks.openPanel('conference'), canvasTex, cap: crowdCap(), onTick: (f: (dt: number) => void) => { ticks.push(f) } }
       const none = () => hooks.toast('Not open yet.')
       if (id === 'campus') floorAt = buildCampus(ctx)
       else if (id === 'conference') floorAt = buildConference(ctx, paintSchedule)
@@ -873,7 +874,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       else if (hooks.market) floorAt = buildMarket(ctx, hooks.market, { snack: hooks.snack ?? none })
     }
     scene.add(group)
-    const entry = { group, obstacles, uses, floor: floorAt }
+    const entry = { group, obstacles, uses, floor: floorAt, tick: ticks.length ? (dt: number) => { for (const f of ticks) f(dt) } : null }
     built.set(id, entry)
     return entry
   }
@@ -937,6 +938,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       for (const id of Object.keys(STREET) as RoomId[]) if (STREET[id].spot === spotId) return id
       return null
     },
+    /** Every frame: the room you are in runs its lectures and gestures (nothing elsewhere). */
+    tick(dt: number): void { if (inside) built.get(inside)?.tick?.(dt) },
     /** Floor height inside the current room (the halls' seating tiers and stage); 0 elsewhere. */
     floorY(x: number, z: number): number {
       if (!inside) return 0

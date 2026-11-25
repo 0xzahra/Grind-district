@@ -271,7 +271,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
       const jobTitle = jobId ? (JOBS.find((j) => j.id === jobId)?.title ?? '') : ''
       rank.textContent = jobTitle
         ? `${rankFor(getSave().xp).label} · ${jobTitle} · tap for history`
-        : `${rankFor(getSave().xp).label} · in-game balance · tap for history`
+        : `${rankFor(getSave().xp).label} · tap for history`
     }
   }
   paintStatus()

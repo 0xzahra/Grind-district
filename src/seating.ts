@@ -3,7 +3,7 @@ import * as THREE from 'three'
 // Sitting: a seat is a spot on the floor plan, the direction the sitter faces, and the seat-top height.
 // The sit pose is layered on the rig after the mixer runs (it works from any standing clip):
 // thighs forward, shins down, hands on the lap, and the body lowered until the hips rest on the seat.
-export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' }
+export type Seat = { x: number; z: number; yaw: number; y: number; pose?: 'sit' | 'lie' | 'workout' | 'bar' }
 export type SeatSpot = { id: string; x: number; z: number; r: number; title: string; body: string; enter: string; use: () => void }
 
 type Bones = { person: THREE.Object3D; hips: THREE.Object3D; legs: THREE.Object3D[]; knees: THREE.Object3D[]; feet: THREE.Object3D[]; arms: THREE.Object3D[]; fores: THREE.Object3D[]; hands: THREE.Object3D[]; hipDrop: number }
@@ -121,6 +121,26 @@ export function createSeating() {
         b.person.position.y = -0.32 * k / (root.scale.y || 1)
         return
       }
+      if (pose === 'bar') {
+        // A bar stool: up on the seat (lifted when the stool is taller than the hips, so the cushion never shows
+        // through the clothes), thighs forward and a little down, feet back on the footrest ring, and both forearms
+        // resting forward on the counter, hands together.
+        for (let i = 0; i < 2; i++) {
+          const side = sideOf(b.legs[i]!)
+          aim(b.legs[i]!, b.knees[i]!, want(side * 0.1, -0.28, 0.96), t)
+          aim(b.knees[i]!, b.feet[i]!, want(side * 0.03, -0.93, -0.36), t)
+        }
+        for (let i = 0; i < b.arms.length; i++) {
+          const arm = b.arms[i]!, fore = b.fores[i], hand = b.hands[i]
+          if (!fore || !hand) continue
+          const side = sideOf(arm)
+          aim(arm, fore, want(side * 0.2, -0.6, 0.78), t)
+          aim(fore, hand, want(-side * 0.46, 0.04, 0.89), t)
+        }
+        const seatY = seat?.y ?? 0.96
+        b.person.position.y = (seatY + 0.1 - b.hipDrop) * t / (root.scale.y || 1)
+        return
+      }
       // Sit: thighs level along the seat, shins straight down from its front edge, feet flat.
       for (let i = 0; i < 2; i++) {
         const side = sideOf(b.legs[i]!)
@@ -179,7 +199,7 @@ export const STREET_BENCH_LEN = 1.6
 
 /** The three bar stools at the Grind Ring kiosk (drinkStand.ts), facing the counter. */
 export function kioskSeats(): Seat[] {
-  return [-0.9, 0, 0.9].map((x) => ({ x, z: 1.8, yaw: Math.PI, y: 0.96 }))
+  return [-0.9, 0, 0.9].map((x) => ({ x, z: 1.8, yaw: Math.PI, y: 0.96, pose: 'bar' as const }))
 }
 
 /** Outdoor workout spots: park lawn by the basin and the forecourt beside the gym. */

@@ -349,6 +349,31 @@
       "title": "A tidier city stats card",
       "body": "Tap the Online pill: the city's numbers now sit in a neat card with the headline figures on top and short sections below.",
       "push": false
+    },
+    {
+      "id": "u1126-posture-poise",
+      "title": "New masterclass: Posture and Poise",
+      "body": "Stand, sit and walk like you belong in any room. A new paid masterclass at the Etiquette House, which now has a fresh look with an icon for every class.",
+      "go": "place:Etiquette House"
+    },
+    {
+      "id": "u1126-talking-faces",
+      "title": "People talk with their faces now",
+      "body": "Zahra, residents, lecturers, staff and the kiosk server move their lips and hands when they speak, and turn to face you while you talk.",
+      "push": false
+    },
+    {
+      "id": "u1126-live-lectures",
+      "title": "Live lectures on Campus",
+      "body": "The lecture boards light up and move through their slides while the lecturers teach. Grab a seat in Theatre A or B.",
+      "go": "place:Campus",
+      "push": false
+    },
+    {
+      "id": "u1126-fixes",
+      "title": "Smoother after switching apps",
+      "body": "If the 3D view comes back blank after you switch apps, the game now repairs it by itself. Also: a cleaner wallet card in the menu and a proper seat at the kiosk stools.",
+      "push": false
     }
   ]
 }
