@@ -89,6 +89,7 @@ import { installLayers } from './layers.ts'
 import { isPublicStats, statsCard, statsCaption, type PublicStats } from './statsPanel.ts'
 import { startPersona, note as personaNote, notePlace, notePanel } from './persona.ts'
 import { initStaff } from './staff.ts'
+import { createPassCard } from './passCard.ts'
 watchUpdates()
 
 // Faster to get around (owner request, 8 Nov): walk 2.7 -> 3.0, run 5.5 -> 7.2 m/s. Both stay inside the
@@ -303,6 +304,9 @@ export async function startCity(onReveal: () => void, onFail: (error: unknown) =
   let serverSpoke = -99
   const SERVER_LINES = ['Welcome to Grind Ring. Coffee, juice or tea?', 'Morning! The mint tea is fresh.', 'Good to see you. What can I get you?', 'Cold brew is on special today.']
   let npcCard: HTMLElement | null = null
+  // Passing cards (passCard.ts): who the person beside you is, as you walk past.
+  const passCard = createPassCard()
+  let passT = 0
   const agentBot = createAgentCompanion(scene)
 const apiAgents = createRemoteAgents(scene)
   performance.mark('gd:crowd-agents')
@@ -3009,6 +3013,28 @@ const apiAgents = createRemoteAgents(scene)
     const rightZ = -Math.sin(basisYaw)
     // A person's card goes as soon as you walk on.
     if (npcCard && directed) { npcCard.remove(); npcCard = null }
+    // Passing cards: a few times a second, who is the nearest real player (first) or resident within reach.
+    passT += dt
+    if (passT > 0.25) {
+      passT = 0
+      const busyNow = !revealed || ui.isOpen() || document.body.classList.contains('sheet-open') || !!ride?.driving || !!metro?.riding || !!document.getElementById('gd-modal')
+      if (busyNow) passCard.update(null)
+      else {
+        const peer = net.nearestPeer(pos.x, pos.z, 2.8)
+        if (peer) {
+          const named = peer.username && peer.username !== 'guest'
+          passCard.update({ key: `p:${peer.id}`, kind: 'player', name: peer.name || (named ? `@${peer.username}` : 'Guest'), sub: named ? `@${peer.username}` : 'Playing as a guest', line: 'In the city now · say hi', hue: 42, open: () => void openPeer(peer) })
+        } else {
+          const npc = crowd.nearInfo(pos.x, pos.z, 2.4)
+          if (npc) passCard.update({
+            key: `n:${npc.name}`, kind: 'npc', name: npc.name, sub: npc.trait, line: npc.doing, hue: (npc.seed * 47) % 360,
+            open: () => openResident(npc),
+            extra: import('./residentProfile.ts').then((m) => m.mentorLabel(npc.trait)).catch(() => null),
+          })
+          else passCard.update(null)
+        }
+      }
+    }
     let wishX = 0
     let wishZ = 0
     if (paused) {

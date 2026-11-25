@@ -522,6 +522,18 @@
       "title": "Masjid: a women's section",
       "body": "The Grand Masjid now has a women's section behind a carved screen. Sisters can pray on their own, or join the imam's congregation through the speakers. And you now pray in full: standing, bowing, prostrating and sitting.",
       "go": "place:Masjid"
+    },
+    {
+      "id": "u1126-quick-replies",
+      "title": "Messages: quick replies",
+      "body": "Above the typing box, one tap sends a greeting, a thanks or a thumbs-up, and the suggestions follow what was just said.",
+      "go": "messages",
+      "push": false
+    },
+    {
+      "id": "u1126-passing-cards",
+      "title": "Who's that? Cards as you pass",
+      "body": "Walk past a resident or a real player and a small card shows who they are: their name, what they do and what they're up to. Tap it for their full profile."
     }
   ]
 }

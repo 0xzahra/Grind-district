@@ -312,7 +312,24 @@ export async function openThread(withUser: string): Promise<void> {
     window.setTimeout(() => document.addEventListener('pointerdown', away, true), 0)
   }
   shownId = 0
+  // Quick replies above the typing box, like the suggested replies on LinkedIn: a greeting to open a chat, a thanks
+  // or a thumbs-up to answer one. One tap sends it; a draft you were typing is kept.
+  const quick = el('div', '', 'dm-quick'); quick.setAttribute('role', 'group'); quick.setAttribute('aria-label', 'Quick replies')
+  let lastLine: Line | null = null
+  let sendQuick: (t: string) => void = () => {}
+  const paintQuick = () => {
+    const fromThem = !!lastLine && lastLine.sender !== r.data.me
+    const said = (lastLine?.body ?? '').toLowerCase()
+    const salam = /\bsala+m|assala|as-sala|salamu|salaam/.test(said)
+    const thanks = /thank|thx|jazak/.test(said)
+    const question = /\?\s*$/.test(said)
+    const opts = !lastLine ? ['Hi 👋', 'Assalamu alaikum', 'GM ☀️', 'Nice to meet you!', 'How are you?', 'Want to play together? 🎮']
+      : fromThem ? [...(salam ? ['Wa alaikumussalam'] : []), ...(thanks ? ['You’re welcome 😊'] : []), ...(question ? ['Yes', 'Not yet'] : []), '👍', 'Thanks!', 'Thanks for sharing', 'Sounds good', 'See you in the city 🏙️']
+      : ['👋', 'Any news?', 'Let’s meet in the city', 'Talk soon!']
+    quick.replaceChildren(...opts.slice(0, 7).map((t) => { const b = el('button', t, 'dm-chip'); b.type = 'button'; b.onclick = () => sendQuick(t); return b }))
+  }
   const add = (l: Line, at?: Element) => {
+    if (!at && (!lastLine || l.id >= lastLine.id)) { lastLine = l; paintQuick() }
     shownId = Math.max(shownId, l.id)
     const mine = l.sender === r.data.me
     const li = el('li', '', mine ? 'mine' : 'theirs')
@@ -380,7 +397,7 @@ export async function openThread(withUser: string): Promise<void> {
     if (at) log.insertBefore(li, at); else log.append(li)
   }
   r.data.lines.forEach((l) => add(l))
-  if (!r.data.lines.length) log.append(el('li', `Say hi to ${name}. They get a notification.`, 'dm-empty'))
+  if (!r.data.lines.length) { log.append(el('li', `Say hi to ${name}. They get a notification.`, 'dm-empty')); paintQuick() }
   // The composer: a slim bar. Photo on the left, the message in a rounded field that grows with the words, and on
   // the right the microphone (hold a voice note) or, once there is something to send, the send key.
   const form = el('form', '', 'dm2-bar')
@@ -394,6 +411,7 @@ export async function openThread(withUser: string): Promise<void> {
   const mic = VOICE_TYPE && typeof navigator.mediaDevices?.getUserMedia === 'function' ? el('button', '', 'dm2-mic') : null
   const sync = () => {
     const has = !!ta.value.trim() || !!pending || !!pendingFile
+    quick.hidden = has || recording
     send.hidden = !has && !!mic && !recording
     if (mic) mic.hidden = has && !recording
     count.textContent = ta.value.length > MAX - 100 ? `${ta.value.length}/${MAX}` : ''
@@ -412,6 +430,12 @@ export async function openThread(withUser: string): Promise<void> {
     log.querySelector('.dm-empty')?.remove()
     add(s.data.line); ta.value = ''; grow(); sync()
     log.scrollTop = log.scrollHeight
+  }
+  sendQuick = (t: string) => {
+    if (send.disabled) return
+    const draft = ta.value
+    ta.value = t
+    void deliver().then(() => { if (draft && !ta.value) { ta.value = draft; grow(); sync() } })
   }
   // Videos and documents: a one-time upload link from the server, the file straight to private storage (with
   // progress), then the message with the file attached.
@@ -525,9 +549,10 @@ export async function openThread(withUser: string): Promise<void> {
   sync()
   if (r.data.blocked) {
     form.hidden = true
+    quick.hidden = true
     status.textContent = `You blocked ${name}. Unblock them from their profile to message again.`
   } else window.setTimeout(() => ta.focus({ preventScroll: true }), 60)
-  body.replaceChildren(head, log, status, tray, form)
+  body.replaceChildren(head, log, status, tray, quick, form)
   log.scrollTop = log.scrollHeight
   void poll()
 }

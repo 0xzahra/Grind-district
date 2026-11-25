@@ -4799,3 +4799,32 @@ html[data-ui='light'] .menu-guide a { color: #1d1b17; }
 .salah-cap.on { opacity: 1; transform: translate(-50%, 0); }
 .salah-cap small { display: block; font: 600 11.5px/1.3 Inter, system-ui, sans-serif; letter-spacing: 0.04em; color: #c9a25e; margin-bottom: 3px; }
 .salah-cap b { display: block; font: 700 17px/1.35 Inter, system-ui, sans-serif; }
+/* Messages: quick replies above the typing box (one tap sends) */
+html body #cc-sheet-body .dm-quick { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: 8px 10px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html body #cc-sheet-body .dm-quick::-webkit-scrollbar { display: none; }
+html body #cc-sheet-body .dm-quick[hidden] { display: none; }
+html body #cc-sheet-body .dm-chip { flex: 0 0 auto; min-height: 34px; margin: 0; padding: 6px 14px; border-radius: 999px; border: 1.5px solid #12b86a; background: transparent; color: #12b86a; font: 600 14px/1.2 var(--sys, system-ui), sans-serif; white-space: nowrap; box-shadow: none; }
+html body #cc-sheet-body .dm-chip:active { background: color-mix(in srgb, #12b86a 16%, transparent); }
+html:not([data-ui='light']) body #cc-sheet-body .dm-chip { color: #2ee68a; border-color: #2ee68a; }
+/* Passing cards: who the resident or player beside you is (tap for their profile) */
+.pass-card { position: fixed; z-index: 58; left: max(12px, env(safe-area-inset-left)); top: calc(max(14px, env(safe-area-inset-top)) + 128px); display: flex; align-items: center; gap: 10px; width: min(268px, calc(100vw - 24px)); min-height: 0; margin: 0; padding: 9px 10px 9px 9px; border-radius: 16px; border: 1px solid rgba(217, 178, 106, 0.4); background: linear-gradient(180deg, rgba(30, 34, 32, 0.94), rgba(14, 17, 16, 0.96)); color: #f2efe6; text-align: left; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35); opacity: 0; transform: translateX(-16px); transition: opacity 200ms ease, transform 200ms ease; cursor: pointer; font: 14px/1.25 Inter, system-ui, sans-serif; }
+.pass-card.on { opacity: 1; transform: none; }
+.pass-card.player { border-color: rgba(233, 190, 90, 0.85); box-shadow: 0 0 0 1px rgba(233, 190, 90, 0.35), 0 10px 24px rgba(0, 0, 0, 0.35); }
+.pass-face { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 17px; box-shadow: 0 0 0 2px rgba(46, 230, 138, 0.75); }
+.pass-card.player .pass-face { box-shadow: 0 0 0 2.5px #e9be5a; }
+.pass-words { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.pass-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pass-top b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pass-top i { flex: 0 0 auto; font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; background: rgba(46, 230, 138, 0.16); color: #2ee68a; }
+.pass-card.player .pass-top i { background: rgba(233, 190, 90, 0.18); color: #e9be5a; }
+.pass-sub { color: #d9b26a; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pass-line, .pass-extra { color: rgba(242, 239, 230, 0.75); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pass-extra { color: #2ee68a; }
+.pass-go { flex: 0 0 auto; font-size: 22px; color: rgba(242, 239, 230, 0.55); }
+html[data-ui='light'] .pass-card { background: linear-gradient(180deg, #fdfbf6, #f1ece2); color: #1d1b17; border-color: rgba(138, 106, 44, 0.4); box-shadow: 0 10px 24px rgba(30, 24, 14, 0.2); }
+html[data-ui='light'] .pass-card .pass-sub { color: #8a6a2c; }
+html[data-ui='light'] .pass-card .pass-line { color: #5a554a; }
+html[data-ui='light'] .pass-card .pass-extra { color: #0f7a48; }
+html[data-ui='light'] .pass-card .pass-go { color: #8a8478; }
+body.sheet-open .pass-card { display: none; }
+

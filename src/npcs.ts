@@ -159,7 +159,7 @@ export function bodyHit(ray: THREE.Ray, x: number, z: number, radius = 0.45): nu
   return along > 0 ? along : null
 }
 
-export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number; say: (text: string) => void } | null; talker: () => { x: number; z: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; robotAt: () => { x: number; z: number }; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
+export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number) => string = () => 'the city'): { setFreeWill: (on: boolean) => void; tick: (dt: number, player?: { x: number; z: number }) => Obstacle[]; nearest: (x: number, z: number, r: number) => boolean; nearestPerson: (x: number, z: number, r: number) => { name: string; gender: 'f' | 'm'; seed: number; say: (text: string) => void } | null; nearInfo: (x: number, z: number, r: number) => (CrowdInfo & { seed: number; gender: 'f' | 'm' }) | null; talker: () => { x: number; z: number } | null; occupied: (x: number, z: number) => boolean; pick: (ray: THREE.Raycaster, maxAlong?: number) => CrowdInfo | null; robotAt: () => { x: number; z: number }; debug: () => Array<{ x: number; z: number; state: string; body: string }> } {
   const people: Person[] = []
   let talkingNow: { i: number; until: number } | null = null
   /** Resident `i` says a line to the player: mouth, the talk clip and a turn to face them, for its reading time. */
@@ -296,6 +296,14 @@ export function createCrowd(scene: THREE.Scene, placeName: (x: number, z: number
       if (best < 0) return null
       const p = people[best]!
       return { name: persona(p).name, gender: p.sim.spec.body === 'zuri' ? 'f' : 'm', seed: best, say: (text: string) => talkTo(best, text) }
+    },
+    /** Who the nearest visible resident is (the passing card): name, trade, what they are doing now. */
+    nearInfo(x, z, r) {
+      let best = -1, bd = r
+      people.forEach((p, i) => { if (!p.avatar.object.visible) return; const d = Math.hypot(p.sim.x - x, p.sim.z - z); if (d < bd) { bd = d; best = i } })
+      if (best < 0) return null
+      const p = people[best]!, per = persona(p)
+      return { name: per.name, trait: per.trait, routine: per.routine, doing: doing(p, best), lines: per.lines, object: p.avatar.object, seed: best, gender: p.sim.spec.body === 'zuri' ? 'f' : 'm' }
     },
     /** The resident talking to you right now (to turn and face them), if any. */
     talker() { const t = talkingNow; if (!t || performance.now() > t.until) return null; const p = people[t.i]; return p ? { x: p.sim.x, z: p.sim.z } : null },

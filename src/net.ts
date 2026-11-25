@@ -52,6 +52,8 @@ export type Net = {
   /** Where a player is in the city right now (by username), or null if not in this city. */
   findPeer: (username: string) => { x: number; z: number } | null
   pick: (ray: THREE.Raycaster, maxAlong?: number) => { id: string; name: string; username: string; object: THREE.Object3D } | null
+  /** The nearest real player in your room within r metres, for the passing card. */
+  nearestPeer: (x: number, z: number, r: number) => { id: string; name: string; username: string; body: BodyId; object: THREE.Object3D } | null
   /** Ask a peer for their public profile (encodeShare payload). Resolves null after 4 s. */
   requestProfile: (peerId: string) => Promise<string | null>
   /** Everyone in the city right now (presence), with where they are; `here` = in your room. */
@@ -296,6 +298,16 @@ export function createNet(options: {
         // Capsule test around the standing body (slightly wider than residents: players are worth a tap).
         const along = bodyHit(ray.ray, o.position.x, o.position.z, 0.55)
         if (along !== null && along < bestD) { bestD = along; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), object: o } }
+      }
+      return best
+    },
+    nearestPeer(x, z, r) {
+      let best: { id: string; name: string; username: string; body: BodyId; object: THREE.Object3D } | null = null, bd = r
+      for (const [peerId, peer] of peers) {
+        const o = peer.avatar.object
+        if (!o.visible || (peer.room ?? '') !== (pos.room ?? '')) continue
+        const d = Math.hypot(o.position.x - x, o.position.z - z)
+        if (d < bd) { bd = d; best = { id: peerId, name: clean(peer.name), username: clean(peer.username).toLowerCase(), body: peer.body, object: o } }
       }
       return best
     },
