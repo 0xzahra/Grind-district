@@ -4867,3 +4867,79 @@ html body #nav.cc #cc-learn { display: none !important; }
 .drone-hint { position: fixed; z-index: 7000; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 72px); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(10, 12, 15, 0.6); color: #f6f1e6; font: 600 12.5px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
 .drone-hint[hidden] { display: none; }
 html body .drone-bar .selfie-key.drone-hold { touch-action: none; -webkit-user-select: none; user-select: none; }
+/* Maslow's pyramid on the Needs sheet: six bands, narrow at the top, each filled as far as you have got. */
+.mz-pyr { display: grid; gap: 5px; margin: 14px 0 8px; }
+.mz-pyr .mz-kick { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #c9a25e; text-align: center; }
+.mz-row { display: grid; justify-items: center; gap: 2px; }
+.mz-band { position: relative; width: var(--w); min-width: 150px; height: 40px; display: grid; place-content: center; text-align: center; overflow: hidden; clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%); background: color-mix(in srgb, var(--c) 28%, #1b1d21); }
+.mz-band > i { position: absolute; inset: 0 auto 0 0; background: var(--c); opacity: 0.85; transition: width 0.4s; }
+.mz-band > b, .mz-band > small { position: relative; z-index: 1; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.15; }
+.mz-band > b { font-size: 13px; font-weight: 750; }
+.mz-band > small { font-size: 11px; font-weight: 600; opacity: 0.95; }
+.mz-row .mz-how { margin: 0 0 4px; max-width: 92%; font-size: 12px; line-height: 1.35; text-align: center; color: #b8b0a2; }
+html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-band > :is(b, small) { color: #ffffff !important; }
+html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-row .mz-how { color: #6b655a !important; }
+/* Profile: sub-headings inside a merged section; the CV paper sits tighter on phones. */
+.pfold-sub { margin: 14px 0 6px !important; }
+.prof-ranks { margin: 0 0 10px; }
+@media (max-width: 560px) {
+  html body .cv-paper { padding: 16px 14px 12px !important; font-size: 11.5px !important; line-height: 1.4 !important; }
+  html body .cv-paper .cv-name { font-size: 20px !important; }
+  html body .cv-paper .cv-head { padding-bottom: 8px !important; }
+  html body .cv-paper .cv-sec { margin-top: 9px !important; }
+  html body .cv-paper .cv-item { margin: 0 0 5px !important; }
+  html body .cv-wrap { gap: 8px; }
+}
+/* Persona: what each trait measures, under its name. */
+.ps-trait .ps-label { display: grid; gap: 1px; min-width: 0; }
+.ps-trait .ps-means { font-size: 11px; line-height: 1.3; font-weight: 500; color: #9a958b; white-space: normal; }
+html[data-ui='light'] body #sheet .ps-trait .ps-means { color: #6b655a !important; }
+.persona .pcard-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.persona .pcard-row > button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Watch a wallet (Balance). */
+.watch-card { margin: 14px 0 6px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); display: grid; gap: 8px; }
+.watch-card h3 { margin: 0; font-size: 15px; }
+.watch-card p { margin: 0; }
+.watch-row { display: grid; gap: 4px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, 0.18); }
+.watch-top { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.watch-top small { opacity: 0.7; }
+.watch-vals { display: grid; gap: 2px; font-size: 13px; font-weight: 600; }
+.watch-acts { display: flex; gap: 12px; align-items: center; font-size: 12.5px; }
+.watch-acts a { color: #3ee8a0; }
+.watch-rm { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; color: #e86a6a !important; font-size: 12.5px; cursor: pointer; }
+.watch-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.watch-form input { min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(0, 0, 0, 0.25); color: inherit; font: 500 14px/1.2 system-ui, sans-serif; }
+.watch-go { padding: 0 16px; border-radius: 10px; font-weight: 700; }
+.watch-msg { font-size: 12.5px; }
+.watch-msg.bad { color: #f2b45a; }
+.watch-warn { font-size: 12px; color: #f2b45a; }
+html[data-ui='light'] body .watch-card { background: rgba(40, 32, 20, 0.04); border-color: rgba(40, 32, 20, 0.1); }
+html[data-ui='light'] body .watch-row { background: rgba(40, 32, 20, 0.05); }
+html[data-ui='light'] body .watch-form input { background: #fff; border-color: rgba(40, 32, 20, 0.2); color: #1d1b17; }
+html[data-ui='light'] body .watch-warn, html[data-ui='light'] body .watch-msg.bad { color: #a05a10 !important; }
+/* The city's shop row in the Boutique. */
+.city-shop { margin-top: 14px; }
+.city-shop h3 { margin: 0 0 8px; }
+/* Market rows: a small live chart between the name and the price. */
+.sheet-card .xch-item:has(> .xch-spark) { grid-template-columns: auto minmax(0, 1fr) 60px auto !important; gap: 10px; }
+.sheet-card .xch-spark { width: 60px; height: 22px; display: block; }
+/* P2P: verified merchants, limits, and the order chat. */
+.p2p-ver, .p2p-unver { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; vertical-align: 1px; }
+.p2p-ver { background: rgba(33, 201, 138, 0.16); color: #21c98a; border: 1px solid rgba(33, 201, 138, 0.4); }
+.p2p-unver { background: rgba(240, 160, 40, 0.14); color: #f0a028; border: 1px solid rgba(240, 160, 40, 0.4); }
+.sheet-card .xch-names small.p2p-lim { opacity: 0.75; }
+.p2p-chat { display: grid; gap: 8px; margin-top: 10px; }
+.p2p-log { display: grid; gap: 6px; max-height: 220px; overflow-y: auto; padding: 8px; border-radius: 12px; background: rgba(0, 0, 0, 0.22); }
+.p2p-log p { margin: 0; max-width: 82%; padding: 7px 10px; border-radius: 14px; font-size: 13px; line-height: 1.35; }
+.p2p-log p.them { justify-self: start; background: rgba(255, 255, 255, 0.1); border-bottom-left-radius: 4px; }
+.p2p-log p.me { justify-self: end; background: #1f8f5f; color: #fff; border-bottom-right-radius: 4px; }
+.p2p-quick { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.p2p-quick .p2p-q { flex: none; padding: 6px 11px !important; border-radius: 999px !important; font-size: 12.5px !important; white-space: nowrap; }
+.p2p-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.p2p-form input { min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(0, 0, 0, 0.25); color: inherit; font: 500 14px/1.2 system-ui, sans-serif; }
+.p2p-send { padding: 0 16px !important; border-radius: 10px !important; font-weight: 700; }
+html[data-ui='light'] body .p2p-log { background: rgba(40, 32, 20, 0.05); }
+html[data-ui='light'] body .p2p-log p.them { background: rgba(40, 32, 20, 0.08); color: #1d1b17 !important; }
+html[data-ui='light'] body .p2p-log p.me { color: #ffffff !important; }
+html[data-ui='light'] body .p2p-form input { background: #fff; border-color: rgba(40, 32, 20, 0.2); color: #1d1b17; }
+.sheet-card .xch-offer .xch-names > b { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.3; }

@@ -195,7 +195,8 @@ export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): {
   const sym = coin.label.split(' ')[0]
   let extra = ''
   if (side === 'buy' && coin.cat === 'big') { save.reputation += 1; extra = ' Reputation +1 for a big-cap position.' }
-  log('trade', `${side === 'buy' ? 'Bought' : 'Sold'} ${sym}`, `${money(result.cash)} in-game.`)
+  const moved = Math.abs(result.holding.qty - holding.qty)
+  log('trade', `${side === 'buy' ? 'Bought' : 'Sold'} ${sym}`, `${money(result.cash)} in-game: ${formatQty(moved)} ${sym} at ${money(price)}.`)
   persist()
   emit()
   const pnl = result.pnl

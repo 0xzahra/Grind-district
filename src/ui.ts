@@ -143,6 +143,10 @@ type Hooks = {
   /** Go to a place beyond the centre (Grind Park, the airport), optionally to a spot inside it. */
   goFar?: (area: 'park' | 'airport', at?: [number, number], title?: string) => void
   portrait?: (yaw?: number, into?: HTMLCanvasElement, hi?: boolean) => string | null
+  /** The rank ladder (moved from the Balance sheet to the Profile). */
+  ranks?: (into: HTMLElement) => void
+  /** "Things to buy": the city's showcase row (moved from the Balance sheet to the shop). */
+  cityShop?: (into: HTMLElement) => void
 }
 
 export type Ui = {
@@ -443,11 +447,16 @@ export function mountUi(
     }
     // The core loop's payoff comes first: the CV and its certificates, right under the name card. The CV opens by
     // itself the first time a player comes to see their first course on it.
-    const cvFold = fold('CV', cvFirst && certIds.length > 0, (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (!certIds.length) wrap.append(para('Pass a course on Campus and it goes on your CV, with a page you can share.', 'muted')); return wrap })())
-    // Certificates sit with the CV they belong to.
-    const certFold = fold('Certificates', false, (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(`✓ ${SKILL_META[id].title}`, 'ghost cert-chip', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })())
+    // The CV, its certificates and the skills behind them are one section: the paper, then the certificate list,
+    // then how far each world of Campus has got (filled in below, once the skills are worked out).
+    const sub = (t: string) => { const h = document.createElement('p'); h.className = 'kicker pfold-sub'; h.textContent = t; return h }
+    const cvWrap = (() => { const wrap = document.createElement('div'); wrap.className = 'cv-wrap'; const paper = renderCvPaper(); const bar = document.createElement('div'); bar.className = 'cv-actions'; bar.append(button('Download PDF', 'primary', () => printCv(paper))); if (certIds.length) bar.append(button('Share my CV page', 'ghost', () => void shareCv())); wrap.append(paper, bar); if (!certIds.length) wrap.append(para('Pass a course on Campus and it goes on your CV, with a page you can share.', 'muted')); return wrap })()
+    const certList = (() => { const list = document.createElement('div'); list.className = 'cert-list'; for (const id of certIds) { const b = button(`✓ ${SKILL_META[id].title}`, 'ghost cert-chip', () => void openCertificate(id)); b.dataset.course = id; list.append(b) } if (!certIds.length) list.append(para('Pass a course on Campus to earn your first certificate.', 'muted')); list.append(button('Open courses', 'primary', () => open('learn'))); return list })()
+    const skillSlot = document.createElement('div')
+    const cvFold = fold('CV, certificates and skills', cvFirst && certIds.length > 0, cvWrap, sub(`Certificates · ${certIds.length}`), certList, sub('Skills by world'), skillSlot)
+    const certFold = cvFold
     // Certificates minted on NEAR are read back from the chain and marked Verified (CV, list, nameplate).
-    if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(cvFold); void m.markVerified(certFold) })
+    if (certIds.length) void import('./nftAccess.ts').then((m) => { void m.markVerified(hero); void m.markVerified(cvFold); if (certFold !== cvFold) void m.markVerified(certFold) })
     // Invite and share: two tidy boxes. Invite friends (copy the link or post it, then how invites pay and how
     // they are going), and the picture cards to share (the photo card, today's journal card).
     const share = document.createElement('div'); share.className = 'share-sec'
@@ -500,16 +509,22 @@ export function mountUi(
       if (got && got < ids.length) row.append(para(ids.filter((id) => save.skills[id]?.passed).map((id) => SKILL_META[id].title).join(' · '), 'muted skill-world-list'))
       skills.append(row)
     }
-    // Your Web3 persona: traits, best-fit roles and niche read from how you play (persona.ts). No star signs.
+    skillSlot.append(skills)
+    // Your Web3 persona with your birthday beside it: traits, best-fit roles and niche read from how you play
+    // (persona.ts), then the birthday, the calendar and, just for fun, your star sign's reading.
     let persona: HTMLElement
     try { persona = personaNodes({ para, button }, (m) => toast(m)) } catch { persona = document.createElement('div') }
+    persona.querySelector(':scope > h3')?.remove(); persona.classList.remove('glass')
+    const cal = renderCalendar(); cal.classList.remove('glass'); cal.querySelector(':scope > h3')?.remove()
+    // Today and your status in one place: balance, streak and quests, the unlocks, the rank ladder and your staff.
+    const lux = renderLuxury(); lux.querySelector(':scope > h3')?.remove(); lux.classList.remove('glass')
+    const rankBox = document.createElement('div'); rankBox.className = 'prof-ranks'
+    hooks.ranks?.(rankBox)
+    const staffKey = button('Staff at home', 'ghost', () => { void import('./staff.ts').then((m) => m.openStaffDesk()) })
     const card = frame(save.name, stack(
-      hero, proof, cvFold, certFold,
-      fold('Skills', certIds.length > 0, skills),
-      foldOwn(persona, 'Your Web3 persona'),
-      fold('Today: balance, streak and quests', false, renderToday(save)),
-      foldOwn(renderLuxury(), 'Status & unlocks'),
-      fold('Birthday and calendar', false, renderCalendar()),
+      hero, proof, cvFold,
+      fold('Your Web3 persona and birthday', false, persona, sub('Birthday, calendar and your sign (for fun)'), cal),
+      fold('Today, status and ranks', false, renderToday(save), sub('Status and unlocks'), lux, sub('Ranks'), rankBox, staffKey),
       fold('Books', false, renderBooks()),
       fold('Invite and share', false, share),
       foldOwn(renderRewardWallet(), 'Rewards wallet (Base)'),
@@ -1107,6 +1122,8 @@ export function mountUi(
       }
       wrap.append(para('Swimwear · free', 'kicker'), cuts, shades, para('You change into it as soon as you get into a pool (at home, in the luxury homes and on the hotel roof) and back into your clothes when you climb out.', 'muted'))
     }
+    // Things to buy around the city (moved here from the Balance sheet): cars, the jet, phones and more.
+    if (hooks.cityShop) { const city = document.createElement('section'); city.className = 'city-shop'; hooks.cityShop(city); if (city.childElementCount) wrap.append(city) }
     return frame('Boutique', wrap)
   }
 

@@ -167,10 +167,23 @@ export function myPersona(): Persona {
 type H = { para: (t: string, cls?: string) => HTMLElement; button: (label: string, cls: string, on: () => void) => HTMLElement }
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
 
+/** What each trait measures, in a line, shown under it so nobody has to guess. */
+const MEANS: Record<string, string> = {
+  hands: 'How you hold through ups and downs: sell at the first dip, or keep to your plan.',
+  style: 'How long you keep a trade open, from minutes to weeks.',
+  risk: 'How much risk you take: big coins and small sizes, or memes and leverage.',
+  rhythm: 'When you play: mornings, evenings, weekdays or weekends.',
+  habit: 'How regularly you come back to the city.',
+  learning: 'How you learn: first try, retries until it clicks, or by trying everything.',
+  social: 'How much of your time is spent with other people.',
+  money: 'What you do with cash: save it, spend it or put it to work.',
+  values: 'What you choose to make time for when nobody asks you to.',
+}
 function traitRow(t: Trait): HTMLElement {
   const d = el('details', '', `ps-trait${t.value === 'Not read yet' ? ' unread' : ''}`)
   const s = el('summary')
-  s.append(el('span', t.icon, 'ps-ico'), el('span', t.label, 'ps-label'), el('strong', t.value, 'ps-val'), el('span', t.value === 'Not read yet' ? 'needs play' : `${t.confidence} confidence`, `ps-conf ${t.confidence}`))
+  const label = el('span', '', 'ps-label'); label.append(el('span', t.label), el('small', MEANS[t.id] ?? '', 'ps-means'))
+  s.append(el('span', t.icon, 'ps-ico'), label, el('strong', t.value, 'ps-val'), el('span', t.value === 'Not read yet' ? 'needs play' : `${t.confidence} confidence`, `ps-conf ${t.confidence}`))
   d.append(s)
   const ul = el('ul', '', 'ps-why')
   for (const w of t.why) ul.append(el('li', w))
@@ -204,8 +217,8 @@ export function personaNodes(h: H, say: (m: string) => void): HTMLElement {
   for (const t of p.traits) traits.append(traitRow(t))
   box.append(traits)
   box.append(el('p', 'Roles that fit you', 'kicker'))
-  if (p.roles.length) { const l = el('div', '', 'ps-list'); for (const f of p.roles) l.append(fitRow(f)); box.append(l) }
-  else box.append(h.para('Pass a course or two and the game will start matching you to Web3 roles.', 'muted'))
+  if (p.roles.length) { const l = el('div', '', 'ps-list'); for (const f of p.roles) l.append(fitRow(f)); box.append(l); box.append(h.para('Matched from the courses you pass, the career tracks you explore and what you do in the city. Tap a role to see why, and what would make it stronger.', 'muted ps-small')) }
+  else box.append(h.para('Not enough to go on yet. Pass a few courses and explore a career track, and the game will match you to Web3 roles.', 'muted'))
   if (p.niches.length) {
     box.append(el('p', 'Your corner of Web3', 'kicker'))
     const l = el('div', '', 'ps-list'); for (const f of p.niches) l.append(fitRow(f)); box.append(l)
@@ -219,7 +232,6 @@ export function personaNodes(h: H, say: (m: string) => void): HTMLElement {
       else void navigator.clipboard.writeText(post).then(() => say('Copied. Paste it in your post.')).catch(() => say('Could not copy just now.'))
     }),
     h.button('Post on 𝕏', 'ghost', () => { window.open(`https://x.com/intent/post?text=${encodeURIComponent(personaPost(p, inviteLink(getSave().username)))}`, '_blank', 'noopener') }),
-    h.button('Staff at home', 'ghost', () => { void import('./staff.ts').then((m) => m.openStaffDesk()) }),
   )
   box.append(row, h.para('Worked out on this device from your own play. Nothing is uploaded, and no amounts are shown.', 'muted ps-small'))
   return box

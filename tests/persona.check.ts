@@ -89,7 +89,8 @@ const value = (t: { value: string }) => t.value
   check(nm[0]?.id === 'memes', `meme buyer: memecoin niche (got ${nm[0]?.id})`)
   const thin = rec((r) => { r.acts.greet = 1 })
   const rthin = roles(thin, facts())
-  check(rthin[0]?.level === 'Emerging', `one greeting: emerging, not strong (got ${rthin[0]?.level})`)
+  // One greeting is not a career: no role is matched until there is real evidence (courses, tracks, activity).
+  check(rthin.length === 0, `one greeting: too little to match a role yet (got ${rthin[0]?.id})`)
 }
 
 // Zodiac comments, never decides.

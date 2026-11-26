@@ -397,8 +397,10 @@ export function niches(r: PersonaRecord, f: PersonaFacts): Fit[] {
 
 function rank(list: Array<{ id: string; title: string; raw: number; why: string[]; next: string }>): Fit[] {
   const top = Math.max(...list.map((x) => x.raw))
-  if (!(top > 0)) return []
-  return list.filter((x) => x.raw > 0).sort((a, b) => b.raw - a.raw).slice(0, 3).map((x) => {
+  // Too little to go on (a panel opened once is not a career): say so rather than guess.
+  if (!(top >= 3)) return []
+  // Only roles with a real share of the evidence, not every role touched once.
+  return list.filter((x) => x.raw >= Math.max(1.5, top * 0.3)).sort((a, b) => b.raw - a.raw).slice(0, 3).map((x) => {
     // Relative to the best match, scaled by how much evidence there is overall (a strong lead on little play stays "Emerging").
     const evidence = 1 - Math.exp(-top / 14)
     const score = Math.round(100 * (x.raw / top) * (0.2 + 0.8 * evidence))

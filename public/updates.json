@@ -595,6 +595,31 @@
       "title": "Mirrors, hippos and a tidier menu",
       "body": "Real mirrors in the salon, rounder hippos in a bigger water hole, Grind Café shelves with coffee bags and pastries, lighter cushions at home, a shorter title card on phones, and every menu key (Seasons too) from the start. No confetti in places of prayer.",
       "push": false
+    },
+    {
+      "id": "u1126-profile-merged",
+      "title": "A tidier profile",
+      "body": "Your CV, certificates and skills are now one section, your Web3 persona sits with your birthday and star sign (just for fun), and today's quests, status and ranks are together. Each persona trait now says what it means.",
+      "go": "panel:profile"
+    },
+    {
+      "id": "u1126-needs-pyramid",
+      "title": "Your needs, as a pyramid",
+      "body": "Open Needs from the menu to see Maslow's hierarchy as it plays out in the city: body, safety, belonging, esteem, your full potential and meaning, each filled as far as you have got.",
+      "push": false
+    },
+    {
+      "id": "u1126-balance-watch",
+      "title": "Balance: trades and wallets you watch",
+      "body": "Recent now shows what you bought and sold, how much and at what price. Watch any public wallet address on Base or NEAR, read-only. Ranks moved to your Profile and Things to buy to the Boutique.",
+      "go": "balance",
+      "push": false
+    },
+    {
+      "id": "u1126-p2p-chat",
+      "title": "P2P: 34 currencies and merchant chat",
+      "body": "Pick from 34 local currencies, see which merchants are verified (with their limits and release times), and chat with them inside the order. Every coin row on Spot has a small live chart.",
+      "go": "panel:trade"
     }
   ]
 }

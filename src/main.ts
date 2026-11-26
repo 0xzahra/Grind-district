@@ -662,6 +662,9 @@ const apiAgents = createRemoteAgents(scene)
     season: must('#pill-season'),
     focus: must('#pill-focus'),
   }, {
+    // The rank ladder lives on the Profile now, and "Things to buy" in the shop (both used to crowd the Balance).
+    ranks: (into) => rankLadder(into),
+    cityShop: (into) => cityShopRow(into),
     onStyle: () => {
       const save = getSave()
       avatar.setStyle(save.tint, save.luxury)
@@ -1193,9 +1196,8 @@ const apiAgents = createRemoteAgents(scene)
     {
       const jobId = getCareer().job
       const jobTitle = jobId ? (JOBS.find((j) => j.id === jobId)?.title ?? '') : ''
-      must('#cc-rank').textContent = jobTitle
-        ? `${rankFor(getSave().xp).label} · ${jobTitle} · tap for history`
-        : `${rankFor(getSave().xp).label} · tap for history`
+      // The rank lives on the Profile now; the wallet card says what you do and where the history is.
+      must('#cc-rank').textContent = jobTitle ? `${jobTitle} · tap for history` : 'Tap for history and wallets'
     }
   }
   nav.inert = true
@@ -1255,6 +1257,40 @@ const apiAgents = createRemoteAgents(scene)
     if (!getNotes().length) list.append(el('li', 'Nothing yet.', 'empty'))
     sheetBody.append(all, list)
   }
+  /** The rank ladder (Profile). The next rank can be bought with in-game balance once more than $5 has been topped
+   *  up, exactly as it was on the Balance sheet; ranks are still earned free by learning. */
+  const rankLadder = (into: HTMLElement) => {
+    const paint = () => {
+      const b = balanceSplit()
+      const road = el('div')
+      renderRankRoad(road, { toppedUp: b.toppedUp, total: b.total, buy: (i) => {
+        const r = RANKS[i]!, price = RANK_START[r.id]
+        const paid = spendInGame(price, 'Bought ' + r.label + ' rank', 'Rank purchase with in-game balance.')
+        if (!paid.ok) { ui.toast(paid.message); return }
+        bonusXp(Math.max(1, r.xp - getSave().xp), 'Reached ' + r.label, 'Rank bought with in-game balance.')
+        paint()
+      } })
+      into.replaceChildren(road)
+    }
+    paint()
+  }
+  /** "Things to buy" (the shop): the city's showcase of cars, the jet, phones, looks and upgrades. */
+  const cityShopRow = (into: HTMLElement) => {
+    const go = (fn: () => void) => () => { ui.close(); setCC(false); fn() }
+    into.append(el('h3', 'Things to buy in the city'))
+    const shop = el('div')
+    renderShopRow(shop, [
+      { title: 'Grand tourer', sub: 'Two seats, tan leather', price: '$900', pic: 'tourer', tone: 'graphite', go: go(() => ui.open('dealer')) },
+      { title: 'Grind Pass', sub: '20 rewards, $1,000 back', price: '$750', icon: 'pass', tone: 'emerald', go: go(() => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'weekly' }))) },
+      { title: 'Light jet', sub: 'Six seats, regional range', price: '$1,200', pic: 'lightjet', tone: 'sky', go: go(() => ui.open('dealer')) },
+      { title: 'Pro phone', sub: 'Titanium, triple camera', price: '$90', pic: 'phonepro', tone: 'graphite', go: go(() => ui.open('gadgets')) },
+      { title: 'Sky drone', sub: 'Two-seat electric air taxi', price: '$1,650', pic: 'skydrone', tone: 'sky', go: go(() => ui.open('dealer')) },
+      { title: 'Makeup kit', sub: 'Lipstick, blush, shadow, liner', price: '$120', icon: 'makeup', tone: 'rose', go: go(() => ui.open('boutique')) },
+      { title: 'House upgrade', sub: 'Furnish the next tier', price: 'in-game', icon: 'house', tone: 'walnut', go: go(() => travelHook('Your house', true)) },
+      { title: "Members' lounge", sub: 'Rooms open by rank', price: 'by rank', icon: 'lounge', tone: 'walnut', go: go(() => travelHook('Members lounge', true)) },
+    ])
+    into.append(shop)
+  }
   const openBalance = () => openSheet('Balance', () => {
     const save = getSave()
     // The big balance sits in a sticky head so it stays in view while the top-up form grows below it,
@@ -1302,30 +1338,12 @@ const apiAgents = createRemoteAgents(scene)
     }, 1000)
     const topBtn = el('button', 'Top up', 'topup-go')
     topBtn.type = 'button'
-    const credited = () => { paintStatus(); paintBig(); paintSplit(); paintSpend(); paintAssets(); paintRecent(); spend.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
-    // 'Spend it': after a deposit (or any time there is cash), shortcuts to the premium things in the city.
+    const credited = () => { paintStatus(); paintBig(); paintSplit(); paintSpend(); paintAssets(); paintRecent(); recent.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+    // Ranks moved to the Profile and "Things to buy" to the shop: the Balance is the money, what it bought and
+    // the wallets you watch.
     const spend = el('div', '', 'cc-spend')
     const go = (fn: () => void) => () => { closeSheet(); setCC(false); fn() }
-    const paintSpend = () => {
-      const b = balanceSplit()
-      spend.replaceChildren()
-      paintRanks(b)
-      if (b.total < 1) return
-      spend.append(el('h3', b.toppedUp > 0 ? 'Spend it' : 'Things to buy'))
-      const shop = el('div')
-      renderShopRow(shop, [
-        { title: 'Runway looks', sub: 'Tuxedos, gowns, couture abayas', price: 'from $340', icon: 'look', tone: 'champagne', go: go(() => ui.open('boutique')) },
-        { title: 'Grand tourer', sub: 'Two seats, tan leather', price: '$900', pic: 'tourer', tone: 'graphite', go: go(() => ui.open('dealer')) },
-        { title: 'Grind Pass', sub: '20 rewards, $1,000 back', price: '$750', icon: 'pass', tone: 'emerald', go: go(() => window.dispatchEvent(new CustomEvent('gd:career', { detail: 'weekly' }))) },
-        { title: 'Light jet', sub: 'Six seats, regional range', price: '$1,200', pic: 'lightjet', tone: 'sky', go: go(() => ui.open('dealer')) },
-        { title: 'Pro phone', sub: 'Titanium, triple camera', price: '$90', pic: 'phonepro', tone: 'graphite', go: go(() => ui.open('gadgets')) },
-        { title: 'Sky drone', sub: 'Two-seat electric air taxi', price: '$1,650', pic: 'skydrone', tone: 'sky', go: go(() => ui.open('dealer')) },
-        { title: 'Makeup kit', sub: 'Lipstick, blush, shadow, liner', price: '$120', icon: 'makeup', tone: 'rose', go: go(() => ui.open('boutique')) },
-        { title: 'House upgrade', sub: 'Furnish the next tier', price: 'in-game', icon: 'house', tone: 'walnut', go: go(() => travelHook('Your house', true)) },
-        { title: "Members' lounge", sub: 'Rooms open by rank', price: 'by rank', icon: 'lounge', tone: 'walnut', go: go(() => travelHook('Members lounge', true)) },
-      ])
-      spend.append(shop)
-    }
+    const paintSpend = () => { spend.replaceChildren() }
     topBtn.onclick = () => {
       topBtn.disabled = true; topBtn.textContent = 'Opening…'
       // The chunk can 404 if the site was redeployed after this tab loaded: say so and offer a reload instead of failing silently.
@@ -1336,23 +1354,6 @@ const apiAgents = createRemoteAgents(scene)
       })
     }
     const topSlot = el('div')
-    // Ranks: every rank comes with its level balance. The next one can be bought with in-game balance once
-    // more than $5 has been topped up; ranks are still earned free by learning.
-    const paintRanks = (b: ReturnType<typeof balanceSplit>) => {
-      const ladder = el('div', '', 'wal-ranks')
-      ladder.append(el('h3', 'Ranks'))
-      const road = el('div')
-      // Same rule as before: the next rank can be bought from the in-game balance once more than $5 is topped up.
-      renderRankRoad(road, { toppedUp: b.toppedUp, total: b.total, buy: (i) => {
-        const r = RANKS[i]!, price = RANK_START[r.id]
-        const paid = spendInGame(price, 'Bought ' + r.label + ' rank', 'Rank purchase with in-game balance.')
-        if (!paid.ok) { ui.toast(paid.message); return }
-        bonusXp(Math.max(1, r.xp - getSave().xp), 'Reached ' + r.label, 'Rank bought with in-game balance.')
-        credited()
-      } })
-      ladder.append(road)
-      spend.append(ladder)
-    }
     // Everything held, valued at practice prices.
     const assets = el('div', '', 'wal-assets')
     // Assets, NFTs and Watchlist tabs (walletHoldings.ts).
@@ -1375,7 +1376,7 @@ const apiAgents = createRemoteAgents(scene)
       round('top', 'Top up', () => { topBtn.click(); window.setTimeout(() => topSlot.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300) }),
       round('trade', 'Trade', go(() => ui.open('trade'))),
       round('shop', 'Shop', go(() => ui.open('boutique'))),
-      round('more', 'More', () => spend.scrollIntoView({ behavior: 'smooth', block: 'start' })),
+      round('more', 'Watch', () => watch.scrollIntoView({ behavior: 'smooth', block: 'start' })),
     )
     // Recent: the balance moves, newest first, with the amount on the right.
     const recent = el('div', '', 'wal-recent')
@@ -1387,17 +1388,22 @@ const apiAgents = createRemoteAgents(scene)
       recent.replaceChildren(head)
       for (const a of showAll ? moves : moves.slice(0, 4)) {
         const m = a.detail.match(/^([+-])?\$([\d,]+(?:\.\d+)?)/) ?? a.label.match(/([+-])\$([\d,]+(?:\.\d+)?)/)
-        const sign = m?.[1] ?? (/^(Bought|Paid|Grind Pass ·|Grind Pass tier skip)/.test(a.label) ? '-' : /^(Top-up|Starting|Sign-up)/.test(a.label) ? '+' : '')
+        const sign = m?.[1] ?? (/^(Bought|Paid|Grind Pass ·|Grind Pass tier skip|Staked)/.test(a.label) ? '-' : /^(Top-up|Starting|Sign-up|Sold|Unstaked)/.test(a.label) ? '+' : '')
         const row = el('div', '', 'wal-tx')
         const ab = a.label.replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '$'
-        const nm = el('div'); nm.append(el('b', a.label), el('small', when(a.at)))
+        // A trade says how much of what, at what price: "0.0021 BTC at $64,281.50".
+        const deal = a.kind === 'trade' ? (a.detail.match(/:\s*(.+? at \$[\d,.]+)/)?.[1] ?? a.detail.match(/practice at (\$[\d,.]+)/)?.[1]?.replace(/^/, 'at ') ?? '') : ''
+        const nm = el('div'); nm.append(el('b', a.label), el('small', deal ? `${when(a.at)} · ${deal}` : when(a.at)))
         row.append(el('span', ab, 'wal-tx-ico'), nm, el('span', m ? `${sign}$${m[2]}` : '', `wal-tx-amt${sign === '+' ? ' in' : sign === '-' ? ' out' : ''}`))
         recent.append(row)
       }
       if (!moves.length) recent.append(el('p', 'No balance moves yet. Pass a course or check in to earn your first dollars.', 'cc-muted'))
     }
     paintRecent()
-    sheetBody.append(topSlot, recent, assets, spend)
+    // Watch a wallet: public addresses only, read from the chain (watchWallet.ts). Never a seed phrase or key.
+    const watch = el('div', '', 'watch-card')
+    void import('./watchWallet.ts').then((m) => m.renderWatch(watch)).catch(() => { watch.textContent = '' })
+    sheetBody.append(topSlot, recent, assets, watch)
   })
   must('#cc-sheet-back').addEventListener('click', closeSheet)
   railToggle.addEventListener('click', () => { const opening = document.body.classList.contains('rail-shut'); if (opening) journeyStep('menu_open'); setCC(opening) })

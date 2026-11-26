@@ -20,27 +20,40 @@ const ASSETS: Asset[] = [
   { id: 'meme', sym: 'MEME', name: 'Meme Token', tint: '#8fd0a6', group: 'Tokens', minRank: 'shrimp', desk: 'meme' },
   ...listed.filter((a) => a.group === 'Tokens'),
 ]
-type Offer = { name: string; trades: number; rate: number; spread: number; pay: string; verified?: boolean; trap?: 'third' | 'offsite' | 'fake' }
-// Sellers you can buy from, and buyers you can sell to. The sharks quote a price that is too good.
+type Offer = { name: string; trades: number; rate: number; spread: number; pay: string; verified?: boolean; trap?: 'third' | 'offsite' | 'fake'; release?: string; since?: string; limit?: [number, number] }
+// Sellers you can buy from, and buyers you can sell to. Verified merchants passed the platform's ID and address
+// checks and keep a deposit; the sharks are new accounts quoting a price that is too good.
 const BUY_OFFERS: Offer[] = [
-  { name: 'AdaTrades', trades: 2140, rate: 99.2, spread: 0, pay: 'Bank transfer', verified: true },
-  { name: 'KanoDesk', trades: 870, rate: 98.1, spread: 0, pay: 'Bank transfer', verified: true },
+  { name: 'AdaTrades', trades: 2140, rate: 99.2, spread: 0, pay: 'Bank transfer', verified: true, release: '3 min', since: '2022', limit: [10, 5000] },
+  { name: 'KanoDesk', trades: 870, rate: 98.1, spread: 0, pay: 'Bank transfer', verified: true, release: '6 min', since: '2023', limit: [20, 2500] },
+  { name: 'AccraBridge', trades: 1312, rate: 98.9, spread: 0.002, pay: 'Bank transfer · mobile money', verified: true, release: '4 min', since: '2021', limit: [5, 3000] },
   { name: 'QuickFlip99', trades: 14, rate: 71, spread: -0.03, pay: 'Bank transfer', trap: 'third' },
   { name: 'CheapCoinz', trades: 6, rate: 60, spread: -0.05, pay: 'WhatsApp deal', trap: 'offsite' },
 ]
 const SELL_OFFERS: Offer[] = [
-  { name: 'LagosOTC', trades: 3120, rate: 99.5, spread: 0, pay: 'Bank transfer', verified: true },
-  { name: 'ZeeMerchant', trades: 640, rate: 97.8, spread: 0, pay: 'Bank transfer', verified: true },
+  { name: 'LagosOTC', trades: 3120, rate: 99.5, spread: 0, pay: 'Bank transfer', verified: true, release: '2 min', since: '2020', limit: [10, 10000] },
+  { name: 'ZeeMerchant', trades: 640, rate: 97.8, spread: 0, pay: 'Bank transfer', verified: true, release: '7 min', since: '2023', limit: [15, 2000] },
+  { name: 'NairobiNode', trades: 905, rate: 98.6, spread: -0.002, pay: 'Bank transfer · mobile money', verified: true, release: '5 min', since: '2022', limit: [5, 4000] },
   { name: 'FastPay_01', trades: 9, rate: 66, spread: 0.04, pay: 'Bank transfer', trap: 'fake' },
 ]
 // P2P is mostly crypto to local money and back: merchants quote, and you pay or get paid, in the fiat picked here.
 // The game's own cash stays in-game dollars; this converts at the live rate (Coinbase), an estimate otherwise.
 const FIATS = [
-  { id: 'NGN', sym: '₦', name: 'Naira' }, { id: 'GHS', sym: 'GH₵', name: 'Cedi' }, { id: 'KES', sym: 'KSh ', name: 'Shilling' },
-  { id: 'ZAR', sym: 'R', name: 'Rand' }, { id: 'USD', sym: '$', name: 'Dollar' }, { id: 'EUR', sym: '€', name: 'Euro' }, { id: 'GBP', sym: '£', name: 'Pound' },
+  { id: 'NGN', sym: '₦', name: 'Nigerian naira' }, { id: 'GHS', sym: 'GH₵', name: 'Ghanaian cedi' }, { id: 'KES', sym: 'KSh ', name: 'Kenyan shilling' },
+  { id: 'ZAR', sym: 'R', name: 'South African rand' }, { id: 'USD', sym: '$', name: 'US dollar' }, { id: 'EUR', sym: '€', name: 'Euro' }, { id: 'GBP', sym: '£', name: 'British pound' },
+  { id: 'XOF', sym: 'CFA ', name: 'West African CFA franc' }, { id: 'XAF', sym: 'FCFA ', name: 'Central African CFA franc' }, { id: 'EGP', sym: 'E£', name: 'Egyptian pound' },
+  { id: 'MAD', sym: 'DH ', name: 'Moroccan dirham' }, { id: 'UGX', sym: 'USh ', name: 'Ugandan shilling' }, { id: 'TZS', sym: 'TSh ', name: 'Tanzanian shilling' },
+  { id: 'RWF', sym: 'FRw ', name: 'Rwandan franc' }, { id: 'ETB', sym: 'Br ', name: 'Ethiopian birr' }, { id: 'ZMW', sym: 'ZK ', name: 'Zambian kwacha' },
+  { id: 'AED', sym: 'AED ', name: 'UAE dirham' }, { id: 'SAR', sym: 'SAR ', name: 'Saudi riyal' }, { id: 'TRY', sym: '₺', name: 'Turkish lira' },
+  { id: 'INR', sym: '₹', name: 'Indian rupee' }, { id: 'PKR', sym: 'Rs ', name: 'Pakistani rupee' }, { id: 'BDT', sym: '৳', name: 'Bangladeshi taka' },
+  { id: 'IDR', sym: 'Rp ', name: 'Indonesian rupiah' }, { id: 'MYR', sym: 'RM ', name: 'Malaysian ringgit' }, { id: 'PHP', sym: '₱', name: 'Philippine peso' },
+  { id: 'VND', sym: '₫', name: 'Vietnamese dong' }, { id: 'CNY', sym: '¥', name: 'Chinese yuan' }, { id: 'JPY', sym: '¥', name: 'Japanese yen' },
+  { id: 'CAD', sym: 'C$', name: 'Canadian dollar' }, { id: 'AUD', sym: 'A$', name: 'Australian dollar' }, { id: 'BRL', sym: 'R$', name: 'Brazilian real' },
+  { id: 'MXN', sym: 'MX$', name: 'Mexican peso' }, { id: 'ARS', sym: 'AR$', name: 'Argentine peso' }, { id: 'CHF', sym: 'CHF ', name: 'Swiss franc' },
 ] as const
 type FiatId = (typeof FIATS)[number]['id']
-const fiatRates: Record<string, number> = { NGN: 1357, GHS: 11.8, KES: 130, ZAR: 17.5, USD: 1, EUR: 0.91, GBP: 0.76 }
+// Fallback rates (an estimate until the live rates load).
+const fiatRates: Record<string, number> = { NGN: 1357, GHS: 11.8, KES: 130, ZAR: 17.5, USD: 1, EUR: 0.91, GBP: 0.76, XOF: 600, XAF: 600, EGP: 48.5, MAD: 9.9, UGX: 3700, TZS: 2650, RWF: 1380, ETB: 125, ZMW: 26, AED: 3.67, SAR: 3.75, TRY: 34, INR: 84, PKR: 280, BDT: 120, IDR: 15800, MYR: 4.5, PHP: 57, VND: 25400, CNY: 7.2, JPY: 150, CAD: 1.37, AUD: 1.53, BRL: 5.6, MXN: 19.5, ARS: 1000, CHF: 0.88 }
 let fiatLive = false, fiatAt = 0
 function loadFiat(): void {
   if (Date.now() - fiatAt < 600_000) return
@@ -51,13 +64,15 @@ function loadFiat(): void {
 }
 const homeFiat = (): FiatId => {
   const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return '' } })()
-  return tz === 'Africa/Lagos' ? 'NGN' : tz === 'Africa/Accra' ? 'GHS' : tz === 'Africa/Nairobi' ? 'KES' : tz === 'Africa/Johannesburg' ? 'ZAR' : tz === 'Europe/London' ? 'GBP' : tz.startsWith('Europe/') ? 'EUR' : 'USD'
+  const byZone: Record<string, FiatId> = { 'Africa/Lagos': 'NGN', 'Africa/Accra': 'GHS', 'Africa/Nairobi': 'KES', 'Africa/Johannesburg': 'ZAR', 'Europe/London': 'GBP', 'Africa/Dakar': 'XOF', 'Africa/Abidjan': 'XOF', 'Africa/Douala': 'XAF', 'Africa/Cairo': 'EGP', 'Africa/Casablanca': 'MAD', 'Africa/Kampala': 'UGX', 'Africa/Dar_es_Salaam': 'TZS', 'Africa/Kigali': 'RWF', 'Africa/Addis_Ababa': 'ETB', 'Africa/Lusaka': 'ZMW', 'Asia/Dubai': 'AED', 'Asia/Riyadh': 'SAR', 'Europe/Istanbul': 'TRY', 'Asia/Kolkata': 'INR', 'Asia/Calcutta': 'INR', 'Asia/Karachi': 'PKR', 'Asia/Dhaka': 'BDT', 'Asia/Jakarta': 'IDR', 'Asia/Kuala_Lumpur': 'MYR', 'Asia/Manila': 'PHP', 'Asia/Ho_Chi_Minh': 'VND', 'Asia/Shanghai': 'CNY', 'Asia/Tokyo': 'JPY', 'America/Toronto': 'CAD', 'Australia/Sydney': 'AUD', 'America/Sao_Paulo': 'BRL', 'America/Mexico_City': 'MXN', 'America/Argentina/Buenos_Aires': 'ARS', 'Europe/Zurich': 'CHF' }
+  return byZone[tz] ?? (tz.startsWith('Europe/') ? 'EUR' : 'USD')
 }
 let p2pFiat: FiatId = (() => { try { const v = localStorage.getItem('gd.p2p.fiat'); return FIATS.some((f) => f.id === v) ? v as FiatId : homeFiat() } catch { return homeFiat() } })()
 /** In-game dollars shown in the picked fiat: ₦573,120 or $422.49. */
 const fiatMoney = (usd: number): string => {
   const f = FIATS.find((x) => x.id === p2pFiat) ?? FIATS[4]
   const v = usd * (fiatRates[f.id] ?? 1)
+  if (v >= 100000) return `${f.sym}${Math.round(v).toLocaleString('en-US')}`
   return `${f.sym}${v.toLocaleString('en-US', { minimumFractionDigits: v >= 1000 ? 0 : 2, maximumFractionDigits: v >= 1000 ? 0 : 2 })}`
 }
 const CASH: Asset = { id: 'usd', sym: 'USD', name: 'Cash', tint: '#5fae7d', group: '', minRank: 'shrimp' }
@@ -105,6 +120,20 @@ const chartSize = new WeakMap<HTMLCanvasElement, { w: number; h: number }>()
 const sizer = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
   for (const e of entries) { const r = e.contentRect; if (r.width > 0) chartSize.set(e.target as HTMLCanvasElement, { w: r.width, h: r.height }) }
 }) : null
+/** A tiny chart for a market row: the last 48 hours where the live market is loaded, the practice tape otherwise. */
+const sparkSig = new WeakMap<HTMLCanvasElement, string>()
+function sparkline(cv: HTMLCanvasElement, hist: readonly number[], now: number, up: boolean): void {
+  const data = [...hist.slice(-48), now].filter((v) => Number.isFinite(v) && v > 0)
+  const sig = `${data.length}:${data[0]}:${now}`
+  if (sparkSig.get(cv) === sig || data.length < 2) return
+  sparkSig.set(cv, sig)
+  const g = cv.getContext('2d'); if (!g) return
+  const W = cv.width, H = cv.height, lo = Math.min(...data), hi = Math.max(...data), span = hi - lo || 1
+  g.clearRect(0, 0, W, H)
+  g.beginPath()
+  data.forEach((v, i) => { const x = (i / (data.length - 1)) * (W - 4) + 2, y = H - 4 - ((v - lo) / span) * (H - 8); if (i) g.lineTo(x, y); else g.moveTo(x, y) })
+  g.strokeStyle = up ? '#21c98a' : '#ef5a5a'; g.lineWidth = 2.4; g.lineJoin = 'round'; g.stroke()
+}
 function drawChart(cv: HTMLCanvasElement, data: number[], up: boolean): void {
   if (!cv.isConnected) return
   const dpr = Math.min(window.devicePixelRatio || 1, 3)
@@ -437,7 +466,9 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       item.type = 'button'
       names.append(h('b', '', m.name), h('small', '', m.sym))
       nums.append(price, chg)
-      item.append(icon(m), names, nums)
+      const spark = h('canvas', 'xch-spark') as HTMLCanvasElement
+      spark.width = 120; spark.height = 44; spark.setAttribute('aria-hidden', 'true')
+      item.append(icon(m), names, spark, nums)
       if (m.id === spotId) item.setAttribute('aria-current', 'true')
       item.onclick = () => { spotId = m.id; result.textContent = ''; show(); root.closest('.sheet-card')?.scrollTo({ top: 0, behavior: 'smooth' }) }
       const lock = locked(m)
@@ -446,6 +477,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         price.textContent = coinPrice(p)
         chg.textContent = lock ? `Opens at ${rankLabel(m)}` : `${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}%${hd.qty > 0 ? ` · ${money(hd.qty * p)} held` : ''}`
         chg.dataset.dir = lock ? '' : dir(d)
+        sparkline(spark, isLive(m) ? hourly(m.id) : series(m), p, d >= 0)
       })
       list.append(item)
     }
@@ -716,7 +748,11 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       for (const o of buying ? BUY_OFFERS : SELL_OFFERS) {
         const item = h('button', 'xch-item xch-offer'), names = h('div', 'xch-names'), nums = h('div', 'xch-nums'), price = h('b')
         item.type = 'button'
-        names.append(h('b', '', `${o.name}${o.verified ? ' ✓' : ''}`), h('small', '', `${o.trades.toLocaleString('en-US')} trades · ${o.rate}% completed`))
+        const nm = h('b', '', o.name)
+        if (o.verified) nm.append(h('span', 'p2p-ver', '✓ Verified'))
+        else nm.append(h('span', 'p2p-unver', 'New account'))
+        names.append(nm, h('small', '', `${o.trades.toLocaleString('en-US')} trades · ${o.rate}% completed${o.release ? ` · releases in ~${o.release}` : ''}`))
+        if (o.limit) names.append(h('small', 'p2p-lim', `Limits ${fiatMoney(o.limit[0])} – ${fiatMoney(o.limit[1])}${o.since ? ` · since ${o.since}` : ''}`))
         nums.append(price, h('small', '', o.pay))
         const ico = h('span', 'xch-ico', o.name[0]); ico.style.setProperty('--tint', o.verified ? '#2f7d5b' : '#6b6f78')
         item.append(ico, names, nums)
@@ -747,6 +783,8 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       : [`Your ${sym} is locked in escrow`, 'The buyer pays your bank account', 'You check your bank, then release']
     labels.forEach((t, i) => { const li = h('li', i < at ? 'done' : i === at ? 'now' : '', t); steps.append(li) })
     const say = h('p', 'xch-chat')
+    // The order chat: your messages and the merchant's replies, kept with the order while it is open.
+    const chat = orderChat(order, o, buying, sym)
     const actions = h('div', 'xch-actions')
     const key = (label: string, cls: string, run: () => void) => { const b = h('button', cls, label); b.type = 'button'; b.onclick = run; actions.append(b); return b }
     if (order.stage === 'releasing') {
@@ -773,9 +811,48 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       key('Check my bank', 'xch-go convert', () => { order.stage = 'bank'; show() })
       key(`Release ${sym} now`, 'xch-close', () => (o.trap ? scam('Fake payment screenshots are the most common P2P trick: nothing had arrived in your bank.') : complete()))
     }
-    head.append(top, pv.box, steps, say, actions)
+    head.append(top, pv.box, steps, say, chat, actions)
     pane.append(head, result)
     return pane
+  }
+  /** Practice chat with a P2P merchant: quick replies or your own words; verified merchants answer like
+   *  professionals, the sharks push you off the platform or to someone else's account. */
+  type ChatMsg = { me: boolean; text: string }
+  const chats = new WeakMap<object, ChatMsg[]>()
+  const orderChat = (order: object, o: Offer, buying: boolean, sym: string): HTMLElement => {
+    const box = h('div', 'p2p-chat')
+    const log = h('div', 'p2p-log')
+    const msgs = chats.get(order) ?? [{ me: false, text: o.verified ? `Hi, ${o.name} here. Your order is open and the ${sym} is in escrow. Ask me anything here.` : `hello dear, fast deal 👍` }]
+    chats.set(order, msgs)
+    const paint = () => { log.replaceChildren(...msgs.map((m) => h('p', m.me ? 'me' : 'them', m.text))); log.scrollTop = log.scrollHeight }
+    const reply = (q: string): string => {
+      const t = q.toLowerCase()
+      if (!o.verified) {
+        if (/escrow|platform|here/.test(t)) return o.trap === 'offsite' ? 'escrow is too slow bro, WhatsApp me, I send coin after' : 'no time for escrow, pay now and I release'
+        if (/name|account/.test(t)) return o.trap === 'third' ? "it's my cousin account, different name but no wahala" : 'check the screenshot I sent'
+        return 'pay fast, many people waiting'
+      }
+      if (/name|account/.test(t)) return `The account is in my own name, ${o.name}, the same as on my profile. Never pay a different name.`
+      if (/paid|sent|transfer/.test(t)) return buying ? 'Thanks. I am checking my bank now; I release as soon as it lands.' : 'Sent from my own account. Please check your bank before you release.'
+      if (/escrow|safe|scam/.test(t)) return 'Everything stays on the platform: the coin is in escrow until both sides confirm. If anything goes wrong, open an appeal here.'
+      if (/how long|time|fast|quick/.test(t)) return `Usually about ${o.release ?? '5 min'}.`
+      if (/hi|hello|salam|hey/.test(t)) return 'Hello! Ready when you are.'
+      return 'Sure. Keep all payment details and messages in this chat, so support can see them if needed.'
+    }
+    const send = (text: string) => {
+      const v = text.trim(); if (!v) return
+      msgs.push({ me: true, text: v }); paint()
+      window.setTimeout(() => { msgs.push({ me: false, text: reply(v) }); if (log.isConnected) paint() }, 700)
+    }
+    const quick = h('div', 'p2p-quick')
+    for (const q of ['Hello 👋', 'Is the account in your name?', buying ? 'I have sent the money' : 'Have you paid?', 'Can we keep it in escrow?']) { const b = h('button', 'p2p-q', q); b.type = 'button'; b.onclick = () => send(q); quick.append(b) }
+    const form = h('form', 'p2p-form'), input = h('input') as HTMLInputElement, go = h('button', 'p2p-send', 'Send')
+    input.type = 'text'; input.placeholder = `Message ${o.name}`; input.maxLength = 140; (go as HTMLButtonElement).type = 'submit'
+    form.append(input, go)
+    form.onsubmit = (e) => { e.preventDefault(); send(input.value); input.value = '' }
+    box.append(h('p', 'xch-group', `Chat with ${o.name}`), log, quick, form, h('p', 'xch-note', 'Practice chat. On a real platform, never move a deal to WhatsApp or any other app, and never share a code, seed phrase or password.'))
+    paint()
+    return box
   }
 
   const body = h('div', 'xch-body')

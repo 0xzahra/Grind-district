@@ -4,7 +4,8 @@
 // your mood turns Inspired and courses, jobs and events give a little extra XP; a low need only nudges, with the
 // place that fixes it. Time away barely counts (no punishment for a day off). Kept per save slot beside the
 // save, so the save format is unchanged.
-import { slotKey, onActivity, addReputation } from './state.ts'
+import { slotKey, onActivity, addReputation, getSave } from './state.ts'
+import { SKILL_ORDER } from './logic.ts'
 
 export type Need = 'energy' | 'hunger' | 'hygiene' | 'social'
 export const NEEDS: ReadonlyArray<{ id: Need; label: string; low: string; fix: string; perMin: number }> = [
@@ -171,7 +172,41 @@ export function paintNeedsCard(card: HTMLElement): void {
   card.dataset.mood = m.id
   card.replaceChildren(head, bars)
 }
-/** The full sheet: mood, each need with its value and what restores it. */
+/**
+ * Maslow's hierarchy as it plays out in the city, from the base up: body (food, water, rest), safety (a home,
+ * savings), belonging (friends), esteem (what you have achieved), self-actualisation (becoming all you can) and
+ * self-transcendence (meaning beyond yourself). Each level shows how full it is now and what fills it.
+ */
+export function maslowPyramid(): HTMLElement {
+  const s = getSave(), v = needs()
+  const pct = (x: number) => Math.max(0, Math.min(100, Math.round(x)))
+  const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed).length
+  const prayed = !!(s.dailies as unknown as Record<string, unknown>)?.prayer
+  const levels: Array<{ name: string; what: string; fill: number; how: string; hue: string }> = [
+    { name: 'Self-transcendence', what: 'Meaning', fill: pct((prayed ? 40 : 0) + (v.social > 60 ? 30 : v.social / 2) + (mood().id === 'inspired' ? 30 : 0)), how: 'Pray or sit at the masjid, help others, give back.', hue: '#9b7be8' },
+    { name: 'Self-actualisation', what: 'Full potential', fill: pct((passed / Math.max(1, SKILL_ORDER.length)) * 100), how: `Lessons passed: ${passed} of ${SKILL_ORDER.length}. Every course takes you further.`, hue: '#4f8be8' },
+    { name: 'Esteem', what: 'Accomplishment', fill: pct((s.reputation ?? 0) * 4), how: 'Reputation from courses, jobs and events; certificates on your CV.', hue: '#2bb5a8' },
+    { name: 'Love and belonging', what: 'Friends', fill: pct(v.social), how: 'Chat with players, eat at Barakah Club, join an event.', hue: '#3ec46b' },
+    { name: 'Safety', what: 'Security', fill: pct((s.houseClaimed ? 55 : 0) + Math.min(45, Math.max(0, s.ledger) / 4)), how: 'A home of your own and something put aside.', hue: '#e3b43a' },
+    { name: 'Physiological', what: 'Food, water, rest', fill: pct((v.hunger + v.energy + v.hygiene) / 3), how: 'Eat, drink water, sleep at home, wash.', hue: '#e0793a' },
+  ]
+  const box = el('div', '', 'mz-pyr')
+  box.append(el('p', "Maslow's hierarchy of needs, in the city", 'mz-kick'))
+  levels.forEach((l, i) => {
+    const row = el('div', '', 'mz-row')
+    row.style.setProperty('--w', `${46 + i * 10.8}%`)
+    row.style.setProperty('--c', l.hue)
+    const band = el('div', '', 'mz-band')
+    const fill = el('i'); fill.style.width = `${l.fill}%`
+    band.append(fill, el('b', l.name), el('small', `${l.what} · ${l.fill}%`))
+    row.append(band, el('p', l.how, 'mz-how'))
+    box.append(row)
+  })
+  box.append(el('p', 'The base comes first: when the lower levels are full, the higher ones can grow.', 'cc-muted'))
+  return box
+}
+
+/** The full sheet: mood, each need with its value and what restores it, and the pyramid. */
 export function renderNeeds(root: HTMLElement, goHome: () => void): void {
   const m = mood(), v = needs()
   const top = el('div', '', `nd-mood ${m.id}`)
@@ -183,5 +218,5 @@ export function renderNeeds(root: HTMLElement, goHome: () => void): void {
     list.append(item)
   }
   const home = el('button', 'Go home', 'cc-link'); home.type = 'button'; home.onclick = goHome
-  root.replaceChildren(top, list, el('p', 'Needs fall while you play and barely move while you are away. They never stop you doing anything.', 'cc-muted'), home)
+  root.replaceChildren(top, list, el('p', 'Needs fall while you play and barely move while you are away. They never stop you doing anything.', 'cc-muted'), maslowPyramid(), home)
 }
