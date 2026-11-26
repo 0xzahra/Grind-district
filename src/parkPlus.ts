@@ -9,7 +9,8 @@ import type { TravelCtx } from './travel.ts'
 import { std, put, cube, tex, sign, person, leg, route } from './travel.ts'
 import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
-import { giraffe, zebra, elephant, lion, flamingo, stepLegs } from './animals.ts'
+import { crownCards, foliageMaterial } from './trees.ts'
+import { giraffe, zebra, elephant, lion, flamingo, stepLegs, rhino, hippo, crocodile, ostrich, cheetah, tiger, gorilla } from './animals.ts'
 
 export type ParkCtx = TravelCtx & { fare: (usd: number) => string; charge: (usd: number, label: string) => { ok: boolean; message: string }; onRelabel: (f: () => void) => void }
 type Box = { x0: number; z0: number; x1: number; z1: number }
@@ -77,16 +78,29 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
   const E1: Box = { x0: -298, z0: 104, x1: -262, z1: 127 }, E2: Box = { x0: -256, z0: 104, x1: -218, z1: 127 }
   const E3: Box = { x0: -298, z0: 133, x1: -262, z1: 150 }, E4: Box = { x0: -256, z0: 133, x1: -218, z1: 150 }
   for (const [b, m] of [[E1, sand], [E2, dirt], [E3, sand], [E4, dirt]] as const) { flat(b.x1 - b.x0, b.z1 - b.z0, m, (b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0.004); fence(b) }
+  // The big cats' yard is split: lions on the west side, cheetahs on the east.
+  const E3L: Box = { x0: E3.x0, z0: E3.z0, x1: -280.6, z1: E3.z1 }, E3C: Box = { x0: -279.4, z0: E3.z0, x1: E3.x1, z1: E3.z1 }
+  fence({ x0: -280, z0: E3.z0, x1: -280, z1: E3.z1 })
+  // A second row by the golf clubhouse: rhinos (with a mud wallow), tigers (with a pool) and gorillas.
+  const E5: Box = { x0: -210, z0: 177, x1: -195, z1: 204 }, E6: Box = { x0: -193, z0: 177, x1: -178, z1: 204 }, E7: Box = { x0: -176, z0: 177, x1: -163, z1: 204 }
+  const grassY = std(0x7f9a4a, 1)
+  for (const [b, m] of [[E5, dirt], [E6, grassY], [E7, grassY]] as const) { flat(b.x1 - b.x0, b.z1 - b.z0, m, (b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0.004); fence(b) }
+  flat(52, 3, path, -186.5, 175, 0.006)
+  const mud = new THREE.Mesh(new THREE.CircleGeometry(3.2, 24), std(0x4a3524, 0.35, 0.05)); mud.rotation.x = -Math.PI / 2; mud.scale.set(1, 1.4, 1); mud.position.set(-202.5, 0.02, 196); add(mud)
   // Acacias, rocks, a water hole and the flamingo pond.
-  const acacia = (x: number, z: number, s = 1) => { const t = new THREE.Group(); put(t, new THREE.CylinderGeometry(0.18 * s, 0.26 * s, 3.4 * s, 7), std(0x6b4c32, 0.9), 0, 1.7 * s, 0); const c = put(t, new THREE.CylinderGeometry(2.6 * s, 1.8 * s, 0.7 * s, 10), std(0x4f7a32, 0.85), 0, 3.6 * s, 0); c.scale.z = 0.8; t.position.set(x, 0, z); add(t); A.block(0, { x0: x - 0.4, z0: z - 0.4, x1: x + 0.4, z1: z + 0.4 }) }
+  const acacia = (x: number, z: number, s = 1) => { const t = new THREE.Group(); put(t, new THREE.CylinderGeometry(0.18 * s, 0.26 * s, 3.4 * s, 7), std(0x6b4c32, 0.9), 0, 1.7 * s, 0); const c = put(t, crownCards(2.6 * s, 0, Math.round(x * 3 + z), 18).scale(1, 0.32, 0.85), foliageMaterial(), 0, 3.5 * s, 0); c.castShadow = true; t.position.set(x, 0, z); add(t); A.block(0, { x0: x - 0.4, z0: z - 0.4, x1: x + 0.4, z1: z + 0.4 }) }
   acacia(-290, 110); acacia(-268, 121, 1.2); acacia(-226, 108, 1.1); acacia(-292, 145, 0.9)
   const rock = std(0x8b8378, 0.95, 0, { flatShading: true })
-  for (const [x, z, r] of [[-280, 141, 2.4], [-272, 146, 1.4], [-250, 110, 1.6]] as const) { const o = put(g, new THREE.DodecahedronGeometry(r, 0), rock, x, r * 0.45, z); o.scale.y = 0.6 }
+  for (const [x, z, r] of [[-280, 141, 2.4], [-272, 146, 1.4], [-250, 110, 1.6], [-183, 199, 2.0], [-189, 183, 1.2], [-166, 200, 1.8], [-172, 196, 1.1]] as const) { const o = put(g, new THREE.DodecahedronGeometry(r, 0), rock, x, r * 0.45, z); o.scale.y = 0.6 }
+  acacia(-207, 182, 0.8); acacia(-168, 184, 1.0)
+  // the gorillas' climbing frame: logs lashed into an A-frame with a platform
+  { const log = std(0x6b4c32, 0.9); for (const [x, z, h, rx, rz] of [[-171, 190, 3.2, 0.25, 0], [-169, 190, 3.2, -0.25, 0], [-171, 193, 3.2, 0.25, 0], [-169, 193, 3.2, -0.25, 0]] as const) { const o = put(g, new THREE.CylinderGeometry(0.12, 0.14, h, 7), log, x, h / 2 - 0.1, z); o.rotation.set(rx, 0, rz) } cube(g, 2.6, 0.12, 3.4, log, -170, 2.6, 191.5); const fallen = put(g, new THREE.CylinderGeometry(0.28, 0.32, 5, 8), log, -188, 0.28, 192); fallen.rotation.set(0, 0.6, Math.PI / 2) }
   const water = std(0x2b8fb0, 0.08, 0.1, { transparent: true, opacity: 0.85 })
   const drink = new THREE.Mesh(new THREE.CircleGeometry(4, 28), water); drink.rotation.x = -Math.PI / 2; drink.position.set(-232, 0.03, 118); add(drink)
   const pond = new THREE.Mesh(new THREE.CircleGeometry(7.5, 32), water); pond.rotation.x = -Math.PI / 2; pond.scale.set(1.3, 0.85, 1); pond.position.set(-237, 0.03, 141.5); add(pond)
+  const tigerPool = new THREE.Mesh(new THREE.CircleGeometry(2.6, 24), water); tigerPool.rotation.x = -Math.PI / 2; tigerPool.position.set(-185, 0.03, 186); add(tigerPool)
   // Signs on each enclosure.
-  for (const [b, t] of [[E1, 'GIRAFFES & ZEBRAS'], [E2, 'ELEPHANTS'], [E3, 'LIONS'], [E4, 'FLAMINGOS']] as const) {
+  for (const [b, t] of [[E1, 'GIRAFFES, ZEBRAS & OSTRICHES'], [E2, 'ELEPHANTS, HIPPOS & A CROC'], [E3L, 'LIONS'], [E3C, 'CHEETAHS'], [E4, 'FLAMINGOS'], [E5, 'RHINOS'], [E6, 'TIGERS'], [E7, 'GORILLAS']] as const) {
     const s = sign(t, 3.6, 0.6, { bg: '#2b3b22', fg: '#f3e6c4' }); s.position.set((b.x0 + b.x1) / 2, 1.7, b.z0 > 130 ? b.z0 - 0.2 : b.z1 + 0.2); s.rotation.y = b.z0 > 130 ? Math.PI : 0; add(s)
     cube(g, 0.1, 1.4, 0.1, std(0x5a4632, 0.9), (b.x0 + b.x1) / 2 - 1.6, 0.7, b.z0 > 130 ? b.z0 - 0.2 : b.z1 + 0.2); cube(g, 0.1, 1.4, 0.1, std(0x5a4632, 0.9), (b.x0 + b.x1) / 2 + 1.6, 0.7, b.z0 > 130 ? b.z0 - 0.2 : b.z1 + 0.2)
   }
@@ -108,7 +122,17 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
   }
   place(giraffe(), E1, 0); place(giraffe(), E1, 3); place(zebra(), E1, 1); place(zebra(), E1, 2); place(zebra(), E1, 4)
   place(elephant(), E2, 0); place(elephant(), E2, 2)
-  place(lion(true), E3, 0); place(lion(false), E3, 1); place(lion(false), E3, 2)
+  place(lion(true), E3L, 0); place(lion(false), E3L, 1); place(lion(false), E3L, 2)
+  place(ostrich(), E1, 5); place(ostrich(), E1, 6); place(ostrich(), E1, 7)
+  place(cheetah(), E3C, 0); place(cheetah(), E3C, 1)
+  place(rhino(), E5, 0); place(rhino(), E5, 1)
+  place(tiger(), E6, 0); place(tiger(), E6, 1)
+  place(gorilla(true), E7, 0); place(gorilla(false), E7, 1); place(gorilla(false), E7, 2)
+  { const young = gorilla(false); young.g.scale.setScalar(0.55); young.speed *= 0.8; place(young, E7, 3) }
+  // Hippos wallow in the water hole with only their backs, ears and eyes showing; a crocodile basks on the bank.
+  const soakers: THREE.Group[] = []
+  for (const [x, z, h] of [[-233.6, 117, 0.6], [-230.4, 119.8, -2.2]] as const) { const hp = hippo(); hp.g.position.set(x, -0.62, z); hp.g.rotation.y = h; hp.g.traverse((c) => { c.castShadow = true }); add(hp.g); soakers.push(hp.g) }
+  { const cr = crocodile(); cr.position.set(-226.8, 0, 114.4); cr.rotation.y = -1.0; add(cr) }
   const birds: THREE.Group[] = []
   for (let k = 0; k < 9; k++) { const f = flamingo(); const a = k * 0.7; f.position.set(-237 + Math.cos(a) * (2 + (k % 3) * 2.2), 0, 141.5 + Math.sin(a) * (1.4 + (k % 3) * 1.4)); f.rotation.y = a * 2; add(f); birds.push(f) }
   let seed = 3
@@ -136,6 +160,7 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
       if (b.trunk) b.trunk.rotation.x = Math.sin(t * 1.1 + b.heading) * 0.25
     }
     birds.forEach((f, k) => { f.rotation.y += Math.sin(t * 0.3 + k) * 0.002; f.position.y = Math.sin(t * 1.4 + k) * 0.01 })
+    soakers.forEach((h, k) => { h.position.y = -0.62 + Math.sin(t * 0.5 + k * 2) * 0.04; h.rotation.y += Math.sin(t * 0.13 + k) * 0.0008 })
   })
   // Safari tram: a little open tram on a loop between and round the enclosures.
   {
@@ -158,7 +183,7 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
     const seatL = new THREE.Vector3(-0.45, 0.75, 0)
     const w = new THREE.Vector3()
     let heading = 0
-    const u: Hotspot = { id: 'park-safari', x: -208, z: 137.4, r: 1.6, title: 'Safari tram', body: 'A slow open tram between the enclosures: giraffes, zebras, elephants, lions and the flamingo pond, close up. The day pass covers it.', enter: '', use: () => {
+    const u: Hotspot = { id: 'park-safari', x: -208, z: 137.4, r: 1.6, title: 'Safari tram', body: 'A slow open tram between the enclosures: giraffes, zebras and ostriches, elephants with hippos and a crocodile at the water hole, lions, cheetahs and the flamingo pond, close up. Rhinos, tigers and gorillas are by the golf clubhouse. The day pass covers it.', enter: '', use: () => {
       const paid = X.charge(15, 'Safari tram')
       if (!paid.ok) { X.toast(paid.message); return }
       X.toast('Hold on: the safari tram is off. Giraffes and zebras first.')

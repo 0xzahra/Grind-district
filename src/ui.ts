@@ -1137,9 +1137,10 @@ export function mountUi(
   const renderGadgets = (): HTMLElement => {
     const save = getSave()
     const wrap = stack(
-      para('Phones, computers, accessories and drones. In-game cash only. A drone follows you; pocket it and it stays yours.'),
-      para('They do not carry messages, take photos, or leave the city.', 'muted'),
+      para('Phones, computers, accessories and drones. In-game cash only. Equip a drone and it flies beside you; pocket it and it stays yours.'),
+      para('Fly the drone camera to film yourself from the air while you walk: take photos or record videos for your socials. They go to My Gallery.', 'muted'),
     )
+    if (save.drone !== 'none') wrap.append(button('Fly the drone camera 🎥', 'primary', () => { window.dispatchEvent(new Event('gd:dronecam')) }))
     for (const drone of DRONES) {
       const owned = save.ownedDrones.includes(drone.id)
       const equipped = save.drone === drone.id

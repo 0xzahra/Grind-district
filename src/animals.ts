@@ -271,3 +271,195 @@ export function stepLegs(legs: THREE.Object3D[], phase: number, moving: boolean)
     if (knee) { const lift = moving ? Math.max(0, Math.cos(phase + (i === 0 || i === 3 ? 0 : Math.PI))) * 0.55 : 0; knee.rotation.x += ((l.userData.front ? lift : lift * 0.8) - knee.rotation.x) * 0.3 }
   })
 }
+
+// ---------------------------------------------------------------- more of the zoo: rhino, hippo, crocodile,
+// ostrich, cheetah, tiger and gorilla, built the same way (lofted skins, jointed legs, painted coats).
+
+/** Rhino: grey-brown armour-like hide with deep folds at the shoulders and hips. */
+const rhinoHide = () => canvasTex('rhino', 256, (g) => {
+  g.fillStyle = '#857d73'; g.fillRect(0, 0, 256, 256)
+  for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(${rnd() > 0.5 ? '64,58,52' : '168,160,150'},${0.05 + rnd() * 0.08})`; g.beginPath(); g.arc(rnd() * 256, rnd() * 256, 2 + rnd() * 9, 0, Math.PI * 2); g.fill() }
+  g.strokeStyle = 'rgba(40,36,32,.45)'; g.lineWidth = 2
+  for (const v of [60, 70, 180, 190]) { g.beginPath(); g.moveTo(0, v); for (let x = 0; x <= 256; x += 16) g.lineTo(x, v + Math.sin(x * 0.08) * 4); g.stroke() }
+  g.lineWidth = 1; g.strokeStyle = 'rgba(40,36,32,.25)'
+  for (let i = 0; i < 200; i++) { const x = rnd() * 256, y = rnd() * 256; g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd() * 14 - 7, y + rnd() * 6); g.stroke() }
+}, [1, 1])
+/** Hippo: smooth grey-purple skin, pinker round the eyes, ears and underside. */
+const hippoHide = () => canvasTex('hippo', 128, (g) => {
+  const gr = g.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, '#c99a96'); gr.addColorStop(0.25, '#6f5f66'); gr.addColorStop(0.75, '#6f5f66'); gr.addColorStop(1, '#c99a96')
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128)
+  for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(${rnd() > 0.5 ? '90,74,82' : '190,150,150'},${0.05 + rnd() * 0.08})`; g.beginPath(); g.arc(rnd() * 128, rnd() * 128, 2 + rnd() * 6, 0, Math.PI * 2); g.fill() }
+}, [1, 1])
+/** Crocodile: olive scutes in rows along the back, paler scales on the flanks. */
+const crocScales = () => canvasTex('croc', 128, (g) => {
+  g.fillStyle = '#4a5530'; g.fillRect(0, 0, 128, 128)
+  for (let y = 0; y < 128; y += 10) for (let x = 0; x < 128; x += 9) {
+    const back = Math.abs(x - 64) < 34
+    g.fillStyle = back ? (rnd() > 0.5 ? '#3a4424' : '#4f5a30') : (rnd() > 0.5 ? '#7a7a4a' : '#8a8656')
+    g.beginPath(); g.ellipse(x + 4.5 + (y % 20 ? 4 : 0), y + 5, back ? 4 : 3.4, back ? 4.4 : 3.6, 0, 0, Math.PI * 2); g.fill()
+  }
+}, [1, 3])
+/** Tiger: orange with dark, broken stripes round the body and a white belly (u near 0 and 1 is underneath). */
+const tigerCoat = (legs: boolean) => canvasTex(legs ? 'tiger-legs' : 'tiger', 256, (g, img) => {
+  const S = 256, d = img.data
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const u = x / S, v = y / S
+    const wob = Math.sin(u * Math.PI * 4 + v * 9) * 0.03
+    const band = Math.sin((v + wob) * Math.PI * 2 * (legs ? 5 : 9))
+    const broken = Math.sin(u * Math.PI * 10 + v * 30) > -0.55 ? 1 : 0
+    const belly = legs ? 0 : Math.max(0, 1 - Math.min(u, 1 - u) / 0.18)
+    const k = (band > 0.72 ? 1 : band > 0.6 ? (band - 0.6) / 0.12 : 0) * broken * (1 - belly * 0.85)
+    const r0 = 214 + (246 - 214) * belly, g0 = 112 + (238 - 112) * belly, b0 = 34 + (226 - 34) * belly
+    const grain = Math.sin(x * 2.3 + y * 0.7) * 5
+    const o = (y * S + x) * 4
+    d[o] = r0 * (1 - k) + 24 * k + grain; d[o + 1] = g0 * (1 - k) + 18 * k + grain * 0.6; d[o + 2] = b0 * (1 - k) + 14 * k; d[o + 3] = 255
+  }
+  g.putImageData(img, 0, 0)
+})
+/** Cheetah: golden fur covered in small solid black spots, paler underneath. */
+const cheetahCoat = () => canvasTex('cheetah', 256, (g) => {
+  const gr = g.createLinearGradient(0, 0, 256, 0); gr.addColorStop(0, '#f1e2c2'); gr.addColorStop(0.2, '#d9a95a'); gr.addColorStop(0.8, '#d9a95a'); gr.addColorStop(1, '#f1e2c2')
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256)
+  for (let i = 0; i < 520; i++) { const x = rnd() * 256, y = rnd() * 256; const edge = Math.min(x, 256 - x) / 128; g.fillStyle = `rgba(22,16,10,${0.55 + edge * 0.4})`; g.beginPath(); g.ellipse(x, y, 2.4 + rnd() * 1.6, 2.2 + rnd() * 1.4, rnd(), 0, Math.PI * 2); g.fill() }
+}, [1, 1])
+/** Gorilla: long black hair. */
+const gorillaFur = (silver: boolean) => canvasTex(silver ? 'gorilla-silver' : 'gorilla', 128, (g) => {
+  g.fillStyle = silver ? '#9a9a98' : '#1d1c1e'; g.fillRect(0, 0, 128, 128)
+  for (let i = 0; i < 1100; i++) { g.strokeStyle = silver ? `rgba(${rnd() > 0.5 ? '60,60,62' : '200,200,198'},${0.2 + rnd() * 0.2})` : `rgba(${rnd() > 0.6 ? '58,54,52' : '6,6,8'},${0.2 + rnd() * 0.25})`; const x = rnd() * 128, y = rnd() * 128; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 1, y + 4, x + rnd() * 2 - 1, y + 7 + rnd() * 5); g.stroke() }
+}, [3, 3])
+/** Ostrich: black body feathers (the male's), white plumes. */
+const ostrichFeathers = () => canvasTex('ostrich', 128, (g) => {
+  g.fillStyle = '#1b1a1c'; g.fillRect(0, 0, 128, 128)
+  for (let i = 0; i < 600; i++) { g.fillStyle = `rgba(${rnd() > 0.5 ? '64,62,66' : '10,10,12'},${0.3 + rnd() * 0.3})`; const x = rnd() * 128, y = rnd() * 128; g.beginPath(); g.ellipse(x, y, 5, 2.4, 0.4 + rnd() * 0.5, 0, Math.PI * 2); g.fill() }
+}, [2, 2])
+
+export function rhino(): Animal {
+  const g = new THREE.Group()
+  const hide = mat({ map: rhinoHide(), bumpMap: rhinoHide(), bumpScale: 1.6, vertexColors: true, roughness: 0.95 }), horn = mat({ color: 0x8c8274, roughness: 0.7 }), nail = mat({ color: 0x4a443e })
+  g.add(loft([[0, 1.25, -1.62, 0.1, 0.12], [0, 1.38, -1.35, 0.68, 0.72], [0, 1.4, -0.5, 0.82, 0.82], [0, 1.48, 0.38, 0.78, 0.84], [0, 1.56, 0.92, 0.6, 0.72]], hide, { vScale: 1.8, shade: 0.2 }))
+  const head = new THREE.Group(); head.position.set(0, 1.4, 1.02)
+  head.add(loft([[0, 0.08, -0.18, 0.44, 0.5], [0, -0.02, 0.28, 0.34, 0.4], [0, -0.28, 0.78, 0.27, 0.3], [0, -0.45, 1.06, 0.23, 0.22], [0, -0.52, 1.16, 0.17, 0.14]], hide, { vScale: 1.8, shade: 0.15 }))
+  head.add(loft([[0, -0.32, 1.0, 0.11, 0.1], [0, -0.04, 1.12, 0.065, 0.06], [0, 0.26, 1.06, 0.012, 0.012]], horn, { seg: 10, steps: 10 }))
+  head.add(loft([[0, -0.08, 0.72, 0.08, 0.07], [0, 0.08, 0.76, 0.045, 0.04], [0, 0.2, 0.72, 0.01, 0.01]], horn, { seg: 10, steps: 8 }))
+  for (const s of [-1, 1]) { const ear = ball(hide, 0.09, s * 0.24, 0.4, -0.05, 0.55, 1.5, 0.7); ear.rotation.z = -s * 0.3; head.add(ear) }
+  eyes(head, 0.3, -0.06, 0.56, 0.028)
+  g.add(head)
+  const legs = [[0.42, 0.68, true], [-0.42, 0.68, true], [0.4, -1.05, false], [-0.4, -1.05, false]].map(([x, z, f]) => leg(g, hide, nail, x as number, 1.15, z as number, { knee: 0.58, r: [0.3, 0.21, 0.19], footH: 0.1, footR: 0.21, front: f as boolean, vScale: 1.8 }))
+  const tail = tailOf(g, hide, nail, 0, 1.36, -1.58, 0.5, 0.035, 0.05)
+  return { g, legs, neck: head, tail, speed: 0.8, stride: 1.3 }
+}
+
+/** A hippo. Half in the water most of the day; it walks the bank now and then. */
+export function hippo(): Animal {
+  const g = new THREE.Group()
+  const hide = mat({ map: hippoHide(), vertexColors: true, roughness: 0.55 }), dark = mat({ color: 0x2a2226, roughness: 0.5 }), pink = mat({ color: 0xd9a0a0, roughness: 0.6 })
+  g.add(loft([[0, 0.95, -1.58, 0.1, 0.12], [0, 1.0, -1.32, 0.78, 0.68], [0, 1.0, -0.4, 0.96, 0.8], [0, 1.0, 0.5, 0.9, 0.76], [0, 1.06, 1.06, 0.7, 0.62]], hide, { vScale: 1.6, shade: 0.25 }))
+  const head = new THREE.Group(); head.position.set(0, 1.08, 1.1)
+  head.add(loft([[0, 0, -0.22, 0.5, 0.46], [0, 0.06, 0.24, 0.44, 0.38], [0, 0.0, 0.64, 0.47, 0.32], [0, -0.05, 0.94, 0.52, 0.31], [0, -0.08, 1.06, 0.42, 0.22]], hide, { vScale: 1.6, shade: 0.2 }))
+  for (const s of [-1, 1]) {
+    head.add(ball(hide, 0.09, s * 0.27, 0.3, 0.24, 1, 0.8, 1))
+    head.add(ball(pink, 0.06, s * 0.27, 0.42, -0.02, 0.6, 1.1, 0.6))
+    head.add(ball(dark, 0.035, s * 0.14, 0.2, 0.98, 1.3, 0.6, 1))
+  }
+  eyes(head, 0.3, 0.33, 0.3, 0.032)
+  g.add(head)
+  const legs = [[0.5, 0.72, true], [-0.5, 0.72, true], [0.5, -1.0, false], [-0.5, -1.0, false]].map(([x, z, f]) => leg(g, hide, dark, x as number, 0.72, z as number, { knee: 0.36, r: [0.3, 0.25, 0.23], footH: 0.08, footR: 0.22, front: f as boolean, vScale: 1.6 }))
+  const tail = tailOf(g, hide, dark, 0, 0.98, -1.56, 0.35, 0.04, 0.05)
+  return { g, legs, neck: head, tail, speed: 0.55, stride: 1.0 }
+}
+
+/** A Nile crocodile basking on the bank, jaws a little open. */
+export function crocodile(): THREE.Group {
+  const g = new THREE.Group()
+  const scales = mat({ map: crocScales(), vertexColors: true, roughness: 0.7 }), belly = mat({ color: 0xcfc6a0, roughness: 0.8 }), teeth = mat({ color: 0xf2ede0, roughness: 0.5 })
+  g.add(loft([[0, 0.12, -2.2, 0.02, 0.02], [0, 0.16, -1.7, 0.09, 0.08], [0, 0.2, -1.0, 0.2, 0.14], [0, 0.24, -0.3, 0.36, 0.19], [0, 0.25, 0.35, 0.36, 0.19], [0, 0.23, 0.8, 0.22, 0.14], [0, 0.2, 1.05, 0.15, 0.1]], scales, { vScale: 1.2, shade: 0.4 }))
+  const head = new THREE.Group(); head.position.set(0, 0.2, 1.0); head.rotation.x = -0.12
+  head.add(loft([[0, 0.02, 0, 0.16, 0.1], [0, 0.03, 0.3, 0.12, 0.07], [0, 0.03, 0.62, 0.07, 0.045]], scales, { vScale: 1.2, shade: 0.3 }))
+  const jaw = loft([[0, -0.04, 0.02, 0.15, 0.05], [0, -0.05, 0.32, 0.11, 0.035], [0, -0.05, 0.6, 0.065, 0.025]], belly, { seg: 10, steps: 10 }); jaw.rotation.x = 0.14; head.add(jaw)
+  for (const s of [-1, 1]) for (let k = 0; k < 6; k++) head.add(ball(teeth, 0.012, s * (0.1 - k * 0.008), -0.02, 0.14 + k * 0.08, 1, 1.6, 1))
+  for (const s of [-1, 1]) head.add(ball(scales, 0.035, s * 0.08, 0.1, 0.1, 1, 0.8, 1))
+  eyes(head, 0.08, 0.12, 0.13, 0.016)
+  g.add(head)
+  // splayed legs, elbows out
+  for (const [x, z] of [[0.32, 0.55], [-0.32, 0.55], [0.36, -0.5], [-0.36, -0.5]] as const) {
+    const lg = loft([[x * 0.6, 0.2, z, 0.07, 0.06], [x * 1.25, 0.12, z + 0.05, 0.055, 0.05], [x * 1.35, 0.03, z + 0.15, 0.05, 0.03]], scales, { seg: 8, steps: 8 })
+    g.add(lg)
+  }
+  g.traverse((o) => { o.castShadow = true })
+  return g
+}
+
+/** A male ostrich: black body, white plumes, a long bare neck and two strong legs. */
+export function ostrich(): Animal {
+  const g = new THREE.Group()
+  const body = mat({ map: ostrichFeathers(), vertexColors: true, roughness: 0.9 }), white = mat({ color: 0xf4f1ea, roughness: 0.9 }), skin = mat({ color: 0xc99a8a, roughness: 0.7 }), beak = mat({ color: 0xd8b89a, roughness: 0.5 })
+  g.add(loft([[0, 1.18, -0.5, 0.05, 0.05], [0, 1.24, -0.38, 0.3, 0.26], [0, 1.24, 0, 0.38, 0.33], [0, 1.3, 0.3, 0.3, 0.28], [0, 1.36, 0.42, 0.12, 0.12]], body, { vScale: 0.6, shade: 0.2 }))
+  g.add(ball(white, 0.16, 0, 1.34, -0.5, 1.3, 0.8, 0.9))
+  for (const s of [-1, 1]) g.add(ball(white, 0.11, s * 0.34, 1.22, -0.18, 0.4, 0.7, 1.4))
+  const neck = new THREE.Group(); neck.position.set(0, 1.36, 0.38)
+  neck.add(loft([[0, 0, 0, 0.075, 0.075], [0, 0.42, 0.06, 0.045, 0.045], [0, 0.86, 0.04, 0.038, 0.04], [0, 1.04, 0.08, 0.045, 0.05]], skin, { seg: 10, steps: 16 }))
+  neck.add(ball(skin, 0.065, 0, 1.08, 0.12, 0.85, 0.8, 1.2))
+  const bk = loft([[0, 1.07, 0.18, 0.035, 0.022], [0, 1.065, 0.26, 0.025, 0.012], [0, 1.06, 0.3, 0.012, 0.006]], beak, { seg: 8, steps: 6 }); neck.add(bk)
+  eyes(neck, 0.05, 1.1, 0.16, 0.017)
+  g.add(neck)
+  const legs = [[0.13, 0.05, true], [-0.13, 0.05, false]].map(([x, z, f]) => leg(g, skin, skin, x as number, 1.08, z as number, { knee: 0.55, r: [0.1, 0.04, 0.034], footH: 0.05, footR: 0.07, front: f as boolean, paw: true }))
+  return { g, legs, neck, speed: 1.4, stride: 1.25 }
+}
+
+/** A cheetah: long legs, a deep chest, a small round head with black tear marks. */
+export function cheetah(): Animal {
+  const g = new THREE.Group()
+  const coat = mat({ map: cheetahCoat(), vertexColors: true }), paw = mat({ color: 0xcf9f58 }), dark = mat({ color: 0x18120c, roughness: 0.5 }), cream = mat({ color: 0xf1e2c2 })
+  g.add(loft([[0, 0.8, -0.72, 0.05, 0.06], [0, 0.82, -0.55, 0.17, 0.2], [0, 0.76, -0.1, 0.13, 0.16], [0, 0.82, 0.3, 0.17, 0.25], [0, 0.9, 0.5, 0.15, 0.2]], coat, { vScale: 0.8, shade: 0.3 }))
+  const head = new THREE.Group(); head.position.set(0, 0.95, 0.56)
+  head.add(loft([[0, -0.02, -0.07, 0.11, 0.12], [0, 0.02, 0.08, 0.115, 0.115], [0, 0.0, 0.2, 0.085, 0.075], [0, -0.03, 0.28, 0.05, 0.045]], coat, { vScale: 0.8, shade: 0.2 }))
+  head.add(ball(dark, 0.025, 0, -0.01, 0.3, 1.2, 0.8, 0.8))
+  for (const s of [-1, 1]) {
+    head.add(ball(coat, 0.035, s * 0.08, 0.11, 0.0, 1, 1, 0.5))
+    head.add(loft([[s * 0.05, 0.04, 0.2, 0.008, 0.008], [s * 0.055, -0.02, 0.24, 0.008, 0.008], [s * 0.045, -0.06, 0.27, 0.007, 0.007]], dark, { seg: 6, steps: 6 }))
+    head.add(ball(cream, 0.03, s * 0.04, -0.05, 0.24, 1, 0.7, 1))
+  }
+  eyes(head, 0.055, 0.05, 0.19, 0.016)
+  g.add(head)
+  const legs = [[0.11, 0.42, true], [-0.11, 0.42, true], [0.11, -0.55, false], [-0.11, -0.55, false]].map(([x, z, f]) => leg(g, coat, paw, x as number, 0.78, z as number, { knee: 0.4, r: [0.08, 0.045, 0.034], footH: 0.05, footR: 0.05, front: f as boolean, paw: true, vScale: 0.8 }))
+  const tail = tailOf(g, coat, cream, 0, 0.8, -0.72, 0.75, 0.025, 0.04)
+  return { g, legs, neck: head, tail, speed: 1.6, stride: 1.7 }
+}
+
+/** A Bengal tiger: big, heavy-shouldered, orange with black stripes and white cheeks. */
+export function tiger(): Animal {
+  const g = new THREE.Group()
+  const coat = mat({ map: tigerCoat(false), vertexColors: true }), legCoat = mat({ map: tigerCoat(true) }), paw = mat({ color: 0xe9d6c0 }), white = mat({ color: 0xf2ece2 }), nose = mat({ color: 0xb86a5a, roughness: 0.4 })
+  g.add(loft([[0, 0.95, -1.02, 0.07, 0.08], [0, 1.0, -0.82, 0.3, 0.34], [0, 0.95, -0.25, 0.27, 0.3], [0, 1.0, 0.35, 0.31, 0.4], [0, 1.1, 0.66, 0.27, 0.35]], coat, { vScale: 1.0, shade: 0.2 }))
+  const head = new THREE.Group(); head.position.set(0, 1.12, 0.76)
+  head.add(loft([[0, -0.02, -0.08, 0.21, 0.24], [0, 0.04, 0.12, 0.23, 0.23], [0, 0.03, 0.28, 0.18, 0.17], [0, -0.03, 0.42, 0.1, 0.1], [0, -0.05, 0.48, 0.07, 0.07]], coat, { vScale: 1.0, shade: 0.15 }))
+  head.add(ball(nose, 0.04, 0, 0.0, 0.5, 1.2, 0.8, 0.8))
+  for (const s of [-1, 1]) {
+    head.add(ball(white, 0.1, s * 0.17, -0.06, 0.2, 0.8, 0.8, 0.9)) // white cheek ruffs
+    head.add(ball(coat, 0.06, s * 0.15, 0.21, 0.05, 1, 1, 0.45))
+    head.add(ball(white, 0.025, s * 0.08, 0.13, 0.3, 1.4, 0.7, 0.6)) // the white patch over each eye
+  }
+  eyes(head, 0.085, 0.09, 0.32, 0.022)
+  g.add(head)
+  const legs = [[0.16, 0.5, true], [-0.16, 0.5, true], [0.17, -0.66, false], [-0.17, -0.66, false]].map(([x, z, f]) => leg(g, legCoat, paw, x as number, 0.95, z as number, { knee: 0.44, r: [0.13, 0.08, 0.07], footH: 0.07, footR: 0.08, front: f as boolean, paw: true, vScale: 1.0 }))
+  const tail = tailOf(g, legCoat, mat({ color: 0x18120c }), 0, 0.98, -1.0, 0.95, 0.03, 0.045)
+  return { g, legs, neck: head, tail, speed: 1.0, stride: 1.5 }
+}
+
+/** A western lowland gorilla on its knuckles: long arms, short legs, a high crest; the silverback has his saddle. */
+export function gorilla(silverback: boolean): Animal {
+  const g = new THREE.Group()
+  const fur = mat({ map: gorillaFur(false), vertexColors: true, roughness: 0.95 }), silver = mat({ map: gorillaFur(true), roughness: 0.95 }), face = mat({ color: 0x232124, roughness: 0.55 })
+  g.add(loft([[0, 0.82, -0.46, 0.1, 0.1], [0, 0.88, -0.35, 0.32, 0.3], [0, 1.02, 0.0, 0.4, 0.36], [0, 1.22, 0.3, 0.46, 0.4], [0, 1.32, 0.46, 0.33, 0.3]], fur, { vScale: 0.6, shade: 0.15 }))
+  if (silverback) g.add(loft([[0, 1.0, -0.38, 0.2, 0.06], [0, 1.18, -0.05, 0.3, 0.07], [0, 1.4, 0.26, 0.28, 0.06]], silver, { seg: 10, steps: 10, vScale: 0.6 }))
+  const head = new THREE.Group(); head.position.set(0, 1.42, 0.58)
+  head.add(loft([[0, 0, -0.1, 0.15, 0.17], [0, 0.04, 0.06, 0.17, 0.19], [0, -0.02, 0.18, 0.14, 0.13], [0, -0.1, 0.24, 0.1, 0.08]], fur, { vScale: 0.6 }))
+  head.add(ball(fur, 0.12, 0, 0.17, -0.02, 0.7, 1, 1.2)) // the crest
+  head.add(ball(face, 0.11, 0, -0.04, 0.17, 1.1, 0.9, 0.7)) // the bare face
+  head.add(ball(face, 0.05, 0, 0.06, 0.22, 2.2, 0.5, 0.6)) // brow ridge
+  eyes(head, 0.045, 0.02, 0.26, 0.016)
+  g.add(head)
+  // arms reach the ground on the knuckles; the legs are short
+  const legs = [[0.42, 0.42, true, 1.28, 0.7, [0.15, 0.12, 0.1]], [-0.42, 0.42, true, 1.28, 0.7, [0.15, 0.12, 0.1]], [0.25, -0.36, false, 0.84, 0.44, [0.16, 0.12, 0.09]], [-0.25, -0.36, false, 0.84, 0.44, [0.16, 0.12, 0.09]]].map(([x, z, f, y, knee, r]) => leg(g, fur, face, x as number, y as number, z as number, { knee: knee as number, r: r as [number, number, number], footH: 0.07, footR: 0.1, front: f as boolean, paw: true, vScale: 0.6 }))
+  return { g, legs, neck: head, speed: 0.6, stride: 1.1 }
+}

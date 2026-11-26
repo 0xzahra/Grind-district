@@ -559,6 +559,24 @@
       "title": "Grind Mall, refreshed 🛒",
       "body": "Real groceries on the Grind Fresh shelves, trolleys with shopping in them, a mall that looks like glass from the street too, a roomier walk by the cinema, and an actual film on the big screen: Night Market.",
       "go": "place:Grind Mall"
+    },
+    {
+      "id": "u1126-wellness-rooms",
+      "title": "Inside the Wellness house",
+      "body": "Walk in: a salon with stylists at work, a quiet counselling room and a skin and dental clinic, each with its people and its tools. Walk up to a room to book.",
+      "go": "place:Wellness house"
+    },
+    {
+      "id": "u1126-drone-camera",
+      "title": "Your drone is back, with a camera 🎥",
+      "body": "A drone you buy in Gadgets now flies beside you. Tap Fly the drone camera to film yourself from the air while you walk: take photos or record videos for your socials, saved to My Gallery.",
+      "go": "panel:gadgets"
+    },
+    {
+      "id": "u1126-zoo-animals",
+      "title": "Grind Zoo: seven new animals 🐅",
+      "body": "Rhinos, hippos in the water hole, a crocodile on the bank, ostriches, cheetahs, tigers and a family of gorillas have joined the giraffes, zebras, elephants, lions and flamingos at Grind Park.",
+      "go": "place:Grind Park"
     }
   ]
 }

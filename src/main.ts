@@ -427,9 +427,10 @@ const apiAgents = createRemoteAgents(scene)
       follower = null
     }
     followerKind = kind
-    // Personal follow drones retired: the city is watched by patrol drones instead (watch.ts).
-    if (kind === 'none' || kind) return
+    // A drone you bought and equipped flies beside you (and is your camera in drone mode).
+    if (kind === 'none') return
     follower = createDrone(kind)
+    follower.scale.setScalar(2.2) // camera-drone size, easy to see beside you
     follower.position.set(pos.x + 0.8, 2.2, pos.z + 0.4)
     scene.add(follower)
   }
@@ -988,6 +989,35 @@ const apiAgents = createRemoteAgents(scene)
     ui.toast('Selfie mode: frame it with the arrows and − +, then tap the shutter.')
   }
   const endSelfie = () => { selfie = null; selfieBar.hidden = true; document.body.classList.remove('selfie-mode'); cameraReady = false }
+  // Drone camera: your own drone lifts off and films you from the air while you walk. Orbit it, raise or lower
+  // it, take a photo, or record a video (the skit recorder); both go to My Gallery.
+  let droneCam: { angle: number; dist: number; height: number; spin: boolean } | null = null
+  const droneBar = document.createElement('div'); droneBar.id = 'drone-bar'; droneBar.className = 'selfie-bar drone-bar'; droneBar.hidden = true
+  {
+    const b = (label: string, aria: string, on: () => void, cls = '') => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.setAttribute('aria-label', aria); x.title = aria; x.className = `selfie-key ${cls}`; x.onclick = on; return x }
+    droneBar.append(
+      b('×', 'Land the drone', () => endDroneCam(), 'selfie-x'),
+      b('↺', 'Fly round to the left', () => { if (droneCam) { droneCam.angle -= 0.45; droneCam.spin = false } }),
+      b('▼', 'Lower', () => { if (droneCam) { droneCam.height = Math.max(1.6, droneCam.height - 1.2); droneCam.dist = Math.max(2.4, droneCam.dist - 0.8) } }),
+      b('', 'Take a photo', () => saveShot(capture()), 'selfie-shutter'),
+      b('▲', 'Higher', () => { if (droneCam) { droneCam.height = Math.min(16, droneCam.height + 1.2); droneCam.dist = Math.min(12, droneCam.dist + 0.8) } }),
+      b('↻', 'Fly round to the right', () => { if (droneCam) { droneCam.angle += 0.45; droneCam.spin = false } }),
+      b('⟳', 'Slow orbit on or off', () => { if (droneCam) droneCam.spin = !droneCam.spin }),
+      b('●', 'Record a video', () => startSkit(), 'drone-rec'),
+    )
+    document.body.append(droneBar)
+  }
+  const startDroneCam = () => {
+    if (getSave().drone === 'none') { ui.toast('Buy a drone in Gadgets (and equip it) to fly the drone camera.'); return }
+    if (ride || homes?.flying || interiors.inside) { ui.toast(interiors.inside ? 'Drones fly outside: step out first.' : 'Step out first, then launch the drone.'); return }
+    if (selfie) endSelfie()
+    ui.close()
+    droneCam = { angle: camYaw + 0.6, dist: 5.5, height: 4.5, spin: true }
+    droneBar.hidden = false; document.body.classList.add('drone-mode')
+    ui.toast('Drone up. Walk and it follows you; orbit, go higher, take a photo or record a video.')
+  }
+  const endDroneCam = () => { droneCam = null; droneBar.hidden = true; document.body.classList.remove('drone-mode'); cameraReady = false; if (follower) follower.visible = true }
+  window.addEventListener('gd:dronecam', startDroneCam)
   const startSkit = () => void import('./skit.ts').then((m) => m.openSkit({
     canvas, logo: shotLogo, onFrame: (fn) => { afterRender = fn }, toast: (t) => ui.toast(t),
     sounds: async () => { const [a, mu] = await Promise.all([import('./ambient-audio.ts'), import('./music.ts')]); return [a.ambientTap(), mu.musicTap()].filter((x): x is MediaStream => !!x) },
@@ -2090,6 +2120,7 @@ const apiAgents = createRemoteAgents(scene)
     snack: () => buyFood(2, 'Market snack', 'Something hot from a trader.', { hunger: 22 }),
     bank: (tab) => void import('./bank.ts').then((m) => m.openBank({ tab, toast: (t) => ui.toast(t) })),
     dine: () => buyFood(5, 'Dinner at Barakah Club', 'Shared with friends at the table.', { hunger: 55, social: 15 }),
+    wellness: (room) => ui.open(room),
     market,
     openCerts: () => ui.open('profile'),
   })
@@ -2797,7 +2828,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __spots: (q: string) => streetSpots.filter((s) => s.id.includes(q)).map((s) => ({ id: s.id, x: +s.x.toFixed(1), z: +s.z.toFixed(1) })), __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __area: (id: string) => { void enterHome(id as Parameters<typeof enterHome>[0], true) }, __spots: (q: string) => streetSpots.filter((s) => s.id.includes(q)).map((s) => ({ id: s.id, x: +s.x.toFixed(1), z: +s.z.toFixed(1) })), __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
@@ -3393,6 +3424,17 @@ const apiAgents = createRemoteAgents(scene)
     if (space > 0 && scene.fog instanceof THREE.FogExp2) scene.fog.density = space >= 1 ? 0 : 0.00025
     if (space >= 1) { physSky.sky.visible = false; if (scene.background instanceof THREE.Color) scene.background.setHex(0x000004) }
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
+    else if (droneCam) {
+      // Drone camera: up in the air on a circle round the player, looking down at them; the drone itself is the lens.
+      if (ride || interiors.inside || homes?.flying) endDroneCam()
+      else {
+        if (droneCam.spin) droneCam.angle += dt * 0.18
+        const base = avatar.object.position.y
+        camera.position.set(pos.x + Math.sin(droneCam.angle) * droneCam.dist, base + droneCam.height + Math.sin(elapsed * 1.3) * 0.05, pos.z + Math.cos(droneCam.angle) * droneCam.dist)
+        camera.lookAt(pos.x, base + 1.1, pos.z)
+        if (follower) follower.visible = false
+      }
+    }
     else if (selfie) {
       // Selfie: the camera in front of the player at arm's length (or further back for a full-body shot with the
       // street behind), turned by the arrows. The player keeps facing the lens.

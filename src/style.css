@@ -4842,3 +4842,9 @@ html body .sheet-card .gcard.back :is(strong, em) { color: rgba(245, 242, 234, 0
 .mg-shift .mg-say.on { opacity: 1; }
 /* Riding in a cab: no move stick (the driver drives). */
 body.cab-ride #stick { display: none !important; }
+/* Drone camera: the city stays playable (the stick shows), the rest of the HUD steps aside for a clean shot. */
+body.drone-mode #hud, body.drone-mode #cam-dock, body.drone-mode #shot, body.drone-mode #chat, body.drone-mode #msg-btn, body.drone-mode #goal, body.drone-mode #greet, body.drone-mode #npc-card, body.drone-mode .pass-card { visibility: hidden !important; }
+html body .drone-bar { top: calc(env(safe-area-inset-top, 0px) + 16px); bottom: auto; flex-wrap: nowrap; justify-content: center; gap: 6px; padding: 7px 10px; max-width: calc(100vw - 16px); }
+html body .drone-bar .selfie-key { width: 38px; height: 38px; font-size: 18px !important; }
+html body .drone-bar .selfie-key.selfie-shutter { width: 44px; height: 44px; }
+html body .drone-bar .selfie-key.drone-rec { color: #ff3b3b !important; font-size: 20px !important; }
