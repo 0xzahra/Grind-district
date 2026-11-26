@@ -37,7 +37,7 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
   const pillarSpots: Array<{ x: number; z: number }> = []
   for (let k = 0; k < nP; k++) { const p = at(k * 16 + 8); pillarSpots.push({ x: p.x, z: p.z }); pillars.setMatrixAt(k, m.makeTranslation(p.x, 0, p.z)) }
   for (const im of [beams, rails, pillars]) { im.castShadow = true; im.receiveShadow = true; im.userData.ghost = true; im.raycast = () => undefined; group.add(im) }
-  // Stations: a platform, a glass canopy and the name on a sign, beside the line; a totem at the street entrance.
+  // Stations: a platform, a metal canopy and the name on a sign, beside the line; a totem at the street entrance.
   const signTex = (txt: string) => {
     const c = document.createElement('canvas'); c.width = 512; c.height = 112
     const g = c.getContext('2d')!
@@ -48,7 +48,8 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
     return new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.3, side: THREE.DoubleSide })
   }
-  const glass = new THREE.MeshStandardMaterial({ color: 0xbfd8e2, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35 })
+  // Platform canopies and ticket-hall roofs are solid light metal: see-through glass read as a blue slab floating over the sea.
+  const roofM = new THREE.MeshStandardMaterial({ color: 0xe6e9ec, roughness: 0.45, metalness: 0.35 })
   // Street entrances (in the city): a ticket hall at the foot of a real staircase up to the platform, with ticket
   // machines and gates. All the stations' pieces are merged by material, so they cost a handful of draws in all.
   const parts: Record<'stone' | 'metal' | 'glass' | 'lit' | 'green', THREE.BufferGeometry[]> = { stone: [], metal: [], glass: [], lit: [], green: [] }
@@ -70,7 +71,7 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
       put('metal', 0.06, 0.06, Math.hypot(len, DECK), x0 + sx * 0.98, DECK / 2 + 0.95, z0 - 0.6 - len / 2, ang)
       for (let k = 0; k <= 4; k++) { const f = k / 4; put('metal', 0.05, 0.95, 0.05, x0 + sx * 0.98, DECK * (1 - f) + 0.47, z0 - 0.6 - len * f) }
     }
-    // the ticket hall at the foot: a glass canopy on four posts, two lit ticket machines, three gates, a big M
+    // the ticket hall at the foot: a canopy on four posts, two lit ticket machines, three gates, a big M
     const fz = z0 - 0.6 - len - 2.4
     put('glass', 4.6, 0.1, 3.8, x0, 3.2, fz)
     for (const sx of [-2.2, 2.2]) for (const sz of [-1.8, 1.8]) put('metal', 0.12, 3.2, 0.12, x0 + sx, 1.6, fz + sz)
@@ -92,7 +93,7 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
     const sg = new THREE.Group()
     const plat = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.35, 34), concrete); plat.position.set(3.6, DECK - 0.15, 0); plat.receiveShadow = true; sg.add(plat)
     const edge = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.02, 34), new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.6 })); edge.position.set(1.95, DECK + 0.04, 0); sg.add(edge)
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 30), glass); roof.position.set(3.4, DECK + 3.3, 0); sg.add(roof)
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 30), roofM); roof.position.set(3.4, DECK + 3.3, 0); sg.add(roof)
     for (const z of [-13, -4, 5, 13]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.14, 3.3, 0.14), steel); c.position.set(5.2, DECK + 1.65, z); sg.add(c) }
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.8), signTex(st.title)); sign.position.set(5.12, DECK + 2.4, 0); sign.rotation.y = -Math.PI / 2; sg.add(sign)
     sg.position.set(p.x, 0, p.z); sg.rotation.y = p.h
@@ -111,7 +112,7 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
 
   {
     const mats: Record<keyof typeof parts, THREE.Material> = {
-      stone: concrete, metal: steel, glass,
+      stone: concrete, metal: steel, glass: roofM,
       lit: new THREE.MeshStandardMaterial({ color: 0x9fe8ff, emissive: 0x4fc8ff, emissiveIntensity: 0.9, roughness: 0.3 }),
       green: new THREE.MeshStandardMaterial({ color: 0x1fb85a, emissive: 0x1fb85a, emissiveIntensity: 0.5, roughness: 0.4 }),
     }
@@ -119,7 +120,7 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
       if (!parts[k].length) continue
       const mesh = new THREE.Mesh(mergeGeometries(parts[k]), mats[k])
       for (const g of parts[k]) g.dispose()
-      mesh.castShadow = k !== 'glass'; mesh.receiveShadow = true; mesh.userData.ghost = true; mesh.raycast = () => undefined
+      mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.ghost = true; mesh.raycast = () => undefined
       group.add(mesh)
     }
   }

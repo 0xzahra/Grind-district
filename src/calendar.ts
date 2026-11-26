@@ -119,6 +119,8 @@ export function upcoming(days = 120, from = new Date()): Array<{ date: Date; h: 
 /** A short burst of confetti over the city (no canvas work after it ends). */
 export function confetti(symbols = ['🎉', '🎊', '✨']): void {
   if (matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  // Never in a place of prayer (the masjid, the Barakah Club with its prayer corner).
+  if (document.body.classList.contains('in-prayer-space')) return
   const box = document.createElement('div')
   box.className = 'confetti'
   box.setAttribute('aria-hidden', 'true')

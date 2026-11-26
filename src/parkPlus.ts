@@ -96,7 +96,9 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
   // the gorillas' climbing frame: logs lashed into an A-frame with a platform
   { const log = std(0x6b4c32, 0.9); for (const [x, z, h, rx, rz] of [[-171, 190, 3.2, 0.25, 0], [-169, 190, 3.2, -0.25, 0], [-171, 193, 3.2, 0.25, 0], [-169, 193, 3.2, -0.25, 0]] as const) { const o = put(g, new THREE.CylinderGeometry(0.12, 0.14, h, 7), log, x, h / 2 - 0.1, z); o.rotation.set(rx, 0, rz) } cube(g, 2.6, 0.12, 3.4, log, -170, 2.6, 191.5); const fallen = put(g, new THREE.CylinderGeometry(0.28, 0.32, 5, 8), log, -188, 0.28, 192); fallen.rotation.set(0, 0.6, Math.PI / 2) }
   const water = std(0x2b8fb0, 0.08, 0.1, { transparent: true, opacity: 0.85 })
-  const drink = new THREE.Mesh(new THREE.CircleGeometry(4, 28), water); drink.rotation.x = -Math.PI / 2; drink.position.set(-232, 0.03, 118); add(drink)
+  const drink = new THREE.Mesh(new THREE.CircleGeometry(5.8, 36), water); drink.rotation.x = -Math.PI / 2; drink.scale.set(1.25, 1, 1); drink.position.set(-232, 0.03, 117.5); add(drink)
+  // a muddy bank round the water hole
+  const bank = new THREE.Mesh(new THREE.RingGeometry(5.8, 6.8, 36), std(0x7a5a3a, 1)); bank.rotation.x = -Math.PI / 2; bank.scale.set(1.25, 1, 1); bank.position.set(-232, 0.02, 117.5); add(bank)
   const pond = new THREE.Mesh(new THREE.CircleGeometry(7.5, 32), water); pond.rotation.x = -Math.PI / 2; pond.scale.set(1.3, 0.85, 1); pond.position.set(-237, 0.03, 141.5); add(pond)
   const tigerPool = new THREE.Mesh(new THREE.CircleGeometry(2.6, 24), water); tigerPool.rotation.x = -Math.PI / 2; tigerPool.position.set(-185, 0.03, 186); add(tigerPool)
   // Signs on each enclosure.
@@ -131,8 +133,10 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
   { const young = gorilla(false); young.g.scale.setScalar(0.55); young.speed *= 0.8; place(young, E7, 3) }
   // Hippos wallow in the water hole with only their backs, ears and eyes showing; a crocodile basks on the bank.
   const soakers: THREE.Group[] = []
-  for (const [x, z, h] of [[-233.6, 117, 0.6], [-230.4, 119.8, -2.2]] as const) { const hp = hippo(); hp.g.position.set(x, -0.62, z); hp.g.rotation.y = h; hp.g.traverse((c) => { c.castShadow = true }); add(hp.g); soakers.push(hp.g) }
-  { const cr = crocodile(); cr.position.set(-226.8, 0, 114.4); cr.rotation.y = -1.0; add(cr) }
+  // two wallowing well apart (backs, ears and eyes above the water), one walking the bank
+  for (const [x, z, h] of [[-236, 116, 0.5], [-228.2, 119.6, -2.5]] as const) { const hp = hippo(); hp.g.position.set(x, -0.66, z); hp.g.rotation.y = h; hp.g.traverse((c) => { c.castShadow = true }); add(hp.g); soakers.push(hp.g) }
+  place(hippo(), { x0: -250, z0: 106, x1: -240, z1: 125 }, 2)
+  { const cr = crocodile(); cr.position.set(-223.6, 0.02, 112.2); cr.rotation.y = -0.9; add(cr) }
   const birds: THREE.Group[] = []
   for (let k = 0; k < 9; k++) { const f = flamingo(); const a = k * 0.7; f.position.set(-237 + Math.cos(a) * (2 + (k % 3) * 2.2), 0, 141.5 + Math.sin(a) * (1.4 + (k % 3) * 1.4)); f.rotation.y = a * 2; add(f); birds.push(f) }
   let seed = 3
@@ -160,7 +164,7 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
       if (b.trunk) b.trunk.rotation.x = Math.sin(t * 1.1 + b.heading) * 0.25
     }
     birds.forEach((f, k) => { f.rotation.y += Math.sin(t * 0.3 + k) * 0.002; f.position.y = Math.sin(t * 1.4 + k) * 0.01 })
-    soakers.forEach((h, k) => { h.position.y = -0.62 + Math.sin(t * 0.5 + k * 2) * 0.04; h.rotation.y += Math.sin(t * 0.13 + k) * 0.0008 })
+    soakers.forEach((h, k) => { h.position.y = -0.66 + Math.sin(t * 0.5 + k * 2) * 0.04; h.rotation.y += Math.sin(t * 0.13 + k) * 0.0008 })
   })
   // Safari tram: a little open tram on a loop between and round the enclosures.
   {

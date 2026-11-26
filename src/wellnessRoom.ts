@@ -9,6 +9,9 @@ import { boxes, type Floor, type HallCtx } from './halls.ts'
 import { hallCrowd, standing, type CrowdSpot } from './hallCrowd.ts'
 import { houseplantGeometry, houseplantMaterial } from './trees.ts'
 import { placeGoods, TINTS, type Placed } from './groceries.ts'
+import { Reflector } from 'three/examples/jsm/objects/Reflector.js'
+import { getSave } from './state.ts'
+import { liteOn } from './deviceTier.ts'
 
 type B = [number, number, number, number, number, number, number?]
 export type WellnessRoom = 'salon' | 'therapy' | 'clinic'
@@ -18,7 +21,6 @@ export function buildWellness(c: HallCtx, h: { open: (room: WellnessRoom) => voi
     oak: c.std(0xb98a5a, 0.6), white: c.std(0xf6f3ee, 0.5), cream: c.std(0xe9dfcf, 0.8), sage: c.std(0x8fa98a, 0.85), blush: c.std(0xd9a3a0, 0.85),
     chrome: c.std(0xc9d0d4, 0.25, 0.85), black: c.std(0x23262a, 0.4, 0.3), leather: c.std(0x2e3a36, 0.55), teal: c.std(0x2a7a72, 0.6), glass: c.std(0xcfe6ee, 0.05, 0.3),
   }
-  const mirror = new THREE.MeshStandardMaterial({ color: 0xdfeef4, roughness: 0.04, metalness: 0.9 })
   const glow = new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xfff1cf, emissiveIntensity: 1.1, roughness: 0.4 })
   const lists: Record<keyof typeof M, B[]> = { oak: [], white: [], cream: [], sage: [], blush: [], chrome: [], black: [], leather: [], teal: [], glass: [] }
   const put = (k: keyof typeof M, x: number, y: number, z: number, w: number, hgt: number, d: number, ry = 0) => lists[k].push([x, y, z, w, hgt, d, ry])
@@ -51,10 +53,29 @@ export function buildWellness(c: HallCtx, h: { open: (room: WellnessRoom) => voi
   label('Clinic', 'skin · teeth', 0.42, 4.7, -Math.PI / 2)
 
   // ---- the salon (north): two styling stations at lit mirrors, a hood dryer, a basin, products
+  // One long mirror over both stations: a real reflection on Medium and High (rendered at a modest size),
+  // a painted one on Low and in Light mode, where a second view of the room each frame costs too much.
+  {
+    const mw = 4.3, mh = 1.35, mx = 3.9, my = 1.72, mz = -6.79
+    put('chrome', mx, my - mh / 2 - 0.04, mz - 0.01, mw + 0.1, mh + 0.08, 0.03)
+    if (!liteOn() && getSave().graphics !== 'low') {
+      const r = new Reflector(new THREE.PlaneGeometry(mw, mh), { textureWidth: 640, textureHeight: 200, color: 0xc8d2d6, clipBias: 0.003 })
+      r.position.set(mx, my, mz + 0.012)
+      r.userData.ghost = true
+      c.group.add(r)
+    } else {
+      const fake = c.canvasTex(512, 160, (g) => {
+        const gr = g.createLinearGradient(0, 0, 0, 160); gr.addColorStop(0, '#e9eef0'); gr.addColorStop(1, '#c9d1d4'); g.fillStyle = gr; g.fillRect(0, 0, 512, 160)
+        g.fillStyle = 'rgba(46,58,54,0.55)'; for (const x of [130, 370]) { g.fillRect(x - 34, 70, 68, 90); g.fillRect(x - 40, 60, 80, 16) } // the chairs, reflected
+        g.fillStyle = 'rgba(185,138,90,0.45)'; g.fillRect(0, 128, 512, 32) // the floor
+        g.fillStyle = 'rgba(255,255,255,0.35)'; for (const x of [60, 300]) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 46, 0); g.lineTo(x - 30, 160); g.lineTo(x - 76, 160); g.fill() }
+      })
+      const m = c.add(new THREE.PlaneGeometry(mw, mh), new THREE.MeshStandardMaterial({ map: fake, roughness: 0.15, metalness: 0.3 }), mx, my, mz + 0.012, false); m.castShadow = false
+    }
+  }
   for (const x of [2.6, 5.2]) {
     const z = -6.75
     put('white', x, 0.8, z + 0.15, 1.6, 0.06, 0.4); put('oak', x, 0, z + 0.15, 1.6, 0.8, 0.38) // counter
-    const m = c.add(new THREE.PlaneGeometry(1.1, 1.3), mirror, x, 1.7, z - 0.02, false); m.castShadow = false
     put('white', x, 2.4, z, 1.2, 0.08, 0.06) // light bar over the mirror
     const bar = c.add(new THREE.BoxGeometry(1.0, 0.05, 0.03), glow, x, 2.37, z + 0.05, false); bar.castShadow = false
     // the styling chair: chrome base, leather seat and back, facing the mirror

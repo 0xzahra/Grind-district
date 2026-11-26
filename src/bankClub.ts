@@ -165,7 +165,8 @@ export function buildClub(c: HallCtx, h: { dine: () => void }): Floor {
     g.beginPath(); g.moveTo(40, 150); g.quadraticCurveTo(128, 40, 216, 150); g.stroke()
     g.fillStyle = 'rgba(212,175,106,0.35)'; for (let k = 0; k < 6; k++) g.fillRect(40, 220 + k * 44, 176, 10)
   })
-  for (const x of [-7.8, -6.6, -5.4]) { const m = c.add(new THREE.PlaneGeometry(0.75, 1.3), new THREE.MeshStandardMaterial({ map: mat, roughness: 0.9 }), x, 0.02, c.d / 2 - 1.6, false); m.rotation.x = -Math.PI / 2; m.castShadow = false }
+  // The mats lie side by side in one row, each with its arch towards the qibla (east, +x), as worshippers stand.
+  for (const z of [c.d / 2 - 2.65, c.d / 2 - 1.8, c.d / 2 - 0.95]) { const m = c.add(new THREE.PlaneGeometry(0.75, 1.3), new THREE.MeshStandardMaterial({ map: mat, roughness: 0.9 }), -6.6, 0.02, z, false); m.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.castShadow = false }
   sign(c, 'Prayer corner', 'z', -c.w / 2 + 0.05, c.d / 2 - 1.6, 1)
   c.use({ id: 'club-prayer', x: -6.6, z: c.d / 2 - 2.2, r: 1.4, title: 'Prayer corner', body: 'A quiet place to pray, screened from the dining room.', enter: 'Rest here', run: () => c.toast('A quiet corner to pray. Prayer times are in the menu under Prayer.') })
   // The name on the east wall.

@@ -349,22 +349,26 @@ export function rhino(): Animal {
   return { g, legs, neck: head, tail, speed: 0.8, stride: 1.3 }
 }
 
-/** A hippo. Half in the water most of the day; it walks the bank now and then. */
+/** A hippo: a huge barrel body on short legs, a broad box of a head with a wide rounded muzzle, eyes, ears and
+ *  nostrils high on top (so it can watch and breathe with the rest of it under water), and a pinkish underside. */
 export function hippo(): Animal {
   const g = new THREE.Group()
-  const hide = mat({ map: hippoHide(), vertexColors: true, roughness: 0.55 }), dark = mat({ color: 0x2a2226, roughness: 0.5 }), pink = mat({ color: 0xd9a0a0, roughness: 0.6 })
-  g.add(loft([[0, 0.95, -1.58, 0.1, 0.12], [0, 1.0, -1.32, 0.78, 0.68], [0, 1.0, -0.4, 0.96, 0.8], [0, 1.0, 0.5, 0.9, 0.76], [0, 1.06, 1.06, 0.7, 0.62]], hide, { vScale: 1.6, shade: 0.25 }))
-  const head = new THREE.Group(); head.position.set(0, 1.08, 1.1)
-  head.add(loft([[0, 0, -0.22, 0.5, 0.46], [0, 0.06, 0.24, 0.44, 0.38], [0, 0.0, 0.64, 0.47, 0.32], [0, -0.05, 0.94, 0.52, 0.31], [0, -0.08, 1.06, 0.42, 0.22]], hide, { vScale: 1.6, shade: 0.2 }))
+  const hide = mat({ map: hippoHide(), vertexColors: true, roughness: 0.5 }), dark = mat({ color: 0x2a2226, roughness: 0.5 }), pink = mat({ color: 0xd59a98, roughness: 0.6 }), tusk = mat({ color: 0xeee6d6, roughness: 0.45 })
+  // The body tapers smoothly into the neck and to a rounded rump, so no flat ends show.
+  g.add(loft([[0, 0.9, -1.66, 0.04, 0.04], [0, 0.95, -1.56, 0.46, 0.42], [0, 0.99, -1.3, 0.8, 0.7], [0, 1.02, -0.5, 0.96, 0.82], [0, 1.03, 0.35, 0.94, 0.82], [0, 1.06, 0.9, 0.76, 0.7], [0, 1.1, 1.22, 0.54, 0.54]], hide, { vScale: 1.6, shade: 0.28, steps: 48 }))
+  const head = new THREE.Group(); head.position.set(0, 1.1, 1.22)
+  head.add(loft([[0, 0.02, -0.14, 0.5, 0.5], [0, 0.1, 0.18, 0.46, 0.43], [0, 0.06, 0.5, 0.39, 0.34], [0, -0.02, 0.8, 0.47, 0.33], [0, -0.06, 1.0, 0.5, 0.31], [0, -0.09, 1.12, 0.42, 0.22], [0, -0.11, 1.18, 0.12, 0.07]], hide, { vScale: 1.6, shade: 0.22, steps: 40 }))
   for (const s of [-1, 1]) {
-    head.add(ball(hide, 0.09, s * 0.27, 0.3, 0.24, 1, 0.8, 1))
-    head.add(ball(pink, 0.06, s * 0.27, 0.42, -0.02, 0.6, 1.1, 0.6))
-    head.add(ball(dark, 0.035, s * 0.14, 0.2, 0.98, 1.3, 0.6, 1))
+    head.add(ball(hide, 0.1, s * 0.26, 0.34, 0.22, 1, 0.75, 1.05)) // the raised eye bumps
+    head.add(ball(pink, 0.07, s * 0.27, 0.45, -0.04, 0.55, 1.05, 0.55)) // small ears
+    head.add(ball(dark, 0.04, s * 0.15, 0.17, 1.02, 1.3, 0.55, 1)) // nostrils on top of the muzzle
+    head.add(ball(pink, 0.09, s * 0.4, -0.22, 0.88, 0.6, 0.5, 1.2)) // the corners of the mouth
+    head.add(ball(tusk, 0.03, s * 0.3, -0.18, 1.02, 0.8, 1.6, 0.8)) // a glimpse of tusk
   }
-  eyes(head, 0.3, 0.33, 0.3, 0.032)
+  eyes(head, 0.27, 0.37, 0.28, 0.032)
   g.add(head)
-  const legs = [[0.5, 0.72, true], [-0.5, 0.72, true], [0.5, -1.0, false], [-0.5, -1.0, false]].map(([x, z, f]) => leg(g, hide, dark, x as number, 0.72, z as number, { knee: 0.36, r: [0.3, 0.25, 0.23], footH: 0.08, footR: 0.22, front: f as boolean, vScale: 1.6 }))
-  const tail = tailOf(g, hide, dark, 0, 0.98, -1.56, 0.35, 0.04, 0.05)
+  const legs = [[0.5, 0.75, true], [-0.5, 0.75, true], [0.5, -1.02, false], [-0.5, -1.02, false]].map(([x, z, f]) => leg(g, hide, dark, x as number, 0.72, z as number, { knee: 0.36, r: [0.3, 0.25, 0.23], footH: 0.08, footR: 0.22, front: f as boolean, vScale: 1.6 }))
+  const tail = tailOf(g, hide, dark, 0, 0.97, -1.6, 0.32, 0.04, 0.05)
   return { g, legs, neck: head, tail, speed: 0.55, stride: 1.0 }
 }
 

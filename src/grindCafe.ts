@@ -6,6 +6,7 @@
 // frozen instanced crowds (hallCrowd.ts), and nothing that rays or taps test (ghost meshes), so the camera never
 // snaps on the glass. Colliders are plain boxes and circles in the world's obstacle list.
 import * as THREE from 'three'
+import { placeGoods, TINTS, type Placed } from './groceries.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { hallCrowd, standing, STUDENTS, ATTENDEES, type CrowdSpot } from './hallCrowd.ts'
 import type { Obstacle } from './physics.ts'
@@ -66,10 +67,10 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
   const group = new THREE.Group(); group.name = 'grind-cafe'
   const parts: Parts = new Map()
   // Few materials, so the whole café is about a dozen draws: light (render, stone, cups, pots), dark (steel frame
-  // and stone tops), metal (chrome and laptops), two woods, the green, leaves, soil, glass and the lamp glow.
+  // and stone tops), metal (chrome and laptops), two woods, leaves, soil, glass and the lamp glow.
   const light = std(0xefe9de, 0.75), dark = std(0x23292a, 0.4, 0.45), metal = std(0xc2c9ce, 0.3, 0.8)
   const steel = dark, stone = light, white = light, timber = std(0xb98652, 0.6)
-  const walnut = std(0x6b4428, 0.55), top = dark, chrome = metal, green = std(0x0f7a48, 0.6)
+  const walnut = std(0x6b4428, 0.55), top = dark, chrome = metal
   const leaf = houseplantMaterial(), soil = std(0x2e2118, 1), pot = light, cream = light, mug = light, laptop = metal
   const glass = new THREE.MeshStandardMaterial({ color: 0xcfe9f2, roughness: 0.05, metalness: 0.15, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide })
   const glow = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 1.1, roughness: 0.5 })
@@ -89,9 +90,15 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
   for (const x of [x0, x1]) box(parts, steel, 0.08, 0.06, D, x, 1.05, cz)
   // The back wall: warm timber with shelves of bags and jars, and the menu board.
   box(parts, walnut, W - 0.1, H, 0.14, cx, 0, zb)
-  for (const y of [1.55, 2.05]) {
+  // Shelves of what the café sells by the bag: Grind Roast pouches below, tins of beans and jars above.
+  const goods: Placed[] = []
+  for (const [k, y] of [[0, 1.55], [1, 2.05]] as const) {
     box(parts, timber, 3.2, 0.05, 0.3, cx + 2.0, y, zb + 0.22)
-    for (let i = 0; i < 6; i++) box(parts, i % 2 ? cream : green, 0.22, 0.3, 0.16, cx + 0.7 + i * 0.52, y + 0.05, zb + 0.22)
+    for (let i = 0; i < 9; i++) {
+      const x = cx + 0.62 + i * 0.34
+      if (k === 0) goods.push({ p: 'coffee', x, y: y + 0.05, z: zb + 0.24, tint: TINTS[i % 3], s: 1.05 })
+      else goods.push({ p: i % 3 === 2 ? 'jar' : 'beans', x, y: y + 0.05, z: zb + 0.24, tint: TINTS[(i + 2) % TINTS.length] })
+    }
   }
   const menu = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.2), new THREE.MeshBasicMaterial({ map: tex(520, 240, (g) => {
     g.fillStyle = '#16201c'; g.fillRect(0, 0, 520, 240)
@@ -113,7 +120,13 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
   cyl(parts, top, 0.12, 0.16, 0.5, cx - 0.4, 1.06, cz2 - 0.1)
   for (let i = 0; i < 4; i++) cyl(parts, mug, 0.05, 0.04, 0.1, cx + 0.1 + (i % 2) * 0.13, 1.06 + Math.floor(i / 2) * 0.1, cz2 - 0.15)
   box(parts, glass, 1.4, 0.5, 0.6, cx + 1.4, 1.06, cz2)
-  for (let i = 0; i < 6; i++) box(parts, i % 3 === 0 ? timber : i % 3 === 1 ? cream : walnut, 0.22, 0.1, 0.18, cx + 0.95 + (i % 3) * 0.42, 1.12 + (i > 2 ? 0.18 : 0), cz2 - 0.05)
+  // The pastry case: two trays, croissants and muffins above, puff-puff and loaves below.
+  for (const y of [1.07, 1.3]) box(parts, cream, 1.3, 0.015, 0.5, cx + 1.4, y, cz2)
+  for (let i = 0; i < 4; i++) goods.push({ p: 'croissant', x: cx + 0.88 + i * 0.32, y: 1.315, z: cz2 - 0.1, yaw: 0.3 * (i % 2 ? 1 : -1), s: 1.1 })
+  for (let i = 0; i < 4; i++) goods.push({ p: 'muffin', x: cx + 0.9 + i * 0.32, y: 1.315, z: cz2 + 0.12 })
+  for (let i = 0; i < 9; i++) goods.push({ p: 'puff', x: cx + 0.84 + (i % 5) * 0.12, y: 1.085, z: cz2 - 0.12 + Math.floor(i / 5) * 0.1 })
+  for (let i = 0; i < 2; i++) goods.push({ p: 'loaf', x: cx + 1.62 + i * 0.32, y: 1.085, z: cz2 + 0.02, yaw: Math.PI / 2 })
+  placeGoods(goods, group)
   // Little tables by the glass, two seats each, with cups and the odd laptop; more outside on the terrace.
   const tables: Array<[number, number]> = [[x0 + 1.3, cz - 0.4], [x0 + 1.3, cz + 1.8], [x1 - 1.3, cz - 0.4], [x1 - 1.3, cz + 1.8]]
   const terrace: Array<[number, number]> = [[x0 + 0.9, zf + 1.6], [x1 - 0.9, zf + 1.6]]

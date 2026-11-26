@@ -577,6 +577,24 @@
       "title": "Grind Zoo: seven new animals 🐅",
       "body": "Rhinos, hippos in the water hole, a crocodile on the bank, ostriches, cheetahs, tigers and a family of gorillas have joined the giraffes, zebras, elephants, lions and flamingos at Grind Park.",
       "go": "place:Grind Park"
+    },
+    {
+      "id": "u1126-congregation",
+      "title": "Pray in the row, with everyone",
+      "body": "At the Grand Masjid the imam and the whole congregation now stand, bow, prostrate and sit together, and you take your place in the row beside them. Prayer mats everywhere point to the qibla.",
+      "go": "place:Masjid"
+    },
+    {
+      "id": "u1126-drone-flight",
+      "title": "Fly your drone anywhere 🚁",
+      "body": "Drone camera now flies free: the stick flies it over the city, drag to turn, hold ▲ ▼ to climb, and ⌂ brings it back. Take photos or record video from up there.",
+      "go": "panel:gadgets"
+    },
+    {
+      "id": "u1126-fixes-round",
+      "title": "Mirrors, hippos and a tidier menu",
+      "body": "Real mirrors in the salon, rounder hippos in a bigger water hole, Grind Café shelves with coffee bags and pastries, lighter cushions at home, a shorter title card on phones, and every menu key (Seasons too) from the start. No confetti in places of prayer.",
+      "push": false
     }
   ]
 }

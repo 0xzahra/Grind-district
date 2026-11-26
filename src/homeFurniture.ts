@@ -19,8 +19,9 @@ const MATS: Record<Mat, () => THREE.Material> = {
   linen: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0xf1ede4, roughness: 1 }),
   // Plain warm upholstery: the old patterned texture read as black on phones.
   fabric: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0xc9b9a0, roughness: 1 }),
-  cushion: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0x8a5a44, roughness: 1 }),
-  blue: () => new THREE.MeshStandardMaterial({ map: pbrSet('fabric_pattern_07', 3).map, color: 0x4d6070, roughness: 1 }),
+  // Cushions and the armchair in light, soft colours (the patterned texture under navy and brown read as black).
+  cushion: () => new THREE.MeshStandardMaterial({ color: 0xe3b27c, roughness: 0.95 }),
+  blue: () => new THREE.MeshStandardMaterial({ color: 0xa9bfcd, roughness: 0.95 }),
   // Dark bronze by default (lookPalette.ts) so lamp stems and brackets sit with the city's brass trim.
   metal: () => new THREE.MeshStandardMaterial({ color: LOOK.furnitureMetal, roughness: 0.45, metalness: 0.6 }),
   // Lamp shades: faint warm self-light only (no extra real lights).

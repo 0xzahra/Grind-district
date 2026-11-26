@@ -50,7 +50,7 @@ const hideCaption = () => { cap?.classList.remove('on') }
  * Pray from `seat` (the player is seated onto it in the standing position). `here` says whether the player is still
  * on the seat (any move stands up and ends the prayer). `done` runs once the salām is given.
  */
-export function pray(o: { seat: Seat; mode: PrayMode; sit: (s: Seat) => void; here: () => boolean; done: (prayer: string) => void }): void {
+export function pray(o: { seat: Seat; mode: PrayMode; sit: (s: Seat) => void; here: () => boolean; done: (prayer: string) => void; onPose?: (pose: PrayerPose | null) => void }): void {
   const my = ++token
   const seat: Seat = { ...o.seat, pose: 'qiyam' }
   o.sit(seat)
@@ -59,14 +59,17 @@ export function pray(o: { seat: Seat; mode: PrayMode; sit: (s: Seat) => void; he
   let i = 0
   const step = () => {
     if (my !== token) return
-    if (i > 0 && !o.here()) { hideCaption(); return }
+    if (i > 0 && !o.here()) { hideCaption(); o.onPose?.(null); return }
     const s = STEPS[i]
     if (!s) {
       window.setTimeout(() => { if (my === token) hideCaption() }, 1600)
+      o.onPose?.(null)
       o.done(name)
       return
     }
     seat.pose = s.pose
+    // The imam leads and the rows follow him, position by position (not when you pray on your own).
+    if (o.mode !== 'alone') o.onPose?.(s.pose)
     caption(who, o.mode === 'alone' ? s.own : s.led, o.mode === 'women')
     i++
     window.setTimeout(step, s.ms)

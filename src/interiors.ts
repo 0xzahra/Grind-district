@@ -5,7 +5,7 @@ import { ownedHouseItems } from './career.ts'
 import { floorFinish, glossFloor, wallFinish, type FloorKind } from './surfaces.ts'
 import type { Obstacle } from './physics.ts'
 import { claimHouse, finishGym, getSave, setTime, sitPrayer, walkGym } from './state.ts'
-import { seatSpot, type Seat } from './seating.ts'
+import { createSeating, seatSpot, type Seat, type PrayerPose } from './seating.ts'
 import { createTvScreen } from './tv.ts'
 import { animateWater } from './water.ts'
 import { RANKS, rankFor } from './logic.ts'
@@ -187,6 +187,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     group.position.set(o.x, 0, o.z)
     const obstacles: Obstacle[] = []
     const uses: Use[] = []
+    // Run every frame while the player is in this room (lectures, gestures, the congregation at prayer).
+    const ticks: Array<(dt: number) => void> = []
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, block = false, ry = 0) => {
       const m = new THREE.Mesh(geo, mat)
       m.position.set(x, y, z)
@@ -616,6 +618,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const imam = posedHuman('kurta', { pose: 'pray', height: 1.78, look: { top: 0xf6f3ec, skin: 0x8d5a3b } })
       imam.position.set(w / 2 - 1.5, 0, 0); imam.rotation.y = Math.PI / 2
       group.add(imam)
+      // Everyone at prayer moves with the imam: standing, bowing, prostrating and sitting (seating.ts poses the
+      // figures' own bones, as it does the player's). Between prayers they sit on their heels.
+      const movers: Array<{ root: THREE.Group; seat: ReturnType<typeof createSeating> }> = [{ root: imam, seat: createSeating() }]
       obstacles.push({ kind: 'circle', x: o.x + w / 2 - 1.5, z: o.z, r: 0.45 })
       add(new THREE.CylinderGeometry(0.012, 0.012, 1.3, 6), brass, w / 2 - 1.05, 0.65, 0.42)
       add(new THREE.SphereGeometry(0.035, 10, 8), std(0x1b1d20, 0.5), w / 2 - 1.1, 1.32, 0.38)
@@ -632,7 +637,10 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const robes = [0xf2efe8, 0xe4dccd, 0x4a4f57, 0x7a6a55, 0x2f3f5c, 0xd9d2c6]
       const skins = [0x8d5a3b, 0xc68a62, 0x5a3825, 0xe0b08e, 0x6f4329, 0xbf8a62]
       let n = 0
+      // The player's places in the rows (left free): the men's second row, and the sisters' second row.
+      const MEN_GAP = { x: 1.6, z: 2.1 }, WOMEN_GAP = { x: 1.6, z: -3.9 }
       for (const x of [3.2, 1.6]) for (let z = -0.5; z <= 4.8; z += 1.3) {
+        if (Math.abs(x - MEN_GAP.x) < 0.01 && Math.abs(z - MEN_GAP.z) < 0.01) continue
         const robe = robes[n % robes.length]!
         const man = n % 3 === 2
           ? posedHuman(MEN[(n >> 1) % MEN.length]!, { pose: 'kneel', height: 1.76, look: n % 2 ? { skin: skins[(n * 5) % skins.length]!, hair: 0x16110e } : undefined })
@@ -640,16 +648,19 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
         man.position.set(x, 0, z)
         man.rotation.y = Math.PI / 2
         group.add(man)
+        movers.push({ root: man, seat: createSeating() })
         obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.4 })
         n++
       }
       const abayas = [0x1d1f2b, 0x2a2a2e, 0x5b2333, 0x3d4a3f, 0x6b5a48, 0x2f3f5c]
       let f = 0
       for (const x of [3.2, 1.6]) for (const z of [-5.0, -3.9, -2.8]) {
+        if (Math.abs(x - WOMEN_GAP.x) < 0.01 && Math.abs(z - WOMEN_GAP.z) < 0.01) continue
         const sister = posedHuman('abaya', { pose: 'kneel', height: 1.64, look: { top: abayas[f % abayas.length]!, skin: skins[(f * 3 + 1) % skins.length]! } })
         sister.position.set(x, 0, z)
         sister.rotation.y = Math.PI / 2
         group.add(sister)
+        movers.push({ root: sister, seat: createSeating() })
         obstacles.push({ kind: 'circle', x: o.x + x, z: o.z + z, r: 0.4 })
         f++
       }
@@ -657,11 +668,35 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // quiet place to pray alone. Sisters pray in the women's section, brothers in the men's.
       const lady = () => getSave().body === 'zuri'
       const here = (sx: number, sz: number) => () => { const p = hooks.player?.(); return !!p && Math.hypot(p.x - (o.x + sx), p.z - (o.z + sz)) < 0.4 }
+      // The congregation's position now (null: sitting on their heels between prayers), and how long since it
+      // changed (the figures are posed for a moment after the prayer ends, then left still).
+      let congPose: PrayerPose | null = null, settle = 0
+      const setCong = (pose: PrayerPose | null) => {
+        for (const m of movers) {
+          const person = m.root.children.find((c) => c.getObjectByName('Person'))
+          if (!person) continue
+          m.root.userData.person = person
+          // change the pose on the same seat (sitting again on the same spot would stand the figure up)
+          const cur = m.seat.sitting
+          if (cur) cur.pose = pose ?? 'jalsa'
+          else m.seat.sit({ x: m.root.position.x, z: m.root.position.z, yaw: Math.PI / 2, y: 0, pose: pose ?? 'jalsa' }, m.root)
+        }
+        congPose = pose; settle = 1.4
+      }
+      ticks.push((dt) => {
+        if (!congPose && settle <= 0) return
+        if (!congPose) settle -= dt
+        for (const m of movers) if (m.root.userData.person) m.seat.apply(m.root, dt)
+      })
       const start = (mode: PrayMode, sx: number, sz: number) => {
+        // In congregation you stand in the row with everyone else; on your own, at your own place.
+        const place = mode === 'men' ? MEN_GAP : mode === 'women' ? WOMEN_GAP : { x: sx, z: sz }
+        sx = place.x; sz = place.z
         void import('./congregation.ts').then((m) => m.pray({
           seat: { x: o.x + sx, z: o.z + sz, yaw: Math.PI / 2, y: 0 },
           mode,
           sit: hooks.sit,
+          onPose: (p) => setCong(p),
           here: here(sx, sz),
           done: (prayer) => hooks.toast(`${prayer}: ${mode === 'alone' ? 'prayed on your own' : 'prayed in congregation'}. ${sitPrayer().message}`),
         }))
@@ -671,6 +706,13 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       use({ id: 'pray', x: 0.0, z: 1.4, r: 1.3, title: 'Men’s rows', body: 'Join the congregation behind the imam, in the back row.', enter: 'Join the congregation', run: forMen(() => start('men', 0.0, 1.4)) })
       use({ id: 'pray-alone-men', x: -3.0, z: 3.8, r: 1.2, title: 'Men’s section', body: 'Pray on your own, at your own pace.', enter: 'Pray on your own', run: forMen(() => start('alone', -3.0, 3.8)) })
       use({ id: 'pray-women', x: 0.0, z: -3.9, r: 1.3, title: 'Women’s section', body: 'Join the congregation: the imam’s voice comes through the speakers.', enter: 'Join the congregation', run: forWomen(() => start('women', 0.0, -3.9)) })
+      // A prayer rug (musalla) at each place to pray on your own, its arch towards the qibla wall (+x).
+      const musalla = canvasTex(256, 512, (g) => {
+        g.fillStyle = '#1f4f6a'; g.fillRect(0, 0, 256, 512); g.strokeStyle = '#d4af6a'; g.lineWidth = 8; g.strokeRect(14, 14, 228, 484)
+        g.beginPath(); g.moveTo(40, 160); g.quadraticCurveTo(128, 34, 216, 160); g.lineTo(216, 470); g.lineTo(40, 470); g.closePath(); g.stroke()
+        g.fillStyle = 'rgba(212,175,106,0.3)'; for (let k = 0; k < 5; k++) g.fillRect(56, 230 + k * 46, 144, 8)
+      })
+      for (const [mx, mz] of [[-3.0, 3.8], [-3.0, -4.6]] as const) { const m = add(new THREE.PlaneGeometry(0.8, 1.35), new THREE.MeshStandardMaterial({ map: musalla, roughness: 0.95 }), mx + 0.35, 0.03, mz, false); m.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.castShadow = false }
       use({ id: 'pray-alone-women', x: -3.0, z: -4.6, r: 1.2, title: 'Women’s section', body: 'Pray on your own, at your own pace.', enter: 'Pray on your own', run: forWomen(() => start('alone', -3.0, -4.6)) })
       box(1.2, 0.5, 0.4, std(0x5a3f2c, 0.7), -w / 2 + 1.0, -d / 2 + 0.6)
     }
@@ -966,7 +1008,6 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     }
     // The Campus and the conference centre are buildings of several rooms with raked seating (halls.ts).
     let floorAt: Floor | null = null
-    const ticks: Array<(dt: number) => void> = []
     if (id === 'campus' || id === 'conference' || id === 'mcgrind' || id === 'market' || id === 'bank' || id === 'barakah' || id === 'wellness') {
       const ctx = { group, ox: o.x, oz: o.z, w, d, H, wallMat, trim, std, box, add, use, seat, obstacles, sit: hooks.sit, busy: hooks.busy, toast: hooks.toast,
         openLearn: () => hooks.openPanel('learn'), openConference: () => hooks.openPanel('conference'), canvasTex, cap: crowdCap(), onTick: (f: (dt: number) => void) => { ticks.push(f) } }

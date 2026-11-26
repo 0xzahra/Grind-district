@@ -989,34 +989,63 @@ const apiAgents = createRemoteAgents(scene)
     ui.toast('Selfie mode: frame it with the arrows and − +, then tap the shutter.')
   }
   const endSelfie = () => { selfie = null; selfieBar.hidden = true; document.body.classList.remove('selfie-mode'); cameraReady = false }
-  // Drone camera: your own drone lifts off and films you from the air while you walk. Orbit it, raise or lower
-  // it, take a photo, or record a video (the skit recorder); both go to My Gallery.
-  let droneCam: { angle: number; dist: number; height: number; spin: boolean } | null = null
+  // Drone camera: your own drone lifts off and you fly it round the city. The move stick flies it (forward, back,
+  // sideways, the way the camera looks), drag to turn, hold ▲ and ▼ to climb and descend, ⌂ brings it back to
+  // you. Take photos or record a video (the skit recorder) from up there; both go to My Gallery. You stand still
+  // where you launched it, and the drone keeps out of the buildings' walls.
+  let droneCam: { x: number; y: number; z: number; vx: number; vy: number; vz: number; climb: number } | null = null
   const droneBar = document.createElement('div'); droneBar.id = 'drone-bar'; droneBar.className = 'selfie-bar drone-bar'; droneBar.hidden = true
+  const droneHint = document.createElement('p'); droneHint.className = 'drone-hint'; droneHint.hidden = true
+  droneHint.textContent = 'Stick: fly · Drag: turn · Hold ▲ ▼: up and down'
   {
     const b = (label: string, aria: string, on: () => void, cls = '') => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.setAttribute('aria-label', aria); x.title = aria; x.className = `selfie-key ${cls}`; x.onclick = on; return x }
+    // ▲ and ▼ work while held (a finger, the mouse or the keyboard's Enter/Space)
+    const hold = (label: string, aria: string, dir: number) => {
+      const x = b(label, aria, () => undefined, 'drone-hold')
+      const on = (e: Event) => { e.preventDefault(); if (droneCam) droneCam.climb = dir }
+      const off = () => { if (droneCam && droneCam.climb === dir) droneCam.climb = 0 }
+      x.addEventListener('pointerdown', on); for (const ev of ['pointerup', 'pointerleave', 'pointercancel'] as const) x.addEventListener(ev, off)
+      x.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') on(e) }); x.addEventListener('keyup', off)
+      return x
+    }
     droneBar.append(
       b('×', 'Land the drone', () => endDroneCam(), 'selfie-x'),
-      b('↺', 'Fly round to the left', () => { if (droneCam) { droneCam.angle -= 0.45; droneCam.spin = false } }),
-      b('▼', 'Lower', () => { if (droneCam) { droneCam.height = Math.max(1.6, droneCam.height - 1.2); droneCam.dist = Math.max(2.4, droneCam.dist - 0.8) } }),
+      hold('▲', 'Climb (hold)', 1),
+      hold('▼', 'Descend (hold)', -1),
       b('', 'Take a photo', () => saveShot(capture()), 'selfie-shutter'),
-      b('▲', 'Higher', () => { if (droneCam) { droneCam.height = Math.min(16, droneCam.height + 1.2); droneCam.dist = Math.min(12, droneCam.dist + 0.8) } }),
-      b('↻', 'Fly round to the right', () => { if (droneCam) { droneCam.angle += 0.45; droneCam.spin = false } }),
-      b('⟳', 'Slow orbit on or off', () => { if (droneCam) droneCam.spin = !droneCam.spin }),
       b('●', 'Record a video', () => startSkit(), 'drone-rec'),
+      b('⌂', 'Bring the drone back to me', () => { if (droneCam) { droneCam.x = pos.x + Math.sin(camYaw) * 3; droneCam.z = pos.z + Math.cos(camYaw) * 3; droneCam.y = avatar.object.position.y + 3; droneCam.vx = droneCam.vz = droneCam.vy = 0 } }),
     )
-    document.body.append(droneBar)
+    document.body.append(droneBar, droneHint)
   }
   const startDroneCam = () => {
     if (getSave().drone === 'none') { ui.toast('Buy a drone in Gadgets (and equip it) to fly the drone camera.'); return }
-    if (ride || homes?.flying || interiors.inside) { ui.toast(interiors.inside ? 'Drones fly outside: step out first.' : 'Step out first, then launch the drone.'); return }
+    if (ride || homes?.flying || interiors.inside || homes?.inside) { ui.toast(interiors.inside || homes?.inside ? 'Drones fly over the city: step outside first.' : 'Step out first, then launch the drone.'); return }
     if (selfie) endSelfie()
     ui.close()
-    droneCam = { angle: camYaw + 0.6, dist: 5.5, height: 4.5, spin: true }
-    droneBar.hidden = false; document.body.classList.add('drone-mode')
-    ui.toast('Drone up. Walk and it follows you; orbit, go higher, take a photo or record a video.')
+    syncDrone()
+    target = null; vel.x = 0; vel.z = 0
+    droneCam = { x: pos.x + Math.sin(camYaw) * 1.5, y: avatar.object.position.y + 2.6, z: pos.z + Math.cos(camYaw) * 1.5, vx: 0, vy: 0, vz: 0, climb: 0 }
+    droneBar.hidden = false; droneHint.hidden = false; document.body.classList.add('drone-mode')
+    window.setTimeout(() => { droneHint.hidden = true }, 7000)
+    ui.toast('Drone up! Fly it with the stick, drag to turn, hold ▲ ▼ to climb. Take a photo or record a video.')
   }
-  const endDroneCam = () => { droneCam = null; droneBar.hidden = true; document.body.classList.remove('drone-mode'); cameraReady = false; if (follower) follower.visible = true }
+  const endDroneCam = () => { droneCam = null; droneBar.hidden = true; droneHint.hidden = true; document.body.classList.remove('drone-mode'); cameraReady = false }
+  /** Each frame in drone mode: the stick and ▲ ▼ move the drone with a little inertia, inside the city's limits. */
+  const flyDrone = (dt: number, fx: number, fy: number) => {
+    const d = droneCam!
+    const fwdX = -Math.sin(camYaw), fwdZ = -Math.cos(camYaw), rX = Math.cos(camYaw), rZ = -Math.sin(camYaw)
+    const top = 11 // metres a second
+    const k = 1 - Math.exp(-3.2 * dt)
+    d.vx += ((fwdX * fy + rX * fx) * top - d.vx) * k
+    d.vz += ((fwdZ * fy + rZ * fx) * top - d.vz) * k
+    d.vy += (d.climb * 5 - d.vy) * k
+    d.x = THREE.MathUtils.clamp(d.x + d.vx * dt, -CITY_LIMIT - 30, CITY_LIMIT + 30)
+    d.z = THREE.MathUtils.clamp(d.z + d.vz * dt, -CITY_LIMIT - 30, CITY_LIMIT + 30)
+    d.y = THREE.MathUtils.clamp(d.y + d.vy * dt, 1.2, 60)
+    // Low down, the drone slides along walls instead of flying into buildings.
+    if (d.y < 16) { const p = { x: d.x, z: d.z }; resolveCollision(p, { x: d.vx, z: d.vz }, world.obstacles, 0.5); d.x = p.x; d.z = p.z }
+  }
   window.addEventListener('gd:dronecam', startDroneCam)
   const startSkit = () => void import('./skit.ts').then((m) => m.openSkit({
     canvas, logo: shotLogo, onFrame: (fn) => { afterRender = fn }, toast: (t) => ui.toast(t),
@@ -1506,8 +1535,10 @@ const apiAgents = createRemoteAgents(scene)
     if (!passed.length) { learnGo = 'mentor'; if (t) t.textContent = 'Learn at Campus'; if (sub) sub.textContent = 'Your first lesson · about a minute · it goes on your CV' }
     else if (nextId) { learnGo = `course:${nextId}`; if (t) t.textContent = `Next lesson: ${SKILL_META[nextId].title}`; if (sub) sub.textContent = `${passed.length} passed · each one adds a certificate to your CV` }
     else { learnGo = 'panel:profile'; if (t) t.textContent = 'Every course passed'; if (sub) sub.textContent = 'Your CV and certificates' }
-    const fresh = !passed.length
-    for (const id of ['nav-boutique', 'nav-trade', 'nav-seasons']) { const b = document.getElementById(id); if (b) b.hidden = fresh }
+    // Every key shows from the start (Boutique, Trade and Seasons used to wait for the first lesson), and the
+    // Learn card is gone from the menu: the Next step pill and Campus lead to lessons.
+    for (const id of ['nav-boutique', 'nav-trade', 'nav-seasons']) { const b = document.getElementById(id); if (b) b.hidden = false }
+    if (learnKey) learnKey.hidden = true
     const grid = document.querySelector('#nav .cc-grid')
     if (grid) grid.classList.toggle('few', [...grid.querySelectorAll<HTMLElement>('.cc-item')].filter((b) => !b.hidden).length <= 4)
   }
@@ -2344,6 +2375,8 @@ const apiAgents = createRemoteAgents(scene)
     if (want !== pedalsShown) { pedalsShown = want; drive.show(want) }
     // In a cab the driver drives: the move stick goes away until you get out.
     document.body.classList.toggle('cab-ride', driving && drive.passenger)
+    // Places of prayer stay quiet: no holiday confetti in the masjid or the Barakah Club.
+    document.body.classList.toggle('in-prayer-space', interiors.inside === 'mosque' || interiors.inside === 'barakah')
   }, 200)
   const rideSpot: Hotspot = { id: '__ride__', x: 0, z: 0, r: 99, title: '', body: 'Stick up to go, back to brake, left and right to steer.', enter: 'Get out', use: () => endRide() }
   const parkedSpot: Hotspot = { id: '__parked__', x: 0, z: 0, r: 3.4, title: 'Your car', body: 'Parked. Take the wheel any time.', enter: 'Drive', use: () => takeWheel() }
@@ -2929,7 +2962,9 @@ const apiAgents = createRemoteAgents(scene)
     } catch { /* */ }
 
     const frame = input.read()
-    const paused = ui.isOpen() || mentor.isOpen() || !!selfie
+    // In drone mode the stick flies the drone and you stand where you launched it.
+    if (droneCam && !ui.isOpen()) flyDrone(dt, frame.x, frame.y)
+    const paused = ui.isOpen() || mentor.isOpen() || !!selfie || !!droneCam
     if (frame.lookX !== 0 || frame.lookY !== 0) lookIdle = 0
     else lookIdle += dt
     camYaw -= frame.lookX * 0.0052
@@ -3209,7 +3244,13 @@ const apiAgents = createRemoteAgents(scene)
     }
     tickTvs(dt, pos.x, pos.z, camera)
     tickWater(dt, camera)
-    if (follower) {
+    if (follower && droneCam) {
+      // flying: the drone is where you fly it, tilted into its motion, facing the way the camera looks
+      follower.position.set(droneCam.x, droneCam.y + Math.sin(elapsed * 3) * 0.04, droneCam.z)
+      follower.rotation.set(THREE.MathUtils.clamp(-droneCam.vz * 0.02, -0.25, 0.25), camYaw, THREE.MathUtils.clamp(droneCam.vx * 0.02, -0.25, 0.25))
+      const rotors = follower.userData.rotors as THREE.Object3D[] | undefined
+      if (rotors) for (const r of rotors) r.rotation.y += dt * 40
+    } else if (follower) {
       const goalX = pos.x + 0.85
       const goalZ = pos.z + 0.45
       const glide = 1 - Math.exp(-3 * dt)
@@ -3425,14 +3466,12 @@ const apiAgents = createRemoteAgents(scene)
     if (space >= 1) { physSky.sky.visible = false; if (scene.background instanceof THREE.Color) scene.background.setHex(0x000004) }
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
     else if (droneCam) {
-      // Drone camera: up in the air on a circle round the player, looking down at them; the drone itself is the lens.
-      if (ride || interiors.inside || homes?.flying) endDroneCam()
+      // Drone camera: a chase view just behind and above your drone, looking where it flies (pitch tilts it down).
+      if (ride || interiors.inside || homes?.flying || homes?.inside) endDroneCam()
       else {
-        if (droneCam.spin) droneCam.angle += dt * 0.18
-        const base = avatar.object.position.y
-        camera.position.set(pos.x + Math.sin(droneCam.angle) * droneCam.dist, base + droneCam.height + Math.sin(elapsed * 1.3) * 0.05, pos.z + Math.cos(droneCam.angle) * droneCam.dist)
-        camera.lookAt(pos.x, base + 1.1, pos.z)
-        if (follower) follower.visible = false
+        const back = 3.4, lift = 1.1 + camPitch * 1.6
+        camera.position.set(droneCam.x + Math.sin(camYaw) * back, droneCam.y + lift, droneCam.z + Math.cos(camYaw) * back)
+        camera.lookAt(droneCam.x - Math.sin(camYaw) * 6, droneCam.y + 0.6 - camPitch * 6, droneCam.z - Math.cos(camYaw) * 6)
       }
     }
     else if (selfie) {

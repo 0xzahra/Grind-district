@@ -38,7 +38,8 @@ export function groundDetail(mat: THREE.MeshStandardMaterial, anisotropy: number
         float turf = smoothstep(0.012, 0.05, base.g - max(base.r, base.b));
         float road = (1.0 - smoothstep(0.085, 0.15, dot(base, vec3(0.299, 0.587, 0.114)))) * (1.0 - turf);
         vec3 pave = texture2D(tPave, vGroundXZ / 3.2).rgb * ${inv(MEAN.pave)};
-        vec3 tar = texture2D(tRoad, vGroundXZ / 5.0).rgb * ${inv(MEAN.road)};
+        // The asphalt photo at half strength: its grain stays, its dark stains no longer blotch the roads.
+        vec3 tar = mix(vec3(1.0), texture2D(tRoad, vGroundXZ / 5.0).rgb * ${inv(MEAN.road)}, 0.5);
         vec3 grass = texture2D(tTurf, vGroundXZ / 3.6).rgb * ${inv(MEAN.turf)};
         vec3 laid = base * mix(mix(pave, tar, road), grass, turf);
         // Interlock: ground painted a terracotta hue (red well above green, whatever its shading) is laid as
