@@ -1,4 +1,5 @@
 import { itemPic } from './itemPics.ts'
+import { GLYPH as RANK_GLYPH } from './walletRanks.ts'
 import { personaNodes, note as personaNote } from './persona.ts'
 import { getMorph, setMorph, HAIRS, SKIN_TONES } from './morph.ts'
 import { isLicensed, skinSlots } from './skins.ts'
@@ -69,6 +70,7 @@ import {
   nextRank,
   progressToNext,
   rankFor,
+  RANKS,
   rankToast,
   seasonAt,
   seasonLabel,
@@ -535,39 +537,35 @@ export function mountUi(
   }
 
   const renderToday = (save: ReturnType<typeof getSave>): HTMLElement => {
+    // Today at a glance: three tiles (rank and how close the next one is, reputation, streak), then the day's
+    // quests as cards with where to go. The balance lives on the Balance screen, not here.
     const rank = rankFor(save.xp)
     const next = nextRank(save.xp)
     const wrap = stack()
-    wrap.append(para(`@${save.username}`, 'muted'))
-    wrap.append(para(next ? `${rank.label} · Reputation ${save.reputation} · next rank ${next.label}` : `${rank.label} · Reputation ${save.reputation}. The ladder stays open.`))
-    const track = document.createElement('div')
-    track.className = 'bar'
-    const fill = document.createElement('div')
-    fill.className = 'bar-fill'
-    fill.style.width = `${Math.round(progressToNext(save.xp) * 100)}%`
-    track.append(fill)
-    wrap.append(track)
-    const streakNote = save.dailies && todayTasks(save).some((task) => task.done)
-      ? `Streak ${save.streak}. You already logged a rep today.`
-      : save.streak > 0
-        ? `Streak ${save.streak}. One rep today makes it ${save.streak + 1}.`
-        : 'No streak yet. One rep today starts it.'
-    wrap.append(para(`${streakNote} Reputation ${save.reputation}.`))
-    const bal = document.createElement('div'); bal.className = 'bal-card'
-    bal.append(para('Balance', 'kicker'), para(money(save.ledger), 'bal-num'), para('In-game dollars. Cannot be withdrawn.', 'muted'))
-    wrap.prepend(bal)
-    const tasks = todayTasks(save)
-    wrap.append(para(`Daily quests · ${tasks.filter((t) => t.done).length}/${tasks.length}`, 'kicker'))
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n }
+    const tiles = el('div', 'td-tiles')
+    const tile = (icon: string, label: string, value: string, sub: string, cls = '') => { const t = el('div', `td-tile ${cls}`); t.append(el('span', 'td-ico', icon), el('small', 'td-label', label), el('b', 'td-val', value), el('small', 'td-sub', sub)); return t }
+    const rankTile = tile(RANK_GLYPH[Math.max(0, RANKS.findIndex((r) => r.id === rank.id))] ?? '🦐', 'Rank', rank.label, next ? `next: ${next.label}` : 'top of the ladder', 'rank')
+    const ring = el('div', 'td-bar'); const fill = el('i'); fill.style.width = `${Math.round(progressToNext(save.xp) * 100)}%`; ring.append(fill); rankTile.append(ring)
+    const doneToday = !!save.dailies && todayTasks(save).some((task) => task.done)
+    tiles.append(rankTile, tile('⭐', 'Reputation', String(save.reputation), 'from courses, jobs, events'), tile('🔥', 'Streak', `${save.streak} day${save.streak === 1 ? '' : 's'}`, doneToday ? 'kept today ✓' : save.streak > 0 ? 'one rep today keeps it' : 'one rep today starts it', doneToday ? 'lit' : ''))
+    wrap.append(tiles)
+    const tasks = todayTasks(save), done = tasks.filter((t) => t.done).length
+    const qh = el('div', 'td-qhead'); qh.append(el('b', '', 'Daily quests'), el('span', 'td-count', `${done} of ${tasks.length}`))
+    const qbar = el('div', 'td-bar wide'); const qf = el('i'); qf.style.width = `${tasks.length ? Math.round(done / tasks.length * 100) : 0}%`; qbar.append(qf)
+    wrap.append(qh, qbar)
     const GO: Record<string, string> = { 'Pass a course': 'Campus', 'Gym set': 'Gym', 'Read the café': 'Grind Café', 'Post a bounty': 'Influencer row', 'Church or prayer': 'Masjid', 'Carbon desk': 'Carbon desk' }
+    const ICON: Record<string, string> = { 'Pass a course': '🎓', 'Gym set': '🏋️', 'Read the café': '☕', 'Post a bounty': '📣', 'Church or prayer': '🕌', 'Carbon desk': '🌱' }
+    const list = el('div', 'td-quests')
     for (const task of tasks) {
-      const q = document.createElement('div'); q.className = `quest${task.done ? ' done' : ''}`
-      const bar = document.createElement('div'); bar.className = 'bar'; const f = document.createElement('div'); f.className = 'bar-fill'; f.style.width = task.done ? '100%' : '0%'; bar.append(f)
-      const t = document.createElement('div'); t.className = 'quest-main'; t.append(para(task.label, 'quest-title'), bar)
-      q.append(t)
-      if (!task.done && GO[task.label]) q.append(button('Go ›', 'ghost', () => { close(); hooks.travel?.(GO[task.label]!, true) }))
-      else if (task.done) q.append(para('✓', 'quest-tick'))
-      wrap.append(q)
+      const q = el('div', `td-quest${task.done ? ' done' : ''}`)
+      const txt = el('div', 'td-qtext'); txt.append(el('b', '', task.label), el('small', '', task.done ? 'Done today' : GO[task.label] ? `At ${GO[task.label]}` : 'Anywhere in the city'))
+      q.append(el('span', 'td-qico', ICON[task.label] ?? '⭐'), txt)
+      if (task.done) q.append(el('span', 'td-tick', '✓'))
+      else if (GO[task.label]) q.append(button('Go', 'primary td-go', () => { close(); hooks.travel?.(GO[task.label]!, true) }))
+      list.append(q)
     }
+    wrap.append(list)
     if (save.taxOpen) wrap.append(button('Family request is open', 'primary', () => open('tax')))
     return wrap
   }

@@ -4878,18 +4878,7 @@ html body #nav.cc #cc-learn { display: none !important; }
 .drone-hint { position: fixed; z-index: 7000; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 82px); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(10, 12, 15, 0.6); color: #f6f1e6; font: 600 12.5px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
 .drone-hint[hidden] { display: none; }
 html body .drone-bar .selfie-key.drone-hold { touch-action: none; -webkit-user-select: none; user-select: none; }
-/* Maslow's pyramid on the Needs sheet: six bands, narrow at the top, each filled as far as you have got. */
-.mz-pyr { display: grid; gap: 5px; margin: 14px 0 8px; }
-.mz-pyr .mz-kick { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #c9a25e; text-align: center; }
-.mz-row { display: grid; justify-items: center; gap: 2px; }
-.mz-band { position: relative; width: var(--w); min-width: 150px; height: 40px; display: grid; place-content: center; text-align: center; overflow: hidden; clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%); background: color-mix(in srgb, var(--c) 28%, #1b1d21); }
-.mz-band > i { position: absolute; inset: 0 auto 0 0; background: var(--c); opacity: 0.85; transition: width 0.4s; }
-.mz-band > b, .mz-band > small { position: relative; z-index: 1; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55); line-height: 1.15; }
-.mz-band > b { font-size: 13px; font-weight: 750; }
-.mz-band > small { font-size: 11px; font-weight: 600; opacity: 0.95; }
-.mz-row .mz-how { margin: 0 0 4px; max-width: 92%; font-size: 12px; line-height: 1.35; text-align: center; color: #b8b0a2; }
-html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-band > :is(b, small) { color: #ffffff !important; }
-html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-row .mz-how { color: #6b655a !important; }
+
 /* Profile: sub-headings inside a merged section; the CV paper sits tighter on phones. */
 .pfold-sub { margin: 14px 0 6px !important; }
 .prof-ranks { margin: 0 0 10px; }
@@ -5007,3 +4996,86 @@ html[data-ui='light'] body .sheet-card .xch-share { color: #0b7a48 !important; b
 .p2p-guide .p2p-steps li { display: grid; gap: 2px; font-size: 13px; line-height: 1.4; }
 .p2p-guide .p2p-steps b { font-size: 13.5px; color: #e3c27a; }
 html[data-ui='light'] body .p2p-guide .p2p-steps b { color: #8a6a1c !important; }
+
+/* Maslow's pyramid (Needs): the SVG pyramid and its key. */
+.mz-pyr { display: grid; gap: 10px; margin: 16px 0 8px; }
+.mz-pyr .mz-kick { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #c9a25e; text-align: center; }
+.mz-svg { width: 100%; max-width: 360px; height: auto; margin: 0 auto; display: block; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35)); }
+.mz-svg .mz-t { fill: #ffffff; font: 700 13px -apple-system, Inter, system-ui, sans-serif; paint-order: stroke; stroke: rgba(0, 0, 0, 0.35); stroke-width: 2px; }
+.mz-key { display: grid; gap: 8px; }
+.mz-krow { display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07); border-left: 4px solid var(--c); }
+.mz-khead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.mz-khead b { font-size: 14px; }
+.mz-kico { font-size: 16px; }
+.mz-kpct { font-weight: 800; font-size: 14px; color: var(--c); font-variant-numeric: tabular-nums; }
+.mz-khow { font-size: 12.5px; line-height: 1.4; color: #b8b0a2; }
+.mz-kbar { height: 5px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.mz-kbar > i { display: block; height: 100%; border-radius: inherit; background: var(--c); }
+html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-krow { background: rgba(40, 32, 20, 0.04); border-color: rgba(40, 32, 20, 0.08); border-left-color: var(--c); }
+html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-khow { color: #6b655a !important; }
+html[data-ui='light'] body :is(#sheet, #nav.cc) .mz-kpct { color: var(--c) !important; }
+
+/* Persona: a hero card with the reading meter, then trait cards with a coloured icon. */
+.persona .ps-hero { display: grid; gap: 4px; padding: 14px; border-radius: 16px; margin: 4px 0 10px; background: linear-gradient(135deg, rgba(155, 123, 232, 0.22), rgba(46, 230, 138, 0.1)); border: 1px solid rgba(155, 123, 232, 0.35); }
+.persona .ps-kick { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #c9b6ff; }
+.persona .ps-hero .ps-title { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; }
+.persona .ps-hero .ps-line { margin: 0; font-size: 13px; line-height: 1.4; opacity: 0.85; }
+.persona .ps-meter { height: 7px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; margin-top: 6px; }
+.persona .ps-meter > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9b7be8, #2ee68a); }
+.persona .ps-meter-note { font-size: 11.5px; opacity: 0.75; }
+.persona .ps-list { display: grid; gap: 8px; }
+.persona .ps-trait { border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
+.persona .ps-trait.unread { border-style: dashed; }
+.persona .ps-trait > summary { display: grid !important; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 11px 12px; cursor: pointer; list-style: none; }
+.persona .ps-trait > summary::-webkit-details-marker { display: none; }
+.persona .ps-trait .ps-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; background: color-mix(in srgb, var(--hue) 24%, transparent); border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); }
+.persona .ps-trait .ps-text { display: grid; gap: 2px; min-width: 0; }
+.persona .ps-trait .ps-label { font-size: 10.5px !important; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hue) !important; }
+.persona .ps-trait .ps-val { font-size: 15px; line-height: 1.25; }
+.persona .ps-trait.unread .ps-val { opacity: 0.6; font-weight: 600; }
+.persona .ps-trait .ps-means { font-size: 12px; line-height: 1.35; color: #9a958b; }
+.persona .ps-trait .ps-todo { font-size: 12px; line-height: 1.35; color: #e3c27a; }
+.persona .ps-trait .ps-conf { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; text-transform: capitalize; background: rgba(255, 255, 255, 0.08); }
+.persona .ps-trait .ps-conf.high { background: rgba(46, 230, 138, 0.18); color: #3ee8a0; }
+.persona .ps-trait .ps-conf.medium { background: rgba(227, 194, 122, 0.18); color: #e3c27a; }
+.persona .ps-trait .ps-why { margin: 0 12px 12px 62px; padding: 0; font-size: 12.5px; line-height: 1.45; }
+html[data-ui='light'] body #sheet .persona .ps-trait { background: rgba(40, 32, 20, 0.035); border-color: rgba(40, 32, 20, 0.12); }
+html[data-ui='light'] body #sheet .persona .ps-trait .ps-label { color: var(--hue) !important; }
+html[data-ui='light'] body #sheet .persona .ps-trait .ps-todo { color: #8a6a1c !important; }
+html[data-ui='light'] body #sheet .persona .ps-kick { color: #6b4fb0 !important; }
+
+/* Today: three tiles, then quest cards. */
+.td-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.td-tile { display: grid; gap: 1px; align-content: start; padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); min-width: 0; }
+.td-tile .td-ico { font-size: 20px; line-height: 1.1; }
+.td-tile .td-label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; }
+.td-tile .td-val { font-size: 17px; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.td-tile .td-sub { font-size: 11px; line-height: 1.3; opacity: 0.7; }
+.td-tile.lit { border-color: rgba(255, 140, 50, 0.55); background: rgba(255, 140, 50, 0.1); }
+.td-bar { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; margin-top: 6px; }
+.td-bar > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e3c27a, #2ee68a); }
+.td-bar.wide { margin: 2px 0 6px; }
+.td-qhead { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; }
+.td-qhead b { font-size: 15px; }
+.td-count { font-size: 13px; font-weight: 700; color: #3ee8a0; }
+.td-quests { display: grid; gap: 8px; }
+.td-quest { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.td-quest.done { background: rgba(46, 230, 138, 0.08); border-color: rgba(46, 230, 138, 0.35); }
+.td-qico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; background: rgba(255, 255, 255, 0.07); }
+.td-qtext { display: grid; gap: 1px; min-width: 0; }
+.td-qtext b { font-size: 14.5px; }
+.td-qtext small { font-size: 12px; opacity: 0.7; }
+.td-tick { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #2ee68a; color: #04170d; font-weight: 900; }
+.td-quest .td-go { min-width: 64px; padding: 8px 14px !important; }
+html[data-ui='light'] body #sheet :is(.td-tile, .td-quest) { background: rgba(40, 32, 20, 0.04); border-color: rgba(40, 32, 20, 0.1); }
+html[data-ui='light'] body #sheet .td-count { color: #0b7a48 !important; }
+/* Persona trait cards: the text column stacks label, value, meaning (older phone rules placed them in a grid). */
+html body .persona .ps-trait .ps-text > * { grid-column: auto !important; grid-row: auto !important; white-space: normal !important; text-align: left; }
+html body .persona .ps-trait > summary > .ps-ico { grid-row: auto !important; grid-column: 1 !important; }
+html body .persona .ps-trait > summary > .ps-text { grid-column: 2 !important; grid-row: auto !important; }
+html body .persona .ps-trait > summary > .ps-conf { grid-column: 3 !important; grid-row: auto !important; align-self: start; }
+html body .persona .ps-trait .ps-label { opacity: 1 !important; }
+/* Today: the Go key keeps its own size beside the quest. */
+html body #sheet .td-quest .td-go, html body .td-quest .td-go { width: auto !important; min-width: 64px; flex: none; justify-self: end; }
+html body #sheet .sheet-card .td-quest > button.td-go, html body .sheet-card .td-quest > button.primary.td-go { width: auto !important; max-width: 84px !important; min-width: 64px !important; padding: 8px 16px !important; min-height: 38px !important; height: 38px !important; }
+html body .td-quest { grid-template-columns: 40px minmax(0, 1fr) 76px !important; }

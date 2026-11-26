@@ -8,7 +8,7 @@ import { RANKS, RANK_START, rankFor, progressToNext } from './logic.ts'
 import { getSave } from './state.ts'
 import { itemPic } from './itemPics.ts'
 
-const GLYPH = ['🦐', '🦀', '🐟', '🐬', '🦈', '🐋']
+export const GLYPH = ['🦐', '🦀', '🐟', '🐬', '🦈', '🐋']
 const METAL = ['copper', 'bronze', 'silver', 'gold', 'platinum', 'obsidian']
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n }
 const usd0 = (n: number) => '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 })

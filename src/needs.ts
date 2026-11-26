@@ -190,19 +190,39 @@ export function maslowPyramid(): HTMLElement {
     { name: 'Safety', what: 'Security', fill: pct((s.houseClaimed ? 55 : 0) + Math.min(45, Math.max(0, s.ledger) / 4)), how: 'A home of your own and something put aside.', hue: '#e3b43a' },
     { name: 'Physiological', what: 'Food, water, rest', fill: pct((v.hunger + v.energy + v.hygiene) / 3), how: 'Eat, drink water, sleep at home, wash.', hue: '#e0793a' },
   ]
-  const box = el('div', '', 'mz-pyr')
-  box.append(el('p', "Maslow's hierarchy of needs, in the city", 'mz-kick'))
+  // A real pyramid (SVG): six bands narrowing to a point, each filled from the left as far as you have got, with
+  // its icon and percentage; the key below names each level and says what fills it.
+  const ICONS = ['✨', '🚀', '🏆', '🤝', '🛡️', '🍞']
+  const W = 320, TOP = 6, BASE = 266, GAP = 3, bandH = (BASE - TOP) / levels.length
+  const xl = (y: number) => W / 2 - ((y - TOP) / (BASE - TOP)) * (W - 16) / 2
+  const NS = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${BASE + 4}`); svg.setAttribute('class', 'mz-svg'); svg.setAttribute('role', 'img')
+  svg.setAttribute('aria-label', `Maslow's hierarchy: ${levels.map((l) => `${l.name} ${l.fill}%`).join(', ')}`)
+  const mk = (tag: string, attrs: Record<string, string | number>) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v)); return n }
+  const defs = mk('defs', {}); svg.append(defs)
   levels.forEach((l, i) => {
-    const row = el('div', '', 'mz-row')
-    row.style.setProperty('--w', `${46 + i * 10.8}%`)
-    row.style.setProperty('--c', l.hue)
-    const band = el('div', '', 'mz-band')
-    const fill = el('i'); fill.style.width = `${l.fill}%`
-    band.append(fill, el('b', l.name), el('small', `${l.what} · ${l.fill}%`))
-    row.append(band, el('p', l.how, 'mz-how'))
-    box.append(row)
+    const y0 = TOP + i * bandH, y1 = y0 + bandH - GAP
+    const pts = `${xl(y0)},${y0} ${W - xl(y0)},${y0} ${W - xl(y1)},${y1} ${xl(y1)},${y1}`
+    const clip = mk('clipPath', { id: `mzc${i}` }); clip.append(mk('polygon', { points: pts })); defs.append(clip)
+    svg.append(mk('polygon', { points: pts, fill: l.hue, 'fill-opacity': 0.22, stroke: l.hue, 'stroke-opacity': 0.55, 'stroke-width': 1 }))
+    const x0 = xl(y1), wBase = W - 2 * x0
+    const fill = mk('rect', { x: x0, y: y0, width: Math.max(0, wBase * l.fill / 100), height: bandH, fill: l.hue, 'clip-path': `url(#mzc${i})` })
+    svg.append(fill)
+    const label = mk('text', { x: W / 2, y: i === 0 ? y1 - 9 : (y0 + y1) / 2 + 5, 'text-anchor': 'middle', class: 'mz-t' })
+    label.textContent = i === 0 ? ICONS[0]! : `${ICONS[i]}  ${l.fill}%`
+    svg.append(label)
   })
-  box.append(el('p', 'The base comes first: when the lower levels are full, the higher ones can grow.', 'cc-muted'))
+  const key = el('div', '', 'mz-key')
+  levels.forEach((l, i) => {
+    const row = el('div', '', 'mz-krow'); row.style.setProperty('--c', l.hue)
+    const head = el('div', '', 'mz-khead')
+    head.append(el('span', ICONS[i]!, 'mz-kico'), el('b', l.name), el('span', `${l.fill}%`, 'mz-kpct'))
+    const bar = el('div', '', 'mz-kbar'); const f = el('i'); f.style.width = `${l.fill}%`; bar.append(f)
+    row.append(head, el('small', `${l.what}. ${l.how}`, 'mz-khow'), bar)
+    key.append(row)
+  })
+  const box = el('div', '', 'mz-pyr')
+  box.append(el('p', "Maslow's hierarchy of needs, in the city", 'mz-kick'), svg, key, el('p', 'The base comes first: when the lower levels are full, the higher ones can grow.', 'cc-muted'))
   return box
 }
 

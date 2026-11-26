@@ -179,11 +179,16 @@ const MEANS: Record<string, string> = {
   money: 'What you do with cash: save it, spend it or put it to work.',
   values: 'What you choose to make time for when nobody asks you to.',
 }
+const HUE: Record<string, string> = { hands: '#e8a33a', style: '#3e9be8', risk: '#e8603a', rhythm: '#9b7be8', habit: '#2bb5a8', learning: '#4f8be8', social: '#3ec46b', money: '#d9b26a', values: '#7bc96b' }
 function traitRow(t: Trait): HTMLElement {
-  const d = el('details', '', `ps-trait${t.value === 'Not read yet' ? ' unread' : ''}`)
+  const unread = t.value === 'Not read yet'
+  const d = el('details', '', `ps-trait${unread ? ' unread' : ''}`)
+  d.style.setProperty('--hue', HUE[t.id] ?? '#9aa3ad')
   const s = el('summary')
-  const label = el('span', '', 'ps-label'); label.append(el('span', t.label), el('small', MEANS[t.id] ?? '', 'ps-means'))
-  s.append(el('span', t.icon, 'ps-ico'), label, el('strong', t.value, 'ps-val'), el('span', t.value === 'Not read yet' ? 'needs play' : `${t.confidence} confidence`, `ps-conf ${t.confidence}`))
+  const text = el('span', '', 'ps-text')
+  text.append(el('small', t.label, 'ps-label'), el('strong', unread ? 'Not read yet' : t.value, 'ps-val'), el('small', MEANS[t.id] ?? '', 'ps-means'))
+  if (unread && t.unlock) text.append(el('small', `To read it: ${t.unlock}`, 'ps-todo'))
+  s.append(el('span', t.icon, 'ps-ico'), text, el('span', unread ? 'needs play' : t.confidence, `ps-conf ${unread ? 'none' : t.confidence}`))
   d.append(s)
   const ul = el('ul', '', 'ps-why')
   for (const w of t.why) ul.append(el('li', w))
@@ -210,9 +215,13 @@ export function personaNodes(h: H, say: (m: string) => void): HTMLElement {
   const box = el('section', '', 'glass persona')
   const p = myPersona()
   box.append(el('h3', 'Your Web3 persona'))
-  box.append(el('p', p.title, 'ps-title'), h.para(p.line, 'muted'))
   const passed = Object.values(getSave().skills).filter((s) => s?.passed).length
-  box.append(h.para(`Read from ${p.evidence > 0 ? `${Math.max(0, p.evidence - passed * 3)} activities and ${passed} courses` : 'your play so far'}. It gets sharper the more you play; tap any line to see why.`, 'muted ps-note'))
+  const read = p.traits.filter((t) => t.value !== 'Not read yet').length
+  // The reading at a glance: who you play like, and how much of you the game has read so far.
+  const hero = el('div', '', 'ps-hero')
+  const meter = el('div', '', 'ps-meter'); const mf = el('i'); mf.style.width = `${p.traits.length ? Math.round(read / p.traits.length * 100) : 0}%`; meter.append(mf)
+  hero.append(el('small', 'You play like', 'ps-kick'), el('p', p.title, 'ps-title'), el('p', p.line, 'ps-line'), meter, el('small', `${read} of ${p.traits.length} traits read · from ${p.evidence > 0 ? `${Math.max(0, p.evidence - passed * 3)} activities and ${passed} courses` : 'your play so far'}`, 'ps-meter-note'))
+  box.append(hero, el('p', 'Your traits · tap one to see why', 'kicker'))
   const traits = el('div', '', 'ps-list')
   for (const t of p.traits) traits.append(traitRow(t))
   box.append(traits)
