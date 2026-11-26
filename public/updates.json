@@ -620,6 +620,12 @@
       "title": "P2P: 34 currencies and merchant chat",
       "body": "Pick from 34 local currencies, see which merchants are verified (with their limits and release times), and chat with them inside the order. Every coin row on Spot has a small live chart.",
       "go": "panel:trade"
+    },
+    {
+      "id": "u1126-title-card-narrow",
+      "title": "A slimmer title card",
+      "body": "On phones the title card is narrower and shorter, with one tidy column of keys and Continue on top, so more of the city shows round it.",
+      "push": false
     }
   ]
 }

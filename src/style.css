@@ -4851,18 +4851,21 @@ html body .drone-bar .selfie-key.drone-rec { color: #ff3b3b !important; font-siz
 /* No confetti over a place of prayer, even a burst that began outside. */
 body.in-prayer-space .confetti { display: none !important; }
 html body #nav.cc #cc-learn { display: none !important; }
-/* Title card on phones: compact. A smaller logo, the two lines tighter, Sign up full width with Sign in and
-   Agents side by side under it, so the card is about half as tall and the city shows round it. */
+/* Title card on phones: narrow and compact, so the city shows round it. A small logo, the two lines tight, and one
+   short column of keys with the main one (Sign up, or Continue when signed in) on top; "Signed in as" sits under
+   the keys, never behind them. */
 @media (max-width: 560px) {
-  html body #menu #menu-panel { padding: 14px 16px 12px !important; width: min(320px, calc(100vw - 32px)) !important; max-height: none !important; }
-  html body #menu #menu-home .panel-logo { width: auto !important; height: 44px !important; max-width: 70% !important; margin: 2px auto 2px !important; display: block; }
-  html body #menu #menu-home .title-headline { font-size: 13.5px !important; line-height: 1.3 !important; margin: 4px 0 2px !important; }
-  html body #menu #menu-home .title-desc { font-size: 12.5px !important; line-height: 1.3 !important; margin: 0 0 10px !important; }
-  html body #menu #menu-home .menu-actions { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; margin: 0 !important; }
-  html body #menu #menu-home .menu-actions > #menu-create, html body #menu #menu-home .menu-actions > #play { grid-column: 1 / -1; }
-  html body #menu #menu-home .menu-actions .glass-btn { min-height: 42px !important; height: auto !important; padding: 8px 10px !important; font-size: 15px !important; margin: 0 !important; width: 100% !important; }
+  html body #menu #menu-panel { padding: 34px 16px 12px !important; width: min(262px, calc(100vw - 80px)) !important; max-height: none !important; }
+  html body #menu #menu-home .panel-logo { width: auto !important; height: 40px !important; max-width: 70% !important; margin: 0 auto 2px !important; display: block; }
+  html body #menu #menu-home .title-headline { font-size: 13px !important; line-height: 1.3 !important; margin: 2px 0 2px !important; }
+  html body #menu #menu-home .title-desc { font-size: 12px !important; line-height: 1.3 !important; margin: 0 0 8px !important; }
+  html body #menu #menu-home .menu-actions { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 7px !important; width: 100% !important; max-width: 196px !important; margin: 0 auto !important; }
+  html body #menu #menu-home .menu-actions > #menu-create, html body #menu #menu-home .menu-actions > #play { order: -1; }
+  html body #menu #menu-home .menu-actions .glass-btn { min-height: 40px !important; height: 40px !important; padding: 0 12px !important; font-size: 14.5px !important; margin: 0 !important; width: 100% !important; }
+  html body #menu #menu-home .menu-actions .glass-btn[hidden] { display: none !important; }
+  html body #menu #menu-home #menu-note { margin: 8px auto 0 !important; position: static !important; font-size: 11.5px !important; }
   html body #menu #menu-home #menu-note:empty { display: none !important; }
-  html body #menu #menu-home .menu-guide { margin: 8px 0 0 !important; font-size: 12px !important; }
+  html body #menu #menu-home .menu-guide { margin: 8px 0 0 !important; font-size: 11.5px !important; line-height: 1.5; }
 }
 .drone-hint { position: fixed; z-index: 7000; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 72px); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(10, 12, 15, 0.6); color: #f6f1e6; font: 600 12.5px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
 .drone-hint[hidden] { display: none; }
@@ -4943,3 +4946,4 @@ html[data-ui='light'] body .p2p-log p.them { background: rgba(40, 32, 20, 0.08);
 html[data-ui='light'] body .p2p-log p.me { color: #ffffff !important; }
 html[data-ui='light'] body .p2p-form input { background: #fff; border-color: rgba(40, 32, 20, 0.2); color: #1d1b17; }
 .sheet-card .xch-offer .xch-names > b { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.3; }
+html[data-ui='light'] body #menu #menu-home .title-desc { color: #9a6f1e !important; }
