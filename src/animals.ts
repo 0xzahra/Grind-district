@@ -136,20 +136,33 @@ function loft(st: St[], m: THREE.Material, o: { seg?: number; steps?: number; vS
   const mesh = new THREE.Mesh(geo, m); mesh.castShadow = true; mesh.receiveShadow = true
   return mesh
 }
-const ball = (m: THREE.Material, r: number, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m); b.position.set(x, y, z); b.scale.set(sx, sy, sz); b.castShadow = true; return b }
+/** The same coat without vertex colours, for plain shapes (spheres, cylinders) that carry no shading colours of
+ *  their own: with vertex colours on and none in the shape, they render black. */
+const plain = (m: THREE.Material): THREE.Material => {
+  const sm = m as THREE.MeshStandardMaterial
+  if (!sm.vertexColors) return m
+  return (sm.userData.plain as THREE.Material | undefined) ?? (sm.userData.plain = Object.assign(sm.clone(), { vertexColors: false }))
+}
+const ball = (m: THREE.Material, r: number, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), plain(m)); b.position.set(x, y, z); b.scale.set(sx, sy, sz); b.castShadow = true; return b }
 const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0c0806, roughness: 0.15, metalness: 0.1 })
 const eyes = (head: THREE.Object3D, x: number, y: number, z: number, r: number) => { for (const s of [-1, 1]) head.add(ball(eyeMat, r, s * x, y, z)) }
 
 /** A jointed leg hanging from (x, y, z): thigh to the knee, cannon to the hoof or paw. The knee bends as it walks. */
-function leg(body: THREE.Group, coat: THREE.Material, foot: THREE.Material, x: number, y: number, z: number, o: { knee: number; r: [number, number, number]; footH: number; footR: number; front: boolean; vScale?: number; paw?: boolean }): THREE.Object3D {
+function leg(body: THREE.Group, coat: THREE.Material, foot: THREE.Material, x: number, y: number, z: number, o: { knee: number; r: [number, number, number]; footH: number; footR: number; front: boolean; vScale?: number; paw?: boolean; nails?: THREE.Material }): THREE.Object3D {
   const hip = new THREE.Group(); hip.position.set(x, y, z); body.add(hip)
   const kneeDrop = y - o.knee
-  hip.add(loft([[0, 0.05, 0, o.r[0], o.r[0] * 1.15], [0, -kneeDrop * 0.5, 0.0, (o.r[0] + o.r[1]) * 0.55, (o.r[0] + o.r[1]) * 0.6], [0, -kneeDrop, 0, o.r[1], o.r[1]]], coat, { seg: 10, steps: 10, vScale: o.vScale ?? 1, shade: 0.2 }))
+  // The upper and lower leg overlap a few centimetres at the knee, with the same shading, so no ring or gap shows
+  // there however far the knee bends.
+  hip.add(loft([[0, 0.05, 0, o.r[0], o.r[0] * 1.15], [0, -kneeDrop * 0.5, 0.0, (o.r[0] + o.r[1]) * 0.55, (o.r[0] + o.r[1]) * 0.6], [0, -kneeDrop, 0, o.r[1] * 1.02, o.r[1] * 1.02], [0, -kneeDrop - 0.05, 0, o.r[1] * 0.82, o.r[1] * 0.82]], coat, { seg: 12, steps: 12, vScale: o.vScale ?? 1, shade: 0.12 }))
   const knee = new THREE.Group(); knee.position.set(0, -kneeDrop, 0); hip.add(knee)
   const low = o.knee - o.footH
-  knee.add(loft([[0, 0.02, 0, o.r[1] * 1.05, o.r[1] * 1.05], [0, -low * 0.6, 0, o.r[2] * 1.05, o.r[2]], [0, -low, 0, o.r[2], o.r[2]]], coat, { seg: 10, steps: 8, vScale: o.vScale ?? 1, shade: 0.15 }))
+  knee.add(loft([[0, 0.06, 0, o.r[1] * 0.86, o.r[1] * 0.86], [0, 0, 0, o.r[1], o.r[1]], [0, -low * 0.6, 0, o.r[2] * 1.05, o.r[2]], [0, -low, 0, o.r[2], o.r[2]]], coat, { seg: 12, steps: 10, vScale: o.vScale ?? 1, shade: 0.12 }))
   if (o.paw) knee.add(ball(foot, o.footR, 0, -low - o.footH * 0.5, 0.04, 1, 0.6, 1.25))
-  else { const h = new THREE.Mesh(new THREE.CylinderGeometry(o.footR * 0.85, o.footR, o.footH, 12), foot); h.position.y = -low - o.footH / 2; h.castShadow = true; knee.add(h) }
+  else {
+    // a foot that widens a little to the ground, in the skin's own colour unless it is a hoof
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(o.footR * 0.92, o.footR * 1.06, o.footH + 0.02, 16), plain(foot)); h.position.y = -low - o.footH / 2 + 0.01; h.castShadow = true; knee.add(h)
+    if (o.nails) for (const a of [-0.55, 0, 0.55]) knee.add(ball(o.nails, o.footR * 0.22, Math.sin(a) * o.footR * 0.98, -low - o.footH * 0.62, Math.cos(a) * o.footR * 0.98, 1.1, 0.75, 0.55))
+  }
   hip.userData.knee = knee; hip.userData.front = o.front
   return hip
 }
@@ -204,19 +217,21 @@ export function elephant(): Animal {
   g.add(loft([[0, 2.2, -1.42, 0.12, 0.14], [0, 2.38, -1.2, 0.82, 0.92], [0, 2.46, -0.4, 1.02, 1.1], [0, 2.5, 0.45, 0.96, 1.08], [0, 2.56, 1.0, 0.74, 0.92]], hide, { vScale: 2.2, shade: 0.2 }))
   // Head with the domed brow, the trunk and the tusks: on a pivot so the head can sway.
   const head = new THREE.Group(); head.position.set(0, 2.6, 1.05)
-  head.add(loft([[0, 0.0, -0.2, 0.6, 0.75], [0, 0.25, 0.3, 0.62, 0.7], [0, 0.1, 0.72, 0.5, 0.58], [0, -0.3, 0.92, 0.32, 0.36]], hide, { vScale: 2.2, shade: 0.15 }))
-  const trunk = new THREE.Group(); trunk.position.set(0, -0.35, 0.95)
+  // the domed brow curves smoothly down into the trunk's base (a sharp fold here read as a dark band)
+  head.add(loft([[0, 0.05, -0.25, 0.55, 0.7], [0, 0.22, 0.2, 0.6, 0.68], [0, 0.12, 0.55, 0.52, 0.58], [0, -0.12, 0.82, 0.4, 0.44], [0, -0.36, 0.96, 0.27, 0.29]], hide, { vScale: 2.2, shade: 0.1, steps: 56, seg: 20 }))
+  const trunk = new THREE.Group(); trunk.position.set(0, -0.38, 0.98)
   trunk.add(loft([[0, 0.05, -0.05, 0.24, 0.22], [0, -0.45, 0.16, 0.17, 0.16], [0, -1.0, 0.2, 0.12, 0.11], [0, -1.45, 0.3, 0.085, 0.08], [0, -1.62, 0.45, 0.07, 0.065]], hide, { seg: 12, steps: 24, vScale: 2.2, shade: 0.1 }))
   head.add(trunk)
   for (const s of [-1, 1]) {
     const tusk = loft([[s * 0.25, -0.35, 0.8, 0.07, 0.07], [s * 0.3, -0.75, 1.0, 0.055, 0.055], [s * 0.28, -0.9, 1.25, 0.03, 0.03]], ivory, { seg: 8, steps: 10 }); head.add(tusk)
-    // Big ears: thin, wide, hanging back against the shoulders.
-    const ear = loft([[s * 0.55, 0.45, 0.1, 0.06, 0.55], [s * 0.72, 0.0, -0.1, 0.06, 0.62], [s * 0.7, -0.55, -0.15, 0.05, 0.35]], hide, { seg: 10, steps: 10, vScale: 2.2 })
-    ear.userData.ear = s; head.add(ear)
+    // Big ears: thin, wide fans on the sides of the head, swept back a little against the shoulders.
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.62, 20, 14), plain(hide))
+    ear.scale.set(0.09, 0.95, 0.78); ear.position.set(s * 0.66, 0.05, -0.12); ear.rotation.y = s * 0.42; ear.rotation.z = s * 0.08
+    ear.castShadow = true; ear.userData.ear = s; head.add(ear)
   }
   eyes(head, 0.5, 0.15, 0.62, 0.035)
   g.add(head)
-  const legs = [[0.5, 0.75, true], [-0.5, 0.75, true], [0.48, -0.95, false], [-0.48, -0.95, false]].map(([x, z, f]) => leg(g, hide, nail, x as number, 1.95, z as number, { knee: 0.95, r: [0.34, 0.27, 0.25], footH: 0.12, footR: 0.28, front: f as boolean, vScale: 2.2 }))
+  const legs = [[0.5, 0.75, true], [-0.5, 0.75, true], [0.48, -0.95, false], [-0.48, -0.95, false]].map(([x, z, f]) => leg(g, hide, hide, x as number, 1.95, z as number, { knee: 0.95, r: [0.36, 0.29, 0.27], footH: 0.14, footR: 0.29, front: f as boolean, vScale: 2.2, nails: nail }))
   const tail = tailOf(g, hide, mat({ color: 0x2a2826 }), 0, 2.3, -1.42, 0.85, 0.04, 0.06)
   return { g, legs, neck: head, tail, trunk, speed: 0.7, stride: 1.3 }
 }
@@ -290,6 +305,11 @@ const hippoHide = () => canvasTex('hippo', 128, (g) => {
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128)
   for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(${rnd() > 0.5 ? '90,74,82' : '190,150,150'},${0.05 + rnd() * 0.08})`; g.beginPath(); g.arc(rnd() * 128, rnd() * 128, 2 + rnd() * 6, 0, Math.PI * 2); g.fill() }
 }, [1, 1])
+/** Hippo legs: the same grey-purple skin without the pink underside (a leg has no belly to show). */
+const hippoLegHide = () => canvasTex('hippo-leg', 128, (g) => {
+  g.fillStyle = '#6f5f66'; g.fillRect(0, 0, 128, 128)
+  for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(${rnd() > 0.5 ? '90,74,82' : '150,126,130'},${0.05 + rnd() * 0.08})`; g.beginPath(); g.arc(rnd() * 128, rnd() * 128, 2 + rnd() * 6, 0, Math.PI * 2); g.fill() }
+}, [1, 1])
 /** Crocodile: olive scutes in rows along the back, paler scales on the flanks. */
 const crocScales = () => canvasTex('croc', 128, (g) => {
   g.fillStyle = '#4a5530'; g.fillRect(0, 0, 128, 128)
@@ -355,8 +375,8 @@ export function hippo(): Animal {
   const g = new THREE.Group()
   const hide = mat({ map: hippoHide(), vertexColors: true, roughness: 0.5 }), dark = mat({ color: 0x2a2226, roughness: 0.5 }), pink = mat({ color: 0xd59a98, roughness: 0.6 }), tusk = mat({ color: 0xeee6d6, roughness: 0.45 })
   // The body tapers smoothly into the neck and to a rounded rump, so no flat ends show.
-  g.add(loft([[0, 0.9, -1.66, 0.04, 0.04], [0, 0.95, -1.56, 0.46, 0.42], [0, 0.99, -1.3, 0.8, 0.7], [0, 1.02, -0.5, 0.96, 0.82], [0, 1.03, 0.35, 0.94, 0.82], [0, 1.06, 0.9, 0.76, 0.7], [0, 1.1, 1.22, 0.54, 0.54]], hide, { vScale: 1.6, shade: 0.28, steps: 48 }))
-  const head = new THREE.Group(); head.position.set(0, 1.1, 1.22)
+  g.add(loft([[0, 1.0, -1.66, 0.04, 0.04], [0, 1.04, -1.56, 0.44, 0.4], [0, 1.08, -1.3, 0.76, 0.62], [0, 1.1, -0.5, 0.9, 0.68], [0, 1.1, 0.35, 0.88, 0.68], [0, 1.12, 0.9, 0.72, 0.6], [0, 1.15, 1.22, 0.52, 0.48]], hide, { vScale: 1.6, shade: 0.28, steps: 48 }))
+  const head = new THREE.Group(); head.position.set(0, 1.14, 1.22)
   head.add(loft([[0, 0.02, -0.14, 0.5, 0.5], [0, 0.1, 0.18, 0.46, 0.43], [0, 0.06, 0.5, 0.39, 0.34], [0, -0.02, 0.8, 0.47, 0.33], [0, -0.06, 1.0, 0.5, 0.31], [0, -0.09, 1.12, 0.42, 0.22], [0, -0.11, 1.18, 0.12, 0.07]], hide, { vScale: 1.6, shade: 0.22, steps: 40 }))
   for (const s of [-1, 1]) {
     head.add(ball(hide, 0.1, s * 0.26, 0.34, 0.22, 1, 0.75, 1.05)) // the raised eye bumps
@@ -367,8 +387,9 @@ export function hippo(): Animal {
   }
   eyes(head, 0.27, 0.37, 0.28, 0.032)
   g.add(head)
-  const legs = [[0.5, 0.75, true], [-0.5, 0.75, true], [0.5, -1.02, false], [-0.5, -1.02, false]].map(([x, z, f]) => leg(g, hide, dark, x as number, 0.72, z as number, { knee: 0.36, r: [0.3, 0.25, 0.23], footH: 0.08, footR: 0.22, front: f as boolean, vScale: 1.6 }))
-  const tail = tailOf(g, hide, dark, 0, 0.97, -1.6, 0.32, 0.04, 0.05)
+  const legHide = mat({ map: hippoLegHide(), vertexColors: true, roughness: 0.5 })
+  const legs = [[0.52, 0.72, true], [-0.52, 0.72, true], [0.5, -1.0, false], [-0.5, -1.0, false]].map(([x, z, f]) => leg(g, legHide, legHide, x as number, 0.82, z as number, { knee: 0.4, r: [0.3, 0.24, 0.22], footH: 0.09, footR: 0.23, front: f as boolean, vScale: 1.6, nails: dark }))
+  const tail = tailOf(g, hide, dark, 0, 1.06, -1.6, 0.32, 0.04, 0.05)
   return { g, legs, neck: head, tail, speed: 0.55, stride: 1.0 }
 }
 

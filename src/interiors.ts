@@ -570,13 +570,11 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       const stripe = std(0xc9a25e, 0.9)
       box(w - 1.2, 0.02, d - 1.2, carpet, 0.3, 0, 0, false)
       for (let x = -5; x <= 5; x += 1.6) box(0.05, 0.025, d - 1.4, stripe, x, 0, 0, false)
-      // Mihrab niche and minbar.
+      // Mihrab niche (no minbar steps: they crowded the front row).
       const niche = std(0xe6dcc6, 0.6)
       box(0.4, 3.0, 1.8, niche, w / 2 - 0.2, 0)
       box(0.05, 2.4, 1.2, std(0x1f3f5a, 0.5), w / 2 - 0.42, 0, 0.1, false)
       add(new THREE.SphereGeometry(0.6, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), niche, w / 2 - 0.45, 2.5, 0).scale.set(0.4, 1, 1)
-      for (let i = 0; i < 5; i++) box(0.5, 0.3 + i * 0.3, 0.9, std(0x5a3f2c, 0.6), w / 2 - 0.9 - i * 0.5, 2.0, 0, i === 0)
-      obstacles.push({ kind: 'box', x: o.x + w / 2 - 1.9, z: o.z + 2.0, hx: 1.3, hz: 0.5 })
       // Soft natural light: tall arched windows on the side walls, warm skylight.
       const glass = new THREE.MeshStandardMaterial({ color: 0xf5ead2, emissive: 0xffe9c4, emissiveIntensity: 0.55, roughness: 0.2 })
       for (let x = -5; x <= 5; x += 2.5) for (const side of [-1, 1]) box(1.0, 2.0, 0.04, glass, x, side * (d / 2 - 0.02), 0.9, false)

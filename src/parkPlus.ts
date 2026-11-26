@@ -134,7 +134,7 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
   // Hippos wallow in the water hole with only their backs, ears and eyes showing; a crocodile basks on the bank.
   const soakers: THREE.Group[] = []
   // two wallowing well apart (backs, ears and eyes above the water), one walking the bank
-  for (const [x, z, h] of [[-236, 116, 0.5], [-228.2, 119.6, -2.5]] as const) { const hp = hippo(); hp.g.position.set(x, -0.66, z); hp.g.rotation.y = h; hp.g.traverse((c) => { c.castShadow = true }); add(hp.g); soakers.push(hp.g) }
+  for (const [x, z, h] of [[-236, 116, 0.5], [-228.2, 119.6, -2.5]] as const) { const hp = hippo(); hp.g.position.set(x, -0.8, z); hp.g.rotation.y = h; hp.g.traverse((c) => { c.castShadow = true }); add(hp.g); soakers.push(hp.g) }
   place(hippo(), { x0: -250, z0: 106, x1: -240, z1: 125 }, 2)
   { const cr = crocodile(); cr.position.set(-223.6, 0.02, 112.2); cr.rotation.y = -0.9; add(cr) }
   const birds: THREE.Group[] = []
@@ -164,7 +164,7 @@ export function buildParkPlus(A: Arch, X: ParkCtx): void {
       if (b.trunk) b.trunk.rotation.x = Math.sin(t * 1.1 + b.heading) * 0.25
     }
     birds.forEach((f, k) => { f.rotation.y += Math.sin(t * 0.3 + k) * 0.002; f.position.y = Math.sin(t * 1.4 + k) * 0.01 })
-    soakers.forEach((h, k) => { h.position.y = -0.66 + Math.sin(t * 0.5 + k * 2) * 0.04; h.rotation.y += Math.sin(t * 0.13 + k) * 0.0008 })
+    soakers.forEach((h, k) => { h.position.y = -0.8 + Math.sin(t * 0.5 + k * 2) * 0.04; h.rotation.y += Math.sin(t * 0.13 + k) * 0.0008 })
   })
   // Safari tram: a little open tram on a loop between and round the enclosures.
   {
