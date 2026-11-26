@@ -4988,3 +4988,22 @@ html body.touch.glass-mode #stick { visibility: visible !important; opacity: 0.9
 .cam-acts { display: flex; gap: 6px; }
 .cam-acts button { white-space: nowrap; padding: 8px 12px !important; min-height: 36px; }
 html[data-ui='light'] body .cam-row { border-top-color: rgba(40, 32, 20, 0.08); }
+/* Share my P&L keys and the share window. */
+.sheet-card .xch-share { display: block; width: 100%; margin: 8px 0 4px; padding: 10px 14px !important; border-radius: 12px !important; background: rgba(23, 247, 144, 0.1) !important; border: 1px solid rgba(23, 247, 144, 0.45) !important; color: #3ee8a0 !important; font-weight: 700; text-align: center; }
+.sheet-card .xch-share[hidden] { display: none; }
+html[data-ui='light'] body .sheet-card .xch-share { color: #0b7a48 !important; background: rgba(11, 122, 72, 0.08) !important; }
+.pnl-share { max-width: min(420px, calc(100vw - 24px)); }
+.pnl-share .pnl-canvas { width: 100%; height: auto; border-radius: 14px; display: block; margin: 6px 0 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+.pnl-share .pnl-opt { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin: 0 0 10px; cursor: pointer; }
+.pnl-share .gm-keys { flex-wrap: wrap; }
+/* P2P: pictures in the chat, the attach key, and the merchant guide. */
+.p2p-log p.me .p2p-img, .p2p-log p.them .p2p-img { display: block; max-width: 170px; max-height: 220px; border-radius: 10px; margin: 0 0 4px; cursor: zoom-in; }
+.p2p-form { grid-template-columns: auto 1fr auto !important; }
+.p2p-attach { padding: 0 12px !important; border-radius: 10px !important; font-size: 18px !important; }
+.p2p-guide { margin: 12px 0; padding: 12px 14px; border-radius: 14px; background: rgba(217, 178, 106, 0.08); border: 1px solid rgba(217, 178, 106, 0.35); }
+.p2p-guide summary { cursor: pointer; font-weight: 750; font-size: 14.5px; list-style: none; }
+.p2p-guide summary::-webkit-details-marker { display: none; }
+.p2p-guide .p2p-steps { margin: 10px 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.p2p-guide .p2p-steps li { display: grid; gap: 2px; font-size: 13px; line-height: 1.4; }
+.p2p-guide .p2p-steps b { font-size: 13.5px; color: #e3c27a; }
+html[data-ui='light'] body .p2p-guide .p2p-steps b { color: #8a6a1c !important; }

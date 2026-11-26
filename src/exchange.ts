@@ -2,12 +2,13 @@
 // a simple line chart and a single order ticket; the market list sits underneath. Practice prices only.
 import { COINS, COIN_CATEGORIES, RANKS, SKILL_META, TOKEN_IDS, cents, coinPrice, formatQty, money, rankFor, seasonAt, seasonLabel, type Holding, type RankId, type SkillId } from './logic.ts'
 import { lockReason } from './worlds.ts'
-import { balanceSplit, convertCoin, getSave, stakeCoin, trade, tradeCoin, unstakeCoin } from './state.ts'
+import { addReputation, balanceSplit, convertCoin, earnCash, getSave, stakeCoin, trade, tradeCoin, unstakeCoin } from './state.ts'
 import { MAX_STAKES, MIN_STAKE_USD, STAKE_PLANS, accrued, canStake, isLocked, planApr, unlockAt, type Stake, type StakePlan } from './staking.ts'
 import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash, perpPnl, perps, sweepPerps, type Perp } from './perps.ts'
 import { hourly, hourlyBars, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
 import { barsFromSeries, candleChart, type CandleView } from './candleChart.ts'
 import { renderDefi } from './defi.ts'
+import { sharePnl } from './pnlCard.ts'
 import { STABLES, stableAccrued, stableApr, stableLocked, stableStakes, stakeStable, unstakeStable, type StableId } from './stableEarn.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
@@ -182,6 +183,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   let convFrom = 'usd', convTo = 'btc', convFrac = 0.5
   let stakeId = 'eth', stakePlan: StakePlan = 'd7', stakeFrac = 0.5
   let stableCoin: StableId = 'usdc', stablePlan: StakePlan = 'flex', stableFrac = 0.25
+  let p2pDesk = false
   let p2pSide: 'buy' | 'sell' = 'buy', p2pCoin = 'btc', p2pFrac = 0.25, p2pOrder: { offer: Offer; stage: 'open' | 'bank' | 'releasing' } | null = null
   const paintNow = () => { for (const f of live) f() }
   // Candle charts made for the pane on screen; dropped whenever the pane is rebuilt or the screen closes.
@@ -299,7 +301,10 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     top.append(totals, pnlAll)
     const mix = h('div', 'xch-port-mix')
     const rows = h('div', 'xch-port-rows')
-    card.append(top, mix, rows)
+    const shareAll = h('button', 'xch-share', 'Share my P&L') as HTMLButtonElement; shareAll.type = 'button'; shareAll.hidden = true
+    let lastAll = { pnl: 0, cost: 0 }
+    shareAll.onclick = () => sharePnl({ title: 'My portfolio', sub: 'Open positions · practice', tint: '#17a862', pct: lastAll.cost > 0 ? lastAll.pnl / lastAll.cost * 100 : 0, usd: lastAll.pnl }, (m) => hooks.finish(m))
+    card.append(top, mix, rows, shareAll)
     type Pos = { key: string; a: Asset; qty: number; avg: number; perp?: Perp; stake?: Stake }
     const positions = (): Pos[] => {
       const out: Pos[] = []
@@ -367,6 +372,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       sub.textContent = `Cash ${short(cash)} · In positions ${short(held)}`
       pnlAll.replaceChildren(h('span', 'xch-label', 'Open P/L'), h('b', '', list.length ? signed(pnl) : '$0.00'), h('small', '', list.length && cost > 0 ? `${pnl >= 0 ? '+' : ''}${(pnl / cost * 100).toFixed(2)}%` : '—'))
       pnlAll.dataset.dir = list.length ? dir(pnl) : ''
+      lastAll = { pnl, cost }; shareAll.hidden = !list.length || cost <= 0
       // Allocation bar: cash plus each position, in its coin's colour.
       const sum = cash + held
       mix.replaceChildren(...[{ tint: '#5fae7d', v: cash }, ...parts].filter((x) => x.v > 0 && sum > 0).map((x) => { const seg = h('i'); seg.style.flexGrow = String(x.v / sum); seg.style.background = x.tint; return seg }))
@@ -394,6 +400,8 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     else {
       const tiles = h('div', 'xch-tiles'), cash = tile('Cash'), held = tile(`${a.sym} held`), pnl = tile('Open P&L')
       tiles.append(cash.t, held.t, pnl.t)
+      const shareCoin = h('button', 'xch-share', `Share my ${a.sym} P&L`) as HTMLButtonElement; shareCoin.type = 'button'; shareCoin.hidden = true
+      shareCoin.onclick = () => { const hd = holdingOf(a), p = priceOf(a); if (hd.qty <= 0 || hd.avg <= 0) return; sharePnl({ title: a.sym, sub: `${a.name} · Spot, bought and held`, tint: a.tint, pct: (p / hd.avg - 1) * 100, entry: hd.avg, mark: p, usd: (p - hd.avg) * hd.qty }, (m) => hooks.finish(m)) }
       const ticket = h('div', 'xch-ticket')
       const sell = spotSide === 'sell'
       const pv = preview(sell ? ['You sell', 'You get'] : ['You pay', 'You get'])
@@ -437,6 +445,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         pnl.v.textContent = hd.qty > 0 ? signed(open) : '$0.00'
         pnl.v.dataset.dir = hd.qty > 0 ? dir(open) : ''
         pnl.s.textContent = hd.qty > 0 ? `avg ${coinPrice(hd.avg)}` : ''
+        shareCoin.hidden = !(hd.qty > 0 && hd.avg > 0)
         const over = spotCustom !== null && spotCustom > (sell ? hd.qty : s.ledger) + 1e-9
         if (sell) {
           const qty = hd.qty * share()
@@ -452,7 +461,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
           go.disabled = pay < 1 || over
         }
       })
-      pane.append(tiles, ticket, result)
+      pane.append(tiles, shareCoin, ticket, result)
       if (a.desk) pane.append(note(a.desk === 'unit' ? `${seasonLabel(seasonAt())} season. A plan logged on the sell can count when the close is red.` : `${seasonLabel(seasonAt())} season. A meme token is attention. Size small. Rank will not follow a crash.`))
       else if (COINS.find((c) => c.id === a.id)?.cat === 'big') pane.append(note('Big caps reward patience: each buy adds reputation.'))
     }
@@ -538,7 +547,9 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         const close = h('button', 'xch-close', 'Close position')
         close.type = 'button'
         close.onclick = () => done(closePerp(p.id), true)
-        card.append(top, grid, close)
+        const sharePos = h('button', 'xch-share', 'Share P&L') as HTMLButtonElement; sharePos.type = 'button'
+        sharePos.onclick = () => { const mk = priceOf(m), pl = perpPnl(p, mk); sharePnl({ title: `${m.sym}-PERP`, sub: `${p.side === 'long' ? 'Long' : 'Short'} ${p.lev}x · perpetual`, tint: m.tint, pct: p.margin > 0 ? pl / p.margin * 100 : 0, entry: p.entry, mark: mk, usd: pl }, (msg) => hooks.finish(msg)) }
+        card.append(top, grid, sharePos, close)
         book.append(card)
         rows.set(p.id, { pnl, mark })
       }
@@ -723,6 +734,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   // Practice peer-to-peer: pick a merchant, the coin sits in escrow, money moves bank to bank, escrow releases.
   // Two of the merchants are sharks. Walk into one and the order is cancelled with the lesson; nothing is taken.
   const p2pPane = () => {
+    if (p2pDesk) return deskPane()
     const a = asset(p2pCoin), sym = a.sym, buying = p2pSide === 'buy'
     const pane = h('div', 'xch-pane')
     const amount = () => { const s = getSave(), hd = holdingOf(a), p = priceOf(a); const cash = buying ? cents(s.ledger * p2pFrac) : cents(hd.qty * p2pFrac * p); return { cash, qty: p > 0 ? cash / p : 0, ok: buying ? cash >= 1 : hd.qty > 0 } }
@@ -760,7 +772,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         item.onclick = () => { if (!amount().ok) { result.textContent = buying ? 'You need at least $1 of in-game cash.' : `You hold no ${sym} to sell.`; result.dataset.ok = 'false'; return } p2pOrder = { offer: o, stage: 'open' }; result.textContent = ''; show() }
         list.append(item)
       }
-      pane.append(sum, list, result, note('Practice P2P. A real platform holds the coin in escrow until both sides confirm; stay inside it. Verified merchants trade at the book price.'), courses(['p2pSharks', 'redFlags', 'scams']))
+      pane.append(sum, list, result, note('Practice P2P. A real platform holds the coin in escrow until both sides confirm; stay inside it. Verified merchants trade at the book price.'), merchantGuide(), courses(['p2pSharks', 'redFlags', 'scams']))
       return pane
     }
     // ---- an open order ----
@@ -815,16 +827,118 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     pane.append(head, result)
     return pane
   }
+  /** A convincing fake bank receipt (for the scam lesson): drawn here, never from a real bank. */
+  const fakeReceipt = (from: string): string => {
+    const c = document.createElement('canvas'); c.width = 360; c.height = 460
+    const g = c.getContext('2d')!
+    g.fillStyle = '#f4f6f8'; g.fillRect(0, 0, 360, 460)
+    g.fillStyle = '#0f5fa8'; g.fillRect(0, 0, 360, 70); g.fillStyle = '#fff'; g.font = '700 22px Inter, sans-serif'; g.fillText('Transfer successful', 22, 44)
+    g.fillStyle = '#1fae5b'; g.beginPath(); g.arc(180, 130, 34, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 7; g.beginPath(); g.moveTo(164, 131); g.lineTo(176, 143); g.lineTo(198, 118); g.stroke()
+    g.fillStyle = '#1d2a36'; g.font = '800 30px Inter, sans-serif'; g.textAlign = 'center'; g.fillText(fiatMoney(amountUsd()), 180, 210); g.textAlign = 'left'
+    g.font = '500 15px Inter, sans-serif'
+    const rows: Array<[string, string]> = [['From', from], ['To', 'Your account'], ['Reference', 'P2P ORDER'], ['Status', 'Completed ✓'], ['Date', new Date().toLocaleDateString()]]
+    rows.forEach(([k, v], i) => { g.fillStyle = '#6b7783'; g.fillText(k, 24, 262 + i * 34); g.fillStyle = '#1d2a36'; g.textAlign = 'right'; g.fillText(v, 336, 262 + i * 34); g.textAlign = 'left' })
+    g.fillStyle = 'rgba(0,0,0,0.04)'; g.fillRect(0, 430, 360, 30)
+    return c.toDataURL('image/png')
+  }
+  const amountUsd = (): number => { const a = asset(p2pCoin), hd = holdingOf(a), p = priceOf(a); return p2pSide === 'buy' ? cents(getSave().ledger * p2pFrac) : cents(hd.qty * p2pFrac * p) }
+
+  // ---- Become a merchant: how P2P merchants and cash agents earn, and a practice desk to run one ----
+  const DESK_KEY = 'gd.p2pdesk.v1', DESK_ORDERS = 8, DESK_CAP = 25
+  type DeskDay = { d: string; n: number; earned: number }
+  const deskDay = (): DeskDay => { const d = new Date().toISOString().slice(0, 10); try { const v = JSON.parse(localStorage.getItem(DESK_KEY) ?? 'null') as DeskDay | null; return v && v.d === d ? v : { d, n: 0, earned: 0 } } catch { return { d, n: 0, earned: 0 } } }
+  const saveDesk = (v: DeskDay) => { try { localStorage.setItem(DESK_KEY, JSON.stringify(v)) } catch { /* private mode */ } }
+  type DeskCase = { who: string; side: 'buy' | 'sell'; usd: number; kind: 'good' | 'third' | 'fake' | 'off' }
+  let deskSpread = 0.01, deskCase: DeskCase | null = null, deskMsg = ''
+  const NAMES = ['Amaka', 'Kwame', 'Fatima', 'Tunde', 'Wanjiru', 'Musa', 'Ngozi', 'Kofi', 'Aisha', 'Sipho', 'Chidi', 'Zainab']
+  const newCase = (): DeskCase => {
+    const r = Math.random(), kind: DeskCase['kind'] = r < 0.55 ? 'good' : r < 0.7 ? 'third' : r < 0.85 ? 'fake' : 'off'
+    return { who: NAMES[Math.floor(Math.random() * NAMES.length)]!, side: Math.random() < 0.5 ? 'buy' : 'sell', usd: 20 + Math.round(Math.random() * 13) * 10, kind }
+  }
+  const merchantGuide = (): HTMLElement => {
+    const box = h('details', 'p2p-guide')
+    box.append(h('summary', '', '💼 How to become a P2P merchant or cash agent, and earn'))
+    const ul = h('ul', 'p2p-steps')
+    for (const [t, d] of [
+      ['How merchants earn', 'You post a price to buy a little under the market and a price to sell a little over it. The gap (the spread, often 0.5% to 2%) is your income on every order, times how many orders you complete.'],
+      ['What platforms ask of you', 'Identity checks (KYC), a refundable security deposit, a bank or mobile money account in your own name, a high completion rate and quick release times. That is what earns the ✓ Verified badge.'],
+      ['Cash agents', 'In many cities, P2P or mobile money agents help neighbours swap cash and crypto in person, and earn a small commission on each swap. Same rules: own-name accounts, records of every swap, and local law.'],
+      ['The risks', 'Fake receipts, payments from someone else\'s account (which can get your bank frozen), chargebacks, and buyers who try to move you off the platform. Release only when your own bank shows the money.'],
+      ['Start small', 'Begin with small limits, keep stock you can afford to hold, learn your country\'s rules on crypto and tax, and never mix your savings with your float.'],
+    ] as const) { const li = h('li'); li.append(h('b', '', t), h('span', '', d)); ul.append(li) }
+    const open = h('button', 'xch-go buy', 'Open my practice merchant desk') as HTMLButtonElement; open.type = 'button'
+    open.onclick = () => { p2pDesk = true; deskCase = null; deskMsg = ''; show() }
+    box.append(ul, open, note('Practice: earnings are in-game cash from the city (at most $' + DESK_CAP + ' a day), never real money.'))
+    return box
+  }
+  const deskPane = (): HTMLElement => {
+    const pane = h('div', 'xch-pane')
+    const day = deskDay()
+    const back = h('button', 'xch-close', '‹ Back to P2P') as HTMLButtonElement; back.type = 'button'; back.onclick = () => { p2pDesk = false; show() }
+    pane.append(back, h('h3', 'xch-group', 'Your merchant desk · practice'))
+    pane.append(note(`Orders today: ${day.n} of ${DESK_ORDERS} · earned $${day.earned.toFixed(2)} of $${DESK_CAP}. Customers pick merchants with fair prices, so a wide spread brings fewer orders.`))
+    pane.append(row('Your spread', segmented(['0.5%', '1%', '2%'], [0.005, 0.01, 0.02].indexOf(deskSpread), (i) => { deskSpread = [0.005, 0.01, 0.02][i]!; show() }, 'amt')))
+    if (deskMsg) { const r = h('p', 'xch-result', deskMsg); r.dataset.ok = String(!deskMsg.startsWith('✗')); pane.append(r) }
+    if (day.n >= DESK_ORDERS) { pane.append(note('That is all the orders for today. Come back tomorrow for more.')); return pane }
+    if (!deskCase) {
+      const next = h('button', 'xch-go buy', 'Take the next order') as HTMLButtonElement; next.type = 'button'
+      next.onclick = () => { if (deskSpread >= 0.02 && Math.random() < 0.4) { deskMsg = 'No one took your price this time: 2% is wide. Try again, or narrow your spread.'; show(); return } deskCase = newCase(); deskMsg = ''; show() }
+      pane.append(next)
+      return pane
+    }
+    const c = deskCase
+    const card = h('div', 'xch-pos'), say = h('p', 'xch-chat'), bank = h('p', 'xch-note')
+    card.append(h('b', '', `${c.who} wants to ${c.side === 'buy' ? 'buy' : 'sell'} $${c.usd} of BTC`), h('small', '', `Your spread ${(deskSpread * 100).toFixed(1)}% · you earn $${(c.usd * deskSpread).toFixed(2)} if it completes`))
+    if (c.side === 'buy') {
+      say.textContent = c.kind === 'good' ? `${c.who}: Paid from my own account, ${c.who}. Please check.` : c.kind === 'third' ? `${c.who}: My brother paid for me, different name, it's fine.` : c.kind === 'fake' ? `${c.who}: Sent! Here's the screenshot. Release please.` : `${c.who}: Let's finish on WhatsApp, quicker for both of us.`
+      bank.textContent = c.kind === 'good' ? `Your bank: +${fiatMoney(c.usd)} received from ${c.who}.` : c.kind === 'third' ? `Your bank: +${fiatMoney(c.usd)} received from "Adewale Stores" (not the buyer's name).` : 'Your bank: no new transfer.'
+    } else {
+      say.textContent = c.kind === 'good' ? `${c.who}: My BTC is in escrow. Please pay to my account in my name, ${c.who}.` : c.kind === 'third' ? `${c.who}: Pay to my cousin's account please, mine has issues.` : c.kind === 'fake' ? `${c.who}: Escrow released already, check. Now pay me.` : `${c.who}: Pay me outside the platform and I'll send the coin after.`
+      bank.textContent = c.kind === 'good' ? 'Escrow: the BTC is locked for you.' : c.kind === 'fake' ? 'Escrow: nothing has been released to you.' : 'Escrow: the BTC is locked for you.'
+    }
+    card.append(say, bank)
+    const finish = (ok: boolean) => {
+      const day = deskDay(); day.n++
+      const safe = c.kind !== 'good'
+      if (ok && !safe) {
+        const pay = Math.min(c.usd * deskSpread, Math.max(0, DESK_CAP - day.earned))
+        day.earned = cents(day.earned + pay)
+        if (pay > 0) earnCash(cents(pay), 'P2P merchant desk', `Spread on a $${c.usd} order with ${c.who}.`)
+        deskMsg = `✓ Order complete. You earned $${pay.toFixed(2)} of spread.`
+      } else if (!ok && safe) {
+        addReputation(1, 'P2P merchant desk', `Spotted a ${c.kind === 'third' ? 'third-party payment' : c.kind === 'fake' ? 'fake receipt' : 'move off the platform'} and cancelled.`)
+        deskMsg = '✓ Good catch: cancelled and reported. Reputation +1.'
+      } else if (ok && safe) deskMsg = c.kind === 'third' ? '✗ Released to a payment from someone else\'s account: that money can be reversed and your bank frozen. Practice: nothing lost.' : c.kind === 'fake' ? '✗ A screenshot is not money: nothing had arrived. Practice: nothing lost.' : '✗ Off the platform there is no escrow. Practice: nothing lost.'
+      else deskMsg = '✗ That one was genuine: the money was in your bank in the buyer\'s own name. Cancelling costs you the order.'
+      saveDesk(day); deskCase = null; show()
+    }
+    const acts = h('div', 'xch-actions')
+    const k1 = h('button', 'xch-go buy', c.side === 'buy' ? 'Release the BTC' : 'Pay and complete') as HTMLButtonElement; k1.type = 'button'; k1.onclick = () => finish(true)
+    const k2 = h('button', 'xch-close', 'Cancel and report') as HTMLButtonElement; k2.type = 'button'; k2.onclick = () => finish(false)
+    acts.append(k1, k2); card.append(acts); pane.append(card)
+    return pane
+  }
   /** Practice chat with a P2P merchant: quick replies or your own words; verified merchants answer like
    *  professionals, the sharks push you off the platform or to someone else's account. */
-  type ChatMsg = { me: boolean; text: string }
+  type ChatMsg = { me: boolean; text: string; img?: string }
   const chats = new WeakMap<object, ChatMsg[]>()
   const orderChat = (order: object, o: Offer, buying: boolean, sym: string): HTMLElement => {
     const box = h('div', 'p2p-chat')
     const log = h('div', 'p2p-log')
-    const msgs = chats.get(order) ?? [{ me: false, text: o.verified ? `Hi, ${o.name} here. Your order is open and the ${sym} is in escrow. Ask me anything here.` : `hello dear, fast deal 👍` }]
+    const first: ChatMsg[] = [{ me: false, text: o.verified ? `Hi, ${o.name} here. Your order is open and the ${sym} is in escrow. Ask me anything here.` : `hello dear, fast deal 👍` }]
+    // A shark buying from you sends a "payment receipt" picture: it looks real, and no money has moved.
+    if (!buying && o.trap === 'fake') first.push({ me: false, text: 'I have paid, see receipt. Release now', img: fakeReceipt(o.name) })
+    const msgs = chats.get(order) ?? first
     chats.set(order, msgs)
-    const paint = () => { log.replaceChildren(...msgs.map((m) => h('p', m.me ? 'me' : 'them', m.text))); log.scrollTop = log.scrollHeight }
+    const paint = () => {
+      log.replaceChildren(...msgs.map((m) => {
+        const p = h('p', m.me ? 'me' : 'them')
+        if (m.img) { const im = h('img', 'p2p-img') as HTMLImageElement; im.src = m.img; im.alt = m.me ? 'Your picture' : 'Picture from the merchant'; im.onclick = () => window.open(m.img, '_blank', 'noopener'); p.append(im) }
+        if (m.text) p.append(h('span', '', m.text))
+        return p
+      }))
+      log.scrollTop = log.scrollHeight
+    }
     const reply = (q: string): string => {
       const t = q.toLowerCase()
       if (!o.verified) {
@@ -839,16 +953,29 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       if (/hi|hello|salam|hey/.test(t)) return 'Hello! Ready when you are.'
       return 'Sure. Keep all payment details and messages in this chat, so support can see them if needed.'
     }
-    const send = (text: string) => {
-      const v = text.trim(); if (!v) return
-      msgs.push({ me: true, text: v }); paint()
-      window.setTimeout(() => { msgs.push({ me: false, text: reply(v) }); if (log.isConnected) paint() }, 700)
+    const send = (text: string, img?: string) => {
+      const v = text.trim(); if (!v && !img) return
+      msgs.push({ me: true, text: v, img }); paint()
+      const answer = img
+        ? (o.verified ? 'Thanks, I can see your receipt. A screenshot is not money though: I check my own bank and release as soon as it lands.' : 'ok ok send more fast, other buyers waiting')
+        : reply(v)
+      window.setTimeout(() => { msgs.push({ me: false, text: answer }); if (log.isConnected) paint() }, 700)
+    }
+    // Attach a picture (a payment receipt, a screenshot): it stays on this device, in this practice chat.
+    const attach = h('button', 'p2p-attach', '📎') as HTMLButtonElement; attach.type = 'button'; attach.setAttribute('aria-label', 'Attach a picture or screenshot'); attach.title = 'Attach a picture or screenshot'
+    const picker = h('input') as HTMLInputElement; picker.type = 'file'; picker.accept = 'image/*'; picker.hidden = true
+    attach.onclick = () => picker.click()
+    picker.onchange = () => {
+      const f = picker.files?.[0]; picker.value = ''
+      if (!f || !f.type.startsWith('image/')) return
+      if (f.size > 12_000_000) { msgs.push({ me: false, text: 'That picture is too big to send here.' }); paint(); return }
+      send('', URL.createObjectURL(f))
     }
     const quick = h('div', 'p2p-quick')
     for (const q of ['Hello 👋', 'Is the account in your name?', buying ? 'I have sent the money' : 'Have you paid?', 'Can we keep it in escrow?']) { const b = h('button', 'p2p-q', q); b.type = 'button'; b.onclick = () => send(q); quick.append(b) }
     const form = h('form', 'p2p-form'), input = h('input') as HTMLInputElement, go = h('button', 'p2p-send', 'Send')
     input.type = 'text'; input.placeholder = `Message ${o.name}`; input.maxLength = 140; (go as HTMLButtonElement).type = 'submit'
-    form.append(input, go)
+    form.append(attach, picker, input, go)
     form.onsubmit = (e) => { e.preventDefault(); send(input.value); input.value = '' }
     box.append(h('p', 'xch-group', `Chat with ${o.name}`), log, quick, form, h('p', 'xch-note', 'Practice chat. On a real platform, never move a deal to WhatsApp or any other app, and never share a code, seed phrase or password.'))
     paint()
