@@ -10,7 +10,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 
 ## The core loop (about 5 minutes)
 
-1. **Enter the city.** Sign up with Google, X, email or a NEAR wallet. Zahra, the Campus guide, gives a one-minute tour.
+1. **Enter the Enter the district: grinddistrict.app** Sign up with Google, X, email or a NEAR wallet. Zahra, the Campus guide, gives a one-minute tour.
 2. **Go to Campus.** The gold *Next step* button takes you there. Campus is just north of the plaza.
 3. **Finish a short lesson.** Three short cards and two quick checks with Zahra.
 4. **See the proof.** The course is on your CV with a certificate: Profile, right under your name.
