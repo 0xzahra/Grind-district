@@ -8,7 +8,7 @@ import { LEVERAGE, MAX_PERPS, closePerp, liqPrice, markPrice, openPerp, perpCash
 import { hourly, hourlyBars, liveAt, liveChange, livePrice, wantFast } from './livePrices.ts'
 import { barsFromSeries, candleChart, type CandleView } from './candleChart.ts'
 import { renderDefi } from './defi.ts'
-import { sharePnl } from './pnlCard.ts'
+import { sharePnl, type PnlInfo } from './pnlCard.ts'
 import { STABLES, stableAccrued, stableApr, stableLocked, stableStakes, stakeStable, unstakeStable, type StableId } from './stableEarn.ts'
 
 type Asset = { id: string; sym: string; name: string; tint: string; group: string; minRank: RankId; desk?: 'unit' | 'meme' }
@@ -282,11 +282,16 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
   }
   const result = h('p', 'xch-result')
   result.setAttribute('role', 'status')
-  const done = (r: { ok: boolean; message: string; rankedUp?: RankId }, rebuild = false) => {
+  /** A "Share this trade" key under the result line: a card for X, any app or My Gallery (pnlCard.ts). */
+  const shareKey = (card: PnlInfo) => { const b = h('button', 'xch-share inline', '↗ Share this trade') as HTMLButtonElement; b.type = 'button'; b.onclick = () => sharePnl(card, (m) => hooks.finish(m)); return b }
+  const done = (r: { ok: boolean; message: string; rankedUp?: RankId }, rebuild = false, card?: () => PnlInfo | null) => {
     result.textContent = r.message
     result.dataset.ok = String(r.ok)
     hooks.finish(r.message, r.rankedUp)
+    let info: PnlInfo | null = null
+    if (r.ok && card) { try { info = card() } catch { info = null } }
     if (rebuild) show(); else paintNow()
+    if (info) result.append(shareKey(info))
   }
 
   // ------------------------------- PORTFOLIO -------------------------------
@@ -435,7 +440,14 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         const total = sell ? hd.qty : s.ledger
         return total > 0 ? Math.min(1, spotCustom / total) : 0
       }
-      go.onclick = () => { const f = share(); if (f <= 0) return; done(a.desk ? trade(a.desk, spotSide, f, plan) : tradeCoin(a.id, spotSide, f)) }
+      go.onclick = () => {
+        const f = share(); if (f <= 0) return
+        const before = holdingOf(a), q0 = before.qty, avg0 = before.avg, p0 = priceOf(a), side = spotSide
+        done(a.desk ? trade(a.desk, spotSide, f, plan) : tradeCoin(a.id, spotSide, f), false, () => {
+          const moved = Math.abs(holdingOf(a).qty - q0), sold = side === 'sell' && avg0 > 0
+          return { kind: 'Trade', title: a.sym, sub: `${a.name} · Spot`, tint: a.tint, headline: `${side === 'buy' ? 'Bought' : 'Sold'} ${formatQty(moved)} ${a.sym}`, pct: sold ? (p0 / avg0 - 1) * 100 : 0, rows: [['Price', coinPrice(p0)], ...(sold ? [['Bought at', coinPrice(avg0)] as [string, string]] : [])], usd: sold ? (p0 - avg0) * moved : undefined }
+        })
+      }
       live.push(() => {
         const s = getSave(), hd = holdingOf(a), p = priceOf(a)
         cash.v.textContent = money(s.ledger)
@@ -519,7 +531,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         row('Margin, of earned cash', segmented(['10%', '25%', '50%'], [0.1, 0.25, 0.5].indexOf(perpFrac), (i) => { perpFrac = [0.1, 0.25, 0.5][i]!; paintNow() }, 'amt')),
         pv.box, go,
       )
-      go.onclick = () => done(openPerp(a.id, perpSide, perpLev, perpFrac), true)
+      go.onclick = () => { const side = perpSide, lev = perpLev, p0 = priceOf(a); done(openPerp(a.id, perpSide, perpLev, perpFrac), true, () => ({ kind: 'Trade', title: `${a.sym}-PERP`, sub: 'Perpetual · opened', tint: a.tint, headline: `${side === 'long' ? 'Long' : 'Short'} ${a.sym} ${lev}x`, pct: 0, rows: [['Entry', coinPrice(p0)], ['Leverage', `${lev}x`]] })) }
       live.push(() => {
         const margin = cents(perpCash() * perpFrac), entry = priceOf(a)
         pv.values[0]!.textContent = money(margin)
@@ -546,7 +558,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         grid.append(h('dt', '', 'Size'), h('dd', '', money(p.margin * p.lev)), h('dt', '', 'Margin'), h('dd', '', money(p.margin)), h('dt', '', 'Entry'), h('dd', '', coinPrice(p.entry)), h('dt', '', 'Mark'), mark, h('dt', '', 'Liquidation'), h('dd', '', coinPrice(liqPrice(p))))
         const close = h('button', 'xch-close', 'Close position')
         close.type = 'button'
-        close.onclick = () => done(closePerp(p.id), true)
+        close.onclick = () => { const mk = priceOf(m), pl = perpPnl(p, mk); done(closePerp(p.id), true, () => ({ kind: 'Trade', title: `${m.sym}-PERP`, sub: `${p.side === 'long' ? 'Long' : 'Short'} ${p.lev}x · closed`, tint: m.tint, headline: `Closed ${m.sym} ${p.side} ${p.lev}x`, pct: p.margin > 0 ? pl / p.margin * 100 : 0, entry: p.entry, mark: mk, usd: pl })) }
         const sharePos = h('button', 'xch-share', 'Share P&L') as HTMLButtonElement; sharePos.type = 'button'
         sharePos.onclick = () => { const mk = priceOf(m), pl = perpPnl(p, mk); sharePnl({ title: `${m.sym}-PERP`, sub: `${p.side === 'long' ? 'Long' : 'Short'} ${p.lev}x · perpetual`, tint: m.tint, pct: p.margin > 0 ? pl / p.margin * 100 : 0, entry: p.entry, mark: mk, usd: pl }, (msg) => hooks.finish(msg)) }
         card.append(top, grid, sharePos, close)
@@ -592,7 +604,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     swap.onclick = () => { [convFrom, convTo] = [convTo, convFrom]; show() }
     const pv = preview(['Rate', 'Fee'])
     const go = cta('convert')
-    go.onclick = () => done(convertCoin(convFrom, convTo, convFrac))
+    go.onclick = () => { const p1 = priceOf(to); done(convertCoin(convFrom, convTo, convFrac), false, () => ({ kind: 'Trade', title: `${from.sym} → ${to.sym}`, sub: 'Convert · instant swap', tint: to.tint, headline: `Converted ${from.sym} to ${to.sym}`, pct: 0, rows: [[`${to.sym} price`, coinPrice(p1)]] })) }
     const ticket = h('div', 'xch-ticket')
     ticket.append(a.box, swap, b.box, row(`Amount of your ${from.sym}`, segmented(['25%', '50%', 'Max'], [0.25, 0.5, 1].indexOf(convFrac), (i) => { convFrac = [0.25, 0.5, 1][i]!; paintNow() }, 'amt')), pv.box, go)
     live.push(() => {
@@ -629,7 +641,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
       const plans: StakePlan[] = ['flex', 'd7', 'd30']
       const pv = preview(['You stake', 'Est. APR', 'Est. reward', 'Unlocks'])
       const go = cta('buy')
-      go.onclick = () => done(stakeCoin(stakeId, stakeFrac, stakePlan), true)
+      go.onclick = () => { const q0 = holdingOf(a).qty, plan = stakePlan, apr = planApr(stakeId, stakePlan); done(stakeCoin(stakeId, stakeFrac, stakePlan), true, () => ({ kind: 'Stake', title: a.sym, sub: `Staking · ${STAKE_PLANS[plan].label}`, tint: a.tint, headline: `Staked ${formatQty(Math.max(0, q0 - holdingOf(a).qty))} ${a.sym}`, pct: 0, rows: [['Plan', STAKE_PLANS[plan].label], ['Est. APR', `${apr}%`]] })) }
       const ticket = h('div', 'xch-ticket')
       ticket.append(
         row('Plan', segmented(plans.map((p) => `${STAKE_PLANS[p].label} · ${planApr(stakeId, p)}%`), plans.indexOf(stakePlan), (i) => { stakePlan = plans[i]!; paintNow() }, 'amt stake-plan')),
@@ -705,7 +717,7 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
         grid.append(h('dt', '', 'Staked'), h('dd', '', `${formatQty(st.qty)} ${m.sym}`), h('dt', '', 'Status'), status)
         const btn = h('button', 'xch-close')
         btn.type = 'button'
-        btn.onclick = () => done(unstakeCoin(st.id), true)
+        btn.onclick = () => { const reward = accrued(st); done(unstakeCoin(st.id), true, () => ({ kind: 'Stake', title: m.sym, sub: `Staking · ${STAKE_PLANS[st.plan].label} · done`, tint: m.tint, headline: `Earned ${formatQty(reward)} ${m.sym} staking`, pct: st.qty > 0 ? reward / st.qty * 100 : 0, rows: [['Staked', `${formatQty(st.qty)} ${m.sym}`], ['APR', `${st.apr}%`]] })) }
         card.append(top, grid, btn)
         book.append(card)
         rows.set(st.id, { earned, status, btn })
@@ -777,8 +789,13 @@ export function renderExchange(desk: 'unit' | 'meme', hooks: { finish: (message:
     }
     // ---- an open order ----
     const order = p2pOrder, o = order.offer, m = amount()
-    const end = (ok: boolean, message: string) => { p2pOrder = null; result.textContent = message; result.dataset.ok = String(ok); hooks.finish(message); show() }
-    const complete = () => { const r = tradeCoin(a.id, p2pSide, p2pFrac); end(r.ok, r.ok ? `P2P order complete with ${o.name}. ${r.message}` : r.message) }
+    const end = (ok: boolean, message: string, card?: PnlInfo) => { p2pOrder = null; result.textContent = message; result.dataset.ok = String(ok); hooks.finish(message); show(); if (ok && card) result.append(shareKey(card)) }
+    const complete = () => {
+      const q0 = holdingOf(a).qty, p0 = priceOf(a), side = p2pSide
+      const r = tradeCoin(a.id, p2pSide, p2pFrac)
+      const moved = Math.abs(holdingOf(a).qty - q0)
+      end(r.ok, r.ok ? `P2P order complete with ${o.name}. ${r.message}` : r.message, { kind: 'Trade', title: `${sym} P2P`, sub: `Person to person · escrow`, tint: a.tint, headline: `${side === 'buy' ? 'Bought' : 'Sold'} ${formatQty(moved)} ${sym} P2P`, pct: 0, rows: [['Merchant', `${o.name}${o.verified ? ' ✓' : ''}`], ['Price', coinPrice(p0)], ['Escrow', 'Released safely']] })
+    }
     const scam = (lesson: string) => end(false, `That was a scam. ${lesson} Practice mode: the order was cancelled and nothing was taken.`)
     const safe = (lesson: string) => end(true, `Good call. ${lesson} Order cancelled, nothing lost.`)
     const head = h('div', 'xch-pos'), top = h('div', 'xch-pos-top'), names = h('div', 'xch-names')

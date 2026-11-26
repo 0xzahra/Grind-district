@@ -12,6 +12,11 @@ export type PnlInfo = {
   entry?: number
   mark?: number
   usd?: number // the P&L in in-game dollars (hidden unless the player shows it)
+  /** A trade receipt instead of a return: the big line ("Bought 0.0012 BTC") and rows under it. */
+  headline?: string
+  rows?: Array<[string, string]>
+  /** The small word over the card: "P&L" (default) or "Trade", "Vault"... */
+  kind?: string
 }
 
 const FONT = '"Inter Variable", Inter, system-ui, sans-serif'
@@ -41,15 +46,23 @@ function draw(c: HTMLCanvasElement, p: PnlInfo, showUsd: boolean): void {
   g.textAlign = 'left'; g.textBaseline = 'alphabetic'
   g.fillStyle = '#ffffff'; g.font = `800 64px ${FONT}`; g.fillText(p.title, 205, 380)
   g.fillStyle = 'rgba(255,255,255,0.65)'; g.font = `600 36px ${FONT}`; g.fillText(p.sub, 207, 428)
-  // the return
-  g.fillStyle = col; g.font = `900 190px ${FONT}`
-  g.fillText(`${up ? '+' : ''}${p.pct.toFixed(2)}%`, 74, 700)
+  // the return (or, for a trade receipt, what was done, fitted to the card)
+  if (p.headline) {
+    g.fillStyle = '#ffffff'; let size = 110; g.font = `900 ${size}px ${FONT}`
+    while (g.measureText(p.headline).width > W - 160 && size > 54) { size -= 4; g.font = `900 ${size}px ${FONT}` }
+    g.fillText(p.headline, 78, 660)
+    if (p.pct) { g.fillStyle = col; g.font = `800 64px ${FONT}`; g.fillText(`${up ? '+' : ''}${p.pct.toFixed(2)}%`, 82, 750) }
+  } else {
+    g.fillStyle = col; g.font = `900 190px ${FONT}`
+    g.fillText(`${up ? '+' : ''}${p.pct.toFixed(2)}%`, 74, 700)
+  }
   if (showUsd && p.usd !== undefined) { g.fillStyle = col; g.font = `700 60px ${FONT}`; g.fillText(`${money(p.usd)} in-game`, 82, 790) }
   // entry and now
   let y = showUsd && p.usd !== undefined ? 900 : 860
   const rowKV = (k: string, v: string) => { g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = `600 38px ${FONT}`; g.fillText(k, 82, y); g.fillStyle = '#ffffff'; g.font = `700 44px ${FONT}`; g.textAlign = 'right'; g.fillText(v, W - 82, y); g.textAlign = 'left'; y += 74 }
   if (p.entry) rowKV('Entry price', price(p.entry))
   if (p.mark) rowKV('Price now', price(p.mark))
+  for (const [k, v] of p.rows ?? []) if (y < H - 290) rowKV(k, v)
   // who, and where to play
   const s = getSave()
   g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(80, H - 250, W - 160, 2)
@@ -68,7 +81,7 @@ export function sharePnl(p: PnlInfo, toast: (m: string) => void): void {
   const card = el('div', '', 'gm-card pnl-share')
   const close = () => shade.remove()
   const head = el('div', '', 'gm-head'), t = el('div')
-  t.append(el('p', 'Share', 'gm-kick'), el('h3', `${p.title} P&L`, 'gm-title'))
+  t.append(el('p', 'Share', 'gm-kick'), el('h3', `${p.title} ${p.kind ?? 'P&L'}`, 'gm-title'))
   const x = el('button', 'Close', 'gm-key gm-ghost'); x.type = 'button'; x.onclick = close
   head.append(t, x)
   const cv = el('canvas', '', 'pnl-canvas')
@@ -79,8 +92,11 @@ export function sharePnl(p: PnlInfo, toast: (m: string) => void): void {
   const opt = el('label', '', 'pnl-opt'), box = el('input'); box.type = 'checkbox'
   box.onchange = () => { showUsd = box.checked; paint() }
   opt.append(box, el('span', 'Show the dollar amount'))
+  opt.hidden = p.usd === undefined
   const file = () => new Promise<File | null>((ok) => cv.toBlob((b) => ok(b ? new File([b], `grind-district-pnl-${p.title.toLowerCase()}.png`, { type: 'image/png' }) : null), 'image/png'))
-  const text = () => `${p.title} ${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}% on Grind District, practice trading at live prices. Learn it before you risk it:`
+  const text = () => p.headline
+    ? `${p.headline} on Grind District${p.pct ? ` (${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}%)` : ''}, practice trading at live prices. Learn it before you risk it:`
+    : `${p.title} ${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(2)}% on Grind District, practice trading at live prices. Learn it before you risk it:`
   const link = () => shareLink('/', 'invite', getSave().username)
   const keys = el('div', '', 'gm-keys')
   const key = (label: string, cls: string, run: () => void) => { const b = el('button', label, `gm-key ${cls}`); b.type = 'button'; b.onclick = run; keys.append(b) }
@@ -93,7 +109,7 @@ export function sharePnl(p: PnlInfo, toast: (m: string) => void): void {
   key('Save to My Gallery', 'gm-ghost', () => void file().then(async (f) => {
     if (!f) return
     const { saveMedia } = await import('./media.ts')
-    const id = await saveMedia('screenshot', f, { title: `${p.title} P&L` })
+    const id = await saveMedia('screenshot', f, { title: `${p.title} ${p.kind ?? 'P&L'}` })
     toast(id ? 'Saved to My Gallery.' : 'Could not save here (storage full or a private window).')
   }))
   card.append(head, cv, opt, keys, el('p', 'Practice trading with in-game money. Not financial advice.', 'gm-sub'))

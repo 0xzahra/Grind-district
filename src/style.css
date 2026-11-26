@@ -4851,29 +4851,28 @@ html body .drone-bar .selfie-key.drone-rec { color: #ff3b3b !important; font-siz
 /* No confetti over a place of prayer, even a burst that began outside. */
 body.in-prayer-space .confetti { display: none !important; }
 html body #nav.cc #cc-learn { display: none !important; }
-/* Title card on phones: about 300 px wide and as tall as the original, so it reads as a card in the middle of the
-   city, never a wall across it. Bigger logo and words, roomy thumb-sized keys in one column (the main key first:
-   Sign up, or Continue when signed in), the "Signed in as" note under the keys and never behind them. On short
-   screens it tightens up so the whole card always fits. */
+/* Title card on phones: a compact card in the middle of the city (about 276 x 370 px), never a wall across it:
+   a modest logo, two tight lines, one column of thumb-sized keys with the main one first (Sign up, or Continue
+   when signed in), and the "Signed in as" note under the keys. */
 @media (max-width: 560px) {
-  html body #menu #menu-panel { padding: 42px 22px 18px !important; width: min(300px, calc(100vw - 64px)) !important; max-height: none !important; }
-  html body #menu #menu-home .panel-logo { width: auto !important; height: 58px !important; max-width: 76% !important; margin: 0 auto 6px !important; display: block; }
-  html body #menu #menu-home .title-headline { font-size: 15.5px !important; line-height: 1.35 !important; margin: 4px 0 4px !important; }
-  html body #menu #menu-home .title-desc { font-size: 13.5px !important; line-height: 1.35 !important; margin: 2px 0 16px !important; }
-  html body #menu #menu-home .menu-actions { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 10px !important; width: 100% !important; max-width: 236px !important; margin: 0 auto !important; }
+  html body #menu #menu-panel { padding: 34px 18px 12px !important; width: min(276px, calc(100vw - 72px)) !important; max-height: none !important; }
+  html body #menu #menu-home .panel-logo { width: auto !important; height: 46px !important; max-width: 70% !important; margin: 0 auto 4px !important; display: block; }
+  html body #menu #menu-home .title-headline { font-size: 14px !important; line-height: 1.3 !important; margin: 2px 0 2px !important; }
+  html body #menu #menu-home .title-desc { font-size: 12.5px !important; line-height: 1.3 !important; margin: 2px 0 12px !important; }
+  html body #menu #menu-home .menu-actions { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 8px !important; width: 100% !important; max-width: 212px !important; margin: 0 auto !important; }
   html body #menu #menu-home .menu-actions > #menu-create, html body #menu #menu-home .menu-actions > #play { order: -1; }
-  html body #menu #menu-home .menu-actions .glass-btn { min-height: 48px !important; height: 48px !important; padding: 0 14px !important; font-size: 16px !important; margin: 0 !important; width: 100% !important; border-radius: 14px !important; }
+  html body #menu #menu-home .menu-actions .glass-btn { min-height: 44px !important; height: 44px !important; padding: 0 14px !important; font-size: 15px !important; margin: 0 !important; width: 100% !important; border-radius: 13px !important; }
   html body #menu #menu-home .menu-actions .glass-btn[hidden] { display: none !important; }
-  html body #menu #menu-home #menu-note { margin: 12px auto 0 !important; position: static !important; font-size: 12px !important; }
+  html body #menu #menu-home #menu-note { margin: 9px auto 0 !important; position: static !important; font-size: 11.5px !important; }
   html body #menu #menu-home #menu-note:empty { display: none !important; }
-  html body #menu #menu-home .menu-guide { margin: 14px 0 2px !important; font-size: 12.5px !important; line-height: 1.6; }
+  html body #menu #menu-home .menu-guide { margin: 10px 0 0 !important; font-size: 12px !important; line-height: 1.5; }
 }
 @media (max-width: 560px) and (max-height: 700px) {
-  html body #menu #menu-panel { padding: 34px 18px 12px !important; }
-  html body #menu #menu-home .panel-logo { height: 44px !important; }
-  html body #menu #menu-home .title-desc { margin-bottom: 10px !important; }
-  html body #menu #menu-home .menu-actions .glass-btn { min-height: 42px !important; height: 42px !important; font-size: 15px !important; }
-  html body #menu #menu-home .menu-actions { gap: 8px !important; }
+  html body #menu #menu-panel { padding: 30px 16px 10px !important; }
+  html body #menu #menu-home .panel-logo { height: 38px !important; }
+  html body #menu #menu-home .title-desc { margin-bottom: 8px !important; }
+  html body #menu #menu-home .menu-actions .glass-btn { min-height: 40px !important; height: 40px !important; font-size: 14.5px !important; }
+  html body #menu #menu-home .menu-actions { gap: 7px !important; }
 }
 .drone-hint { position: fixed; z-index: 7000; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 82px); margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(10, 12, 15, 0.6); color: #f6f1e6; font: 600 12.5px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
 .drone-hint[hidden] { display: none; }

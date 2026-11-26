@@ -5,6 +5,7 @@
 // liquidity. Cash out USDC on Base back to your in-game balance. The wallet is a device-side record beside the
 // save (the save format is untouched); cash only moves through the save's own spend and earn functions.
 import { COINS, cents, money } from './logic.ts'
+import { sharePnl } from './pnlCard.ts'
 import { addReputation, balanceSplit, earnCash, getSave, slotKey, spendInGame } from './state.ts'
 import { livePrice } from './livePrices.ts'
 import {
@@ -384,7 +385,12 @@ export function renderDefi(o: { done: (message: string) => void; live: (f: () =>
       card.append(h('p', '', inside > 0 ? `You have ${qty(inside, v.tok)} ${v.tok} (${money(inside * px(v.tok))}) in it.` : `Your ${v.tok} on ${CHAINS[v.chain].name}: ${bal(v.chain, v.tok)}.`))
       const keys = h('div', 'gm-keys df-keys')
       keys.append(btn('Deposit half', 'xch-close', () => run(deposit(v.id, 0.5))), btn('Deposit all', 'xch-go buy', () => run(deposit(v.id, 1))))
-      if (inside > 0) keys.append(btn('Withdraw', 'xch-go sell', () => run(withdraw(v.id))))
+      if (inside > 0) {
+        keys.append(btn('Withdraw', 'xch-go sell', () => run(withdraw(v.id))))
+        // Share the position: how much is in, its APY and what it has earned so far.
+        const put = mine.reduce((n, x) => n + x.qty, 0), earned = inside - put
+        keys.append(btn('↗ Share', 'xch-close', () => sharePnl({ kind: 'Vault', title: v.tok, sub: `${v.name} · ${CHAINS[v.chain].name}`, tint: '#5b8def', headline: `${qty(inside, v.tok)} ${v.tok} in ${v.name}`, pct: put > 0 ? earned / put * 100 : 0, rows: [['APY', `${v.apy}%`], ['Earned so far', `${qty(Math.max(0, earned), v.tok)} ${v.tok}`], ['Risk', v.risk]], usd: earned * px(v.tok) }, (m) => o.done(m))))
+      }
       card.append(keys); body.append(card)
     }
   }
