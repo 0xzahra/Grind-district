@@ -201,7 +201,7 @@ export const DRONES: { id: DroneId; label: string; price: number; blurb: string 
 ]
 
 export type VehicleKind = 'car' | 'jet' | 'drone' | 'phone' | 'laptop' | 'accessory'
-export type VehicleId = 'cityhatch' | 'familysedan' | 'saloon' | 'tourer' | 'evcoupe' | 'sportsaloon' | 'executive' | 'supercar' | 'hypercar' | 'ultrabook' | 'minipc' | 'tablet' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset'
+export type VehicleId = 'cityhatch' | 'familysedan' | 'saloon' | 'tourer' | 'evcoupe' | 'sportsaloon' | 'executive' | 'supercar' | 'hypercar' | 'ultrabook' | 'minipc' | 'tablet' | 'lightjet' | 'longjet' | 'skydrone' | 'phone' | 'phonepro' | 'foldphone' | 'laptop' | 'desktop' | 'earbuds' | 'watch' | 'vrset' | 'camglasses'
 /** Vehicles: in-game cash only, nothing on chain. Drones sit just above the priciest jet. */
 export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price: number; blurb: string }[] = [
   { id: 'cityhatch', kind: 'car', label: 'City hatch', price: 160, blurb: 'A first car: a cheerful five-door in coral with a big hatchback, cheap to run and easy to park.' },
@@ -226,6 +226,7 @@ export const VEHICLES: { id: VehicleId; kind: VehicleKind; label: string; price:
   { id: 'earbuds', kind: 'accessory', label: 'Wireless earbuds', price: 15, blurb: 'Noise cancelling. Study anywhere.' },
   { id: 'watch', kind: 'accessory', label: 'Smartwatch', price: 30, blurb: 'Steps, sleep, and a nudge to keep grinding.' },
   { id: 'vrset', kind: 'accessory', label: 'Mixed-reality headset', price: 110, blurb: 'A visor for lessons and events in the round. Light enough to forget.' },
+  { id: 'camglasses', kind: 'accessory', label: 'Grind Lens camera glasses', price: 85, blurb: 'Everyday frames with a small camera in the corner: take photos and film what you see, hands free. A light by the lens tells people when it is recording.' },
   { id: 'skydrone', kind: 'drone', label: 'Sky drone', price: 1650, blurb: 'A two-seat electric air taxi. It needs no road.' },
 ]
 const VEHICLE_IDS = new Set<string>(VEHICLES.map((v) => v.id))

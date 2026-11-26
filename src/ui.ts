@@ -1157,7 +1157,28 @@ export function mountUi(
       para('Phones, computers, accessories and drones. In-game cash only. Equip a drone and it flies beside you; pocket it and it stays yours.'),
       para('Fly the drone camera to film yourself from the air while you walk: take photos or record videos for your socials. They go to My Gallery.', 'muted'),
     )
-    if (save.drone !== 'none') wrap.append(button('Fly the drone camera 🎥', 'primary', () => { window.dispatchEvent(new Event('gd:dronecam')) }))
+    // Your cameras: everything you own that can take a photo or a video, one tap each. All of it goes to My Gallery.
+    {
+      const own = (save.ownedVehicles ?? []) as string[]
+      const kinds = new Set(VEHICLES.filter((v) => own.includes(v.id)).map((v) => v.kind))
+      const cams = document.createElement('section'); cams.className = 'cam-keys'
+      const h = document.createElement('h3'); h.textContent = 'Your cameras'; cams.append(h)
+      const fire = (ev: string) => () => window.dispatchEvent(new Event(ev))
+      const row = (title: string, sub: string, keys: Array<[string, string, string]>) => {
+        const r = document.createElement('div'); r.className = 'cam-row'
+        const t = document.createElement('div'); const b1 = document.createElement('b'); b1.textContent = title; const s1 = document.createElement('small'); s1.textContent = sub; t.append(b1, s1)
+        const k = document.createElement('div'); k.className = 'cam-acts'
+        for (const [label, cls, ev] of keys) k.append(button(label, cls, fire(ev)))
+        r.append(t, k); cams.append(r)
+      }
+      if (own.includes('camglasses')) row('Grind Lens glasses', 'What you see, hands free: photos and video.', [['Put them on', 'primary', 'gd:glasscam']])
+      if (save.drone !== 'none') row('Drone camera', 'Fly it over the city for aerial photos and video.', [['Fly the drone', 'primary', 'gd:dronecam']])
+      if (kinds.has('phone')) row('Phone camera', 'A selfie with the street behind you, or a photo of the view.', [['Selfie', 'primary', 'gd:selfie'], ['Photo', 'ghost', 'gd:photo']])
+      if (kinds.has('laptop')) row('Computer', 'Record your screen: a clip of everything you do, with the city sound.', [['Record a clip', 'primary', 'gd:skit']])
+      if (cams.childElementCount === 1) cams.append(para('Buy a phone, a computer, the camera glasses or a drone below, and their cameras show up here.', 'muted'))
+      else cams.append(para('Photos and videos are saved to My Gallery (the picture key beside the menu), ready to post.', 'muted'))
+      wrap.append(cams)
+    }
     for (const drone of DRONES) {
       const owned = save.ownedDrones.includes(drone.id)
       const equipped = save.drone === drone.id

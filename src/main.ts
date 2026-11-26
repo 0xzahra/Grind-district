@@ -1050,6 +1050,32 @@ const apiAgents = createRemoteAgents(scene)
     if (d.y < 16) { const p = { x: d.x, z: d.z }; resolveCollision(p, { x: d.vx, z: d.vz }, world.obstacles, 0.5); d.x = p.x; d.z = p.z }
   }
   window.addEventListener('gd:dronecam', startDroneCam)
+  // Camera glasses (Grind Lens): see the city through your own eyes and keep walking; take a photo or film what you
+  // see. The figure steps out of view while you look through the glasses, and comes back when you take them off.
+  let glassCam = false
+  const glassBar = document.createElement('div'); glassBar.id = 'glass-bar'; glassBar.className = 'selfie-bar glass-bar'; glassBar.hidden = true
+  {
+    const b = (label: string, aria: string, on: () => void, cls = '') => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.setAttribute('aria-label', aria); x.title = aria; x.className = `selfie-key ${cls}`; x.onclick = on; return x }
+    glassBar.append(b('×', 'Take the glasses off', () => endGlassCam(), 'selfie-x'), b('', 'Take a photo', () => saveShot(capture()), 'selfie-shutter'), b('●', 'Record a video', () => startSkit(), 'drone-rec'))
+    const rec = document.createElement('span'); rec.className = 'glass-led'; rec.setAttribute('aria-hidden', 'true'); glassBar.prepend(rec)
+    document.body.append(glassBar)
+  }
+  const startGlassCam = () => {
+    if (!((getSave().ownedVehicles ?? []) as string[]).includes('camglasses')) { ui.toast('Get Grind Lens camera glasses in Gadgets to film what you see.'); return }
+    if (ride || homes?.flying) { ui.toast('Step out first, then put the glasses on.'); return }
+    if (selfie) endSelfie()
+    if (droneCam) endDroneCam()
+    ui.close(); setCC(false)
+    glassCam = true
+    glassBar.hidden = false; document.body.classList.add('glass-mode')
+    ui.toast('Glasses on: you see what they see. Walk, drag to look, take a photo or record. The light by the lens is on while you film.')
+  }
+  const endGlassCam = () => { glassCam = false; glassBar.hidden = true; document.body.classList.remove('glass-mode'); avatar.object.visible = !ride?.driving && !metro?.riding; cameraReady = false }
+  window.addEventListener('gd:glasscam', startGlassCam)
+  // The other cameras, from Gadgets: the phone (a selfie or a photo of the view) and the computer (record a clip).
+  window.addEventListener('gd:selfie', () => { ui.close(); setCC(false); startSelfie() })
+  window.addEventListener('gd:photo', () => { ui.close(); setCC(false); takeShot() })
+  window.addEventListener('gd:skit', () => { ui.close(); setCC(false); startSkit() })
   const startSkit = () => void import('./skit.ts').then((m) => m.openSkit({
     canvas, logo: shotLogo, onFrame: (fn) => { afterRender = fn }, toast: (t) => ui.toast(t),
     sounds: async () => { const [a, mu] = await Promise.all([import('./ambient-audio.ts'), import('./music.ts')]); return [a.ambientTap(), mu.musicTap()].filter((x): x is MediaStream => !!x) },
@@ -3471,6 +3497,17 @@ const apiAgents = createRemoteAgents(scene)
     if (space > 0 && scene.fog instanceof THREE.FogExp2) scene.fog.density = space >= 1 ? 0 : 0.00025
     if (space >= 1) { physSky.sky.visible = false; if (scene.background instanceof THREE.Color) scene.background.setHex(0x000004) }
     if (debugView) { camera.position.fromArray(debugView[0]); camera.lookAt(debugView[1][0], debugView[1][1], debugView[1][2]) }
+    else if (glassCam) {
+      // Through the glasses: the camera at the player's eyes, looking where the camera looks (drag turns, pitch tilts).
+      if (ride?.driving || metro?.riding || homes?.flying) endGlassCam()
+      else {
+        const eye = avatar.object.position.y + 1.6 * (avatar.object.scale.y || 1)
+        const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw)
+        camera.position.set(pos.x + fx * 0.12, eye, pos.z + fz * 0.12)
+        camera.lookAt(pos.x + fx * 4, eye + 0.35 - camPitch * 3, pos.z + fz * 4)
+        if (avatar.object.visible) avatar.object.visible = false
+      }
+    }
     else if (droneCam) {
       // Drone camera: a chase view just behind and above your drone, looking where it flies (pitch tilts it down).
       if (ride || interiors.inside || homes?.flying || homes?.inside) endDroneCam()

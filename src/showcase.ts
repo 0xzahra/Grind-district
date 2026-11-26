@@ -3,6 +3,7 @@
 // LED-lit edges and name plaques. The same models feed the shop pictures (tools/shop-renders.mjs).
 import * as THREE from 'three'
 import { fineCar } from './finecars.ts'
+import { createDrone } from './drones.ts'
 import type { Obstacle } from './physics.ts'
 import { PIECES } from './wardrobe.ts'
 
@@ -113,19 +114,10 @@ export function itemModel(id: string): THREE.Group {
     case 'scout':
     case 'courier':
     case 'halo': {
-      const hull = id === 'scout' ? std(0xd9b26a, 0.4, 0.5) : id === 'halo' ? M.graphite : M.alu
-      g.add(mesh(rounded(0.16, 0.08, 0.03, 0.06).rotateX(-Math.PI / 2), hull, 0, 0.09, 0))
-      for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-        const arm = mesh(new THREE.BoxGeometry(0.15, 0.012, 0.018), M.graphite, x * 0.09, 0.095, z * 0.06)
-        arm.rotation.y = Math.atan2(z * 0.06, x * 0.09) * -1
-        g.add(arm, mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 10), M.black, x * 0.15, 0.1, z * 0.1))
-        const prop = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.002, 18), std(0x9fb3a8, 0.4, 0, { transparent: true, opacity: 0.45 }), x * 0.15, 0.118, z * 0.1)
-        g.add(prop)
-      }
-      g.add(mesh(new THREE.SphereGeometry(0.018, 12, 10), M.black, 0, 0.06, 0.03))
-      if (id === 'courier') g.add(mesh(new THREE.BoxGeometry(0.09, 0.06, 0.07), std(0xb07a3c, 0.8), 0, 0.03, 0))
-      if (id === 'halo') g.add(mesh(new THREE.TorusGeometry(0.2, 0.006, 6, 40).rotateX(Math.PI / 2), M.mint, 0, 0.1, 0))
-      for (const x of [-0.05, 0.05]) g.add(mesh(new THREE.BoxGeometry(0.006, 0.05, 0.1), M.graphite, x, 0.04, 0))
+      // The same quadcopter that flies beside you in the city (drones.ts), on the turntable.
+      const d = createDrone(id)
+      d.position.y = 0.12
+      g.add(d)
       break
     }
     case 'ultrabook': {
@@ -165,6 +157,20 @@ export function itemModel(id: string): THREE.Group {
       }
       g.add(mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.166, 10), M.graphite, 0, 0.085, -0.002))
       g.rotation.x = -0.2
+      break
+    }
+    case 'camglasses': {
+      // Camera glasses: black acetate frames, dark lenses, a tiny camera in one corner and a white recording light
+      // in the other, arms folded back.
+      for (const sx of [-1, 1]) {
+        g.add(mesh(new THREE.TorusGeometry(0.026, 0.005, 8, 24).scale(1.18, 0.86, 1), M.graphite, sx * 0.034, 0.1, 0.03))
+        g.add(mesh(new THREE.CircleGeometry(0.025, 24).scale(1.16, 0.84, 1), std(0x10161c, 0.06, 0.7), sx * 0.034, 0.1, 0.03))
+        const arm = mesh(new THREE.BoxGeometry(0.005, 0.006, 0.11), M.graphite, sx * 0.064, 0.106, -0.024); g.add(arm)
+      }
+      g.add(mesh(new THREE.TorusGeometry(0.009, 0.004, 6, 12, Math.PI), M.graphite, 0, 0.11, 0.03))
+      g.add(mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.004, 12).rotateX(Math.PI / 2), std(0x2a3a48, 0.1, 0.8), -0.058, 0.118, 0.034))
+      g.add(mesh(new THREE.SphereGeometry(0.0026, 8, 6), M.mint, 0.058, 0.118, 0.034))
+      g.rotation.y = 0.45
       break
     }
     case 'vrset': {
