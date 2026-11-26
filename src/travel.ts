@@ -16,6 +16,7 @@ import { posedHuman, MEN, WOMEN, type HumanModel, type Look } from './humans.ts'
 import { lighthouse } from './ride.ts'
 import { musicOn, musicVolume, duckMusic } from './music.ts'
 import { buildSpaceport, ORBIT_USD } from './space.ts'
+import { crownCards, foliageMaterial, palmCrownGeometry, palmLeafMaterial } from './trees.ts'
 
 export type TravelCtx = {
   startMove: (m: Move) => void
@@ -589,7 +590,7 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
   }
   const TREES = matchMedia('(pointer: coarse)').matches ? 260 : 520
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 3, 6).translate(0, 1.5, 0), std(0x5a4632, 0.9), TREES)
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(2.4, 0).translate(0, 4.4, 0), std(0xffffff, 0.85, 0, { flatShading: true }), TREES)
+  const crowns = new THREE.InstancedMesh(crownCards(2.4, 4.4, 13, 10), foliageMaterial(), TREES)
   let nT = 0
   const mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), ss = new THREE.Vector3(), vv = new THREE.Vector3(), cc = new THREE.Color()
   for (let k = 0; k < 2400 && nT < TREES; k++) {
@@ -600,7 +601,7 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
     for (let j = 0; j < n && nT < TREES; j++) {
       const x = cx + (rnd() - 0.5) * 22, z = cz + (rnd() - 0.5) * 22, s = 0.7 + rnd() * 0.9
       mm.compose(vv.set(x, 0, z), qq.setFromAxisAngle(ss.set(0, 1, 0), rnd() * 6), ss.set(s, s * (0.9 + rnd() * 0.4), s))
-      trunks.setMatrixAt(nT, mm); crowns.setMatrixAt(nT, mm); crowns.setColorAt(nT, cc.setHSL(0.27 + rnd() * 0.06, 0.45, 0.25 + rnd() * 0.12)); nT++
+      trunks.setMatrixAt(nT, mm); crowns.setMatrixAt(nT, mm); crowns.setColorAt(nT, cc.setHSL(0.22 + rnd() * 0.08, 0.35, 0.72 + rnd() * 0.2)); nT++
     }
   }
   trunks.count = crowns.count = nT
@@ -780,10 +781,10 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
   // Landside: plaza from the station, palms, planters, flags.
   {
     flat(64, 60, std(0xd9d3c6, 0.85), 168, 14, 0.008)
-    const trunkM = std(0x8a6a48, 0.9), leafM = std(0x3f7a3a, 0.8, 0, { side: THREE.DoubleSide })
+    const trunkM = std(0x8a6a48, 0.9)
     for (const [x, z] of [[176, -6], [176, 34], [190, -6], [190, 34], [160, -6], [160, 34]] as const) {
       put(g, new THREE.CylinderGeometry(0.22, 0.32, 6.5, 8), trunkM, x, 3.25, z)
-      for (let k = 0; k < 7; k++) { const lf = put(g, new THREE.PlaneGeometry(0.9, 3.4), leafM, x, 6.4, z, false); lf.rotation.set(-0.9, (k / 7) * Math.PI * 2, 0); lf.translateY(1.4) }
+      put(g, palmCrownGeometry(3.4, 9, Math.round(x + z)), palmLeafMaterial(), x, 6.45, z, false)
       cube(g, 2.2, 0.5, 2.2, std(0xcfc8ba, 0.8), x, 0.25, z)
       A.block(0, { x0: x - 1.1, z0: z - 1.1, x1: x + 1.1, z1: z + 1.1 })
     }

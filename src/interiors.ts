@@ -16,6 +16,7 @@ import { mountStaff } from './staff.ts'
 import { buildHomeTech } from './homeTech.ts'
 import { openGrindDesk, paintDesktop } from './grindDesk.ts'
 import { MEN, posedHuman } from './humans.ts'
+import { houseplantMaterial, houseplantGeometry } from './trees.ts'
 import type { PrayMode } from './congregation.ts'
 import { buildCampus, buildConference, type Floor } from './halls.ts'
 import { buildBank, buildClub, type BankTab } from './bankClub.ts'
@@ -107,7 +108,13 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
     const extra: Array<THREE.BufferGeometry | THREE.Material> = []
     const put = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => { const me = new THREE.Mesh(g, m); me.position.set(x, y, z); f.group.add(me); extra.push(g, m); return me }
     if (items.includes('house-rug')) { const r = put(new THREE.PlaneGeometry(3.2, 2.1), std(0x7a3b2a, 0.95), 1.5, 0.015, 2.2); r.rotation.x = -Math.PI / 2; put(new THREE.PlaneGeometry(2.6, 1.5), std(0xc9a46a, 0.95), 1.5, 0.02, 2.2).rotation.x = -Math.PI / 2 }
-    if (items.includes('house-plant')) { put(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 10), std(0xd8d2c6, 0.6), -8.6, 0.25, 6.4); for (const [dx, dy, s] of [[0, 1.1, 0.5], [0.15, 1.55, 0.38], [-0.12, 1.35, 0.34]]) put(new THREE.IcosahedronGeometry(s, 0), std(0x3f5a34, 0.85), -8.6 + dx, dy, 6.4) }
+    if (items.includes('house-plant')) {
+      // A tall indoor tree in a stone pot: a slim stem, a leafy crown (the shared leaf material is not disposed).
+      put(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 14), std(0xd8d2c6, 0.6), -8.6, 0.25, 6.4)
+      put(new THREE.CircleGeometry(0.26, 14).rotateX(-Math.PI / 2), std(0x3a2a1e, 1), -8.6, 0.505, 6.4)
+      put(new THREE.CylinderGeometry(0.025, 0.035, 1.0, 6), std(0x6b5138, 0.9), -8.6, 0.98, 6.4)
+      const tree = new THREE.Mesh(houseplantGeometry(11, 1.45, 0.6, true), houseplantMaterial()); tree.position.set(-8.6, 0.5, 6.4); tree.castShadow = true; f.group.add(tree); extra.push(tree.geometry)
+    }
     if (items.includes('house-lamp')) { put(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6), std(0x4e3626, 0.5), 8.6, 0.75, -6.3); put(new THREE.CylinderGeometry(0.25, 0.25, 0.3, 14), new THREE.MeshStandardMaterial({ color: 0xf3e6cf, roughness: 0.9, emissive: 0xffd8a0, emissiveIntensity: 0.25 }), 8.6, 1.55, -6.3); put(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 12), std(0x4e3626, 0.5), 8.6, 0.02, -6.3) }
 
     const fUses: Use[] = f.seats.map((st) => { const sp = seatSpot(`house-seat-${st.id}`, st.title, { x: ORIGIN.house.x + st.x, z: ORIGIN.house.z + st.z, yaw: st.yaw, y: st.y }, hooks.sit, 1.3); return { ...sp, run: sp.use } as Use })
@@ -318,7 +325,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       box(1.1, 0.04, 0.34, hallWood, -9.6, -5.4, 0.78, true, Math.PI / 2)
       for (const sz of [-0.48, 0.48]) box(0.04, 0.78, 0.3, hallWood, -9.6, -5.4 + sz, 0, false, 0)
       add(new THREE.CylinderGeometry(0.11, 0.09, 0.2, 10), std(0xa8664a, 0.9), -9.6, 0.92, -5.4)
-      { const leaf = add(new THREE.IcosahedronGeometry(0.2, 0), std(0x4f6b3e, 0.8), -9.6, 1.18, -5.4); leaf.scale.set(1, 1.3, 1) }
+      add(houseplantGeometry(17, 0.42, 0.26), houseplantMaterial(), -9.6, 1.02, -5.4)
       // Living room: rug, L sofa, coffee table, TV wall.
       // Furniture itself is tiered by ladder rank: see homeFurniture.ts (rebuilt on enter).
       // Light switches by each room's door, and the plasma, appliances and fan: homeTech.ts.
@@ -977,7 +984,7 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
 
   // Filled rooms: potted plants in the corners, framed art on the back wall, warm pendant shades. Shared geometry,
   // basic emissive shades (no extra lights), built once per room on first entry.
-  const propMat = { pot: new THREE.MeshStandardMaterial({ color: 0x7a4e36, roughness: 0.85 }), leaf: new THREE.MeshStandardMaterial({ color: 0x355f3c, roughness: 0.75 }),
+  const propMat = { pot: new THREE.MeshStandardMaterial({ color: 0x7a4e36, roughness: 0.85 }), leaf: houseplantMaterial(), soil: new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 1 }),
     frame: new THREE.MeshStandardMaterial({ color: 0x2b2118, roughness: 0.6 }),
     shade: new THREE.MeshStandardMaterial({ color: 0xf6ecd8, emissive: 0xffd7a0, emissiveIntensity: 0.55, roughness: 0.7, flatShading: true }),
     shadeCap: new THREE.MeshStandardMaterial({ color: 0xb8955a, roughness: 0.4, metalness: 0.8 }),
@@ -985,7 +992,9 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
   const art = [0xb8954e, 0x3a5f8a, 0xa84a38, 0x2f7a58].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }))
   const propGeo = {
     pot: new THREE.CylinderGeometry(0.28, 0.22, 0.45, 10),
-    leaf: new THREE.IcosahedronGeometry(0.45, 0),
+    // Leaves in real leaf cards on the soil (trees.ts), not a faceted blob.
+    leaf: houseplantGeometry(3, 0.95, 0.5),
+    soil: new THREE.CircleGeometry(0.25, 14).rotateX(-Math.PI / 2),
     frame: new THREE.BoxGeometry(1.3, 0.9, 0.05),
     canvas: new THREE.PlaneGeometry(1.15, 0.75),
     // Globe pendant: a faceted frosted globe under a small brass cup on a thin rod.
@@ -1002,7 +1011,8 @@ export function createInteriors(scene: THREE.Scene, hooks: Hooks) {
       // Skip east-wall pots in campus: they collide with the library wall and read as blank blobs.
       if ((id === 'campus' && sx > 0) || HALL.has(id)) continue
       at(new THREE.Mesh(propGeo.pot, propMat.pot), sx * hw, 0.22, sz * hd)
-      const leaf = new THREE.Mesh(propGeo.leaf, propMat.leaf); leaf.scale.set(1, 1.4, 1); at(leaf, sx * hw, 0.95, sz * hd)
+      const leaf = new THREE.Mesh(propGeo.leaf, propMat.leaf); leaf.rotation.y = sx * 1.3 + sz * 0.6; at(leaf, sx * hw, 0.42, sz * hd)
+      at(new THREE.Mesh(propGeo.soil, propMat.soil), sx * hw, 0.448, sz * hd)
     }
     for (let i = 0; i < 3; i += 1) {
       const x = (i - 1) * s.w * 0.25

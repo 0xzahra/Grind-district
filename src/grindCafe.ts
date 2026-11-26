@@ -10,6 +10,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { hallCrowd, standing, STUDENTS, ATTENDEES, type CrowdSpot } from './hallCrowd.ts'
 import type { Obstacle } from './physics.ts'
 import { MCGRIND_GREEN } from './brandFronts.ts'
+import { houseplantMaterial, houseplantGeometry } from './trees.ts'
 
 type Parts = Map<THREE.Material, THREE.BufferGeometry[]>
 const put = (parts: Parts, mat: THREE.Material, geo: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0) => {
@@ -49,8 +50,11 @@ function cupMark(g: CanvasRenderingContext2D, x: number, y: number, s: number, i
 }
 const FONT = '"Archivo Black", "Inter Variable", Inter, system-ui, sans-serif'
 
-/** People are frozen figures in instanced draws; how many depends on the device (`many` false on Light). */
-export type Built = { group: THREE.Group; obstacles: Obstacle[] }
+/**
+ * People are frozen figures in instanced draws; how many depends on the device (`many` false on Light). They sit in
+ * `people`, which the world shows only when the player is near (about 4k triangles a figure is wasted far away).
+ */
+export type Built = { group: THREE.Group; obstacles: Obstacle[]; people: THREE.Group }
 
 /**
  * Grind Café, centred at (cx, cz), w x d, its open front facing +z. Returns the meshes and colliders; the caller adds
@@ -61,9 +65,12 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
   const x0 = cx - W / 2, x1 = cx + W / 2, zb = cz - D / 2, zf = cz + D / 2
   const group = new THREE.Group(); group.name = 'grind-cafe'
   const parts: Parts = new Map()
-  const steel = std(0x1f2a26, 0.45, 0.6), stone = std(0xe9e3d8, 0.85), white = std(0xf6f2ea, 0.8), timber = std(0xb98652, 0.6)
-  const walnut = std(0x6b4428, 0.55), top = std(0x2c2c2e, 0.35, 0.2), chrome = std(0xc9d0d4, 0.25, 0.85), green = std(0x0f7a48, 0.6)
-  const leaf = std(0x3f6a3a, 0.85), pot = std(0xd9cfbf, 0.7), cream = std(0xf3ead8, 0.5), mug = std(0xffffff, 0.4), laptop = std(0x9aa4aa, 0.35, 0.6)
+  // Few materials, so the whole café is about a dozen draws: light (render, stone, cups, pots), dark (steel frame
+  // and stone tops), metal (chrome and laptops), two woods, the green, leaves, soil, glass and the lamp glow.
+  const light = std(0xefe9de, 0.75), dark = std(0x23292a, 0.4, 0.45), metal = std(0xc2c9ce, 0.3, 0.8)
+  const steel = dark, stone = light, white = light, timber = std(0xb98652, 0.6)
+  const walnut = std(0x6b4428, 0.55), top = dark, chrome = metal, green = std(0x0f7a48, 0.6)
+  const leaf = houseplantMaterial(), soil = std(0x2e2118, 1), pot = light, cream = light, mug = light, laptop = metal
   const glass = new THREE.MeshStandardMaterial({ color: 0xcfe9f2, roughness: 0.05, metalness: 0.15, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide })
   const glow = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 1.1, roughness: 0.5 })
   // Floor, frame and roof: a stone plinth, slim steel posts, a white roof slab with a timber soffit.
@@ -106,7 +113,7 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
   cyl(parts, top, 0.12, 0.16, 0.5, cx - 0.4, 1.06, cz2 - 0.1)
   for (let i = 0; i < 4; i++) cyl(parts, mug, 0.05, 0.04, 0.1, cx + 0.1 + (i % 2) * 0.13, 1.06 + Math.floor(i / 2) * 0.1, cz2 - 0.15)
   box(parts, glass, 1.4, 0.5, 0.6, cx + 1.4, 1.06, cz2)
-  for (let i = 0; i < 6; i++) box(parts, i % 3 === 0 ? std(0xc98a3a, 0.6) : i % 3 === 1 ? std(0xe8c27a, 0.6) : std(0x8a4b2a, 0.6), 0.22, 0.1, 0.18, cx + 0.95 + (i % 3) * 0.42, 1.12 + (i > 2 ? 0.18 : 0), cz2 - 0.05)
+  for (let i = 0; i < 6; i++) box(parts, i % 3 === 0 ? timber : i % 3 === 1 ? cream : walnut, 0.22, 0.1, 0.18, cx + 0.95 + (i % 3) * 0.42, 1.12 + (i > 2 ? 0.18 : 0), cz2 - 0.05)
   // Little tables by the glass, two seats each, with cups and the odd laptop; more outside on the terrace.
   const tables: Array<[number, number]> = [[x0 + 1.3, cz - 0.4], [x0 + 1.3, cz + 1.8], [x1 - 1.3, cz - 0.4], [x1 - 1.3, cz + 1.8]]
   const terrace: Array<[number, number]> = [[x0 + 0.9, zf + 1.6], [x1 - 0.9, zf + 1.6]]
@@ -131,7 +138,8 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
     cyl(parts, glow, 0.16, 0.2, 0.18, px, H - 0.88, pz, 12)
   }
   for (const [px, pz] of [[x0 + 0.45, zb + 0.5], [x1 - 0.45, zb + 0.5], [cx - 2.2, zf + 0.7], [cx + 2.2, zf + 0.7]] as Array<[number, number]>) {
-    cyl(parts, pot, 0.24, 0.2, 0.46, px, 0, pz); put(parts, leaf, new THREE.IcosahedronGeometry(0.36, 0), px, 0.86, pz)
+    cyl(parts, pot, 0.24, 0.2, 0.46, px, 0, pz); cyl(parts, soil, 0.228, 0.228, 0.012, px, 0.444, pz, 24)
+    put(parts, leaf, houseplantGeometry(Math.round(px * 7 + pz * 3) & 63, 0.85, 0.46), px, 0.44, pz)
   }
   build(parts, group)
   // The sign on the roof edge over the open front: GRIND CAFÉ with the cup.
@@ -143,10 +151,11 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
   sign.position.set(cx, H + 0.62, zf + 0.52); sign.userData.ghost = true; sign.raycast = () => undefined
   group.add(sign)
   // People: a barista behind the bar, customers at the tables and outside, two waiting at the counter.
-  standing(group, ATTENDEES[1] ?? STUDENTS[0]!, cx - 0.9, 0, cz2 - 0.65, 0)
+  const people = new THREE.Group(); people.name = 'grind-cafe-people'; group.add(people)
+  standing(people, ATTENDEES[1] ?? STUDENTS[0]!, cx - 0.9, 0, cz2 - 0.65, 0)
   // A few figures from the city's cast, repeated (each figure is one model to load and one draw).
-  hallCrowd(group, seated, [...STUDENTS.slice(0, 3), ...ATTENDEES.slice(0, 2)], { cap: many ? seated.length : Math.ceil(seated.length / 2), seatY: 0.45 })
-  hallCrowd(group, [{ x: cx + 0.2, z: cz2 + 0.9, yaw: Math.PI }, { x: cx + 1.0, z: cz2 + 1.0, yaw: Math.PI + 0.3 }], ATTENDEES.slice(2, 5), { cap: many ? 2 : 1, pose: 'stand' })
+  hallCrowd(people, seated, [...STUDENTS.slice(0, 3), ...ATTENDEES.slice(0, 2)], { cap: many ? seated.length : Math.ceil(seated.length / 2), seatY: 0.45 })
+  hallCrowd(people, [{ x: cx + 0.2, z: cz2 + 0.9, yaw: Math.PI }, { x: cx + 1.0, z: cz2 + 1.0, yaw: Math.PI + 0.3 }], ATTENDEES.slice(2, 5), { cap: many ? 2 : 1, pose: 'stand' })
   // Colliders: back wall and bar, the glass sides, the glass either side of the open front.
   obstacles.push(
     { kind: 'box', x: cx, z: zb, hx: W / 2, hz: 0.2 },
@@ -157,7 +166,7 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
     { kind: 'box', x: (x1 + cx + 1.4) / 2, z: zf, hx: (W / 2 - 1.4) / 2, hz: 0.12 },
     { kind: 'circle', x: cx + 0.6, z: cz2 + 0.95, r: 0.55 },
   )
-  return { group, obstacles }
+  return { group, obstacles, people }
 }
 
 /**
@@ -167,7 +176,7 @@ export function grindCafe(cx: number, cz: number, many: boolean): Built {
 export function mcgrindPatio(doorX: number, doorZ: number, many: boolean): Built {
   const group = new THREE.Group(); group.name = 'mcgrind-patio'
   const parts: Parts = new Map()
-  const steel = std(0x1f2a26, 0.45, 0.6), top = std(0xf4f1ea, 0.5), seat = std(0x0f7a48, 0.6), food = std(0xe2a24a, 0.6), cup = std(0xffffff, 0.4)
+  const steel = std(0x1f2a26, 0.45, 0.6), top = std(0xf4f1ea, 0.5), seat = std(0x0f7a48, 0.6), food = std(0xe2a24a, 0.6), cup = top
   const canvas = new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide, map: tex(256, 64, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#f4f1ea' : MCGRIND_GREEN; g.fillRect(i * 32, 0, 32, 64) } }) })
   const tables: Array<[number, number]> = [[doorX - 4.6, doorZ + 2.4], [doorX - 4.6, doorZ + 5.4], [doorX + 4.4, doorZ + 5.6]]
   const seated: CrowdSpot[] = []
@@ -186,9 +195,10 @@ export function mcgrindPatio(doorX: number, doorZ: number, many: boolean): Built
     obstacles.push({ kind: 'circle', x: tx, z: tz, r: 1.05 })
   }
   build(parts, group)
-  hallCrowd(group, seated, [...ATTENDEES.slice(0, 2), ...STUDENTS.slice(2, 4)], { cap: many ? seated.length : 3, seatY: 0.45 })
+  const people = new THREE.Group(); people.name = 'mcgrind-patio-people'; group.add(people)
+  hallCrowd(people, seated, [...ATTENDEES.slice(0, 2), ...STUDENTS.slice(2, 4)], { cap: many ? seated.length : 3, seatY: 0.45 })
   // Friends chatting outside, and one reading the hiring board.
-  hallCrowd(group, [{ x: doorX + 2.2, z: doorZ + 3.2, yaw: 2.36 }, { x: doorX + 3.0, z: doorZ + 2.4, yaw: -0.79 }, { x: doorX + 6.4, z: doorZ + 1.0, yaw: -Math.PI / 2 }], STUDENTS.slice(1, 4), { cap: many ? 3 : 2, pose: 'stand' })
+  hallCrowd(people, [{ x: doorX + 2.2, z: doorZ + 3.2, yaw: 2.36 }, { x: doorX + 3.0, z: doorZ + 2.4, yaw: -0.79 }, { x: doorX + 6.4, z: doorZ + 1.0, yaw: -Math.PI / 2 }], STUDENTS.slice(1, 4), { cap: many ? 3 : 2, pose: 'stand' })
   obstacles.push({ kind: 'circle', x: doorX + 2.6, z: doorZ + 2.8, r: 0.6 })
-  return { group, obstacles }
+  return { group, obstacles, people }
 }

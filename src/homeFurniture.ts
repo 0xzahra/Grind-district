@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import type { Obstacle } from './physics.ts'
 import { RANKS } from './logic.ts'
 import { LOOK } from './lookPalette.ts'
+import { houseplantMaterial, houseplantGeometry } from './trees.ts'
 
 // Player-home furniture, tiered by the ladder (RANKS). Each rank unlocks a small, modest set;
 // the home shows everything up to the player's rank. Every piece is built from low-poly parts,
@@ -24,7 +25,8 @@ const MATS: Record<Mat, () => THREE.Material> = {
   metal: () => new THREE.MeshStandardMaterial({ color: LOOK.furnitureMetal, roughness: 0.45, metalness: 0.6 }),
   // Lamp shades: faint warm self-light only (no extra real lights).
   shade: () => new THREE.MeshStandardMaterial({ color: 0xf3e6cf, roughness: 0.9, emissive: 0xffd8a0, emissiveIntensity: 0.22 }),
-  leaf: () => new THREE.MeshStandardMaterial({ color: 0x4f6b3e, roughness: 0.8 }),
+  // Real leaf cards (trees.ts), shared with the city's trees and planters.
+  leaf: () => houseplantMaterial(),
   pot: () => new THREE.MeshStandardMaterial({ color: 0xa8664a, roughness: 0.9 }),
   rug: () => new THREE.MeshStandardMaterial({ ...pbrSet('fabric_pattern_07', 2), color: 0xd8cbb6, roughness: 1 }),
   rug2: () => new THREE.MeshStandardMaterial({ color: 0x6c7a72, roughness: 1 }),
@@ -54,9 +56,20 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
     g.translate(x, y, z)
     g.applyMatrix4(m4.compose(new THREE.Vector3(px, 0, pz), q.setFromAxisAngle(up, pry), new THREE.Vector3(1, 1, 1)))
     if (g.index) g = g.toNonIndexed()
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k)
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k) && !(mat === 'leaf' && k === 'color')) g.deleteAttribute(k)
     ;(parts.get(mat) ?? parts.set(mat, []).get(mat)!).push(g)
     traced?.push(g)
+  }
+  // Leaves: real leaf cards fitted exactly into the space the old leaf shapes took (`old`, piece-local), so every
+  // piece keeps its bounds; `dense` keeps the card count at or above the old triangle count.
+  const leaves = (seed: number, old: THREE.BufferGeometry[], dense = 1) => {
+    const want = new THREE.Box3()
+    for (const g of old) { g.computeBoundingBox(); want.union(g.boundingBox!); g.dispose() }
+    const n = houseplantGeometry(seed, 1, 1, false, dense)
+    n.computeBoundingBox()
+    const have = n.boundingBox!, hs = have.getSize(new THREE.Vector3()), ws = want.getSize(new THREE.Vector3())
+    n.translate(-have.min.x, -have.min.y, -have.min.z).scale(ws.x / hs.x, ws.y / hs.y, ws.z / hs.z).translate(want.min.x, want.min.y, want.min.z)
+    push('leaf', n, 0, 0, 0)
   }
   // b: box with its bottom at y. c: cylinder with its bottom at y.
   const b = (mat: Mat, w: number, h: number, d: number, x: number, y: number, z: number) => push(mat, new THREE.BoxGeometry(w, h, d), x, y + h / 2, z)
@@ -115,14 +128,14 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
   const shelf = () => { // wall shelf: two boards on brackets with books
     for (const y of [1.2, 1.6]) { b('walnut', 1.0, 0.03, 0.24, 0, y, 0); for (const sx of [-0.4, 0.4]) b('metal', 0.02, 0.1, 0.18, sx, y - 0.1, -0.02) }
     for (let i = 0; i < 6; i++) b(i % 2 ? 'book' : 'blue', 0.05, 0.2 + (i % 3) * 0.03, 0.17, -0.38 + i * 0.07, 1.23, 0)
-    b('pot', 0.12, 0.1, 0.12, 0.3, 1.63, 0); b('leaf', 0.18, 0.12, 0.16, 0.3, 1.72, 0)
+    b('pot', 0.12, 0.1, 0.12, 0.3, 1.63, 0); leaves(21, [new THREE.BoxGeometry(0.18, 0.12, 0.16).translate(0.3, 1.78, 0)])
   }
   const bookcase = () => {
     for (const sx of [-0.45, 0.45]) b('oak', 0.03, 1.7, 0.32, sx, 0, 0)
     b('oak', 0.93, 0.02, 0.02, 0, 0, -0.15); b('oak', 0.93, 1.7, 0.02, 0, 0, -0.16)
     for (const y of [0.05, 0.45, 0.85, 1.25, 1.68]) b('oak', 0.88, 0.03, 0.3, 0, y, 0)
     for (const y of [0.08, 0.48, 0.88]) for (let i = 0; i < 9; i++) b(i % 3 ? 'book' : 'blue', 0.06, 0.26 + (i % 2) * 0.04, 0.22, -0.36 + i * 0.075, y, 0)
-    b('pot', 0.14, 0.12, 0.14, 0.25, 1.28, 0); b('leaf', 0.2, 0.14, 0.18, 0.25, 1.4, 0) // a plant on the upper shelf
+    b('pot', 0.14, 0.12, 0.14, 0.25, 1.28, 0); leaves(23, [new THREE.BoxGeometry(0.2, 0.14, 0.18).translate(0.25, 1.47, 0)]) // a plant on the upper shelf
   }
   const sofa = () => { // base, 2 seat cushions, back, arms, little feet
     legs4('walnut', 1.7, 0.8, 0.1, 0.05)
@@ -139,8 +152,9 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
     r('cushion', 0.34, 0.3, 0.1, 0, 0.5, -0.18, 0.04)
   }
   const plant = (s = 1) => {
-    c('pot', 0.16 * s, 0.12 * s, 0.3 * s, 0, 0, 0); push('leaf', new THREE.IcosahedronGeometry(0.26 * s, 0), 0, 0.55 * s, 0); push('leaf', new THREE.IcosahedronGeometry(0.18 * s, 0), 0.1 * s, 0.82 * s, 0.05)
-    push('leaf', new THREE.IcosahedronGeometry(0.15 * s, 0), -0.09 * s, 0.74 * s, -0.06 * s) // third clump: fuller crown
+    c('pot', 0.16 * s, 0.12 * s, 0.3 * s, 0, 0, 0)
+    // A full leafy plant on its soil, in the same space the old three clumps filled.
+    leaves(27, [new THREE.IcosahedronGeometry(0.26 * s, 0).translate(0, 0.55 * s, 0), new THREE.IcosahedronGeometry(0.18 * s, 0).translate(0.1 * s, 0.82 * s, 0.05), new THREE.IcosahedronGeometry(0.15 * s, 0).translate(-0.09 * s, 0.74 * s, -0.06 * s)], 1.5)
   }
   const rug = (w: number, d: number, mat: Mat = 'rug') => { b(mat, w, 0.015, d, 0, 0.005, 0); b('white', w - 0.2, 0.004, 0.04, 0, 0.02, d / 2 - 0.15); b('white', w - 0.2, 0.004, 0.04, 0, 0.02, -d / 2 + 0.15) }
   const tv = () => { // low media stand with doors, flat TV on a foot
@@ -222,7 +236,8 @@ export function buildHomeFurniture(tier: number, ox: number, oz: number, trace?:
     group.add(mesh)
     for (const g of geos) g.dispose()
   }
-  const dispose = () => group.traverse((o) => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
+  // The shared leaf material stays (the city's trees use it too).
+  const dispose = () => group.traverse((o) => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); const m = o.material as THREE.Material; if (!m.userData.foliage) m.dispose() } })
   return { group, obstacles, seats, screens, dispose }
 }
 

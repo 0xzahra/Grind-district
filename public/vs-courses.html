@@ -52,10 +52,10 @@ footer a{color:var(--mute)}
 <h1>Best free ways to learn Web3 in 2026, and a game that gives you proof</h1>
 <p class="lead">There are good free ways to learn Web3. Most of them are built for people who want to write code. If you are starting from zero and want something to show for it, the right pick is different. Here is how three free options compare.</p>
 
-<h2>Who each one is for</h2>
-<div class="card"><b>CryptoZombies: you want to write smart contracts</b><p>Free, interactive Solidity lessons where you write code to build a game. Start here if you want to be a smart-contract developer.</p></div>
-<div class="card"><b>LearnWeb3: you want structured developer courses</b><p>Free developer tracks and projects for building dapps. A good next step after CryptoZombies.</p></div>
-<div class="card"><b>Grind District: you are starting from zero and want proof</b><p>A free 3D city in your browser. Take short lessons with a guide, work a shift at McGrind, practise trading with in-game cash (never real money), and every lesson you pass goes on your CV with a certificate anyone can check by link. Mint certificates as soulbound NFTs on Base or NEAR if you want on-chain proof. No coding, and no wallet needed to start.</p></div>
+<h2>Which one should you pick?</h2>
+<div class="card"><b>You want to write smart contracts → CryptoZombies, then LearnWeb3</b><p>CryptoZombies teaches Solidity with free, interactive lessons where you code a game. LearnWeb3 follows with structured developer tracks and projects for building dapps.</p></div>
+<div class="card"><b>You are new, not a coder, and want to understand Web3 safely → Grind District</b><p>A free 3D city in your browser. Take short lessons with a guide, spot scams, set up a wallet the safe way, work a shift at McGrind and practise trading with in-game cash (never real money). No coding, and no wallet needed to start.</p></div>
+<div class="card"><b>You need proof for a job, a grant or a community role → Grind District</b><p>Every lesson you pass goes on your CV with a certificate anyone can check by link, and you can mint certificates as soulbound NFTs on Base or NEAR.</p></div>
 <p><a class="play" href="/?src=compare">Play Grind District free</a> <a href="/how-it-works" style="color:var(--green)">Read the beginner's guide</a></p>
 
 <h2>Side by side</h2>
@@ -81,5 +81,30 @@ footer a{color:var(--mute)}
 
 <footer>Grind District · <a href="/how-it-works">How it works</a> · <a href="/certificates">Certificates</a> · <a href="/shipped.html">What we shipped</a></footer>
 </main>
+<script>
+// Pass the visitor's source on: the ?src= they arrived with (or the site that sent them, from the referrer) goes to
+// the Play buttons and the other guide pages, so the city's stats can tell X from LinkedIn from Telegram.
+(function () {
+  try {
+    var q = new URLSearchParams(location.search), src = q.get('src') || q.get('utm_source') || ''
+    if (!src && document.referrer) {
+      var h = new URL(document.referrer).hostname.replace(/^www\./, '')
+      var known = [[/(^|\.)t\.co$|twitter\.com$|(^|\.)x\.com$/, 'x'], [/linkedin\.|lnkd\.in/, 'linkedin'], [/(^|\.)t\.me$|telegram/, 'telegram'], [/whatsapp/, 'whatsapp'], [/facebook\.|fb\.(com|me)/, 'facebook'], [/instagram\./, 'instagram'], [/warpcast|farcaster/, 'farcaster'], [/reddit\./, 'reddit'], [/youtube\.|youtu\.be/, 'youtube'], [/google\./, 'google'], [/bing\./, 'bing'], [/duckduckgo/, 'duckduckgo'], [/chatgpt\.|openai\./, 'chatgpt'], [/perplexity/, 'perplexity'], [/claude\.ai/, 'claude'], [/gemini\.google|bard\./, 'gemini'], [/github\./, 'github']]
+      if (!/grinddistrict/.test(h)) { src = 'web'; for (var i = 0; i < known.length; i++) if (known[i][0].test(h)) { src = known[i][1]; break } }
+    }
+    src = src.replace(/[^\w.-]/g, '').slice(0, 40)
+    if (!src) return
+    var page = location.pathname.replace(/\.html$/, '').replace(/^\//, '') || 'home'
+    var links = document.querySelectorAll('a[href^="/"]')
+    for (var j = 0; j < links.length; j++) {
+      var a = links[j], u = new URL(a.getAttribute('href'), location.origin)
+      if (/\.(png|jpe?g|webp|ico|txt|xml)$/.test(u.pathname)) continue
+      u.searchParams.set('src', src)
+      if (u.pathname === '/') u.searchParams.set('utm_content', page)
+      a.setAttribute('href', u.pathname + u.search + u.hash)
+    }
+  } catch (e) { /* links keep their own source */ }
+})()
+</script>
 </body>
 </html>

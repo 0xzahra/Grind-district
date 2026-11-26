@@ -10,6 +10,7 @@ import type { TravelCtx } from './travel.ts'
 import { std, put, cube, sign, tex, person } from './travel.ts'
 import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
+import { crownCards, foliageMaterial } from './trees.ts'
 
 export const HOTEL = { x0: -112, z0: -60, x1: -88, z1: -36, roof: 48 }
 export const MALL = { x0: 84, z0: -46, x1: 124, z1: -6, up: 6 }
@@ -132,7 +133,7 @@ export function buildMall(A: Arch, X: TravelCtx): void {
   put(g0, new THREE.CylinderGeometry(2.4, 2.6, 0.5, 28), std(0xd8d1c3, 0.6), 104, 0.25, -26)
   put(g0, new THREE.CircleGeometry(2.2, 28).rotateX(-Math.PI / 2), std(0x2b9fc0, 0.05, 0.1), 104, 0.52, -26)
   put(g0, new THREE.CylinderGeometry(0.2, 0.3, 4, 8), std(0x6b4c32, 0.9), 104, 2.5, -26)
-  put(g0, new THREE.IcosahedronGeometry(2.2, 1), std(0x4f7a32, 0.85, 0, { flatShading: true }), 104, 5.2, -26)
+  put(g0, crownCards(2.5, 0, 61, 22), foliageMaterial(), 104, 5.2, -26)
   A.block(0, { x0: 101.4, z0: -28.6, x1: 106.6, z1: -23.4 })
   A.ride('esc', { x: 99, z: -30 }, { x: 99, z: -17 }, 0, 1)
   A.lift(113.5, -35.5, [0, 1], (from) => (from === 0 ? 'Glass lift up' : 'Glass lift down'))

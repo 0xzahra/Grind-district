@@ -3,6 +3,7 @@
 // warm bulb pendants, three stools and a small fascia sign. The drink on the counter is a still prop.
 import * as THREE from 'three'
 import { mergeStatic } from './batch.ts'
+import { houseplantMaterial, houseplantGeometry } from './trees.ts'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export function createDrinkStand(scene: THREE.Scene, anisotropy: number): { setNight: (n: number) => void } {
@@ -117,7 +118,7 @@ export function createDrinkStand(scene: THREE.Scene, anisotropy: number): { setN
   cyl(M.clear, 0.13, 0.13, 0.28, 0.45, y0 + 0.95, -0.82, 16)
   for (let i = 0; i < 6; i++) put(M.lemon, new THREE.SphereGeometry(0.05, 8, 6).scale(1, 0.85, 1), 0.45 + Math.cos(i * 1.7) * 0.06, y0 + 1.02 + (i % 3) * 0.06, -0.82 + Math.sin(i * 1.7) * 0.06)
   cyl(M.woodDark, 0.09, 0.07, 0.16, 1.15, y0 + 0.95, -0.85, 10)
-  put(M.leaf, new THREE.IcosahedronGeometry(0.14, 1), 1.15, y0 + 1.23, -0.85)
+  put(houseplantMaterial(), houseplantGeometry(13, 0.26, 0.15), 1.15, y0 + 1.1, -0.85)
   // Menu board on the back cabinet.
   const menu = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.62), M.menu)
   menu.position.set(1.0, y0 + 1.75, -0.935)

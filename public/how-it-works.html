@@ -120,5 +120,30 @@ footer a{color:var(--mute)}
 <p style="margin-top:28px"><a class="play" href="/?src=guide">Play free</a></p>
 <footer>Grind District · <a href="/certificates">Certificates</a> · <a href="/vs-courses">Grind District vs Web3 courses</a> · <a href="/shipped.html">What we shipped</a> · <a href="/s/stats">City stats</a></footer>
 </main>
+<script>
+// Pass the visitor's source on: the ?src= they arrived with (or the site that sent them, from the referrer) goes to
+// the Play buttons and the other guide pages, so the city's stats can tell X from LinkedIn from Telegram.
+(function () {
+  try {
+    var q = new URLSearchParams(location.search), src = q.get('src') || q.get('utm_source') || ''
+    if (!src && document.referrer) {
+      var h = new URL(document.referrer).hostname.replace(/^www\./, '')
+      var known = [[/(^|\.)t\.co$|twitter\.com$|(^|\.)x\.com$/, 'x'], [/linkedin\.|lnkd\.in/, 'linkedin'], [/(^|\.)t\.me$|telegram/, 'telegram'], [/whatsapp/, 'whatsapp'], [/facebook\.|fb\.(com|me)/, 'facebook'], [/instagram\./, 'instagram'], [/warpcast|farcaster/, 'farcaster'], [/reddit\./, 'reddit'], [/youtube\.|youtu\.be/, 'youtube'], [/google\./, 'google'], [/bing\./, 'bing'], [/duckduckgo/, 'duckduckgo'], [/chatgpt\.|openai\./, 'chatgpt'], [/perplexity/, 'perplexity'], [/claude\.ai/, 'claude'], [/gemini\.google|bard\./, 'gemini'], [/github\./, 'github']]
+      if (!/grinddistrict/.test(h)) { src = 'web'; for (var i = 0; i < known.length; i++) if (known[i][0].test(h)) { src = known[i][1]; break } }
+    }
+    src = src.replace(/[^\w.-]/g, '').slice(0, 40)
+    if (!src) return
+    var page = location.pathname.replace(/\.html$/, '').replace(/^\//, '') || 'home'
+    var links = document.querySelectorAll('a[href^="/"]')
+    for (var j = 0; j < links.length; j++) {
+      var a = links[j], u = new URL(a.getAttribute('href'), location.origin)
+      if (/\.(png|jpe?g|webp|ico|txt|xml)$/.test(u.pathname)) continue
+      u.searchParams.set('src', src)
+      if (u.pathname === '/') u.searchParams.set('utm_content', page)
+      a.setAttribute('href', u.pathname + u.search + u.hash)
+    }
+  } catch (e) { /* links keep their own source */ }
+})()
+</script>
 </body>
 </html>

@@ -534,6 +534,12 @@
       "id": "u1126-passing-cards",
       "title": "Who's that? Cards as you pass",
       "body": "Walk past a resident or a real player and a small card shows who they are: their name, what they do and what they're up to. Tap it for their full profile."
+    },
+    {
+      "id": "u1126-real-plants",
+      "title": "Real plants everywhere 🌿",
+      "body": "Potted plants in Grind Café, the rooms and your home now grow real leaves and stay green all year, and the palms on the beach and at the airport have proper fronds.",
+      "go": "place:Grind Café"
     }
   ]
 }

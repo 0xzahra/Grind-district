@@ -3,6 +3,7 @@
 // Scenery beyond the walkable city (the map ends at the promenade). Everything repeated is instanced, so the
 // whole beach is about ten draw calls; the sea's waves are a scrolling normal map.
 import * as THREE from 'three'
+import { palmCrownGeometry, palmLeafMaterial } from './trees.ts'
 import type { Graphics } from './logic.ts'
 
 const SAND_N = -62, SHORE = -80 // sand from z -62 to the waterline at z -80
@@ -56,16 +57,8 @@ function palmParts(): { trunk: THREE.BufferGeometry; leaves: THREE.BufferGeometr
     trunkParts.push(seg)
     x += 0.06 + i * 0.022; y += 0.88
   }
-  const leafParts: THREE.BufferGeometry[] = []
-  for (let k = 0; k < 9; k++) {
-    const leaf = new THREE.ConeGeometry(0.42, 3.2, 4, 1)
-    leaf.scale(1, 1, 0.12)
-    leaf.translate(0, 1.6, 0)
-    leaf.rotateZ(-1.15 - (k % 2) * 0.25) // out and drooping
-    leaf.rotateY((k / 9) * Math.PI * 2)
-    leaf.translate(x, y + 0.1, 0)
-    leafParts.push(leaf)
-  }
+  // The crown: arching, drooping fronds with painted leaflets (trees.ts).
+  const crown = palmCrownGeometry(3.2, 9, 5).translate(x, y + 0.05, 0)
   const merge = (list: THREE.BufferGeometry[]) => {
     // Small manual merge (positions + normals; no indices) to keep this module free of extra imports.
     const pos: number[] = [], nor: number[] = []
@@ -79,7 +72,7 @@ function palmParts(): { trunk: THREE.BufferGeometry; leaves: THREE.BufferGeometr
     out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
     return out
   }
-  return { trunk: merge(trunkParts), leaves: merge(leafParts) }
+  return { trunk: merge(trunkParts), leaves: crown }
 }
 
 export function createBeach(scene: THREE.Scene, graphics: Graphics): { tick: (dt: number) => void; setRise: (metres: number) => void } {
@@ -114,7 +107,7 @@ export function createBeach(scene: THREE.Scene, graphics: Graphics): { tick: (dt
   const spotsPalm: Array<[number, number, number]> = []
   for (let x = -86; x <= 86; x += 13) spotsPalm.push([x + (rnd() - 0.5) * 5, SAND_N - 2.5 - rnd() * 3, rnd() * Math.PI * 2])
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.95 })
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3f7a3a, roughness: 0.8, side: THREE.DoubleSide })
+  const leafMat = palmLeafMaterial()
   const trunks = new THREE.InstancedMesh(palm.trunk, trunkMat, spotsPalm.length)
   const leaves = new THREE.InstancedMesh(palm.leaves, leafMat, spotsPalm.length)
   const m = new THREE.Object3D()

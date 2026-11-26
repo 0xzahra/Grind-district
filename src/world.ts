@@ -404,11 +404,14 @@ export function createWorld(options: {
   spot('conference', conference.x, conference.z, 2.3, 'Conference centre', 'Stage, seats and the Web3 events schedule. Join an event for in-game cash.', 'conference', 'Go inside')
   const lounge = addBuilding({ x: -40, z: -36, w: 9, d: 7, h: 4.4, door: 'px', title: 'Members lounge', subtitle: 'rooms open by rank', seed: 53, style: 'brick', facade: 'charcoal' })
   spot('lounge', lounge.x, lounge.z, 2.4, 'Members lounge', 'Rooms and stations open as your rank grows. Friends can visit.', undefined, 'Go inside')
+  // Things drawn only near the player (checked a few times a second in tick).
+  const nearOnly: Array<{ o: THREE.Object3D; x: number; z: number; r: number }> = []
   // Grind Café (was the brick Campus café): a glass pavilion you can see into and walk into, with a barista,
   // customers at the tables and outside on the terrace. Its step is where the old door was.
   {
     const cafe = grindCafe(-16, -54, !liteOn())
     scene.add(cafe.group)
+    nearOnly.push({ o: cafe.people, x: -16, z: -54, r: 42 })
     obstacles.push(...cafe.obstacles)
     reserved.push({ kind: 'box', x: -16, z: -54, hx: 4 + 1.8, hz: 3.5 + 1.8 })
     spot('campus-cafe', -16, -54 + 3.5 + 1.45, 2.3, 'Grind Café', 'The glass café by McGrind: coffee, tea and meat pies, and today\'s market board in plain words. Walk in.', 'cafe', 'Café menu')
@@ -422,6 +425,7 @@ export function createWorld(options: {
   {
     const patio = mcgrindPatio(mcg.x, mcg.z, !liteOn())
     scene.add(patio.group)
+    nearOnly.push({ o: patio.people, x: mcg.x, z: mcg.z + 3, r: 42 })
     obstacles.push(...patio.obstacles)
   }
   // Grind Market: a covered market hall behind this gate. Rent a stall, stock it and sell.
@@ -1191,6 +1195,8 @@ export function createWorld(options: {
       poolAcc += 1 / 60
       if (poolAcc > 0.25) {
         poolAcc = 0
+        // People at the café and McGrind's patio are drawn only when you are near enough to see who they are.
+        for (const n of nearOnly) { const v = (n.x - focus.x) ** 2 + (n.z - focus.z) ** 2 < n.r * n.r; if (n.o.visible !== v) n.o.visible = v }
         const near = [...lampSpots, ...glowSpots].map((p) => ({ p, d: (p.x - focus.x) ** 2 + (p.z - focus.z) ** 2 })).sort((a, b) => a.d - b.d)
         pool.forEach((l, i) => {
           const n = near[i]

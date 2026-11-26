@@ -3,6 +3,7 @@
 // gantry over the chequered line, a grandstand on the main straight and trees. The car is kept inside the
 // barriers by the track itself (no obstacle list): ride.ts asks where it is across the track and pushes it back.
 import * as THREE from 'three'
+import { crownCards, foliageMaterial } from './trees.ts'
 
 export const TRACK_C = { x: 0, z: 196 }
 export const TRACK_W = 12 // asphalt width
@@ -171,7 +172,7 @@ export function buildTrack(): Track {
   // Trees round the outside, kept clear of the track and run-off.
   {
     const trunk = new THREE.CylinderGeometry(0.16, 0.24, 2.2, 7).translate(0, 1.1, 0)
-    const crown = new THREE.IcosahedronGeometry(1.9, 1).translate(0, 3.4, 0)
+    const crown = crownCards(1.9, 3.4, 9, 14)
     const spots: Array<{ x: number; z: number; s: number }> = []
     let seed = 7
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
@@ -182,7 +183,7 @@ export function buildTrack(): Track {
       if (ok && z > 120) spots.push({ x, z, s: 0.8 + rnd() * 0.6 })
     }
     const tr = new THREE.InstancedMesh(trunk, new THREE.MeshStandardMaterial({ color: 0x5b4330, roughness: 0.9 }), spots.length)
-    const cr = new THREE.InstancedMesh(crown, new THREE.MeshStandardMaterial({ color: 0x3f6b2f, roughness: 0.85, flatShading: true }), spots.length)
+    const cr = new THREE.InstancedMesh(crown, foliageMaterial(), spots.length)
     const m = new THREE.Matrix4()
     spots.forEach((s, k) => { m.makeScale(s.s, s.s, s.s).setPosition(s.x, 0, s.z); tr.setMatrixAt(k, m); cr.setMatrixAt(k, m) })
     tr.castShadow = cr.castShadow = true

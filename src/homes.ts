@@ -17,6 +17,8 @@ import { buildGraduation, HALL } from './graduation.ts'
 import { buildAdventures } from './adventure.ts'
 import { buildSurf } from './surf.ts'
 import { buildGallery, GAL } from './gallery.ts'
+import { crownCards, foliageMaterial, houseplantGeometry, houseplantMaterial, palmCrownGeometry, palmLeafMaterial, shrubGeometry } from './trees.ts'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export type Rect = { x0: number; z0: number; x1: number; z1: number }
 type Level = { y: number; walk: Rect; pools: Rect[]; obstacles: Obstacle[]; group: THREE.Group; uses: Hotspot[] }
@@ -178,7 +180,7 @@ function piece(kind: Kind, M: Mats): THREE.Group {
       break
     }
     case 'tv': box(g, 3.0, 0.45, 0.45, M.wood, 0, 0, 0); box(g, 2.0, 1.15, 0.05, M.black, 0, 0.95, -0.1); box(g, 1.92, 1.07, 0.01, M.screen, 0, 0.99, -0.07); break
-    case 'plant': cyl(g, 0.24, 0.18, 0.5, M.pot); for (const [x, y, z, s] of [[0, 0.95, 0, 0.42], [0.18, 1.25, 0.06, 0.3], [-0.16, 1.15, -0.05, 0.32], [0.04, 1.45, -0.1, 0.24]] as const) { const l = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 1), M.leaf); l.position.set(x, y, z); l.castShadow = true; g.add(l) } cyl(g, 0.02, 0.03, 0.7, M.wood, 0, 0.45); break
+    case 'plant': cyl(g, 0.24, 0.18, 0.5, M.pot); { const l = new THREE.Mesh(houseplantGeometry(31, 1.15, 0.58), houseplantMaterial()); l.position.y = 0.48; l.castShadow = true; g.add(l) } break
     case 'art': box(g, 1.5, 1.08, 0.05, M.metal, 0, 1.15, 0); { const c = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.98), M.art); c.position.set(0, 1.69, 0.03); g.add(c) } break
     case 'lounger': box(g, 0.66, 0.08, 1.9, M.white, 0, 0.3, 0); soft(g, 0.62, 0.08, 1.2, M.linen, 0, 0.38, 0.3); { const b = soft(g, 0.62, 0.08, 0.7, M.linen, 0, 0.55, -0.55); b.rotation.x = 0.6 } for (const [x, z] of [[-0.28, -0.8], [0.28, -0.8], [-0.28, 0.8], [0.28, 0.8]] as const) box(g, 0.04, 0.3, 0.04, M.chrome, x, 0, z); break
     case 'tub': { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.9, 6, 16), M.white); t.rotation.z = Math.PI / 2; t.scale.set(1, 1, 0.95); t.position.y = 0.38; t.castShadow = true; g.add(t); const w = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5), M.water); w.rotation.x = -Math.PI / 2; w.position.y = 0.62; g.add(w); cyl(g, 0.02, 0.02, 0.9, M.chrome, 0.75, 0, -0.3); break }
@@ -240,9 +242,9 @@ function piece(kind: Kind, M: Mats): THREE.Group {
       break
     }
     case 'telescope': { for (let k = 0; k < 3; k++) { const l = cyl(g, 0.015, 0.02, 1.2, M.wood, 0, 0, 0); l.position.set(Math.cos((k * Math.PI * 2) / 3) * 0.25, 0.55, Math.sin((k * Math.PI * 2) / 3) * 0.25); l.rotation.set(Math.sin((k * Math.PI * 2) / 3) * 0.35, 0, -Math.cos((k * Math.PI * 2) / 3) * 0.35) } const t = cyl(g, 0.07, 0.09, 1.1, std(0xb8892f, 0.25, 0.9), 0, 0, 0); t.rotation.x = -1.1; t.position.set(0, 1.3, 0.2); break }
-    case 'palms': for (const [x, s] of [[-0.55, 1], [0, 1.25], [0.55, 0.9]] as const) { box(g, 0.42, 0.45, 0.42, M.stone, x, 0, 0); cyl(g, 0.03, 0.04, 1.2 * s, M.wood, x, 0.45); for (let k = 0; k < 6; k++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.7 * s), M.leaf); f.material.side = THREE.DoubleSide; f.position.set(x, 0.45 + 1.2 * s, 0); f.rotation.set(0.9, (k / 6) * Math.PI * 2, 0); f.translateY(0.3 * s); g.add(f) } } break
+    case 'palms': for (const [x, s] of [[-0.55, 1], [0, 1.25], [0.55, 0.9]] as const) { box(g, 0.42, 0.45, 0.42, M.stone, x, 0, 0); cyl(g, 0.03, 0.04, 1.2 * s, M.wood, x, 0.45); { const f = new THREE.Mesh(palmCrownGeometry(0.75 * s, 8, Math.round(x * 10) + 7, 0.34 * s), palmLeafMaterial()); f.position.set(x, 0.45 + 1.2 * s, 0); f.castShadow = true; g.add(f) } } break
     case 'bench': box(g, 1.8, 0.06, 0.45, M.wood, 0, 0.44, 0.05); box(g, 1.8, 0.4, 0.05, M.wood, 0, 0.55, -0.2); for (const sx of [-0.8, 0.8]) { box(g, 0.06, 0.44, 0.5, M.black, sx, 0, 0); box(g, 0.06, 0.45, 0.06, M.black, sx, 0.44, -0.2) } break
-    case 'tree': { cyl(g, 0.22, 0.32, 3.2, M.wood); for (const [x, y, z, r] of [[0, 4.4, 0, 2.2], [1.1, 3.8, 0.4, 1.5], [-1, 3.9, -0.5, 1.6], [0.2, 5.4, -0.3, 1.5]] as const) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), M.leaf); c.position.set(x, y, z); c.castShadow = true; g.add(c) } break }
+    case 'tree': { cyl(g, 0.22, 0.32, 3.2, M.wood); { const c = new THREE.Mesh(mergeGeometries(([[0, 4.4, 0, 2.2], [1.1, 3.8, 0.4, 1.5], [-1, 3.9, -0.5, 1.6], [0.2, 5.4, -0.3, 1.5]] as const).map(([x, y, z, r], k) => crownCards(r, y, 41 + k, 14).translate(x, 0, z)))!, foliageMaterial()); c.castShadow = true; g.add(c) } break }
     case 'swings': {
       // A-frames whose legs meet under the bar (feet 0.9 m out, apex at 2.5 m), not legs that stop short of it.
       const T = Math.atan2(0.9, 2.5), LEG = Math.hypot(0.9, 2.5)
@@ -338,7 +340,7 @@ function plans(): Record<AreaId, Plan> {
         A.block(0, R(-160.5, 112, -143.5, 128))
         // Flower beds.
         const bedCols = [0xe0457b, 0xf2c230, 0xffffff, 0x8e5bd1]
-        for (let k = 0; k < 4; k++) { const b = new THREE.Group(); cyl(b, 1.6, 1.7, 0.35, A.M.stone); cyl(b, 1.45, 1.45, 0.05, std(0x4a3426, 1), 0, 0.35); const leafy = new THREE.Mesh(new THREE.SphereGeometry(1.35, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), std(0x3f7a35, 0.9)); leafy.scale.y = 0.32; leafy.position.y = 0.38; b.add(leafy); for (let f = 0; f < 22; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), std(bedCols[(f + k) % 4]!, 0.7)); fl.scale.y = 0.6; const a = f * 2.4; const rr = 0.2 + (f % 5) * 0.24; fl.position.set(Math.cos(a) * rr, 0.38 + 0.43 * Math.sqrt(Math.max(0, 1 - (rr / 1.35) ** 2)) * 1.0 * 0.32 / 0.32 * 0.95, Math.sin(a) * rr); b.add(fl) } b.position.set(-138 + [-10, 10, -10, 10][k]!, 0, 140 + [-10, -10, 10, 10][k]!); A.add(0, b); A.block(0, R(b.position.x - 1.7, b.position.z - 1.7, b.position.x + 1.7, b.position.z + 1.7)) }
+        for (let k = 0; k < 4; k++) { const b = new THREE.Group(); cyl(b, 1.6, 1.7, 0.35, A.M.stone); cyl(b, 1.45, 1.45, 0.05, std(0x4a3426, 1), 0, 0.35); const leafy = new THREE.Mesh(mergeGeometries([...[0, 1, 2, 3, 4, 5].map((q) => shrubGeometry(50 + q + k * 7, 9).scale(0.5, 0.28, 0.5).translate(Math.cos(q * 1.05) * 0.78, 0.55, Math.sin(q * 1.05) * 0.78)), shrubGeometry(58 + k, 10).scale(0.62, 0.34, 0.62).translate(0, 0.62, 0)])!, foliageMaterial()); leafy.castShadow = true; b.add(leafy); for (let f = 0; f < 22; f++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), std(bedCols[(f + k) % 4]!, 0.7)); fl.scale.y = 0.6; const a = f * 2.4; const rr = 0.2 + (f % 5) * 0.24; fl.position.set(Math.cos(a) * rr, 0.38 + 0.43 * Math.sqrt(Math.max(0, 1 - (rr / 1.35) ** 2)) * 1.0 * 0.32 / 0.32 * 0.95, Math.sin(a) * rr); b.add(fl) } b.position.set(-138 + [-10, 10, -10, 10][k]!, 0, 140 + [-10, -10, 10, 10][k]!); A.add(0, b); A.block(0, R(b.position.x - 1.7, b.position.z - 1.7, b.position.x + 1.7, b.position.z + 1.7)) }
       },
     },
     // Grind International Airport, east of the city at the end of the metro's airport branch (travel.ts builds it).
@@ -801,7 +803,8 @@ export function createHomes(scene: THREE.Scene, deps: { toast: (m: string) => vo
     space = 0
     if (!root) return
     scene.remove(root)
-    root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mm = m.material as THREE.Material | THREE.Material[]; for (const x of Array.isArray(mm) ? mm : [mm]) x.dispose() } })
+    // The shared leaf material stays (the city's trees use it too).
+    root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mm = m.material as THREE.Material | THREE.Material[]; for (const x of Array.isArray(mm) ? mm : [mm]) if (!x.userData.foliage) x.dispose() } })
     root = null
   }
   const outsideHouse = (x: number, z: number) => !!plan?.house && (x < plan.house.x0 || x > plan.house.x1 || z < plan.house.z0 || z > plan.house.z1)
