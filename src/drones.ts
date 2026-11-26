@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { DroneId } from './logic.ts'
 
 function mesh(geometry: THREE.BufferGeometry, material: THREE.Material, parent: THREE.Object3D): THREE.Mesh {
@@ -80,6 +81,25 @@ export function createDrone(id: DroneId): THREE.Group {
   }
   if (id === 'courier') { const box = mesh(new THREE.BoxGeometry(0.11, 0.07, 0.09), smooth(0xc4a574, 0.75), root); box.position.y = -0.075 }
   if (id === 'halo') { const ring = mesh(new THREE.TorusGeometry(0.06, 0.006, 8, 28), accent, root); ring.rotation.x = Math.PI / 2; ring.position.y = 0.03 }
+  // Merge the fixed parts by material (the propellers stay separate, to spin): about a dozen draws, not 45.
+  const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>()
+  root.updateMatrixWorld(true)
+  for (const c of [...root.children]) {
+    const m = c as THREE.Mesh
+    if (!m.isMesh || Array.isArray(m.material)) continue
+    const g = m.geometry.clone()
+    g.applyMatrix4(m.matrix)
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k)
+    const list = byMat.get(m.material) ?? []; list.push(g); byMat.set(m.material, list)
+    m.geometry.dispose(); root.remove(m)
+  }
+  for (const [mat, geos] of byMat) {
+    const flat = geos.map((g) => (g.index ? g.toNonIndexed() : g))
+    const merged = mergeGeometries(flat)
+    for (const g of [...geos, ...flat]) if (g !== merged) g.dispose()
+    if (!merged) continue
+    const mesh = new THREE.Mesh(merged, mat); mesh.castShadow = true; root.add(mesh)
+  }
   root.userData.rotors = rotors
   return root
 }

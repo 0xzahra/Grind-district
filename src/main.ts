@@ -999,7 +999,7 @@ const apiAgents = createRemoteAgents(scene)
   let droneCam: { x: number; y: number; z: number; vx: number; vy: number; vz: number; climb: number } | null = null
   const droneBar = document.createElement('div'); droneBar.id = 'drone-bar'; droneBar.className = 'selfie-bar drone-bar'; droneBar.hidden = true
   const droneHint = document.createElement('p'); droneHint.className = 'drone-hint'; droneHint.hidden = true
-  droneHint.textContent = 'Stick: fly · Drag: turn · Hold ▲ ▼: up and down'
+  droneHint.textContent = matchMedia('(pointer: coarse)').matches ? 'Stick: fly · Drag: turn · Hold ▲ ▼: up and down' : 'WASD: fly · Drag: turn · R / F: up and down'
   {
     const b = (label: string, aria: string, on: () => void, cls = '') => { const x = document.createElement('button'); x.type = 'button'; x.textContent = label; x.setAttribute('aria-label', aria); x.title = aria; x.className = `selfie-key ${cls}`; x.onclick = on; return x }
     // ▲ and ▼ work while held (a finger, the mouse or the keyboard's Enter/Space)
@@ -1050,6 +1050,9 @@ const apiAgents = createRemoteAgents(scene)
     if (d.y < 16) { const p = { x: d.x, z: d.z }; resolveCollision(p, { x: d.vx, z: d.vz }, world.obstacles, 0.5); d.x = p.x; d.z = p.z }
   }
   window.addEventListener('gd:dronecam', startDroneCam)
+  // On a keyboard: WASD or the arrows fly the drone (the move keys), R climbs and F descends while held.
+  window.addEventListener('keydown', (e) => { if (!droneCam || e.repeat || (e.target as HTMLElement | null)?.closest?.('input, textarea')) return; const k = e.key.toLowerCase(); if (k === 'r') droneCam.climb = 1; else if (k === 'f') droneCam.climb = -1 })
+  window.addEventListener('keyup', (e) => { if (!droneCam) return; const k = e.key.toLowerCase(); if ((k === 'r' && droneCam.climb === 1) || (k === 'f' && droneCam.climb === -1)) droneCam.climb = 0 })
   // Camera glasses (Grind Lens): see the city through your own eyes and keep walking; take a photo or film what you
   // see. The figure steps out of view while you look through the glasses, and comes back when you take them off.
   let glassCam = false
@@ -1681,7 +1684,7 @@ const apiAgents = createRemoteAgents(scene)
     must('#cc-msg').classList.toggle('has-unread', msgUnread || dmUnread() > 0)
     // The banner: only in the open city (not over the menu, a panel, the title, a selfie or a skit).
     const clear = performance.getEntriesByName('gd:revealed').length > 0 && document.body.classList.contains('rail-shut') && !ui.isOpen() && ccSheet.hidden
-      && !document.body.classList.contains('selfie-mode') && !document.getElementById('sk-bar') && !document.querySelector('.mentor:not([hidden])')
+      && !document.body.classList.contains('selfie-mode') && !document.body.classList.contains('drone-mode') && !document.body.classList.contains('glass-mode') && !document.getElementById('sk-bar') && !document.querySelector('.mentor:not([hidden])')
     // A prayer reminder on screen keeps its place; the notifications banner waits for it to go.
     if (!clear || document.querySelector('.pt-banner')) return
     if (n > 0 && (seenUnread < 0 || n > seenUnread)) showBanner(n)

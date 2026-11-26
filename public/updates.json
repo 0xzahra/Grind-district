@@ -626,6 +626,31 @@
       "title": "A slimmer title card",
       "body": "On phones the title card is narrower and shorter, with one tidy column of keys and Continue on top, so more of the city shows round it.",
       "push": false
+    },
+    {
+      "id": "u1126-camera-glasses",
+      "title": "New: Grind Lens camera glasses 🕶️",
+      "body": "Camera glasses in Gadgets: put them on to see the city through your own eyes, and take photos or film what you see, hands free. Gadgets now lists all your cameras (glasses, drone, phone and computer), and everything you shoot goes to My Gallery.",
+      "go": "panel:gadgets"
+    },
+    {
+      "id": "u1126-share-trades",
+      "title": "Share your trades and P&L",
+      "body": "After a trade on Spot, Perps, Convert, P2P or Stake, tap Share this trade for a card to post. Share the P&L of a coin you hold, an open perpetual, your whole portfolio or a DeFi vault. The dollar amount stays hidden unless you switch it on.",
+      "go": "panel:trade"
+    },
+    {
+      "id": "u1126-p2p-merchant",
+      "title": "Be a P2P merchant (practice)",
+      "body": "Learn how P2P merchants and cash agents earn, then run your own practice desk: set your spread, take orders and spot fake receipts and third-party payments for in-game cash and reputation. You can also send pictures in the merchant chat.",
+      "go": "panel:trade",
+      "push": false
+    },
+    {
+      "id": "u1126-polish-round",
+      "title": "A real drone and lots of polish",
+      "body": "Your drone is a proper camera quadcopter with spinning props. Hippos and elephants look better, the masjid's minbar steps are gone, the drone and car controls sit at the bottom where your thumbs are, and Today, your persona and the needs pyramid are easier to read.",
+      "push": false
     }
   ]
 }

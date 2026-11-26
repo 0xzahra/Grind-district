@@ -5078,3 +5078,5 @@ html body .persona .ps-trait .ps-label { opacity: 1 !important; }
 html body #sheet .td-quest .td-go, html body .td-quest .td-go { width: auto !important; min-width: 64px; flex: none; justify-self: end; }
 html body #sheet .sheet-card .td-quest > button.td-go, html body .sheet-card .td-quest > button.primary.td-go { width: auto !important; max-width: 84px !important; min-width: 64px !important; padding: 8px 16px !important; min-height: 38px !important; height: 38px !important; }
 html body .td-quest { grid-template-columns: 40px minmax(0, 1fr) 76px !important; }
+html body .selfie-bar .selfie-key.drone-rec { color: #ff3b3b !important; font-size: 20px !important; }
+body.drone-mode .note-banner, body.glass-mode .note-banner, body.selfie-mode .note-banner { display: none !important; }
