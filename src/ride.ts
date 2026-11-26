@@ -25,6 +25,8 @@ export type RideOpts = {
   at?: { x: number; z: number; heading: number }
   /** Raceway auto race: your car drives itself with the three rivals (watch); touch the stick or a pedal to join. */
   autoRace?: boolean
+  /** A Grind Cab (green with a lit roof sign) or a Grind Premium car (black with a small gold sign). */
+  cab?: 'cab' | 'premium'
 }
 export type Ride = ReturnType<typeof createRide>
 type Input = { x: number; y: number } | null
@@ -293,6 +295,32 @@ export const cityRacePar = () => RACE_PAR
 const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`
 const wrap = (i: number, n: number) => ((i % n) + n) % n
 
+/** Paint a car as a Grind Cab: Grind green body and a lit sign on the roof (Premium: black with a gold sign). */
+function cabLivery(model: THREE.Object3D, tier: 'cab' | 'premium'): void {
+  let paint: THREE.MeshPhysicalMaterial | null = null
+  model.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.MeshPhysicalMaterial | undefined
+    if (!m || !m.isMeshPhysicalMaterial || m.clearcoat !== 1 || m.roughness < 0.2) return // the paint, not the glass
+    if (!paint) { paint = m.clone(); paint.color.set(tier === 'premium' ? 0x15171a : 0x0f7a48) }
+    ;(o as THREE.Mesh).material = paint
+  })
+  const box = new THREE.Box3().setFromObject(model)
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64
+  const g = cv.getContext('2d')!
+  g.fillStyle = tier === 'premium' ? '#1a1a1a' : '#fff4dc'; g.fillRect(0, 0, 256, 64)
+  g.fillStyle = tier === 'premium' ? '#e2c47a' : '#0b5c37'; g.font = '900 34px "Archivo Black", Inter, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+  g.fillText(tier === 'premium' ? 'PREMIUM' : 'GRIND CAB', 128, 34, 240)
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace
+  const lit = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.5 })
+  const end = new THREE.MeshStandardMaterial({ color: tier === 'premium' ? 0x1a1a1a : 0xfff4dc, emissive: tier === 'premium' ? 0x000000 : 0x3a3524, roughness: 0.5 })
+  // the sign is a slim lit box across the roof, words on both long faces
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.2, 0.16), [end, end, end, end, lit, lit])
+  sign.rotation.y = Math.PI / 2
+  sign.position.set(0, box.max.y + 0.09, (box.min.z + box.max.z) / 2 - 0.15)
+  sign.castShadow = true
+  model.add(sign)
+}
+
 export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m: string) => void }) {
   const isBoat = opts.kind === 'boat'
   const spec = isBoat ? { top: 15, acc: 3.6 } : (() => { const c = OWNED[opts.model] ?? KART; return { top: (c.top / 3.6) * 0.42, acc: (c.acc / 100) * 6.8 } })()
@@ -301,6 +329,7 @@ export function createRide(scene: THREE.Scene, opts: RideOpts, deps: { toast: (m
     const m = (o as THREE.Mesh).material as THREE.MeshPhysicalMaterial | undefined
     if (m && m.isMeshPhysicalMaterial && m.roughness > 0.2) { const k = m.clone(); k.color.set(KART.tint); (o as THREE.Mesh).material = k }
   })
+  if (opts.cab) cabLivery(model, opts.cab)
   const root = new THREE.Group()
   root.name = 'ride'
   root.add(model)

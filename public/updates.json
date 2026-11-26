@@ -540,6 +540,25 @@
       "title": "Real plants everywhere 🌿",
       "body": "Potted plants in Grind Café, the rooms and your home now grow real leaves and stay green all year, and the palms on the beach and at the airport have proper fronds.",
       "go": "place:Grind Café"
+    },
+    {
+      "id": "u1126-mcgrind-serving",
+      "title": "McGrind: serve what's ready",
+      "body": "Tap Serve to hand a customer whatever of their order is on the pass now; they pay when the last item arrives. No two people in the line share a name, and the shift tells you what is still to cook. The way into the kitchen is wider, under a Staff sign.",
+      "go": "place:McGrind",
+      "push": false
+    },
+    {
+      "id": "u1126-cabs-and-trains",
+      "title": "Cabs and trains, fixed",
+      "body": "Grind Cabs are green with a lit roof sign, wait behind traffic instead of driving into it and keep to city speed; the move stick hides while you ride. Every Metro station now has a ticket hall with machines and real stairs up to the platform.",
+      "go": "place:Metro · Raceway"
+    },
+    {
+      "id": "u1126-mall-refresh",
+      "title": "Grind Mall, refreshed 🛒",
+      "body": "Real groceries on the Grind Fresh shelves, trolleys with shopping in them, a mall that looks like glass from the street too, a roomier walk by the cinema, and an actual film on the big screen: Night Market.",
+      "go": "place:Grind Mall"
     }
   ]
 }

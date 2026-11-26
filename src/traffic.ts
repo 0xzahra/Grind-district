@@ -386,15 +386,16 @@ export function createTraffic(scene: THREE.Scene, lanes: Lanes, graphics: Graphi
         // Pulling over at a house: brake to the stop instead of halting from full speed.
         if (c.leg === sideOut && c.goal < SIDE_LEN - 1) target = Math.min(target, 1.2 + Math.max(0, outS(c.goal) - c.s) * 0.9)
         // People and the player: slow when close in front, stop short of them.
-        const yieldTo = (x: number, z: number) => {
+        const yieldTo = (x: number, z: number, side = 1.7) => {
           const rx = x - c.px, rz = z - c.pz
           const ahead = rx * fx + rz * fz
           if (ahead <= 0 || ahead > 10) return
-          if (Math.abs(rx * fz - rz * fx) > 1.7) return
+          if (Math.abs(rx * fz - rz * fx) > side) return
           target = Math.min(target, Math.max(0, (ahead - c.len / 2 - 1.6) * 1.1))
         }
         yieldTo(focus.x, focus.z)
-        for (const p of people) if (p.kind === 'circle') yieldTo(p.x, p.z)
+        // a car-sized circle (the player's car or cab) is wide: give it the room a car needs, not a person's
+        for (const p of people) if (p.kind === 'circle') yieldTo(p.x, p.z, p.r > 0.6 ? 1.2 + p.r : 1.7)
         // Give way before the ring.
         // The stop line sits so the bonnet stays out of the ring lane (it used to poke into passing ring cars).
         {

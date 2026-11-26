@@ -31,7 +31,8 @@ const DONE_BAND: [number, number] = [0.85, 1]
 const SPIT_BAND: [number, number] = [0.4, 0.6]
 const FILL_BAND: [number, number] = [0.85, 0.96]
 
-type Order = { id: number; name: string; items: Item[]; patience: number; max: number }
+/** `got` holds what has already been handed over, item by item, so part of an order can go out as it is cooked. */
+type Order = { id: number; name: string; items: Item[]; got: Array<Grade | null>; patience: number; max: number }
 type Period = { title: string; every: number; size: [number, number]; tip: number }
 
 /** Which part of the day it is in Lagos: lunch and dinner are rushes, late night is calm with better tips. */
@@ -77,7 +78,9 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
   counter.view.c.setAttribute('role', 'img')
   const serveRow = el('div', 'mg-serves')
   const serveBtns = [0, 1, 2, 3].map((i) => { const b = pressBtn('Serve', () => serveSlot(i)); b.classList.add('mg-sv'); serveRow.append(b); return b })
-  front.append(counter.view.c, serveRow)
+  // What just happened, said in the panel itself (the city's toasts sit under the shift panel).
+  const sayLine = el('p', 'mg-say'); sayLine.setAttribute('aria-live', 'polite')
+  front.append(counter.view.c, serveRow, sayLine)
   counter.view.c.addEventListener('click', (e) => { const i = counter.slotAt(e); if (i >= 0) serveSlot(i) })
   // --- Stations ---
   const stations = el('div', 'mg-stations')
@@ -86,7 +89,8 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
   let t = 0, nextIn = 2, nextId = 1, served = 0, lost = 0, earned = 0, tips = 0, stars = 0, ended = false
   const orders: Order[] = []
   const ready = new Map<Item, Grade[]>()
-  const say = (m: string) => { o.toast(m) }
+  let sayFor = 0
+  const say = (m: string) => { sayLine.textContent = m; sayLine.classList.add('on'); sayFor = 4 }
   const passList = () => [...ready].filter(([, l]) => l.length).map(([it, l]) => [it, l.length] as [Item, number])
   const addReady = (it: Item, g: Grade, n = 1) => { const l = ready.get(it) ?? []; for (let i = 0; i < n; i++) l.push(g); ready.set(it, l); counter.setPass(passList()) }
   // --- Orders ---
@@ -95,17 +99,34 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
     const pool: Item[] = ['fries', 'burger', 'shawarma', 'shake', 'smoothie', 'boba', 'fries', 'burger']
     const items = Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)]!)
     const max = 26 + items.length * 9
-    orders.push({ id: nextId++, name: NAMES[Math.floor(Math.random() * NAMES.length)]!, items, patience: max, max })
+    // a name nobody in the line has, so two Serve buttons never read the same
+    const free = NAMES.filter((nm) => !orders.some((q) => q.name === nm))
+    const name = free[Math.floor(Math.random() * free.length)] ?? NAMES[nextId % NAMES.length]!
+    orders.push({ id: nextId++, name, items, got: items.map(() => null), patience: max, max })
   }
-  const has = (items: Item[]) => {
-    const need = new Map<Item, number>(); for (const it of items) need.set(it, (need.get(it) ?? 0) + 1)
+  /** What an order still needs (items not handed over yet). */
+  const left = (ord: Order) => ord.items.filter((_, i) => !ord.got[i])
+  /** Whether everything an order still needs is on the pass now. */
+  const has = (ord: Order) => {
+    const need = new Map<Item, number>(); for (const it of left(ord)) need.set(it, (need.get(it) ?? 0) + 1)
     for (const [it, n] of need) if ((ready.get(it)?.length ?? 0) < n) return false
     return true
   }
+  const names = (l: Item[]) => l.map((it) => MENU[it].title.toLowerCase()).join(' and ')
+  // Serving hands over whatever of the order is on the pass; when the last item goes, they pay and leave.
   const serve = (ord: Order) => {
-    if (!has(ord.items)) { say(`${ord.name}'s order is not all on the pass yet.`); return }
+    let moved = 0
+    ord.items.forEach((it, i) => { if (ord.got[i]) return; const l = ready.get(it); if (l?.length) { ord.got[i] = l.shift()!; moved++ } })
+    if (moved) counter.setPass(passList())
+    const still = left(ord)
+    if (still.length) {
+      if (moved) { counter.note(ord.id, 'Thanks!'); kitchenSound('chop'); say(`Handed ${ord.name} what was ready. Still to cook: ${names(still)}.`) }
+      else say(`Nothing for ${ord.name} on the pass yet. Cook ${names(still)}, then tap Serve.`)
+      syncLine()
+      return
+    }
     let perfect = 0, base = 0
-    for (const it of ord.items) { const g = ready.get(it)!.shift()!; if (g === 'perfect') perfect++; base += MENU[it].price }
+    ord.items.forEach((it, i) => { if (ord.got[i] === 'perfect') perfect++; base += MENU[it].price })
     const q = perfect / ord.items.length, speed = ord.patience / ord.max
     const tip = base * (0.05 + 0.3 * speed) * (0.5 + 0.5 * q) * per.tip
     earned += base; tips += tip; served++
@@ -114,18 +135,19 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
     counter.served(ord.id, `+${money(base + tip)}`)
     counter.setPass(passList())
     kitchenSound('bell')
-    if (q === 1) say(`${ord.name}: "Perfect, thank you!"`)
+    say(q === 1 ? `${ord.name}: "Perfect, thank you!" +${money(base + tip)}` : `Served ${ord.name}. +${money(base + tip)}`)
     syncLine()
   }
   const serveSlot = (i: number) => { const ord = orders[i]; if (ord) serve(ord) }
   // The line: four fixed buttons under the four places at the counter (never rebuilt, so no tap is lost).
   const syncLine = () => {
-    counter.sync(orders.map((q) => ({ id: q.id, name: q.name, items: q.items, k: q.patience / q.max, ready: has(q.items) })), Math.max(0, orders.length - 4))
+    counter.sync(orders.map((q) => ({ id: q.id, name: q.name, items: q.items, got: q.got.map(Boolean), k: q.patience / q.max, ready: has(q) })), Math.max(0, orders.length - 4))
     serveBtns.forEach((b, i) => {
       const ord = orders[i]
       b.style.visibility = ord ? 'visible' : 'hidden'
       if (!ord) return
-      const ok = has(ord.items)
+      // gold when something of theirs is on the pass (all of it, or a part to hand over now)
+      const ok = has(ord) || left(ord).some((it) => (ready.get(it)?.length ?? 0) > 0)
       say0(b, `Serve ${ord.name}`)
       b.classList.toggle('primary', ok); b.classList.toggle('ghost', !ok)
     })
@@ -274,6 +296,7 @@ export function openShift(o: { toast: (m: string) => void; onEnd?: () => void })
     if (holding) { level += dt / 2.2; if (level > 1.06) { level = 1.07; pourStop() } }
     fryArt.cook = fry; grillArt.cook = patty; drinkArt.level = level
     textAcc += dt
+    if (sayFor > 0) { sayFor -= dt; if (sayFor <= 0) sayLine.classList.remove('on') }
     if (lineChanged || textAcc > 0.1) syncLine()
     if (textAcc > 0.1) {
       textAcc = 0

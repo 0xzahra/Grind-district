@@ -4828,3 +4828,17 @@ html[data-ui='light'] .pass-card .pass-extra { color: #0f7a48; }
 html[data-ui='light'] .pass-card .pass-go { color: #8a8478; }
 body.sheet-open .pass-card { display: none; }
 
+
+/* Place caption: always light text on its dark glass, whatever the theme. */
+html body #caption { background: rgba(10, 14, 12, 0.88) !important; }
+html body #caption h2 { color: #3ee8a0 !important; }
+html body #caption p { color: rgba(245, 242, 234, 0.94) !important; text-shadow: none !important; }
+/* Collectors' Gallery: the cards are dark, so their words stay light in the light theme too. */
+html[data-ui='light'] body #sheet .sheet-card .gcard :is(strong, em, small, .gc-no), html body .sheet-card .gcard :is(strong, em, small, .gc-no) { color: #f5f2ea !important; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important; }
+html body .sheet-card .gcard em { opacity: 0.88; }
+html body .sheet-card .gcard.back :is(strong, em) { color: rgba(245, 242, 234, 0.7) !important; }
+/* McGrind: what just happened, inside the shift panel. */
+.mg-shift .mg-say { margin: 0; min-height: 1.4em; max-width: 820px; width: 100%; text-align: center; font-size: 14px; font-weight: 600; color: #f3d58a; opacity: 0; transition: opacity 0.2s; }
+.mg-shift .mg-say.on { opacity: 1; }
+/* Riding in a cab: no move stick (the driver drives). */
+body.cab-ride #stick { display: none !important; }

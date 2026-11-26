@@ -132,7 +132,7 @@ export function planRoute(from: P, to: P, obstacles: readonly Obstacle[], limit:
 }
 
 /** Stick input that follows a route: steer to a point a little ahead, ease off for bends, stop at the end. */
-export function followRoute(path: P[], car: DriveCar, top: number): { x: number; y: number; done: boolean; left: number } {
+export function followRoute(path: P[], car: DriveCar, top: number, cap = 9): { x: number; y: number; done: boolean; left: number } {
   // Nearest segment, then a look-ahead point further along the route.
   let best = 0, bestD = Infinity
   for (let i = 0; i < path.length - 1; i++) {
@@ -161,10 +161,25 @@ export function followRoute(path: P[], car: DriveCar, top: number): { x: number;
   while (err < -Math.PI) err += Math.PI * 2
   // The car's heading falls as the steer input rises (ride.ts), so steer against the error.
   const x = Math.max(-1, Math.min(1, -err * 2.4))
-  const cruise = Math.min(top * 0.55, 9) * (1 - Math.min(0.7, Math.abs(err) * 0.9))
+  const cruise = Math.min(top * 0.62, cap) * (1 - Math.min(0.7, Math.abs(err) * 0.9))
   const vGoal = Math.max(2.2, Math.min(cruise, left * 0.7))
   const y = car.speed < vGoal - 0.4 ? Math.min(1, 0.35 + (vGoal - car.speed) * 0.25) : car.speed > vGoal + 1.2 ? -0.5 : 0.12
   return { x, y, done: false, left }
+}
+
+/** Metres of free road in front of the car's bumper before the nearest car or person in its lane (Infinity if clear). */
+export function gapAhead(car: DriveCar, blockers: readonly Obstacle[]): number {
+  const fx = Math.sin(car.heading), fz = Math.cos(car.heading)
+  let best = Infinity
+  for (const b of blockers) {
+    if (b.kind !== 'circle') continue
+    const rx = b.x - car.x, rz = b.z - car.z
+    const ahead = rx * fx + rz * fz
+    if (ahead <= 0 || ahead > 18) continue
+    if (Math.abs(rx * fz - rz * fx) > 1.05 + b.r) continue
+    best = Math.min(best, ahead - b.r - 2.4)
+  }
+  return best
 }
 
 // ---------------------------------------------------------------- pedals, horn and the auto-drive chip
@@ -232,7 +247,7 @@ export function createDriveUi(toast: (m: string) => void, arrived: (title: strin
   })
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyH') hornOn(false); if (e.code === 'Space') held.brake = false })
 
-  let route: P[] | null = null, title = '', stuckT = 0, backT = 0
+  let route: P[] | null = null, title = '', stuckT = 0, backT = 0, queued = 0
   let cab: { label: string; stop: () => void } | null = null
   // Progress watch: the distance left must keep falling. If it has not for 4 s, plan again from here (round
   // whatever is in the way now); after three tries, give up gracefully.
@@ -249,7 +264,7 @@ export function createDriveUi(toast: (m: string) => void, arrived: (title: strin
     autoTo(t, to, from, obstacles, limit, asCab) {
       const path = planRoute(from, to, obstacles, limit)
       if (!path || path.length < 2) return false
-      route = path; title = t; stuckT = 0; backT = 0
+      route = path; title = t; stuckT = 0; backT = 0; queued = 0
       dest = { ...to }; statics = obstacles; lim = limit; bestLeft = Infinity; sinceBest = 0; replans = 0
       cab = asCab ?? null
       stop.textContent = cab ? 'Stop here' : 'Stop'
@@ -263,8 +278,19 @@ export function createDriveUi(toast: (m: string) => void, arrived: (title: strin
       if (route && !cab && Math.hypot(stick.x, stick.y) > 0.3) stopAutoBy('you took the wheel')
       if (route) {
         if (backT > 0) { backT -= dt; return { x: 0, y: -1 } }
-        const r = followRoute(route, car, top)
+        // A cab keeps to city speed (about 45 km/h on the straights); your own car on auto-drive a little gentler.
+        const r = followRoute(route, car, top, cab ? 12.5 : 9)
         setChip(r.left)
+        // Traffic ahead: slow and wait behind it like a driver would, never into it. Waiting in a queue is not
+        // being stuck, so it does not count towards a new route until it has lasted a while.
+        const gap = gapAhead(car, o.blockers?.() ?? [])
+        if (gap < 14 && !r.done) {
+          const cap = Math.max(0, (gap - 1.2) * 0.85)
+          if (car.speed >= cap - 0.2 && queued < 9) {
+            queued += dt; bestLeft = Math.min(bestLeft, r.left); sinceBest = 0; stuckT = 0
+            return { x: r.x, y: car.speed > cap + 1.5 ? -1 : car.speed > cap ? -0.4 : 0 }
+          }
+        } else queued = 0
         if (r.left < bestLeft - 0.8) { bestLeft = r.left; sinceBest = 0 } else sinceBest += dt
         if (sinceBest > 4 && !r.done) {
           sinceBest = 0; bestLeft = Infinity; replans += 1

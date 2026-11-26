@@ -2296,7 +2296,7 @@ const apiAgents = createRemoteAgents(scene)
     if (!paid.ok) { ui.toast(`${paid.message} No cab this time: straight there instead.`); return false }
     ui.close(); setCCRef?.(false)
     const first = planRoute(pick, dest, world.obstacles, CITY_LIMIT - 1)?.[1] ?? dest
-    await beginRide({ kind: 'car', model: tier === 'premium' ? 'executive' : 'familysedan', label, mode: 'free', temp: true, at: { x: pick.x, z: pick.z, heading: Math.atan2(first.x - pick.x, first.z - pick.z) } })
+    await beginRide({ kind: 'car', model: tier === 'premium' ? 'executive' : 'familysedan', cab: tier, label, mode: 'free', temp: true, at: { x: pick.x, z: pick.z, heading: Math.atan2(first.x - pick.x, first.z - pick.z) } })
     if (!ride) return true
     cabThen = then ?? null
     drive.autoTo(spot.title, dest, { x: ride.x, z: ride.z }, world.obstacles, CITY_LIMIT - 1, { label: tier === 'premium' ? 'Premium ride' : 'Cab', stop: () => { cabThen = null; endRide(); ui.toast('Dropped off here. Thanks for riding.') } })
@@ -2311,6 +2311,8 @@ const apiAgents = createRemoteAgents(scene)
     if (!driving && drive.auto) { drive.stopAuto(); cabThen = null }
     const want = driving && !drive.passenger
     if (want !== pedalsShown) { pedalsShown = want; drive.show(want) }
+    // In a cab the driver drives: the move stick goes away until you get out.
+    document.body.classList.toggle('cab-ride', driving && drive.passenger)
   }, 200)
   const rideSpot: Hotspot = { id: '__ride__', x: 0, z: 0, r: 99, title: '', body: 'Stick up to go, back to brake, left and right to steer.', enter: 'Get out', use: () => endRide() }
   const parkedSpot: Hotspot = { id: '__parked__', x: 0, z: 0, r: 3.4, title: 'Your car', body: 'Parked. Take the wheel any time.', enter: 'Drive', use: () => takeWheel() }
@@ -2521,7 +2523,7 @@ const apiAgents = createRemoteAgents(scene)
     camYaw = v.heading + Math.PI
     pos.x = v.x; pos.z = v.z; levelY = v.y
     cameraReady = false
-    ui.toast('All aboard. The gold button gets you off at the next stop.')
+    ui.toast('Ticket bought. Up the stairs and all aboard: the gold button gets you off at the next stop.')
   }
   const metroArrive = (id: StationId) => {
     if (!metro) return
@@ -2555,6 +2557,8 @@ const apiAgents = createRemoteAgents(scene)
       // The Pitch: a promoter's coin booth beside the Conference Centre (scam awareness, practice money only).
       void import('./pitch.ts').then((p) => { staged((into) => streetSpots.push(p.buildPitch(into, { obstacles: world.obstacles, at: { x: 21.8, z: -48.8 }, toast: (t) => ui.toast(t), openCourse: (c) => window.dispatchEvent(new CustomEvent('gd:course', { detail: c })) }).spot)) })
       for (const st of m.STATIONS) if (st.id !== 'park' && st.id !== 'airport') streetSpots.push({ id: `metro-${st.id}`, x: st.street[0], z: st.street[1], r: 2.0, title: `Grind Metro · ${st.title}`, body: 'Trains round the city and out to Grind Park, every few minutes. $2 a ride.', enter: 'Take the train · $2', use: () => boardMetro(st.id) })
+      // The ticket hall at the foot of each station's stairs: buy a ticket at the machine and climb up to the train.
+      for (const e of metro?.entrances ?? []) streetSpots.push({ id: `metro-hall-${e.id}`, x: e.x, z: e.z, r: 2.6, title: `${e.title} station · tickets`, body: 'Buy a ticket at the machine, go through the gates and up the stairs to the platform. Trains every few minutes.', enter: 'Buy a ticket & board · $2', use: () => boardMetro(e.id) })
       parkPillars()
     })
   }, 2500), { once: true })
@@ -2793,7 +2797,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __spots: (q: string) => streetSpots.filter((s) => s.id.includes(q)).map((s) => ({ id: s.id, x: +s.x.toFixed(1), z: +s.z.toFixed(1) })), __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)

@@ -864,9 +864,9 @@ export class DrinksArt extends Station {
 
 // ---------------------------------------------------------------------------------------------------------------
 // The counter: customers walk up, say their order in a bubble, wait (their face says how long), and take a tray.
-export type Guest = { id: number; name: string; items: Item[]; k: number; ready: boolean }
+export type Guest = { id: number; name: string; items: Item[]; got: boolean[]; k: number; ready: boolean }
 type Look = { skin: string; top: string; hair: 'hijab' | 'gele' | 'braids' | 'short' | 'kufi' | 'afro'; wrap: string }
-type Sprite = { id: number; look: Look; items: Item[]; x: number; tx: number; born: number; k: number; ready: boolean; state: 'line' | 'served' | 'left'; t1: number; amount: string }
+type Sprite = { id: number; look: Look; items: Item[]; got: boolean[]; x: number; tx: number; born: number; k: number; ready: boolean; state: 'line' | 'served' | 'left'; t1: number; amount: string }
 const SKINS = ['#5a3825', '#6b4229', '#8a5a3c', '#a06a45', '#7a4b30', '#c68e5d', '#4a2f20']
 const TOPS = ['#e4572e', '#2e86ab', '#f2c14e', '#7b4ea3', '#2a9d8f', '#d1495b', '#3d405b', '#ef8354', '#1b998b', '#c44569']
 const HAIR: Record<string, Look['hair']> = {
@@ -962,14 +962,16 @@ export class CounterArt {
     const shown = new Set<number>()
     guests.slice(0, 4).forEach((q, i) => {
       let s = this.sprites.get(q.id)
-      if (!s) { s = { id: q.id, look: lookFor(q.name, q.id), items: q.items, x: 700 + i * 60, tx: SLOT(i), born: now, k: q.k, ready: q.ready, state: 'line', t1: 0, amount: '' }; this.sprites.set(q.id, s) }
-      s.tx = SLOT(i); s.k = q.k; s.ready = q.ready
+      if (!s) { s = { id: q.id, look: lookFor(q.name, q.id), items: q.items, got: q.got, x: 700 + i * 60, tx: SLOT(i), born: now, k: q.k, ready: q.ready, state: 'line', t1: 0, amount: '' }; this.sprites.set(q.id, s) }
+      s.tx = SLOT(i); s.k = q.k; s.ready = q.ready; s.got = q.got
       shown.add(q.id)
     })
     for (const s of this.sprites.values()) if (s.state === 'line' && !shown.has(s.id)) { s.state = 'left'; s.t1 = now }
     this.more = waiting
   }
   served(id: number, amount: string): void { const s = this.sprites.get(id); if (s) { s.state = 'served'; s.t1 = nowS(); s.amount = amount; this.pops.push({ text: amount, col: GOOD, t0: s.t1 + 0.3, x: s.x, y: 40 }) } }
+  /** A word from a customer who was handed part of their order. */
+  note(id: number, text: string): void { const s = this.sprites.get(id); if (s) this.pops.push({ text, col: GOOD, t0: nowS(), x: s.x, y: 40 }) }
   left(id: number): void { const s = this.sprites.get(id); if (s) { s.state = 'left'; s.t1 = nowS(); this.pops.push({ text: 'Left', col: BAD, t0: s.t1, x: s.x, y: 40 }) } }
   setPass(list: Array<[Item, number]>): void {
     const old = new Map(this.pass)
@@ -1023,7 +1025,14 @@ export class CounterArt {
         rr(g, bx, 4, bw, 50, 12); g.fillStyle = '#ffffff'; g.fill()
         g.lineWidth = s.ready ? 3 : 1; g.strokeStyle = s.ready ? GOOD : 'rgba(0,0,0,0.12)'; g.stroke()
         poly(g, [s.x - 7, 53, s.x + 7, 53, s.x, 62]); g.fillStyle = '#ffffff'; g.fill()
-        s.items.forEach((it, i) => drawItem(g, it, bx + 27 + i * 36, 43, 34))
+        s.items.forEach((it, i) => {
+          const ix = bx + 27 + i * 36
+          // what they already have is faded with a small green tick
+          if (s.got[i]) { g.globalAlpha = clamp((age - 0.4) * 4) * 0.35 }
+          drawItem(g, it, ix, 43, 34)
+          g.globalAlpha = clamp((age - 0.4) * 4)
+          if (s.got[i]) { ell(g, ix + 10, 14, 6.5, 6.5); g.fillStyle = GOOD; g.fill(); g.strokeStyle = '#04331b'; g.lineWidth = 1.8; g.beginPath(); g.moveTo(ix + 7, 14); g.lineTo(ix + 9.5, 16.5); g.lineTo(ix + 13.5, 11); g.stroke() }
+        })
         rr(g, bx + 9, 46, bw - 18, 4, 2); g.fillStyle = '#e6e6e6'; g.fill()
         rr(g, bx + 9, 46, Math.max(4, (bw - 18) * clamp(s.k)), 4, 2); g.fillStyle = s.k > 0.5 ? '#20b46a' : s.k > 0.25 ? '#f0a020' : BAD; g.fill()
         if (s.ready) { ell(g, bx + bw - 4, 8, 8, 8); g.fillStyle = GOOD; g.fill(); g.strokeStyle = '#04331b'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(bx + bw - 8, 8); g.lineTo(bx + bw - 5, 11); g.lineTo(bx + bw, 4.5); g.stroke() }

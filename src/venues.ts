@@ -11,6 +11,19 @@ import { std, put, cube, sign, tex, person } from './travel.ts'
 import { spendInGame } from './state.ts'
 import { adjust } from './needs.ts'
 import { crownCards, foliageMaterial } from './trees.ts'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { placeGoods, stockGondola, trolley, type Placed } from './groceries.ts'
+import { filmFrame, FILM_TITLE } from './film.ts'
+
+type B6 = [number, number, number, number, number, number]
+/** Many boxes ([x, y-centre, z, w, h, d]) as one mesh: shelving, trolleys and seats cost one draw each. */
+const merged = (list: B6[], m: THREE.Material): THREE.Mesh => {
+  const geos = list.map(([x, y, z, w, h, d]) => new THREE.BoxGeometry(w, h, d).translate(x, y, z))
+  const mesh = new THREE.Mesh(mergeGeometries(geos), m)
+  for (const g of geos) g.dispose()
+  mesh.castShadow = true; mesh.receiveShadow = true
+  return mesh
+}
 
 export const HOTEL = { x0: -112, z0: -60, x1: -88, z1: -36, roof: 48 }
 export const MALL = { x0: 84, z0: -46, x1: 124, z1: -6, up: 6 }
@@ -36,12 +49,27 @@ export function cityVenues(scene: THREE.Scene, enter: (id: 'hotel' | 'mall') => 
   for (const [dx, dz, ww, dd] of [[0, -w / 2, w + 1, 0.5], [0, w / 2, w + 1, 0.5], [-w / 2, 0, 0.5, w + 1], [w / 2, 0, 0.5, w + 1]] as const) cube(hotel, ww, 2.4, dd, rim, cx + dx, HOTEL.roof - 1.0, cz + dz)
   const hs = sign('THE GRIND GRAND', 14, 2.2, { fg: '#d8b25a', weight: 900 }); hs.position.set(cx, HOTEL.roof - 3, HOTEL.z1 + 0.05); hotel.add(hs)
   g.add(hotel)
-  // Grind Mall: a long low glass box with a canopy and big lettering.
+  // Grind Mall: two storeys of glass all round (as you see it from inside), lit shops behind the glass, a white
+  // floor band between the storeys, a roof edge and big lettering.
   const mall = new THREE.Group(); mall.name = 'shell-mall'
   const mx = (MALL.x0 + MALL.x1) / 2, mz = (MALL.z0 + MALL.z1) / 2
-  cube(mall, MALL.x1 - MALL.x0, 12, MALL.z1 - MALL.z0, std(0xdfe3e6, 0.4, 0.3), mx, 6, mz)
-  cube(mall, 0.4, 9, MALL.z1 - MALL.z0 - 4, std(0x1d2a35, 0.08, 0.5, { emissive: 0x24384a, emissiveIntensity: 0.4 }), MALL.x0 - 0.2, 5, mz)
-  const ms = sign('GRIND MALL', 16, 3, { fg: '#14a058', weight: 900 }); ms.position.set(MALL.x0 - 0.45, 10.4, mz); ms.rotation.y = -Math.PI / 2; mall.add(ms)
+  const curtain = tex(512, 512, (c) => {
+    c.fillStyle = '#20384a'; c.fillRect(0, 0, 512, 512)
+    for (let f = 0; f < 2; f++) {
+      const y0 = f * 256
+      const gl = c.createLinearGradient(0, y0, 0, y0 + 230); gl.addColorStop(0, '#5f8eab'); gl.addColorStop(0.55, '#2c4c63'); gl.addColorStop(1, '#f2d9a8')
+      c.fillStyle = gl; c.fillRect(0, y0 + 12, 512, 218)
+      // shops behind the glass: warm lit fronts, people-height shapes
+      for (let k = 0; k < 6; k++) { c.fillStyle = ['#ffd9a0', '#c9f0d8', '#ffe8c8', '#d8e8ff', '#ffd0d8', '#f4f0c0'][(k + f) % 6]!; c.globalAlpha = 0.55; c.fillRect(8 + k * 85, y0 + 150, 70, 80); c.globalAlpha = 1 }
+      c.fillStyle = '#eef0ee'; c.fillRect(0, y0 + 230, 512, 26) // floor band
+    }
+    c.fillStyle = '#c9d0d6'; for (let x = 0; x <= 512; x += 64) c.fillRect(x - 2, 0, 4, 512) // mullions
+  }, [5, 1])
+  const glassWall = std(0xffffff, 0.18, 0.35, { map: curtain, emissive: 0x334455, emissiveIntensity: 0.25 })
+  cube(mall, MALL.x1 - MALL.x0, 12, MALL.z1 - MALL.z0, glassWall, mx, 6, mz)
+  cube(mall, MALL.x1 - MALL.x0 + 1.2, 0.9, MALL.z1 - MALL.z0 + 1.2, std(0xeef0ee, 0.5), mx, 12.3, mz)
+  cube(mall, 3.2, 0.25, 12, std(0x1d2a35, 0.3, 0.6), MALL.x0 - 1.6, 4.2, mz)
+  const ms = sign('GRIND MALL', 16, 3, { fg: '#14a058', weight: 900 }); ms.position.set(MALL.x0 - 0.65, 9.4, mz); ms.rotation.y = -Math.PI / 2; mall.add(ms)
   g.add(mall)
   g.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
   scene.add(g)
@@ -114,7 +142,7 @@ export function buildHotel(A: Arch, X: TravelCtx): void {
 
 export function buildMall(A: Arch, X: TravelCtx): void {
   const M = MALL, up = M.up
-  const atrium = { x0: 96, z0: -34, x1: 112, z1: -18 }
+  const atrium = { x0: 96, z0: -34, x1: 108.5, z1: -18 }
   const tiles = tex(256, 256, (c) => { c.fillStyle = '#ece9e3'; c.fillRect(0, 0, 256, 256); c.strokeStyle = 'rgba(120,115,105,0.3)'; c.lineWidth = 2; for (let i = 0; i <= 256; i += 128) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i, 256); c.stroke(); c.beginPath(); c.moveTo(0, i); c.lineTo(256, i); c.stroke() } }, [10, 10])
   const floor = std(0xffffff, 0.2, 0, { map: tiles })
   A.slab(0, { x0: M.x0, z0: M.z0, x1: M.x1, z1: M.z1 }, undefined, floor)
@@ -152,19 +180,26 @@ export function buildMall(A: Arch, X: TravelCtx): void {
   {
     const S = { x0: 86, z0: -45, x1: 122, z1: -37 }
     const sg = shop(0, S.x0, S.z0, S.x1, S.z1, 'GRIND FRESH · SUPERMARKET', '#2bd46b', { id: 'mall-shop', title: 'Grind Fresh', body: 'A weekly shop: bread, rice, fruit and veg, milk, eggs, chicken and the rest. It keeps you fed for days.', enter: 'Weekly shop · $45', use: () => buy(X, 45, 'Grind Fresh weekly shop', 'Grind Mall', { hunger: 60, energy: 10 }, 'Bags full. The fridge is stocked.') }, 'z1')
-    // Aisles of shelves stacked with products (instanced), fridges, fruit and veg, checkouts.
-    const shelves = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), std(0xf2f2ee, 0.5), 5)
-    const goods = new THREE.InstancedMesh(new THREE.BoxGeometry(0.28, 0.3, 0.22), std(0xffffff, 0.6), 5 * 2 * 4 * 18)
+    // Aisles: gondola shelving stocked with real-looking products (cereal, tins, oil, milk, rice, jam), one shelf
+    // run per product as shops stock them; trolleys with shopping in them in the aisles and by the tills.
     const mm = new THREE.Matrix4(), col = new THREE.Color()
-    let n = 0
-    const pal = [0xd63c3c, 0xf2c230, 0x2f6fb3, 0x6aa84f, 0xff8c1a, 0xffffff, 0x7b1fa2, 0x14a058]
+    const frame: B6[] = [], goods: Placed[] = [], carts: B6[] = [], castors: Array<[number, number, number]> = []
     for (let k = 0; k < 5; k++) {
       const x = 90 + k * 6
-      shelves.setMatrixAt(k, mm.compose(new THREE.Vector3(x, 1.0, S.z0 + 3.8), new THREE.Quaternion(), new THREE.Vector3(1.0, 2.0, 4.6)))
-      for (const side of [-1, 1]) for (let row = 0; row < 4; row++) for (let i = 0; i < 18; i++) { goods.setMatrixAt(n, mm.makeTranslation(x + side * 0.4, 0.35 + row * 0.48, S.z0 + 1.7 + i * 0.22)); goods.setColorAt(n, col.setHex(pal[(i * 3 + row * 5 + k) % pal.length]!)); n++ }
+      goods.push(...stockGondola({ x, z: S.z0 + 3.8, len: 4.6, along: 'z', seed: k }, frame))
       A.block(0, { x0: x - 0.6, z0: S.z0 + 1.4, x1: x + 0.6, z1: S.z0 + 6.2 })
     }
-    sg.add(shelves, goods)
+    // aisle signs hanging over each gondola
+    ;['Breakfast', 'Tins & jars', 'Cooking oil', 'Dairy', 'Rice & grains'].forEach((t, k) => { const a = sign(t, 2.2, 0.42, { bg: '#14a058', fg: '#ffffff' }); a.position.set(90 + k * 6, 3.0, S.z0 + 3.8); a.rotation.y = Math.PI / 2; sg.add(a) })
+    for (const [x, z, yaw, seed] of [[93, S.z0 + 4.2, 0, 1], [99.2, S.z0 + 2.6, Math.PI, 2], [104.6, S.z1 + 1.8, Math.PI / 2, 3], [109.5, S.z1 + 1.6, -Math.PI / 2, 4], [87.6, S.z1 + 2.4, 0, 5], [88.4, S.z1 + 2.4, 0, 0]] as const) {
+      goods.push(...trolley(x, z, yaw, seed, carts, castors))
+      A.block(0, { x0: x - 0.45, z0: z - 0.5, x1: x + 0.45, z1: z + 0.5 })
+    }
+    sg.add(merged(frame, std(0xf2f2ee, 0.5)), merged(carts, std(0xb9c2c9, 0.3, 0.85)))
+    const wheelsIm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10).rotateZ(Math.PI / 2), std(0x1a1a1a, 0.6), castors.length)
+    castors.forEach(([x, y, z], i) => wheelsIm.setMatrixAt(i, mm.makeTranslation(x, y, z)))
+    sg.add(wheelsIm)
+    placeGoods(goods, sg)
     for (let k = 0; k < 4; k++) cube(sg, 2.2, 2.2, 0.8, std(0x0b1220, 0.1, 0.3, { emissive: 0x7ad3ff, emissiveIntensity: 0.35 }), 87.6 + k * 2.4, 1.1, S.z0 + 0.5)
     const fruit = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 8, 6), std(0xffffff, 0.6), 160)
     for (let i = 0; i < 160; i++) { fruit.setMatrixAt(i, mm.makeTranslation(117 + (i % 16) * 0.18, 0.95 + Math.floor(i / 80) * 0.05, S.z0 + 2 + Math.floor((i % 80) / 16) * 0.3)); fruit.setColorAt(i, col.setHex([0xd63c3c, 0xf2c230, 0x6aa84f, 0xff8c1a][i % 4]!)) }
@@ -197,28 +232,35 @@ export function buildMall(A: Arch, X: TravelCtx): void {
     const cin = new THREE.Group(); A.add(1, cin)
     A.wall(1, C.x0, C.z0, C.x0, C.z1, 5, std(0x1a1014, 0.8), [[-22, -19]])
     cube(cin, C.x1 - C.x0, 0.02, C.z1 - C.z0, std(0x2a1418, 0.9), (C.x0 + C.x1) / 2, y + 0.02, (C.z0 + C.z1) / 2, false)
-    // The film: a few frames of a city at dusk, cycling.
-    const frames = [0, 1, 2].map((k) => tex(512, 256, (c) => {
-      const sky = c.createLinearGradient(0, 0, 0, 256); sky.addColorStop(0, ['#2a1a4a', '#0b1a3a', '#4a1a2a'][k]!); sky.addColorStop(1, ['#ff8c4a', '#3a7bd5', '#ffb36b'][k]!)
-      c.fillStyle = sky; c.fillRect(0, 0, 512, 256)
-      c.fillStyle = 'rgba(255,240,200,0.9)'; c.beginPath(); c.arc(140 + k * 110, 150 - k * 20, 26, 0, Math.PI * 2); c.fill()
-      c.fillStyle = '#0a0a12'
-      for (let i = 0; i < 18; i++) { const w = 18 + ((i * 37 + k * 11) % 30), h = 40 + ((i * 53 + k * 7) % 120); c.fillRect(i * 30 - 6, 256 - h, w, h) }
-      if (k === 1) { c.beginPath(); c.arc(250, 236, 14, 0, Math.PI * 2); c.arc(280, 232, 14, 0, Math.PI * 2); c.fill(); c.fillRect(238, 236, 26, 30); c.fillRect(268, 232, 26, 34) }
-    }))
-    const screenM = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: frames[0]!, emissiveIntensity: 0.9 })
-    const screen = put(cin, new THREE.PlaneGeometry(14, 4.6), screenM, C.x1 - 0.3, y + 2.9, -20, false); screen.rotation.y = -Math.PI / 2
-    const red = std(0x9e1b2b, 0.8)
-    for (let r = 0; r < 4; r++) for (let k = 0; k < 6; k++) { const x = C.x0 + 2 + r * 1.6, z = -24.5 + k * 1.0; cube(cin, 0.6, 0.45, 0.6, red, x, y + 0.23, z); cube(cin, 0.12, 0.7, 0.6, red, x - 0.3, y + 0.6, z) }
-    A.block(1, { x0: C.x0 + 1.5, z0: -25, x1: C.x0 + 7, z1: -18.5 })
+    // The film: an original short, drawn frame by frame onto the screen (film.ts), twelve frames a second.
+    const filmC = document.createElement('canvas'); filmC.width = 512; filmC.height = 216
+    const filmG = filmC.getContext('2d')!
+    const filmT = new THREE.CanvasTexture(filmC); filmT.colorSpace = THREE.SRGBColorSpace
+    filmFrame(filmG, 0)
+    const screenM = new THREE.MeshBasicMaterial({ map: filmT, toneMapped: false })
+    const screen = put(cin, new THREE.PlaneGeometry(14, 5.9), screenM, C.x1 - 0.3, y + 3.0, -20, false); screen.rotation.y = -Math.PI / 2
+    // six rows of ten seats with an aisle down the middle, each row a step higher (merged: two draws in all)
+    const seatsB: B6[] = [], steps: B6[] = []
+    for (let r = 0; r < 6; r++) {
+      const x = C.x0 + 1.6 + r * 1.15, lift = Math.max(0, 5 - r) * 0.16
+      steps.push([x, y + lift / 2, -20, 1.15, lift || 0.01, 14])
+      for (let k = 0; k < 10; k++) { const z = -26 + k * 1.0 + (k >= 5 ? 1.2 : 0); seatsB.push([x, y + lift + 0.23, z, 0.58, 0.45, 0.62], [x - 0.3, y + lift + 0.62, z, 0.12, 0.8, 0.62]) }
+    }
+    cin.add(merged(steps.filter((b) => b[4] > 0.02), std(0x3a1a20, 0.9)), merged(seatsB, std(0x9e1b2b, 0.8)))
+    A.block(1, { x0: C.x0 + 1.2, z0: -26.4, x1: C.x0 + 8.2, z1: -21.3 })
+    A.block(1, { x0: C.x0 + 1.2, z0: -19.9, x1: C.x0 + 8.2, z1: -14.6 })
     const cs = sign('GRIND CINEMA', 4.4, 0.7, { bg: '#0b0c0e', fg: '#ff2b55', glowing: true }); cs.position.set(C.x0 - 0.06, y + 4.2, -20.5); cs.rotation.y = -Math.PI / 2; cin.add(cs)
-    X.animate((t) => { const f = frames[Math.floor(t / 3.5) % frames.length]!; if (screenM.emissiveMap !== f) { screenM.emissiveMap = f; screenM.needsUpdate = true } screenM.emissiveIntensity = 0.8 + Math.sin(t * 2.3) * 0.08 })
-    const seat = { x: C.x0 + 2.2 + 1.6 * 2, z: -21.5 }
-    A.use(1, { id: 'mall-cinema', x: C.x0 - 1.3, z: -20.5, r: 1.8, title: 'Grind Cinema', body: 'Today: "Night Market", a thriller in the city. Popcorn included.', enter: 'Watch a film · $12', use: () => {
-      const p = spendInGame(12, 'Grind Cinema ticket', '"Night Market"')
+    // the poster outside: what is showing
+    const poster = tex(256, 384, (c) => { filmFrame(c as CanvasRenderingContext2D, 6.5, 256, 384); c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(0, 280, 256, 104); c.fillStyle = '#ffd36b'; c.font = '900 30px Inter, sans-serif'; c.textAlign = 'center'; c.fillText(FILM_TITLE.toUpperCase(), 128, 322); c.fillStyle = '#fff'; c.font = '600 16px Inter, sans-serif'; c.fillText('Now showing · Screen 1', 128, 352) })
+    for (const pz of [-24.2, -16.8]) { const pm = put(cin, new THREE.PlaneGeometry(1.3, 1.95), std(0xffffff, 0.5, 0, { map: poster, emissive: 0xffffff, emissiveMap: poster, emissiveIntensity: 0.35 }), C.x0 - 0.06, y + 1.6, pz, false); pm.rotation.y = -Math.PI / 2 }
+    let lastFrame = -1
+    X.animate((t) => { const f = Math.floor(t * 12); if (f !== lastFrame) { lastFrame = f; filmFrame(filmG, t); filmT.needsUpdate = true } })
+    const seat = { x: C.x0 + 1.6 + 3 * 1.15, z: -22.0 }
+    A.use(1, { id: 'mall-cinema', x: C.x0 - 1.3, z: -20.5, r: 1.8, title: 'Grind Cinema', body: `Today: "${FILM_TITLE}", a short thriller in the city. Popcorn included.`, enter: 'Watch a film · $12', use: () => {
+      const p = spendInGame(12, 'Grind Cinema ticket', `"${FILM_TITLE}"`)
       if (!p.ok) { X.toast(p.message); return }
       X.toast('Lights down. Popcorn in hand.')
-      X.startMove({ from: { x: seat.x, z: seat.z, y }, to: { x: seat.x, z: seat.z, y }, t: 0, dur: 16, toLv: 1, path: () => ({ x: seat.x, z: seat.z, y }), seat: () => ({ yaw: Math.PI / 2, y: 0.45 }), cam: 3.4, view: () => ({ heading: Math.PI / 2, pitch: 0.18 }), done: () => X.toast(adjust({ social: 14, energy: 8 }, 'quiet') || 'What a twist at the end.'), exit: { x: C.x0 - 1.3, z: -20.5 } })
+      X.startMove({ from: { x: seat.x, z: seat.z, y }, to: { x: seat.x, z: seat.z, y }, t: 0, dur: 36, toLv: 1, path: () => ({ x: seat.x, z: seat.z, y }), seat: () => ({ yaw: Math.PI / 2, y: 0.45 + 0.32 }), cam: 3.4, view: () => ({ heading: Math.PI / 2, pitch: 0.18 }), done: () => X.toast(adjust({ social: 14, energy: 8 }, 'quiet') || 'What a twist at the end.'), exit: { x: C.x0 - 1.3, z: -20.5 } })
     } })
   }
   // A few shoppers, and the way out.

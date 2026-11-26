@@ -17,10 +17,19 @@ export function buildMcGrind(c: HallCtx, h: { shift: () => void; order: () => vo
   const green = c.std(0x0f7a48, 0.55), cream = c.std(0xfff4dc, 0.6), steel = c.std(0xb9c0c6, 0.3, 0.7), dark = c.std(0x23262a, 0.5, 0.3)
   const brown = c.std(0x6b3a1f, 0.8), gold = c.std(0xd9a83a, 0.35, 0.2)
   const bright = new THREE.MeshStandardMaterial({ color: 0x17f790, emissive: 0x17f790, emissiveIntensity: 0.5, roughness: 0.4 })
-  // Counter across the room; the gap at its north end is the way into the kitchen.
-  c.box(0.9, 1.05, 11.4, green, 1.2, 0.3)
-  c.box(1.05, 0.05, 11.5, cream, 1.2, 0.3, 1.05, false)
-  c.box(1.06, 0.06, 11.5, bright, 1.2, 0.3, 0.95, false)
+  // Counter across the room; the wide gap at its north end, under the Staff sign, is the way into the kitchen.
+  c.box(0.9, 1.05, 10.1, green, 1.2, 1.0)
+  c.box(1.05, 0.05, 10.2, cream, 1.2, 1.0, 1.05, false)
+  c.box(1.06, 0.06, 10.2, bright, 1.2, 1.0, 0.95, false)
+  const staff = c.canvasTex(512, 160, (g) => {
+    g.fillStyle = '#0f7a48'; g.fillRect(0, 0, 512, 160); g.strokeStyle = '#17f790'; g.lineWidth = 6; g.strokeRect(6, 6, 500, 148)
+    g.fillStyle = '#fff4dc'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 54px "Inter Variable", Inter, sans-serif'
+    g.fillText('Staff · Kitchen  →', 256, 62, 480); g.font = '600 30px "Inter Variable", Inter, sans-serif'; g.fillStyle = '#c8f5dc'; g.fillText('Walk round to work a shift', 256, 118, 480)
+  })
+  const staffSign = c.add(new THREE.PlaneGeometry(1.6, 0.5), new THREE.MeshStandardMaterial({ map: staff, emissiveMap: staff, emissive: 0xffffff, emissiveIntensity: 0.3, roughness: 0.6 }), 1.2, 2.25, -6.0)
+  staffSign.rotation.y = -Math.PI / 2; staffSign.castShadow = false
+  // a swing flap at the end of the counter, held open
+  c.box(0.06, 0.9, 0.7, green, 1.6, -4.55, 0.1, false)
   for (const z of [-1.5, 2.5]) c.box(0.4, 0.3, 0.35, dark, 1.2, z, 1.1, false)
   // Kitchen along the east wall.
   c.box(1.6, 0.9, 1.0, steel, 9.1, -5.0); c.box(1.3, 0.02, 0.7, gold, 9.1, -5.0, 0.9, false)

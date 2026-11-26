@@ -2,6 +2,7 @@
 // train that runs all day, stopping at six stations. Board at a station entrance in the street (a $2 fare), ride above the city
 // with the camera following, and the gold button gets you off at the next stop. Loaded after the city opens.
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 import { STATIONS, CTRL, AWAY, type StationId } from './metroRoute.ts'
 export { STATIONS, type StationId }
@@ -48,6 +49,44 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
     return new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.3, side: THREE.DoubleSide })
   }
   const glass = new THREE.MeshStandardMaterial({ color: 0xbfd8e2, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.35 })
+  // Street entrances (in the city): a ticket hall at the foot of a real staircase up to the platform, with ticket
+  // machines and gates. All the stations' pieces are merged by material, so they cost a handful of draws in all.
+  const parts: Record<'stone' | 'metal' | 'glass' | 'lit' | 'green', THREE.BufferGeometry[]> = { stone: [], metal: [], glass: [], lit: [], green: [] }
+  const entrances: Array<{ id: StationId; title: string; x: number; z: number }> = []
+  const entrance = (p: { x: number; z: number; h: number }, id: StationId, title: string) => {
+    const c = Math.cos(p.h), sn = Math.sin(p.h)
+    const put = (k: keyof typeof parts, w: number, hgt: number, d: number, lx: number, y: number, lz: number, tilt = 0) => {
+      const g = new THREE.BoxGeometry(w, hgt, d)
+      if (tilt) g.rotateX(tilt)
+      g.rotateY(p.h).translate(p.x + lx * c + lz * sn, y, p.z - lx * sn + lz * c)
+      parts[k].push(g)
+    }
+    // the stairs: 24 steps from the street up to the platform's end, a landing and two handrails
+    const STEPS = 24, run = 0.46, rise = DECK / STEPS, x0 = 6.4, z0 = -3.4
+    for (let i = 0; i < STEPS; i++) put('stone', 1.9, rise * (i + 1), run, x0, (rise * (i + 1)) / 2, z0 - (STEPS - 1 - i) * run - run / 2 - 0.6)
+    put('stone', 1.9, 0.3, 1.2, x0, DECK - 0.15, z0)
+    const len = STEPS * run, ang = Math.atan2(DECK, len)
+    for (const sx of [-1, 1]) {
+      put('metal', 0.06, 0.06, Math.hypot(len, DECK), x0 + sx * 0.98, DECK / 2 + 0.95, z0 - 0.6 - len / 2, ang)
+      for (let k = 0; k <= 4; k++) { const f = k / 4; put('metal', 0.05, 0.95, 0.05, x0 + sx * 0.98, DECK * (1 - f) + 0.47, z0 - 0.6 - len * f) }
+    }
+    // the ticket hall at the foot: a glass canopy on four posts, two lit ticket machines, three gates, a big M
+    const fz = z0 - 0.6 - len - 2.4
+    put('glass', 4.6, 0.1, 3.8, x0, 3.2, fz)
+    for (const sx of [-2.2, 2.2]) for (const sz of [-1.8, 1.8]) put('metal', 0.12, 3.2, 0.12, x0 + sx, 1.6, fz + sz)
+    put('stone', 4.6, 0.05, 3.8, x0, 0.025, fz)
+    for (const sx of [-1.6, -0.95]) { put('metal', 0.55, 1.6, 0.4, x0 + sx, 0.8, fz + 1.2); put('lit', 0.42, 0.5, 0.02, x0 + sx, 1.25, fz + 0.99) }
+    for (const sx of [-0.2, 0.55, 1.3]) { put('metal', 0.18, 1.0, 0.7, x0 + sx, 0.5, fz + 0.1); put('green', 0.2, 0.05, 0.3, x0 + sx, 1.02, fz - 0.05) }
+    put('metal', 0.14, 4.2, 0.14, x0 + 2.9, 2.1, fz - 2.2)
+    put('green', 0.9, 0.9, 0.12, x0 + 2.9, 4.4, fz - 2.2)
+    // the station's name over the hall's front, lit, readable from the street
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.74), signTex(`${title} · Tickets`))
+    board.position.set(p.x + x0 * c + (fz - 1.92) * sn, 3.62, p.z - x0 * sn + (fz - 1.92) * c); board.rotation.y = p.h + Math.PI
+    board.userData.ghost = true; board.raycast = () => undefined; group.add(board)
+    // where the hall's door is, in the world: the spot players walk up to
+    const lx = x0, lz = fz - 1.6
+    entrances.push({ id, title, x: p.x + lx * c + lz * sn, z: p.z - lx * sn + lz * c })
+  }
   for (const st of stops) {
     const p = at(st.s)
     const sg = new THREE.Group()
@@ -56,10 +95,10 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
     const roof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 30), glass); roof.position.set(3.4, DECK + 3.3, 0); sg.add(roof)
     for (const z of [-13, -4, 5, 13]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.14, 3.3, 0.14), steel); c.position.set(5.2, DECK + 1.65, z); sg.add(c) }
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.8), signTex(st.title)); sign.position.set(5.12, DECK + 2.4, 0); sign.rotation.y = -Math.PI / 2; sg.add(sign)
-    const stair = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 11), concrete); stair.position.set(6.6, DECK / 2, -9); stair.rotation.x = -Math.atan2(DECK, 11); sg.add(stair)
     sg.position.set(p.x, 0, p.z); sg.rotation.y = p.h
     sg.traverse((o) => { o.userData.ghost = true; o.castShadow = true })
     group.add(sg)
+    if (!AWAY.includes(st.id)) entrance(p, st.id, st.title)
     if (!AWAY.includes(st.id)) {
       const totem = new THREE.Group()
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.8, 0.16), steel); post.position.y = 1.4; totem.add(post)
@@ -67,6 +106,21 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
       totem.position.set(st.street[0] + 1.4, 0, st.street[1]); totem.lookAt(0, 0, 0); totem.position.y = 0
       totem.traverse((o) => { o.userData.ghost = true })
       group.add(totem)
+    }
+  }
+
+  {
+    const mats: Record<keyof typeof parts, THREE.Material> = {
+      stone: concrete, metal: steel, glass,
+      lit: new THREE.MeshStandardMaterial({ color: 0x9fe8ff, emissive: 0x4fc8ff, emissiveIntensity: 0.9, roughness: 0.3 }),
+      green: new THREE.MeshStandardMaterial({ color: 0x1fb85a, emissive: 0x1fb85a, emissiveIntensity: 0.5, roughness: 0.4 }),
+    }
+    for (const k of Object.keys(parts) as Array<keyof typeof parts>) {
+      if (!parts[k].length) continue
+      const mesh = new THREE.Mesh(mergeGeometries(parts[k]), mats[k])
+      for (const g of parts[k]) g.dispose()
+      mesh.castShadow = k !== 'glass'; mesh.receiveShadow = true; mesh.userData.ghost = true; mesh.raycast = () => undefined
+      group.add(mesh)
     }
   }
 
@@ -127,6 +181,8 @@ export function createMetro(scene: THREE.Scene, deps: { onArrive: (s: StationId)
     /** Tests only: run the line faster. */
     set turbo(n: number) { turbo = Math.max(1, Math.min(20, n)) },
     pillars: pillarSpots,
+    /** The ticket halls at the foot of each city station's stairs. */
+    entrances,
     /** Get on at a station: the train pulls in there (or is already standing at it) and waits for you. */
     board(id: StationId) {
       const st = stops.find((x) => x.id === id)!
