@@ -1,8 +1,9 @@
 // "Mint as NFT" for a certificate: the player picks an EVM chain (Base, Arbitrum, OP Mainnet, Robinhood Chain,
-// Polygon, BNB Chain: one game wallet address on all of them) or NEAR. Lazy-loaded by the certificate dialog.
-// A soulbound practice certificate goes to the player's own wallet; the player pays the network fee
-// (gas sponsorship comes later). The game server signs a voucher only for a passed course on the
-// player's own account. Hidden behind env: with no contract configured the dialog says so honestly.
+// Polygon, BNB Chain: one game wallet address on all of them), NEAR, or Solana devnet. Lazy-loaded by the
+// certificate dialog. On EVM and NEAR a soulbound practice certificate goes to the player's own wallet and the
+// player pays the network fee. On Solana the game writes a grind-cert account (a record, not a token NFT); the
+// server is the issuer and pays the devnet fee, and the same record is written automatically after a passed exam
+// when CERT_SOLANA_AUTO=1. Hidden behind env: with no contract configured the dialog says so honestly.
 import { encodeAbiParameters, encodeFunctionData, keccak256, decodeFunctionResult } from 'viem'
 import { getSave } from './state.ts'
 import { gameWalletAddress } from './privyWallet.ts'
@@ -21,6 +22,11 @@ const NEAR_NFT = String(import.meta.env.VITE_CERT_NFT_NEAR ?? '')
 const HUNT = 'https://nearhunt.xyz/p/c1c7b574-850a-4f47-9af9-22a49339df07'
 export const baseMintOn = () => /^0x[0-9a-fA-F]{40}$/.test(BASE_NFT)
 export const nearMintOn = () => /^[a-z0-9._-]{2,64}$/.test(NEAR_NFT)
+const SOL_PROGRAM = String(import.meta.env.VITE_CERT_SOLANA_PROGRAM ?? '').trim()
+/** Live grind-cert program is on Solana devnet (6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd). */
+export const solanaMintOn = () => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(SOL_PROGRAM)
+const SOL_EXPLORER = 'https://explorer.solana.com'
+const solanaTxUrl = (sig: string) => `${SOL_EXPLORER}/tx/${sig}?cluster=devnet`
 const NEAR_NET: 'testnet' | 'mainnet' = NEAR_NFT.endsWith('.testnet') ? 'testnet' : 'mainnet'
 /** Every EVM chain with a contract configured (Base keeps its Sepolia switch). Order = the order of the chain keys. */
 type EvmLive = EvmCertChain & { contract: `0x${string}` }
@@ -43,7 +49,7 @@ const ABI = [
   { type: 'function', name: 'tokenOfKey', stateMutability: 'view', inputs: [{ type: 'bytes32' }], outputs: [{ type: 'uint256' }] },
 ] as const
 
-type ChainKey = EvmCertChainKey | 'near'
+type ChainKey = EvmCertChainKey | 'near' | 'solana'
 type Minted = { chain: ChainKey; tokenId: string; explorer: string; tx?: string }
 const MINT_KEY = 'gd.certs.mints'
 const mints = (): Record<string, Partial<Record<ChainKey, Minted>>> => { try { return JSON.parse(localStorage.getItem(MINT_KEY) || '{}') } catch { return {} } }
@@ -86,6 +92,11 @@ export async function serverCert(course: SkillId, hintId: string): Promise<{ cer
   const r = await fetch('/api/profile?op=cert-issue', { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ course, certId: hintId, ...(auth.near ? { near: auth.near } : {}) }) }).catch(() => null)
   const j = (await r?.json().catch(() => ({}))) as Record<string, unknown> | undefined
   if (!r?.ok || typeof j?.certId !== 'string') return { error: String(j?.error ?? 'Could not reach Grind District'), ...(j?.exam === true ? { exam: true } : {}) }
+  // Auto-record on Solana (CERT_SOLANA_AUTO=1) lands in this same response: remember it so the picker can tick it.
+  const sol = j.solana as { tokenId?: string; explorer?: string; tx?: string } | undefined
+  if (sol && typeof sol.explorer === 'string' && typeof sol.tokenId === 'string') {
+    remember(course, { chain: 'solana', tokenId: sol.tokenId, explorer: sol.explorer, ...(typeof sol.tx === 'string' ? { tx: sol.tx } : {}) })
+  }
   return { certId: j.certId, serial: String(j.serial ?? '') }
 }
 /** The short server-graded exam for this course (a pass is recorded on the server). true = passed. */
@@ -117,19 +128,30 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''):
 }
 const linkTo = (href: string, text: string) => { const a = el('a', text); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a }
 
+/** The server looks this up: the Solana address is derived with the issuer key, so the browser cannot do it alone. */
+async function solanaLookup(course: string): Promise<Minted | null> {
+  const auth = await authHeaders()
+  if (!auth) return null
+  const r = await fetch('/api/profile?op=cert-minted', { method: 'POST', headers: { 'content-type': 'application/json', ...auth.headers }, body: JSON.stringify({ course, ...(auth.near ? { near: auth.near } : {}) }) }).catch(() => null)
+  const j = (await r?.json().catch(() => ({}))) as { minted?: { tokenId?: string; explorer?: string; tx?: string } }
+  const m = j?.minted
+  if (!r?.ok || !m || typeof m.explorer !== 'string' || typeof m.tokenId !== 'string') return null
+  return { chain: 'solana', tokenId: m.tokenId, explorer: m.explorer, ...(typeof m.tx === 'string' ? { tx: m.tx } : {}) }
+}
+
 export function renderMint(root: HTMLElement, course: SkillId, certId: string): void {
   root.replaceChildren()
-  if (!evmMintOn() && !nearMintOn()) return
+  if (!evmMintOn() && !nearMintOn() && !solanaMintOn()) return
   root.removeAttribute('style')
   root.classList.add('gd-mint')
   const head = el('div', '', 'gm-head')
   const title = el('p', 'Mint as NFT', 'gm-title')
   const seal = el('span', 'Soulbound · no money value', 'gm-seal')
   head.append(title, seal)
-  const note = el('p', 'A short exam first, graded on the server. Then this certificate is written to the chain you pick, into your own wallet, where it stays: it cannot be sold or moved.', 'gm-note')
+  const note = el('p', 'A short exam first, graded on the server. Then this certificate is written to the chain you pick. On Base, the other EVM chains and NEAR it goes into your own wallet and stays there: it cannot be sold or moved. On Solana devnet the game records it for you, with no wallet needed.', 'gm-note')
   const more = el('details', '', 'gm-more')
   const sum = el('summary', 'Fees and what goes on-chain')
-  more.append(sum, el('p', 'You pay the network fee yourself: a few cents of the chain\'s gas token (ETH on Base, Arbitrum, OP Mainnet and Robinhood Chain; POL on Polygon; BNB on BNB Chain), or 0.05 NEAR attached for storage on NEAR, unused part refunded. Your name, @username, course and issue time become public on-chain. One certificate per course on each chain.'))
+  more.append(sum, el('p', 'You pay the network fee yourself on Base, Arbitrum, OP Mainnet, Robinhood Chain (ETH), Polygon (POL), BNB Chain (BNB), or 0.05 NEAR attached for storage on NEAR, unused part refunded. On those chains your name, @username, course and issue time become public on-chain. On Solana devnet the game writes a certificate record (not a token NFT) and pays the test-network fee: no wallet and no fee from you, and no name on-chain. One certificate per course on each chain.'))
   const pick = el('div', '', 'gm-picks'); pick.setAttribute('role', 'radiogroup'); pick.setAttribute('aria-label', 'Chain')
   const status = el('p', '', 'gm-status'); status.setAttribute('role', 'status')
   const act = el('div', '', 'gm-act')
@@ -138,7 +160,7 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
   // NEAR first: it is the chain the core loop and the README walk through; the EVM chains stay one tap away.
   let chain: ChainKey = nearMintOn() ? 'near' : EVM[0]!.key
   const evmOf = (k: ChainKey) => EVM.find((c) => c.key === k) ?? null
-  const labelOf = (k: ChainKey) => (k === 'near' ? (NEAR_NET === 'testnet' ? 'NEAR testnet' : 'NEAR') : evmOf(k)?.label ?? k)
+  const labelOf = (k: ChainKey) => (k === 'near' ? (NEAR_NET === 'testnet' ? 'NEAR testnet' : 'NEAR') : k === 'solana' ? 'Solana devnet' : evmOf(k)?.label ?? k)
   const logo = (k: ChainKey, cls = 'gm-logo') => { const i = el('span', '', cls); i.innerHTML = CHAIN_LOGOS[k] ?? ''; return i }
   const keys: HTMLButtonElement[] = []
   const chip = (k: ChainKey, sub: string, color: string) => {
@@ -166,21 +188,32 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
     grid.append(chip('near', NEAR_NET === 'testnet' ? 'Free test network' : '0.05 NEAR storage', '#00ec97'))
     pick.append(grid)
   }
+  if (solanaMintOn()) {
+    pick.append(el('p', 'Solana · recorded by the game', 'gm-group'))
+    const grid = el('div', '', 'gm-grid')
+    grid.append(chip('solana', 'No wallet or fee needed', '#9945ff'))
+    pick.append(grid)
+  }
   mark()
   const set = (msg: string, ...nodes: HTMLElement[]) => { panel.className = 'gm-panel'; status.textContent = msg; act.replaceChildren(...nodes) }
   const btn = (label: string, fn: () => void) => { const b = el('button', label, 'primary'); b.onclick = fn; return b }
   const keyLink = (href: string, text: string) => { const a = linkTo(href, text); a.className = 'gm-link'; return a }
   const showMinted = (m: Minted) => {
     mark()
-    const ev = m.chain === 'near' ? null : evmOf(m.chain)
-    const txHref = m.tx ? (ev ? evmTxUrl(ev, m.tx) : `${NEARBLOCKS}/txns/${m.tx}`) : ''
+    const ev = m.chain === 'near' || m.chain === 'solana' ? null : evmOf(m.chain)
+    const explorerName = m.chain === 'solana' ? 'Solana Explorer' : ev ? ev.explorerName : 'NEARBlocks'
+    const txHref = m.tx ? (m.chain === 'solana' ? solanaTxUrl(m.tx) : ev ? evmTxUrl(ev, m.tx) : `${NEARBLOCKS}/txns/${m.tx}`) : ''
     const card = el('div', '', 'gm-done')
     const badge = el('div', '', 'gm-done-badge'); badge.append(logo(m.chain, 'gm-done-logo'), el('span', '✓', 'gm-done-check'))
     const words = el('div', '', 'gm-done-words')
-    words.append(el('p', `Minted on ${labelOf(m.chain)}`, 'gm-done-title'), el('p', `Token #${m.tokenId} · soulbound to your wallet · every field stored on-chain`, 'gm-done-sub'))
+    const title = m.chain === 'solana' ? `Recorded on ${labelOf(m.chain)}` : `Minted on ${labelOf(m.chain)}`
+    const sub = m.chain === 'solana'
+      ? `Record #${m.tokenId} · soulbound certificate account · no token NFT, no money value`
+      : `Token #${m.tokenId} · soulbound to your wallet · every field stored on-chain`
+    words.append(el('p', title, 'gm-done-title'), el('p', sub, 'gm-done-sub'))
     card.append(badge, words)
     const links = el('div', '', 'gm-links')
-    links.append(keyLink(m.explorer, `View on ${ev ? ev.explorerName : 'NEARBlocks'}`))
+    links.append(keyLink(m.explorer, `View on ${explorerName}`))
     if (txHref) links.append(keyLink(txHref, 'Transaction'))
     links.append(keyLink(`/cert/${certId}`, 'Public certificate page'))
     panel.className = 'gm-panel ok'
@@ -211,7 +244,7 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
     if (saved) return showMinted(saved)
     set('Checking the chain…')
     try {
-      const ev = chain === 'near' ? null : evmOf(chain)
+      const ev = chain === 'near' || chain === 'solana' ? null : evmOf(chain)
       if (ev) {
         const id = await evmTokenOf(ev, username, course)
         if (!live()) return
@@ -219,6 +252,15 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
         const addr = gameWalletAddress()
         if (!addr) return set(`${ev.label} minting uses your game wallet. Sign in with Google, X or email to create it, then come back.`)
         return set(`Not minted yet. Mints to your game wallet ${addr.slice(0, 6)}…${addr.slice(-4)} on ${ev.label}.`, btn(`Mint on ${ev.label}`, () => void mintEvm(ev, addr)))
+      }
+      if (chain === 'solana') {
+        const m = await solanaLookup(course)
+        if (!live()) return
+        if (m) { remember(course, m); return showMinted(m) }
+        const auth = await authHeaders()
+        if (!live()) return
+        if (!auth) return set('Sign in to your Grind District account to see or record this certificate on Solana devnet.')
+        return set('Not recorded yet. The game writes a Solana devnet record for you — no wallet or fee needed.', btn('Record on Solana devnet', () => void mintSolana()))
       }
       const t = await nearView<NearToken>('cert_for', { username, course_id: course })
       if (!live()) return
@@ -274,6 +316,24 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
     } catch (e) {
       set(`Not minted: ${(e as Error).message}`, btn('Try again', () => void show()))
     }
+  }
+
+  const mintSolana = async () => {
+    lock(true)
+    try {
+      if (!(await examFirst(() => void mintSolana()))) return
+      set('Recording your certificate on Solana devnet…')
+      const j = await voucher({ chain: 'solana', course, certId })
+      const rec = (j.already ?? j.minted) as { tokenId?: string; explorer?: string; tx?: string } | undefined
+      if (typeof j.certId === 'string') adoptCertId(course, j.certId)
+      if (!rec || typeof rec.explorer !== 'string' || typeof rec.tokenId !== 'string') throw new Error('Solana did not return a record. Nothing was changed.')
+      const m: Minted = { chain: 'solana', tokenId: rec.tokenId, explorer: rec.explorer, ...(typeof rec.tx === 'string' ? { tx: rec.tx } : {}) }
+      remember(course, m)
+      track('cert_minted', { course, chain: 'solana' })
+      return showMinted(m)
+    } catch (e) {
+      set(`Not recorded: ${(e as Error).message}`, btn('Try again', () => void show()))
+    } finally { lock(false) }
   }
 
   const mintNear = async () => {

@@ -13,7 +13,7 @@ Last checked on-chain: 28 Nov 2026.
 | `base-eas` | Base mainnet | EAS predeploy `0x4200…0021`, schema uid in `CERT_EAS_SCHEMA_UID` | EAS delegated attestation, alongside the NFT | Privy EVM | Player pays; Builder Code on the calldata | **Built, off** (schema not registered) |
 | `near-testnet` | NEAR testnet | `grinddistrict-cert.testnet` (`VITE_CERT_NFT_NEAR`) | NEP-171 soulbound, ed25519 voucher | NEAR sign-in or connected NEAR wallet | Player attaches 0.05 NEAR storage (unused part refunded) | **Live**, stays live through hackathon judging |
 | `near-mainnet` | NEAR mainnet | `cert.grinddistrict.near` (`VITE_CERT_NFT_NEAR_MAINNET`) | Same wasm as testnet (sha256 `479ea0e8…`) | NEAR mainnet wallet | Player attaches 0.05 NEAR storage | **Deployed, not live** (env not set, no game button yet) |
-| `solana-devnet` | Solana devnet | Program `6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd` (`VITE_CERT_SOLANA_PROGRAM`), source `programs/grind-cert` | Grind District's own Rust program: issuer-only, soulbound certificate account (PDA per player and course) holding course id, certificate hash, serial and timestamp | None needed (optional Solana address recorded as recipient) | Server (issuer) pays the devnet test-SOL fee | **Live on devnet** (deployed 28 Nov 2026, deploy tx `44YTEs9w…`, config tx `4hXJqQ3c…`; server records a certificate after each exam pass; no game button) |
+| `solana-devnet` | Solana devnet | Program `6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd` (`VITE_CERT_SOLANA_PROGRAM`), source `programs/grind-cert` | Grind District's own Rust program: issuer-only, soulbound certificate account (PDA per player and course) holding course id, certificate hash, serial and timestamp | None needed (optional Solana address recorded as recipient) | Server (issuer) pays the devnet test-SOL fee | **Live on devnet** (deployed 28 Nov 2026, deploy tx `44YTEs9w…`, config tx `4hXJqQ3c…`; server records a certificate after each exam pass; the mint picker shows a Solana devnet key, ticked when already recorded) |
 
 ### Other EVM mainnets (28 Nov 2026)
 
@@ -86,7 +86,7 @@ other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
   set `VITE_CERT_SOLANA_PROGRAM`, `CERT_SOLANA_SIGNER_KEY` and `CERT_SOLANA_AUTO=1`. The server then writes a certificate
   record on Solana when it issues a certificate after a passed exam (`op=cert-issue`), and `op=cert-voucher` with
   `chain: "solana"` does the same on request (pass ticket needed). The public certificate page shows *Recorded on
-  Solana*. There is no Solana button in the mint dialog; adding one is a UI change. `GD_SOL_ACTION=selftest` issues
+  Solana*. The mint dialog shows a Solana devnet key in its own group. If the auto-record already landed, the key is ticked and the success card links to Solana Explorer (`?cluster=devnet`). The button otherwise requests the same `chain: "solana"` voucher (the server writes the record; no player wallet). This is a grind-cert account, not a Metaplex or Token-2022 NFT. `GD_SOL_ACTION=selftest` issues
   and then closes a throwaway record through the server code.
 
 ## Rollback
