@@ -30,3 +30,7 @@ contracts/lib
 .env*
 faces-dev.html
 tests/.out
+
+# Solana program build output and keypairs (keys live outside the repo)
+programs/*/target
+*-keypair.json

@@ -13,7 +13,7 @@ Last checked on-chain: 28 Nov 2026.
 | `base-eas` | Base mainnet | EAS predeploy `0x4200…0021`, schema uid in `CERT_EAS_SCHEMA_UID` | EAS delegated attestation, alongside the NFT | Privy EVM | Player pays; Builder Code on the calldata | **Built, off** (schema not registered) |
 | `near-testnet` | NEAR testnet | `grinddistrict-cert.testnet` (`VITE_CERT_NFT_NEAR`) | NEP-171 soulbound, ed25519 voucher | NEAR sign-in or connected NEAR wallet | Player attaches 0.05 NEAR storage (unused part refunded) | **Live**, stays live through hackathon judging |
 | `near-mainnet` | NEAR mainnet | `cert.grinddistrict.near` (`VITE_CERT_NFT_NEAR_MAINNET`) | Same wasm as testnet (sha256 `479ea0e8…`) | NEAR mainnet wallet | Player attaches 0.05 NEAR storage | **Deployed, not live** (env not set, no game button yet) |
-| `solana-devnet` | Solana devnet | `VITE_CERT_NFT_SOLANA` (Metaplex Core collection) | Core asset, co-signed by the update authority | Separate Solana address | Player pays | **Planned** (branch `solana-cert-devnet`, unmerged) |
+| `solana-devnet` | Solana devnet | Program `6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd` (`VITE_CERT_SOLANA_PROGRAM`), source `programs/grind-cert` | Grind District's own Rust program: issuer-only, soulbound certificate account (PDA per player and course) holding course id, certificate hash, serial and timestamp | None needed (optional Solana address recorded as recipient) | Server (issuer) pays the devnet test-SOL fee | **Built, off** until the program is on devnet and the env is set |
 
 Every course issues the same credential and routes to the same chains (`DEFAULT_ROUTES`). To pin a course to
 other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
@@ -48,7 +48,10 @@ other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
 | `CERT_NEAR_RPC`, `CERT_NEAR_MAINNET_RPC` | server | Optional RPC overrides |
 | `CERT_EAS`, `CERT_EAS_SCHEMA_UID` | server | EAS on Base: both needed; the uid must equal the uid of `CERT_EAS_SCHEMA` |
 | `VITE_GASLESS`, `CDP_PAYMASTER_URL` | build / server | CDP Paymaster gas-free route (both needed). Off |
-| `VITE_CERT_NFT_SOLANA`, `VITE_CERT_NFT_SOLANA_CLUSTER` | build + server | Solana collection (branch only) |
+| `VITE_CERT_SOLANA_PROGRAM` | build + server | grind-cert program id. Unset = Solana off |
+| `CERT_SOLANA_SIGNER_KEY` | server only | Issuer keypair (64-byte JSON array). Never in the repo |
+| `CERT_SOLANA_AUTO` | server | `1` = record each newly issued certificate on Solana (after the exam pass) |
+| `CERT_SOLANA_CLUSTER`, `CERT_SOLANA_RPC` | server | `devnet` (default) and an optional RPC override |
 
 ## Turning a route on
 
@@ -60,6 +63,15 @@ other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
   `CERT_EAS_SCHEMA_UID`. The voucher response then also carries a signed `attestByDelegation` request with the
   Builder Code appended; the game still needs a step to send it.
 - **CDP Paymaster:** set `CDP_PAYMASTER_URL` (server) and build with `VITE_GASLESS=1`.
+
+- **Solana (devnet):** deploy `programs/grind-cert` (`cargo build-sbf`, `solana program deploy`), run
+  `GD_SOL_ACTION=init node --experimental-strip-types --import ./scripts/ts-hooks.mjs scripts/solana-cert.mjs` once
+  (records the issuer and the project owner address `DwphVYwaepxGujRyd4yVBHrRqzHyqi4GuMNQ3LEZwmxX`, metadata only), then
+  set `VITE_CERT_SOLANA_PROGRAM`, `CERT_SOLANA_SIGNER_KEY` and `CERT_SOLANA_AUTO=1`. The server then writes a certificate
+  record on Solana when it issues a certificate after a passed exam (`op=cert-issue`), and `op=cert-voucher` with
+  `chain: "solana"` does the same on request (pass ticket needed). The public certificate page shows *Recorded on
+  Solana*. There is no Solana button in the mint dialog; adding one is a UI change. `GD_SOL_ACTION=selftest` issues
+  and then closes a throwaway record through the server code.
 
 ## Rollback
 

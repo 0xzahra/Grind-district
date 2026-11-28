@@ -107,7 +107,7 @@ export const certPageUrl = (id: string) => `${CERT_ORIGIN}/cert/${id}`
 export const certImageUrl = (id: string) => `${CERT_ORIGIN}/cert/${id}/image.png`
 export const certMetaUrl = (id: string) => `${CERT_ORIGIN}/cert/${id}/meta.json`
 
-export type CertChain = 'base' | 'near'
+export type CertChain = 'base' | 'near' | 'solana'
 
 /** ERC-721 / NEP-177 style metadata JSON. Same fields the contracts store on-chain. */
 export function certMetadata(id: string, d: CertData, chain?: CertChain) {
@@ -125,7 +125,7 @@ export function certMetadata(id: string, d: CertData, chain?: CertChain) {
     { trait_type: 'Credential type', value: 'Practice credential (earned by passing the course; not accredited)' },
   ]
   if (d.at) attrs.push({ trait_type: 'Issued at', value: Math.floor(d.at / 1000), display_type: 'date' })
-  if (chain) attrs.push({ trait_type: 'Chain', value: chain === 'base' ? 'Base' : 'NEAR' })
+  if (chain) attrs.push({ trait_type: 'Chain', value: chain === 'base' ? 'Base' : chain === 'solana' ? 'Solana' : 'NEAR' })
   return {
     name: `${d.t} · Grind District Certificate`,
     description: `${d.n || 'A player'} (@${d.u}) passed the ${d.t} course in Grind District. ${CERT_WORDING} Non-transferable. It carries no money value and cannot be redeemed.`,

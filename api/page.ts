@@ -26,7 +26,7 @@ async function certAsset(req: Req, res: Res, kind: 'certpng' | 'certmeta') {
   if (!rec) { res.setHeader('content-type', 'text/plain'); res.setHeader('cache-control', 'no-store'); return res.status(404).send('not a valid certificate') }
   const { d } = rec, id = rec.row.cert_id
   if (kind === 'certmeta') {
-    const chain = req.query.chain === 'base' || req.query.chain === 'near' ? (req.query.chain as CertChain) : undefined
+    const chain = req.query.chain === 'base' || req.query.chain === 'near' || req.query.chain === 'solana' ? (req.query.chain as CertChain) : undefined
     res.setHeader('content-type', 'application/json; charset=utf-8')
     res.setHeader('access-control-allow-origin', '*')
     res.setHeader('cache-control', 'public, max-age=3600, s-maxage=86400')
@@ -102,9 +102,10 @@ export default async function handler(req: Req, res: Res) {
       image = `${origin}/cert/${id}/image.png?w=1200`
       imgW = 1200; imgH = Math.round((1200 * CERT_H) / CERT_W)
       const { mintedOnBase, mintedOnNear } = await import('./_certChain.js')
-      const minted = (await Promise.all([mintedOnBase(c.u, c.c).catch(() => null), mintedOnNear(c.u, c.c).catch(() => null)])).filter(Boolean)
+      const { mintedOnSolana } = await import('./_certSolana.js')
+      const minted = (await Promise.all([mintedOnBase(c.u, c.c).catch(() => null), mintedOnNear(c.u, c.c).catch(() => null), mintedOnSolana(c.u, c.c).catch(() => null)])).filter(Boolean)
       const row = (k: string, v: string) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`
-      const chainRows = minted.map((m) => `<tr><th>${m!.chain === 'base' ? 'Minted on Base' : 'Minted on NEAR'}</th><td><a href="${esc(m!.explorer)}" rel="noopener">Token #${esc(m!.tokenId)}</a> · ${esc(m!.contract)}</td></tr>`).join('')
+      const chainRows = minted.map((m) => `<tr><th>${m!.chain === 'base' ? 'Minted on Base' : m!.chain === 'solana' ? 'Recorded on Solana' : 'Minted on NEAR'}</th><td><a href="${esc(m!.explorer)}" rel="noopener">Token #${esc(m!.tokenId)}</a> · ${esc(m!.contract)}</td></tr>`).join('')
       body = `<img class="cert" src="/cert/${esc(id)}/image.png?w=1600" alt="${esc(`${c.t} certificate for ${c.n || c.u}`)}" width="${CERT_W}" height="${CERT_H}">
 <h1>${esc(c.n || `@${c.u}`)}</h1>
 <p class="sub">@${esc(c.u)} · ${esc(c.t)} · ${esc(issuedWat(c))}</p>

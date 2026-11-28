@@ -1,25 +1,28 @@
 // POST /api/profile?op=cert-voucher (auth already checked by profile.ts). Underscore = not a function.
-// Body: { chain: 'base'|'near', course, certId, to?: 0x… (Base), receiver?: account.near/.testnet (NEAR),
-//        network?: 'testnet'|'mainnet' (NEAR; default = the main contract's network, mainnet only when configured) }
+// Body: { chain: 'base'|'near'|'solana', course, certId, to?: 0x… (Base), receiver?: account.near/.testnet (NEAR),
+//        network?: 'testnet'|'mainnet' (NEAR; default = the main contract's network, mainnet only when configured),
+//        owner?: Solana address (optional; Solana records are issued by the server, no player wallet needed) }
 // Signs only when: minting is configured, the course is passed in the player's synced save, the player
 // holds a pass ticket from the server-graded certificate exam (api/_certExam.ts), the
 // wallet is the player's own (Base: a wallet linked to their Privy account; NEAR: their signed-in
 // NEAR account if they use NEAR sign-in) and this (username, course) is not already minted.
+// Solana (programs/grind-cert on devnet): same gates; the server is the issuer and writes the record itself.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { baseVoucher, signBaseVoucher, nearVoucherJson, signNearVoucher } from './_certVoucher.js'
 import { baseContract, nearContract, nearContractFor, baseChainId, mintedOnBase, mintedOnNear } from './_certChain.js'
 import { easLive, easAttestationRequest } from './_certEas.js'
+import { issueOnSolana, mintedOnSolana, solanaMintLive, isSolanaAddress } from './_certSolana.js'
 import { isNearAccount } from './_nearAuth.js'
 import { issueCert, rowData } from './_certStore.js'
 import { checkTicket } from './_certExam.js'
 
 type Res = { status(n: number): { json(b: unknown): void } }
-type Body = Record<string, unknown> & { chain?: unknown; course?: unknown; certId?: unknown; to?: unknown; receiver?: unknown; ticket?: unknown; network?: unknown }
+type Body = Record<string, unknown> & { chain?: unknown; course?: unknown; certId?: unknown; to?: unknown; receiver?: unknown; owner?: unknown; ticket?: unknown; network?: unknown }
 
 export async function certVoucher(body: Body, res: Res, db: SupabaseClient, userId: string, username: string, linkedEvm: () => Promise<string[]>) {
-  const chain = body.chain === 'base' || body.chain === 'near' ? body.chain : null
+  const chain = body.chain === 'base' || body.chain === 'near' || body.chain === 'solana' ? body.chain : null
   const course = String(body.course ?? '')
-  if (!chain) return res.status(400).json({ error: 'choose Base or NEAR' })
+  if (!chain) return res.status(400).json({ error: 'choose Base, NEAR or Solana' })
   // The server certificate record (issued now if this is the first time) is what gets minted.
   const rec = await issueCert(db, userId, username, course, String(body.certId ?? ''))
   if (!rec.ok) return res.status(rec.status).json({ error: rec.error, ...(rec.exam ? { exam: true } : {}) })
@@ -41,6 +44,18 @@ export async function certVoucher(body: Body, res: Res, db: SupabaseClient, user
     // Optional EAS attestation alongside the NFT (off unless CERT_EAS=1 and the schema uid is set); same gate as the mint.
     const eas = easLive() ? await easAttestationRequest(key as `0x${string}`, to as `0x${string}`, c.id, c.data).catch(() => null) : null
     return res.status(200).json({ chain, contract, chainId: baseChainId(), certId: c.id, signature, voucher: { ...v, issuedAt: v.issuedAt.toString(), deadline: v.deadline.toString() }, ...(eas ? { eas } : {}) })
+  }
+
+  if (chain === 'solana') {
+    if (!solanaMintLive()) return res.status(503).json({ error: 'Solana minting is not live yet', live: false })
+    const owner = body.owner == null || body.owner === '' ? undefined : String(body.owner)
+    if (owner && !isSolanaAddress(owner)) return res.status(400).json({ error: 'not a Solana address' })
+    const already = await mintedOnSolana(c.data.u, course).catch(() => null)
+    if (already) return res.status(200).json({ already, certId: c.id })
+    if (!checkTicket(username, course, body.ticket).ok) return res.status(403).json({ error: 'pass the short certificate exam first', exam: true })
+    const r = await issueOnSolana(c.id, c.data, owner)
+    if (!r.ok) return res.status(r.status).json({ error: r.error, ...(r.live === false ? { live: false } : {}) })
+    return res.status(200).json({ chain, certId: c.id, minted: { ...r.minted, ...(r.tx ? { tx: r.tx } : {}) } })
   }
 
   const main = nearContract()

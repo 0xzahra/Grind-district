@@ -5,6 +5,7 @@ import { canonicalCert } from './_certVoucher.js'
 import { decodeCertId, certSerial, certField, watDate, type CertData } from './_certArt.js'
 import { CERT_COURSES, CERT_RANKS } from './_certCourses.js'
 import { mintedOnNear, mintedOnBase } from './_certChain.js'
+import { mintedOnSolana } from './_certSolana.js'
 
 let injected: SupabaseClient | null = null
 /** Tests only: use an in-memory stand-in instead of Supabase. */
@@ -96,7 +97,7 @@ async function adoptLegacy(db: SupabaseClient, id: string, d: CertData): Promise
   if (!u || !title || d.t !== title) return null
   const fresh = { ...d, u }
   // 1) Minted: the NFT on-chain points at exactly this link.
-  const minted = await Promise.all([mintedOnNear(u, d.c).catch(() => null), mintedOnBase(u, d.c).catch(() => null)])
+  const minted = await Promise.all([mintedOnNear(u, d.c).catch(() => null), mintedOnBase(u, d.c).catch(() => null), mintedOnSolana(u, d.c).catch(() => null)])
   const onChain = (x: string) => x.endsWith(`/cert/${id}`) || x.endsWith(`/cert/${id}/image.png`)
   let source = minted.some((m) => m?.certUrls?.some(onChain)) ? 'legacy-chain' : ''
   if (!source) {

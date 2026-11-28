@@ -31,7 +31,7 @@ const timed = async (url: string, body: unknown, ms = 2500) => {
   try { return await (await fetch(url, { method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json() } finally { clearTimeout(t) }
 }
 
-export type Minted = { chain: 'base' | 'near'; tokenId: string; contract: string; explorer: string; owner?: string; certUrls?: string[] }
+export type Minted = { chain: 'base' | 'near' | 'solana'; tokenId: string; contract: string; explorer: string; owner?: string; certUrls?: string[] }
 
 export async function mintedOnBase(username: string, course: string): Promise<Minted | null> {
   const c = baseContract(); if (!c) return null

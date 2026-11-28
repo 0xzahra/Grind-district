@@ -12,7 +12,7 @@ check(BUILDER_CODE === BC, 'router Builder Code is the game one')
 check(ROUTES.base.deployed === '0xBEC44b497b5D4696644A5ad581804476CB20808f' && ROUTES.base.chainId === 8453, 'Base route points at the live certificate contract')
 check(ROUTES['near-testnet'].status === 'live' && ROUTES['near-mainnet'].deployed === 'cert.grinddistrict.near', 'NEAR testnet stays live, mainnet listed alongside')
 check(walletFor('base') === 'privy-evm' && walletFor('base-eas') === 'privy-evm' && walletFor('solana-devnet') === 'solana' && walletFor('near-mainnet') === 'near', 'wallet model: EVM shared, Solana separate, NEAR own flow')
-check(Object.values(ROUTES).every((r) => r.gas.payer === 'player'), 'players pay their own gas on every route today')
+check(Object.values(ROUTES).every((r) => r.gas.payer === 'player' || r.network === 'devnet'), 'players pay their own gas on every real-money route today (only the devnet test route is server-paid)')
 check(routesFor('spot').includes('near-testnet') && routesFor('spot').includes('base'), 'every course routes to NEAR testnet and Base')
 const env = { VITE_CERT_NFT_BASE: '0xBEC44b497b5D4696644A5ad581804476CB20808f', VITE_CERT_NFT_NEAR: 'grinddistrict-cert.testnet', VITE_CERT_NFT_NEAR_MAINNET: 'cert.grinddistrict.near' }
 check(routeContract('base', env) === env.VITE_CERT_NFT_BASE, 'Base contract read from env')
@@ -20,6 +20,9 @@ check(routeContract('near-testnet', env) === 'grinddistrict-cert.testnet' && rou
 check(routeContract('near-mainnet', { VITE_CERT_NFT_NEAR_MAINNET: 'x.testnet' }) === null, 'a .testnet name is refused as the mainnet contract')
 check(routeContract('near-mainnet', {}) === null && routeContract('solana-devnet', {}) === null, 'routes are off while their env is empty')
 check(routeContract('base-eas', { CERT_EAS_SCHEMA_UID: '0x' + '1'.repeat(64) }) === null, 'EAS route needs CERT_EAS=1 too')
+check(ROUTES['solana-devnet'].deployed === '6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd' && ROUTES['solana-devnet'].contractEnv === 'VITE_CERT_SOLANA_PROGRAM', 'Solana route points at the grind-cert program')
+check(routeContract('solana-devnet', { VITE_CERT_SOLANA_PROGRAM: '6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd' }) === '6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd', 'Solana program read from env')
+check(routeContract('solana-devnet', { VITE_CERT_SOLANA_PROGRAM: '0xBEC44b497b5D4696644A5ad581804476CB20808f' }) === null, 'an EVM address is refused as the Solana program')
 for (const id of Object.keys(ROUTES) as RouteId[]) check(ROUTES[id].id === id, `route ${id} keyed by its id`)
 
 // ---- server: NEAR contract per network
@@ -48,6 +51,37 @@ delete process.env.VITE_CERT_NFT_NEAR_MAINNET
   await certVoucher({ chain: 'near', network: 'mainnet', course: 'spot', receiver: 'amina.near' }, res, db as never, 'near:amina.testnet', 'amina', async () => [])
   check(o.code === 403, 'NEAR sign-in users mint only to the account they signed in with')
   delete process.env.VITE_CERT_NFT_NEAR_MAINNET; delete process.env.CERT_NEAR_SIGNER_KEY
+}
+
+// ---- Solana (programs/grind-cert): off while unset, gated like Base/NEAR, nothing personal on-chain
+{
+  const sol = await import('../api/_certSolana.ts')
+  const { certVoucher } = await import('../api/_certMint.ts')
+  delete process.env.VITE_CERT_SOLANA_PROGRAM; delete process.env.CERT_SOLANA_SIGNER_KEY
+  check(!sol.solanaMintLive() && sol.solanaPlayerId('amina') === null, 'Solana off while program and key are unset')
+  const row = { cert_id: 'X', serial: 'GD-X', username: 'amina', privy_user_id: 'did:privy:amina', course_id: 'spot', course_title: 'Spot', player_name: 'Amina', issued_ms: 1, issued_date: '2026-11-01', tries: 1, source: 'issued' }
+  const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: row, error: null }) }
+  const db = { from: () => q }
+  const o = { code: 0, body: {} as Record<string, unknown> }
+  const res = { status: (n: number) => ({ json: (b: unknown) => { o.code = n; o.body = b as Record<string, unknown> } }) }
+  await certVoucher({ chain: 'solana', course: 'spot' }, res, db as never, 'did:privy:amina', 'amina', async () => [])
+  check(o.code === 503 && o.body.live === false, 'Solana requested while off: 503')
+  process.env.VITE_CERT_SOLANA_PROGRAM = '6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd'
+  process.env.CERT_SOLANA_SIGNER_KEY = JSON.stringify(Array.from({ length: 64 }, (_, i) => (i * 7) % 256))
+  process.env.CERT_SOLANA_RPC = 'http://127.0.0.1:9' // unreachable: no network in checks
+  check(sol.solanaMintLive(), 'Solana live with program and key')
+  await certVoucher({ chain: 'solana', course: 'spot', owner: 'not-an-address' }, res, db as never, 'did:privy:amina', 'amina', async () => [])
+  check(o.code === 400, 'a bad Solana owner address is refused')
+  await certVoucher({ chain: 'solana', course: 'spot' }, res, db as never, 'did:privy:amina', 'amina', async () => [])
+  check(o.code === 403 && o.body.exam === true, 'Solana needs the exam pass ticket, same as Base and NEAR')
+  const pid = sol.solanaPlayerId('Amina')!
+  check(pid.length === 32 && pid.equals(sol.solanaPlayerId('amina')!) && !pid.toString('latin1').includes('amina'), 'player id: 32 bytes, case-insensitive, no username on-chain')
+  check(sol.courseBytes('spot').length === 32 && sol.courseBytes('spot').subarray(0, 4).toString() === 'spot', 'course id padded to 32 bytes')
+  check(sol.certHash('X').toString('hex') === '4b68ab3847feda7d6c62c1fbcbeebfa35eab7351ed5e78f4ddadea5df64b8015', 'cert hash is sha256 of the certificate id')
+  const a1 = await sol.certAddress('amina', 'spot'), a2 = await sol.certAddress('amina', 'perps')
+  check(!!a1 && sol.isSolanaAddress(a1) && a1 !== a2, 'one certificate address per player and course')
+  check(sol.solanaExplorer('abc', 'tx') === 'https://explorer.solana.com/tx/abc?cluster=devnet', 'explorer links point at devnet')
+  delete process.env.VITE_CERT_SOLANA_PROGRAM; delete process.env.CERT_SOLANA_SIGNER_KEY; delete process.env.CERT_SOLANA_RPC
 }
 
 // ---- EAS (Base) delegated attestation

@@ -6,7 +6,7 @@ import { issueNearChallenge, nearUserId, verifyNearAuth, type NearAuth } from '.
 import { certVoucher } from './_certMint.js'
 import { startExam, gradeExam } from './_certExam.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
-import { issueCert, recordExamPass } from './_certStore.js'
+import { issueCert, recordExamPass, hasExamPass, rowData } from './_certStore.js'
 import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
 import { publicFields } from './_publicFields.js'
 
@@ -119,7 +119,17 @@ export default async function handler(req: Req, res: Res) {
     // The player's certificate for a passed course: the server record (issued from the synced save on first ask).
     const r = await issueCert(db, userId, p.data.username, String(req.body?.course ?? ''), String(req.body?.certId ?? ''))
     if (!r.ok) return res.status(r.status).json({ error: r.error, ...(r.exam ? { exam: true } : {}) })
-    return res.status(200).json({ certId: r.row.cert_id, serial: r.row.serial, name: r.row.player_name, at: r.row.issued_ms })
+    // Solana devnet record (programs/grind-cert), written by the server when CERT_SOLANA_AUTO=1: same gate as a mint
+    // (a server-graded exam pass in cert_passes), soulbound, no wallet or name on-chain. Never blocks the certificate.
+    let solana: unknown
+    if (process.env.CERT_SOLANA_AUTO === '1') {
+      const { solanaMintLive, issueOnSolana } = await import('./_certSolana.js')
+      if (solanaMintLive() && (await hasExamPass(db, userId, r.row.course_id).catch(() => false))) {
+        const s = await Promise.race([issueOnSolana(r.row.cert_id, rowData(r.row)).catch(() => null), new Promise<null>((ok) => setTimeout(() => ok(null), 7000))])
+        if (s?.ok) solana = { ...s.minted, ...(s.tx ? { tx: s.tx } : {}) }
+      }
+    }
+    return res.status(200).json({ certId: r.row.cert_id, serial: r.row.serial, name: r.row.player_name, at: r.row.issued_ms, ...(solana ? { solana } : {}) })
   }
   if (req.query?.op === 'cert-exam') {
     // A fresh certificate exam paper: the course's checks, shuffled, no answers, with a time limit.
@@ -136,8 +146,14 @@ export default async function handler(req: Req, res: Res) {
     if (r.result.passed && !(await recordExamPass(db, userId, p.data.username, course, r.result.score, r.result.of))) return res.status(503).json({ error: 'Could not save your pass. Try again.' })
     return res.status(200).json(r.result)
   }
+  if (req.query?.op === 'cert-minted') {
+    // Has this course already been minted on Solana for the signed-in player? (asset address is server-derived)
+    const { mintedOnSolana } = await import('./_certSolana.js')
+    const minted = await mintedOnSolana(p.data.username, String(req.body?.course ?? '')).catch(() => null)
+    return res.status(200).json({ minted })
+  }
   if (req.query?.op === 'cert-voucher') {
-    // Certificate NFT voucher (Base or NEAR). Linked wallets come from Privy, never from the client.
+    // Certificate NFT voucher (Base, NEAR or Solana). Linked wallets come from Privy, never from the client.
     const linkedEvm = async () => {
       const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID, secret = process.env.PRIVY_APP_SECRET
       if (!appId || !secret || userId.startsWith('near:')) return []

@@ -75,10 +75,10 @@ export const ROUTES: Record<RouteId, Route> = {
   },
   'solana-devnet': {
     id: 'solana-devnet', label: 'Solana (devnet)', family: 'solana', network: 'devnet',
-    contractEnv: 'VITE_CERT_NFT_SOLANA',
-    standard: 'Metaplex Core collection, co-signed by the update authority', wallet: 'solana',
-    gas: { payer: 'player', sponsorship: 'none' },
-    status: 'planned', note: 'Separate Solana address. Work in progress on branch solana-cert-devnet, not merged.',
+    contractEnv: 'VITE_CERT_SOLANA_PROGRAM', deployed: '6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd',
+    standard: 'Grind District Rust program (programs/grind-cert): issuer-only soulbound certificate accounts (PDA per player and course)', wallet: 'solana',
+    gas: { payer: 'sponsor', sponsorship: 'none' },
+    status: 'built-off', note: 'Server is the issuer and pays the devnet (test SOL) fee; no player wallet needed. Auto-recorded on cert issue when CERT_SOLANA_AUTO=1. No game button (would need a mint-dialog UI change).',
   },
 }
 
