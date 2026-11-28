@@ -78,7 +78,7 @@ export const ROUTES: Record<RouteId, Route> = {
     contractEnv: 'VITE_CERT_SOLANA_PROGRAM', deployed: '6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd',
     standard: 'Grind District Rust program (programs/grind-cert): issuer-only soulbound certificate accounts (PDA per player and course)', wallet: 'solana',
     gas: { payer: 'sponsor', sponsorship: 'none' },
-    status: 'built-off', note: 'Server is the issuer and pays the devnet (test SOL) fee; no player wallet needed. Auto-recorded on cert issue when CERT_SOLANA_AUTO=1. No game button (would need a mint-dialog UI change).',
+    status: 'live', note: 'Deployed on devnet 28 Nov 2026. Server is the issuer and pays the devnet (test SOL) fee; no player wallet needed. Auto-recorded on cert issue when CERT_SOLANA_AUTO=1. No game button (would need a mint-dialog UI change).',
   },
 }
 
