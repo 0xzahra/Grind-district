@@ -685,6 +685,13 @@
       "body": "A glass hall beside Grind International with a slot for each chain the city runs on: NEAR, Base and Solana. Walk up to a slot to read about it. Find it on the Map.",
       "go": "place:Chain Gallery",
       "push": false
+    },
+    {
+      "id": "u1128-lesson-keys",
+      "title": "Lesson checks got a new look",
+      "body": "Answers are now big lettered keys in the city's own style, with a coin when you earn and Zahra's reply beside every question.",
+      "go": "panel:learn",
+      "push": false
     }
   ]
 }

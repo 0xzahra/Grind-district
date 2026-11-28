@@ -785,6 +785,7 @@ export function mountUi(
             const got = missed.has(questionIndex) ? 0 : shares[questionIndex] ?? 0
             earnedQ[questionIndex] = got
             node.classList.add('is-right')
+            if (got) { const coin = document.createElement('span'); coin.className = 'lx-coin'; coin.textContent = `+${money(got)}`; coin.setAttribute('aria-hidden', 'true'); node.append(coin) }
             wrap.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((peer) => { peer.disabled = true })
             zahra.classList.remove('oops'); zahra.classList.add('yay')
             zSay.textContent = `${RIGHT[(questionIndex + choiceIndex) % RIGHT.length]}${got ? ` +${money(got)}` : ' It counts for your CV.'}`
@@ -792,12 +793,12 @@ export function mountUi(
             window.setTimeout(advance, 1100)
           } else {
             missed.add(questionIndex)
-            node.classList.add('is-wrong'); node.disabled = true
+            node.classList.add('is-wrong', 'lx-shake'); node.disabled = true
             zahra.classList.remove('yay'); zahra.classList.add('oops')
             zSay.textContent = `Not quite. ${question.hint} Try again, it is free.`
           }
         }
-        if (live) wrap.append(zahra)
+        if (live) { wrap.classList.add('lx-live'); wrap.append(zahra) }
         if (question.kind !== 'slider') question.choices.forEach((choice, choiceIndex) => {
           const node = button(choice, 'ghost choice', () => {
             if (live) { answer(node, choiceIndex); return }
@@ -807,7 +808,7 @@ export function mountUi(
             result.textContent = ''
           })
           node.dataset.c = String(choiceIndex)
-          if (live) node.classList.add('lx-answer')
+          if (live) { node.classList.add('lx-answer'); const k = document.createElement('span'); k.className = 'lx-letter'; k.setAttribute('aria-hidden', 'true'); k.textContent = 'ABCDEF'[choiceIndex] ?? ''; node.prepend(k) }
           node.setAttribute('aria-pressed', String(picks[questionIndex] === choiceIndex))
           node.disabled = Boolean(passed)
           wrap.append(node)

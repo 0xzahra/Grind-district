@@ -1547,6 +1547,7 @@ const apiAgents = createRemoteAgents(scene)
     goalGo = st.go
     let sub = st.sub
     if (st.go === 'mentor' && !interiors.inside) { const d = Math.round(Math.hypot(pos.x, pos.z + 40.4)); if (d > 4) sub = `Campus · ${d} m away` }
+    goalKick.textContent = quietStart() && st.go === 'mentor' ? 'Your first win' : 'Next step'
     if (goalText.textContent !== st.text) { goal.classList.remove('folded'); goalArmed = false; goalText.textContent = st.text }
     // Fold timer starts only once the pill is actually on screen (not behind the welcome sheet).
     if (!goalArmed && goal.getClientRects().length > 0 && !document.body.classList.contains('sheet-open') && getComputedStyle(goal).visibility !== 'hidden') { goalArmed = true; foldGoal(6000) }
