@@ -678,6 +678,13 @@
       "body": "Zahra now asks each question and tells you right away if you got it. Wrong picks are free to retry, first-try answers earn a little in-game cash, and your lesson streak resets quietly if you miss a day.",
       "go": "panel:learn",
       "push": false
+    },
+    {
+      "id": "u1128-chain-gallery",
+      "title": "New: the Chain Gallery",
+      "body": "A glass hall beside Grind International with a slot for each chain the city runs on: NEAR, Base and Solana. Walk up to a slot to read about it. Find it on the Map.",
+      "go": "place:Chain Gallery",
+      "push": false
     }
   ]
 }

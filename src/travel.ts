@@ -16,6 +16,7 @@ import { posedHuman, MEN, WOMEN, type HumanModel, type Look } from './humans.ts'
 import { lighthouse } from './ride.ts'
 import { musicOn, musicVolume, duckMusic } from './music.ts'
 import { buildSpaceport, ORBIT_USD } from './space.ts'
+import { buildChainGallery } from './chainGallery.ts'
 import { crownCards, foliageMaterial, palmCrownGeometry, palmLeafMaterial } from './trees.ts'
 
 export type TravelCtx = {
@@ -687,6 +688,8 @@ export function buildAirport(A: Arch, X: TravelCtx): void {
     add(hg)
     A.block(0, { x0: 219, z0: 94, x1: 249, z1: 122 })
   }
+  // --- Chain Gallery (chainGallery.ts): the glass hall south of the forecourt, display only.
+  buildChainGallery(A)
   // --- Terminal: curtain walls of glass, a curved roof on tree columns, a polished floor.
   const T = { x0: 200, x1: 224, z0: -24, z1: 56 }
   flat(T.x1 - T.x0, T.z1 - T.z0, std(0xe9e5de, 0.28, 0.05), (T.x0 + T.x1) / 2, (T.z0 + T.z1) / 2, 0.02)
