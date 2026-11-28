@@ -6,6 +6,7 @@ import { ethPrice } from './topupPrice.ts'
 import { railOn, renderRailTopup } from './topupRails.ts'
 import { gameWalletAddress, payUsdcFromGameWallet, checkGameWalletUsdc, WalletNotSent, GAS_SPONSOR } from './privyWallet.ts'
 import { track, flushTracking } from './track.ts'
+import { chainCard, coinChip, step, howItWorks, hint, watchStatus } from './topupUi.ts'
 /** Custom top-up range (mirrors api/_topupAuto.ts MIN_USDC / MAX_USDC). Default stays 5 USDC. */
 const MIN_USDC = 1
 const MAX_USDC = 1000
@@ -82,23 +83,30 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   let currentOrder: Order | null = null
 
   const box = el('div', '', 'topup')
-  const tabs = el('div', '', 'topup-tabs')
-  const tUsdc = el('button', 'USDC', 'on') as HTMLButtonElement
-  const tEth = el('button', 'ETH') as HTMLButtonElement
-  const tNear = el('button', NEAR_TOPUP_NET === 'testnet' ? 'NEAR testnet' : 'NEAR') as HTMLButtonElement
-  tUsdc.type = tEth.type = tNear.type = 'button'
+  const tabs = el('div', '', 'tp-chains')
+  tabs.setAttribute('role', 'group'); tabs.setAttribute('aria-label', 'Where do you hold your money?')
+  const tBase = chainCard('base', 'Base', 'USDC or ETH') as HTMLButtonElement
+  const tUsdc = coinChip('USDC', 'Dollar coin', true)
+  const tEth = coinChip('ETH', 'Ether')
+  const tNear = chainCard('near', 'NEAR', 'NEAR coin', NEAR_TOPUP_NET === 'testnet' ? 'test' : '')
   // During the NEAR hackathon judging (results by 18 Nov) the top-up is NEAR only; USDC and ETH on Base come back
   // on their own on 19 Nov 00:00 UTC. If NEAR top-ups are not switched on, Base stays, so there is always a top-up.
   const baseHidden = nearTopupOn() && Date.now() < Date.parse('2026-11-19T00:00:00Z')
-  if (!baseHidden) tabs.append(tUsdc, tEth)
+  if (!baseHidden) tabs.append(tBase)
   if (nearTopupOn()) tabs.append(tNear)
   // Optional rails: hidden unless switched on at build time (VITE_TOPUP_RAILS) or by a tester flag.
-  const tSol = el('button', 'Solana') as HTMLButtonElement
-  const tAny = el('button', 'Other chains') as HTMLButtonElement
-  tSol.type = tAny.type = 'button'
+  const tSol = chainCard('solana', 'Solana', 'USDC or SOL')
+  const tAny = chainCard('any', 'Other chains', 'Pay with any coin')
   if (railOn('solana')) tabs.append(tSol)
   if (railOn('intents')) tabs.append(tAny)
-  const amtLabel = el('label', 'Amount', 'topup-label')
+  // One chain only (today's default): no picker to confuse anyone, the steps start at "Pick a coin".
+  const chainStep = step('Where do you hold your money?', 'Pick the network your wallet is on.')
+  chainStep.classList.add('tp-chains-step')
+  const oneChain = tabs.children.length < 2
+  chainStep.hidden = tabs.hidden = oneChain
+  const coinRow = el('div', '', 'tp-coins')
+  coinRow.append(tUsdc, tEth)
+  const amtLabel = step('How much?', 'Pick an amount or type your own.')
   const presets = el('div', '', 'topup-presets')
   const table = el('dl', '', 'topup-break')
   const pay = el('button', 'Pay with wallet', 'topup-go') as HTMLButtonElement
@@ -110,12 +118,15 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   custom.type = 'number'; custom.inputMode = 'decimal'; custom.min = String(MIN_USDC); custom.max = String(MAX_USDC); custom.step = '0.01'; custom.value = '5'
   custom.setAttribute('aria-label', 'Custom USDC amount')
   custom.placeholder = 'Other amount'
-  custom.style.cssText = 'width:100%;margin-top:6px'
+  const customWrap = el('label', '', 'tp-money')
+  customWrap.append(el('span', '$'), custom)
   const status = el('p', '', 'topup-status')
+  status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite')
+  watchStatus(status)
   const fine = el('p', 'Pays the Grind District treasury on Base automatically. In-game $ is a game balance, not withdrawable. No address or hash to copy.', 'cc-muted')
   const baseBox = el('div', '', 'topup-base')
-  baseBox.append(amtLabel, presets, custom, table, pay, payGame, status, fine)
-  box.append(tabs, baseBox)
+  baseBox.append(step('Pick a coin'), coinRow, amtLabel, presets, customWrap, table, step('Pay'), pay, payGame, hint('Pay in your wallet. We credit you the moment it lands.'), status, howItWorks(fine))
+  box.append(chainStep, tabs, baseBox)
   root.append(box)
   // NEAR mainnet panel: built only when the NEAR receiver is configured at build time.
   const nearPanel = nearTopupOn() ? renderNearTopup(box, () => onCredited(), opts) : null
@@ -139,8 +150,11 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
   }
 
   const paint = () => {
+    const onBase = asset === 'USDC' || asset === 'ETH'
+    tBase.classList.toggle('on', onBase)
     tUsdc.classList.toggle('on', asset === 'USDC')
     tEth.classList.toggle('on', asset === 'ETH')
+    for (const [b, on] of [[tBase, onBase], [tNear, asset === 'NEAR'], [tSol, asset === 'SOLANA'], [tAny, asset === 'ANY'], [tUsdc, asset === 'USDC'], [tEth, asset === 'ETH']] as const) b.setAttribute('aria-pressed', String(on))
     tNear.classList.toggle('on', asset === 'NEAR')
     tSol.classList.toggle('on', asset === 'SOLANA')
     tAny.classList.toggle('on', asset === 'ANY')
@@ -167,7 +181,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     } else {
       table.append(el('dt', `Enter ${MIN_USDC} to ${MAX_USDC} USDC`), el('dd', ''))
     }
-    custom.hidden = asset !== 'USDC'
+    custom.hidden = customWrap.hidden = asset !== 'USDC'
     payGame.hidden = asset !== 'USDC' || !gameWalletAddress()
     payGame.disabled = busy || !!opts.demo || !usdcOk()
     pay.disabled = busy || !!opts.demo || (asset === 'USDC' && !usdcOk())
@@ -295,6 +309,7 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
     }
   }
 
+  tBase.onclick = () => { if (!busy && asset !== 'USDC' && asset !== 'ETH') { asset = 'USDC'; paint() } }
   tUsdc.onclick = () => { asset = 'USDC'; paint() }
   tEth.onclick = () => { asset = 'ETH'; paint() }
   tNear.onclick = () => { if (!busy) { asset = 'NEAR'; paint() } }

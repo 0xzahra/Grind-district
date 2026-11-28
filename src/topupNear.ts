@@ -3,6 +3,7 @@
 // checks the payment on NEAR before crediting in-game $ (2% fee, same as Base). Nothing is withdrawable.
 import { applyTopup } from './state.ts'
 import { breakdown } from './grindConfig.ts'
+import { step, coinChip, howItWorks, hint, watchStatus } from './topupUi.ts'
 
 export const NEAR_TOPUP_ACCOUNT: string = (import.meta.env.VITE_NEAR_TOPUP_ACCOUNT as string | undefined)?.trim() ?? ''
 export const nearTopupOn = () => /^[a-z0-9._-]{2,64}$/.test(NEAR_TOPUP_ACCOUNT)
@@ -62,7 +63,10 @@ export function renderNearTopup(root: HTMLElement, onCredited: () => void, opts:
   pay.type = 'button'
   const status = el('p', '', 'topup-status')
   const fine = el('p', `Sends NEAR on NEAR ${NEAR_TOPUP_NET} to ${NEAR_TOPUP_ACCOUNT}, the Grind District account.${NEAR_TOPUP_NET === 'testnet' ? ' Testnet NEAR is free test money with no value: this top-up is for trying the game.' : ''} You pay the tiny NEAR network fee. In-game $ is a game balance, not withdrawable.`, 'cc-muted')
-  box.append(el('label', 'Amount', 'topup-label'), presets, table, pay, status, fine)
+  watchStatus(status)
+  status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite')
+  const nearCoin = el('div', '', 'tp-coins'); nearCoin.append(coinChip('NEAR', NEAR_TOPUP_NET === 'testnet' ? 'Test coin' : 'NEAR coin', true))
+  box.append(step('Pick a coin'), nearCoin, step('How much?', 'Pick an amount.'), presets, table, step('Pay'), pay, hint(NEAR_TOPUP_NET === 'testnet' ? 'Test NEAR is free play money with no real value. Approve in your NEAR wallet and we credit you.' : 'Approve in your NEAR wallet. We credit you the moment it lands.'), status, howItWorks(fine))
   root.append(box)
   const stop = () => { if (timer) { clearInterval(timer); timer = null } }
 

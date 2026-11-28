@@ -9,6 +9,7 @@
 import qrcode from 'qrcode-generator'
 import { applyTopup } from './state.ts'
 import { breakdown } from './grindConfig.ts'
+import { step, coinChip, howItWorks, hint, watchStatus, plainEnd } from './topupUi.ts'
 
 export type Rail = 'solana' | 'intents'
 const FLAGS = String(import.meta.env.VITE_TOPUP_RAILS ?? '').split(',').map((s) => s.trim())
@@ -74,7 +75,7 @@ export function renderRailTopup(root: HTMLElement, rail: Rail, onCredited: () =>
   const box = el('div', '', 'topup-rail')
   box.hidden = true
   const presets = el('div', '', 'topup-presets')
-  const pick = el('div', '', 'topup-presets')
+  const pick = el('div', '', 'tp-coins')
   const refund = el('input', '', 'topup-refund') as HTMLInputElement
   refund.autocomplete = 'off'; refund.spellcheck = false; refund.setAttribute('aria-label', 'Refund address')
   const table = el('dl', '', 'topup-break')
@@ -85,9 +86,16 @@ export function renderRailTopup(root: HTMLElement, rail: Rail, onCredited: () =>
   const fine = el('p', rail === 'solana'
     ? 'Pay SOL or USDC on Solana from any Solana wallet (Phantom, Solflare, Backpack…). The game spots the payment by its one-time code. In-game $ is a game balance, not withdrawable.'
     : 'Pay from another chain. NEAR Intents swaps it to USDC for the Grind District NEAR account, then the game credits you. If anything goes wrong, NEAR Intents refunds to the address you enter. In-game $ is a game balance, not withdrawable.', 'cc-muted')
-  box.append(el('label', 'Amount', 'topup-label'), presets, el('label', rail === 'solana' ? 'Pay with' : 'Coin', 'topup-label'), pick)
-  if (rail === 'intents') box.append(refund)
-  box.append(table, go, payBox, status, fine)
+  watchStatus(status)
+  status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite')
+  box.append(step(rail === 'solana' ? 'Pick a coin' : 'Pick the coin you will pay with', rail === 'solana' ? '' : 'Any coin on the list works. We swap it for you.'), pick, step('How much?'), presets)
+  box.append(step('Pay'))
+  if (rail === 'intents') {
+    const rl = el('label', 'Your refund address', 'tp-field-label')
+    rl.append(el('small', 'Only used if something goes wrong. Double-check it is on the same chain as your coin.'))
+    box.append(rl, refund)
+  }
+  box.append(table, go, hint(rail === 'solana' ? 'Scan the code or tap to open your wallet. We spot the payment on our own.' : 'We give you a one-time address. Send the coin there and we do the rest.'), payBox, status, howItWorks(fine))
   root.append(box)
   const stop = () => { if (timer) { clearInterval(timer); timer = null } waiting = false }
 
@@ -96,8 +104,8 @@ export function renderRailTopup(root: HTMLElement, rail: Rail, onCredited: () =>
     presets.replaceChildren()
     for (const n of PRESETS) { const b = el('button', `$${n}`, dollars === n ? 'on' : '') as HTMLButtonElement; b.type = 'button'; b.onclick = () => { dollars = n; paint() }; presets.append(b) }
     pick.replaceChildren()
-    if (rail === 'solana') for (const a of ['USDC', 'SOL'] as const) { const b = el('button', a, solAsset === a ? 'on' : '') as HTMLButtonElement; b.type = 'button'; b.onclick = () => { solAsset = a; paint() }; pick.append(b) }
-    else for (const a of assets()) { const b = el('button', a.label, coin === a.id ? 'on' : '') as HTMLButtonElement; b.type = 'button'; b.onclick = () => { coin = a.id; paint() }; pick.append(b) }
+    if (rail === 'solana') for (const a of ['USDC', 'SOL'] as const) { const b = coinChip(a, 'on Solana', solAsset === a); b.setAttribute('aria-pressed', String(solAsset === a)); b.onclick = () => { solAsset = a; paint() }; pick.append(b) }
+    else for (const a of assets()) { const [sym, chain] = a.label.split(' · '); const b = coinChip(sym ?? a.label, chain ? `on ${chain}` : '', coin === a.id); b.setAttribute('aria-pressed', String(coin === a.id)); b.onclick = () => { coin = a.id; paint() }; pick.append(b) }
     const a = assets().find((x) => x.id === coin)
     refund.placeholder = a ? `Your ${a.label.split(' · ')[1]} address (refunds go here)` : 'Your address (refunds go here)'
     const b = breakdown(BigInt(dollars) * 1_000_000n)
@@ -143,7 +151,7 @@ export function renderRailTopup(root: HTMLElement, rail: Rail, onCredited: () =>
       try {
         const { status: code, j } = await api({ body: { op: rail === 'solana' ? 'sol-scan' : 'intents-scan', orderId } })
         if (j.ok && j.creditUsd) return credited(j)
-        if (code === 410 || code === 404 || (j.ok === false && !j.waiting && j.error)) { stop(); busy = false; paint(); status.textContent = j.error || 'Order ended. Start again.'; try { localStorage.removeItem(ORDER_KEY(rail)) } catch { /* */ } return }
+        if (code === 410 || code === 404 || (j.ok === false && !j.waiting && j.error)) { stop(); busy = false; paint(); status.textContent = plainEnd(j.error || 'Order ended. Start again.'); try { localStorage.removeItem(ORDER_KEY(rail)) } catch { /* */ } return }
         status.textContent = j.stage === 'PROCESSING' || j.stage === 'KNOWN_DEPOSIT_TX' ? 'Payment seen. Swapping…' : 'Waiting for your payment…'
       } catch { status.textContent = 'Network hiccup; still watching…' }
     }
