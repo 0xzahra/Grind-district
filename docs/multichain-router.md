@@ -15,17 +15,17 @@ Last checked on-chain: 28 Nov 2026.
 | `near-mainnet` | NEAR mainnet | `cert.grinddistrict.near` (`VITE_CERT_NFT_NEAR_MAINNET`) | Same wasm as testnet (sha256 `479ea0e8…`) | NEAR mainnet wallet | Player attaches 0.05 NEAR storage | **Deployed, not live** (env not set, no game button yet) |
 | `solana-devnet` | Solana devnet | Program `6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd` (`VITE_CERT_SOLANA_PROGRAM`), source `programs/grind-cert` | Grind District's own Rust program: issuer-only, soulbound certificate account (PDA per player and course) holding course id, certificate hash, serial and timestamp | None needed (optional Solana address recorded as recipient) | Server (issuer) pays the devnet test-SOL fee | **Live on devnet** (deployed 28 Nov 2026, deploy tx `44YTEs9w…`, config tx `4hXJqQ3c…`; server records a certificate after each exam pass; no game button) |
 
-### Other EVM mainnets: deployed, not wired (28 Nov 2026)
+### Other EVM mainnets (28 Nov 2026)
 
-Same `GrindCertificate` bytecode and settings as Base (signer `0x5c9a636347394E2381EfD107076B15269674d820`, base URI `https://www.grinddistrict.app/cert/`), deployed from the game deployer wallet. All five are at the same address, `0x6bC81E26832986d56B6e59c31599F3113971Ec33`. Source verified on Sourcify (exact match). **Not in `router.ts`, no env vars set, no game button: players cannot mint here yet.**
+Same `GrindCertificate` bytecode and settings as Base (signer `0x5c9a636347394E2381EfD107076B15269674d820`, base URI `https://www.grinddistrict.app/cert/`), deployed from the game deployer wallet. All five are at the same address, `0x6bC81E26832986d56B6e59c31599F3113971Ec33`. Source verified on Sourcify (exact match). Wired in `router.ts` (`EVM_CERT_CHAINS`): each chain shows in the mint picker once its `VITE_CERT_NFT_<KEY>` is set, and `/api/profile?op=cert-voucher` signs for it with the Base signer key (vouchers carry the chain id, so they cannot be replayed on another chain). Players pay gas in the chain's own token; no sponsorship. Robinhood Chain is added to Privy's chain list in `src/privyWallet.ts` (it is not in Privy's defaults).
 
 | Chain | Chain id | Explorer | Owner today | Status |
 | --- | --- | --- | --- | --- |
-| OP Mainnet | 10 | https://optimistic.etherscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
-| Arbitrum One | 42161 | https://arbiscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
-| Robinhood Chain | 4663 | https://robinhoodchain.blockscout.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
-| Polygon PoS | 137 | https://polygonscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
-| BNB Chain | 56 | https://bscscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
+| OP Mainnet | 10 | https://optimistic.etherscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
+| Arbitrum One | 42161 | https://arbiscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
+| Robinhood Chain | 4663 | https://robinhoodchain.blockscout.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
+| Polygon PoS | 137 | https://polygonscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
+| BNB Chain | 56 | https://bscscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
 
 Ownership is two-step (`transferOwnership`, then `acceptOwnership` by the new owner). The Safe `0x43985e56ac0c2CD9F95d4C1248cEB14E66Aa254a` does not exist on these chains yet; it has to be created at the same address by its owner, then ownership handed over and accepted.
 
@@ -55,7 +55,9 @@ other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
 | Variable | Where | Meaning |
 | --- | --- | --- |
 | `VITE_CERT_NFT_BASE`, `VITE_CERT_NFT_BASE_CHAIN` | build + server | Base contract and chain id (8453) |
-| `CERT_SIGNER_PRIVATE_KEY` | server only | Base voucher signer (also the EAS attester) |
+| `CERT_SIGNER_PRIVATE_KEY` | server only | EVM voucher signer for Base and the chains below (also the EAS attester on Base) |
+| `VITE_CERT_NFT_ARBITRUM`, `VITE_CERT_NFT_OPTIMISM`, `VITE_CERT_NFT_ROBINHOOD`, `VITE_CERT_NFT_POLYGON`, `VITE_CERT_NFT_BSC` | build + server | Contract on that chain. Unset = that chain off |
+| `CERT_RPC_ARBITRUM`, `CERT_RPC_OPTIMISM`, `CERT_RPC_ROBINHOOD`, `CERT_RPC_POLYGON`, `CERT_RPC_BSC` | server | Optional RPC overrides (server reads only; the browser uses public RPCs) |
 | `VITE_CERT_NFT_NEAR` | build + server | Main NEAR contract (testnet now) |
 | `VITE_CERT_NFT_NEAR_MAINNET` | build + server | NEAR mainnet contract, alongside the main one. Unset = off |
 | `CERT_NEAR_SIGNER_KEY` | server only | NEAR voucher signer (same public key on both NEAR contracts; vouchers name the contract, so they cannot be replayed across networks) |

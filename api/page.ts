@@ -101,15 +101,16 @@ export default async function handler(req: Req, res: Res) {
       desc = `${c.n || 'A player'} (@${c.u}) passed ${c.t} in Grind District on ${issuedWat(c)}.`
       image = `${origin}/cert/${id}/image.png?w=1200`
       imgW = 1200; imgH = Math.round((1200 * CERT_H) / CERT_W)
-      const { mintedOnBase, mintedOnNear } = await import('./_certChain.js')
+      const { mintedOnBase, mintedOnNear, mintedOnOtherEvm } = await import('./_certChain.js')
       const { mintedOnSolana } = await import('./_certSolana.js')
-      const minted = (await Promise.all([mintedOnBase(c.u, c.c).catch(() => null), mintedOnNear(c.u, c.c).catch(() => null), mintedOnSolana(c.u, c.c).catch(() => null)])).filter(Boolean)
+      const [onBase, onNear, onSol, onEvm] = await Promise.all([mintedOnBase(c.u, c.c).catch(() => null), mintedOnNear(c.u, c.c).catch(() => null), mintedOnSolana(c.u, c.c).catch(() => null), mintedOnOtherEvm(c.u, c.c).catch(() => [])])
+      const minted = [onBase, ...onEvm, onNear, onSol].filter(Boolean)
       const row = (k: string, v: string) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`
-      const chainRows = minted.map((m) => `<tr><th>${m!.chain === 'base' ? 'Minted on Base' : m!.chain === 'solana' ? 'Recorded on Solana' : 'Minted on NEAR'}</th><td><a href="${esc(m!.explorer)}" rel="noopener">Token #${esc(m!.tokenId)}</a> · ${esc(m!.contract)}</td></tr>`).join('')
+      const chainRows = minted.map((m) => `<tr><th>${m!.chain === 'base' ? 'Minted on Base' : m!.chain === 'solana' ? 'Recorded on Solana' : m!.chain === 'near' ? 'Minted on NEAR' : `Minted on ${esc(('label' in m! && m!.label) || m!.chain)}`}</th><td><a href="${esc(m!.explorer)}" rel="noopener">Token #${esc(m!.tokenId)}</a> · ${esc(m!.contract)}</td></tr>`).join('')
       body = `<img class="cert" src="/cert/${esc(id)}/image.png?w=1600" alt="${esc(`${c.t} certificate for ${c.n || c.u}`)}" width="${CERT_W}" height="${CERT_H}">
 <h1>${esc(c.n || `@${c.u}`)}</h1>
 <p class="sub">@${esc(c.u)} · ${esc(c.t)} · ${esc(issuedWat(c))}</p>
-<table>${row('Course', c.t)}${row('Player', c.n || '-')}${row('Username', `@${c.u}`)}${row('Issued (WAT)', issuedWat(c))}${row('Issued (ISO-8601)', issuedIso(c) || '-')}${row('Serial', rec.row.serial)}${row('Issuer', 'Grind District')}${chainRows || row('On-chain', 'Not minted yet. The player can mint it as a soulbound NFT on Base or NEAR from the game.')}</table>
+<table>${row('Course', c.t)}${row('Player', c.n || '-')}${row('Username', `@${c.u}`)}${row('Issued (WAT)', issuedWat(c))}${row('Issued (ISO-8601)', issuedIso(c) || '-')}${row('Serial', rec.row.serial)}${row('Issuer', 'Grind District')}${chainRows || row('On-chain', 'Not minted yet. The player can mint it as a soulbound NFT on Base, other EVM chains or NEAR from the game.')}</table>
 <p class="small">Certificate ID: <code>${esc(id)}</code> · <a href="/cert/${esc(id)}/meta.json">Metadata JSON</a> · <a href="/cert/${esc(id)}/image.png" download>Download PNG</a></p>
 <p class="foot">${esc(CERT_WORDING)}</p>`
     } else {

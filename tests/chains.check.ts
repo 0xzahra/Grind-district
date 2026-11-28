@@ -1,7 +1,7 @@
 // Multichain router (src/chains/router.ts), NEAR mainnet alongside testnet, and the optional Base EAS attestation.
 import { recoverTypedDataAddress, hashDomain, keccak256, toHex, decodeFunctionData, type Hex } from 'viem'
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
-import { ROUTES, routeContract, routesFor, walletFor, BUILDER_CODE, type RouteId } from '../src/chains/router.ts'
+import { ROUTES, routeContract, routesFor, walletFor, BUILDER_CODE, EVM_CERT_CHAINS, EVM_CERT_ORDER, CERT_MULTI_EVM, evmCertChain, evmNftUrl, isEvmCertKey, type RouteId } from '../src/chains/router.ts'
 import { BUILDER_CODE as BC, BUILDER_SUFFIX } from '../src/builderCode.ts'
 
 let pass = 0, fail = 0
@@ -111,6 +111,57 @@ delete process.env.CERT_EAS; delete process.env.CERT_EAS_SCHEMA_UID
   const sig = (req.signature.r + req.signature.s.slice(2) + req.signature.v.toString(16)) as Hex
   const rec = await recoverTypedDataAddress({ domain: eas.EAS_DOMAIN, types: eas.ATTEST_TYPES, primaryType: 'Attest', message: { attester: req.attester, schema: req.schema, recipient: req.data.recipient, expirationTime: req.data.expirationTime, revocable: req.data.revocable, refUID: req.data.refUID, data: req.data.data, value: req.data.value, nonce: 7n, deadline: req.deadline }, signature: sig })
   check(rec === signer.address && req.data.recipient === player, 'delegated signature recovers to the attester, recipient is the player')
+}
+
+// ---- extra EVM certificate chains (OP, Arbitrum, Robinhood Chain, Polygon, BNB Chain)
+{
+  const want: Record<string, [number, string]> = { base: [8453, 'ETH'], optimism: [10, 'ETH'], arbitrum: [42161, 'ETH'], robinhood: [4663, 'ETH'], polygon: [137, 'POL'], bsc: [56, 'BNB'] }
+  check(EVM_CERT_ORDER.length === 6 && EVM_CERT_ORDER[0] === 'base' && EVM_CERT_ORDER.every((k) => EVM_CERT_CHAINS[k].chainId === want[k][0] && EVM_CERT_CHAINS[k].native === want[k][1]), 'six EVM chains with the right chain ids and gas tokens, Base first')
+  check(EVM_CERT_ORDER.every((k) => /^https:\/\//.test(EVM_CERT_CHAINS[k].rpc) && /^https:\/\//.test(EVM_CERT_CHAINS[k].explorer)), 'every chain has an https RPC and explorer')
+  check((['optimism', 'arbitrum', 'robinhood', 'polygon', 'bsc'] as const).every((k) => ROUTES[k].deployed === CERT_MULTI_EVM && ROUTES[k].gas.payer === 'player' && ROUTES[k].gas.sponsorship === 'none' && walletFor(k) === 'privy-evm'), 'new routes: deployed contract, player pays, no sponsorship, game wallet')
+  check(evmCertChain('arbitrum', {}) === null && evmCertChain('robinhood', { VITE_CERT_NFT_ROBINHOOD: 'nope' }) === null, 'a chain is off while its env is empty or invalid')
+  const rh = evmCertChain('robinhood', { VITE_CERT_NFT_ROBINHOOD: CERT_MULTI_EVM })
+  check(!!rh && evmNftUrl(rh, rh.contract, 3n) === `https://robinhoodchain.blockscout.com/token/${CERT_MULTI_EVM}/instance/3`, 'Robinhood Chain links tokens the Blockscout way')
+  const arb = evmCertChain('arbitrum', { VITE_CERT_NFT_ARBITRUM: CERT_MULTI_EVM, CERT_RPC_ARBITRUM: 'https://example.invalid/rpc' }, true)
+  check(!!arb && arb.rpc === 'https://example.invalid/rpc' && evmNftUrl(arb, arb.contract, 3n) === `https://arbiscan.io/nft/${CERT_MULTI_EVM}/3`, 'server RPC override and Etherscan-style token link')
+  check(evmCertChain('arbitrum', { VITE_CERT_NFT_ARBITRUM: CERT_MULTI_EVM, CERT_RPC_ARBITRUM: 'https://example.invalid/rpc' })!.rpc === EVM_CERT_CHAINS.arbitrum.rpc, 'the browser never uses the server RPC override')
+  const b = evmCertChain('base', { VITE_CERT_NFT_BASE: '0xBEC44b497b5D4696644A5ad581804476CB20808f', VITE_CERT_NFT_BASE_CHAIN: '84532' })
+  check(!!b && b.chainId === 84532 && b.explorer === 'https://sepolia.basescan.org', 'Base keeps its Sepolia switch')
+  check(isEvmCertKey('bsc') && !isEvmCertKey('near') && !isEvmCertKey('toString'), 'chain keys are checked against the list')
+
+  // Voucher route: off while unset, then signs for that chain's id and contract with the same signer as Base
+  const { certVoucher } = await import('../api/_certMint.ts')
+  const { baseVoucher, signBaseVoucher, certDomain, VOUCHER_TYPES } = await import('../api/_certVoucher.ts')
+  const row = { cert_id: 'X', serial: 'GD-X', username: 'amina', privy_user_id: 'did:privy:amina', course_id: 'spot', course_title: 'Spot', player_name: 'Amina', issued_ms: 1, issued_date: '2026-11-01', tries: 1, source: 'issued' }
+  const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: row, error: null }) }
+  const db = { from: () => q }
+  const o = { code: 0, body: {} as Record<string, unknown> }
+  const res = { status: (n: number) => ({ json: (x: unknown) => { o.code = n; o.body = x as Record<string, unknown> } }) }
+  delete process.env.VITE_CERT_NFT_POLYGON
+  process.env.CERT_SIGNER_PRIVATE_KEY = generatePrivateKey()
+  await certVoucher({ chain: 'polygon', course: 'spot', to: '0x000000000000000000000000000000000000000A' }, res, db as never, 'did:privy:amina', 'amina', async () => ['0x000000000000000000000000000000000000000A'])
+  check(o.code === 503 && o.body.live === false && /Polygon/.test(String(o.body.error)), 'Polygon requested while not configured: 503 naming the chain')
+  await certVoucher({ chain: 'dogechain', course: 'spot' }, res, db as never, 'did:privy:amina', 'amina', async () => [])
+  check(o.code === 400, 'an unknown chain is refused')
+  process.env.VITE_CERT_NFT_POLYGON = CERT_MULTI_EVM
+  await certVoucher({ chain: 'polygon', course: 'spot', to: '0x000000000000000000000000000000000000000B' }, res, db as never, 'did:privy:amina', 'amina', async () => ['0x000000000000000000000000000000000000000A'])
+  check(o.code === 403 && /not linked/.test(String(o.body.error)), 'Polygon refuses a wallet not linked to the account')
+  await certVoucher({ chain: 'polygon', course: 'spot', to: '0x000000000000000000000000000000000000000A' }, res, db as never, 'near:amina.testnet', 'amina', async () => [])
+  check(o.code === 403, 'NEAR sign-in users cannot mint to an EVM chain')
+  delete process.env.VITE_CERT_NFT_POLYGON
+  // The signature the route makes (signBaseVoucher with the chain's id) recovers to the signer for that chain only.
+  const key = generatePrivateKey(), signer = privateKeyToAccount(key).address
+  const d = { v: 2 as const, n: 'Amina', u: 'amina', c: 'spot', t: 'Spot trading', at: Date.parse('2026-11-11T08:42:00Z') }
+  const v = baseVoucher('0x000000000000000000000000000000000000000A', 'CERTID', d as never)
+  for (const k of ['optimism', 'arbitrum', 'robinhood', 'polygon', 'bsc'] as const) {
+    const cid = EVM_CERT_CHAINS[k].chainId
+    const sig = await signBaseVoucher(key, cid, CERT_MULTI_EVM as Hex, v)
+    const types = VOUCHER_TYPES
+    const ok = await recoverTypedDataAddress({ domain: certDomain(cid, CERT_MULTI_EVM as Hex), types, primaryType: 'Voucher', message: v, signature: sig })
+    const other = await recoverTypedDataAddress({ domain: certDomain(8453, CERT_MULTI_EVM as Hex), types, primaryType: 'Voucher', message: v, signature: sig })
+    check(ok === signer && other !== signer, `${k}: voucher signed for chain ${cid} recovers to the signer and is useless on another chain`)
+  }
+  delete process.env.CERT_SIGNER_PRIVATE_KEY
 }
 
 console.log(`chains: ${pass} passed, ${fail} failed`)

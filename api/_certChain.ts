@@ -1,6 +1,6 @@
 // Read-only lookups: has this (username, course) certificate been minted on Base / NEAR? Underscore = not a function.
 import { encodeAbiParameters, keccak256, encodeFunctionData, decodeFunctionResult, type Abi } from 'viem'
-import { routeContract } from '../src/chains/router.js'
+import { routeContract, evmCertChain, evmNftUrl, EVM_CERT_ORDER, type EvmCertKey } from '../src/chains/router.js'
 
 export const BASE_RPC = process.env.CERT_BASE_RPC || 'https://mainnet.base.org'
 // The RPC must be on the contract's own network: a .testnet contract read through the mainnet RPC finds nothing
@@ -49,6 +49,22 @@ export async function mintedOnBase(username: string, course: string): Promise<Mi
     if (m.result) { const x = JSON.parse(decodeFunctionResult({ abi: CERT_ABI, functionName: 'tokenJSON', data: m.result }) as string) as { external_url?: unknown }; if (typeof x.external_url === 'string') certUrls.push(x.external_url) }
   } catch { /* metadata read is best effort */ }
   return { chain: 'base', tokenId: id.toString(), contract: c, explorer: `${scan}/nft/${c}/${id}`, certUrls }
+}
+
+/** The other EVM chains (OP, Arbitrum, Robinhood Chain, Polygon, BNB Chain): same contract and checks as Base. Off while the env is empty. */
+export async function mintedOnEvm(key: EvmCertKey, username: string, course: string): Promise<Minted | null> {
+  const ch = evmCertChain(key, process.env, true); if (!ch) return null
+  const data = encodeFunctionData({ abi: CERT_ABI, functionName: 'tokenOfKey', args: [certKey(username, course)] })
+  const j = (await timed(ch.rpc, { jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: ch.contract, data }, 'latest'] })) as { result?: `0x${string}` }
+  if (!j.result) return null
+  const id = decodeFunctionResult({ abi: CERT_ABI, functionName: 'tokenOfKey', data: j.result }) as bigint
+  if (!id) return null
+  return { chain: key, label: ch.label, tokenId: id.toString(), contract: ch.contract, explorer: evmNftUrl(ch, ch.contract, id) }
+}
+/** Every configured extra EVM chain this certificate is minted on (Base is read by mintedOnBase). */
+export async function mintedOnOtherEvm(username: string, course: string): Promise<Minted[]> {
+  const keys = EVM_CERT_ORDER.filter((k): k is EvmCertKey => k !== 'base' && !!evmCertChain(k, process.env))
+  return (await Promise.all(keys.map((k) => mintedOnEvm(k, username, course).catch(() => null)))).filter((m): m is Minted => !!m)
 }
 
 export async function mintedOnNear(username: string, course: string, contract?: string): Promise<Minted | null> {

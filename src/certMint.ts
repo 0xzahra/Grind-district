@@ -1,4 +1,5 @@
-// "Mint as NFT" for a certificate: the player picks Base or NEAR. Lazy-loaded by the certificate dialog.
+// "Mint as NFT" for a certificate: the player picks an EVM chain (Base, Arbitrum, OP Mainnet, Robinhood Chain,
+// Polygon, BNB Chain: one game wallet address on all of them) or NEAR. Lazy-loaded by the certificate dialog.
 // A soulbound practice certificate goes to the player's own wallet; the player pays the network fee
 // (gas sponsorship comes later). The game server signs a voucher only for a passed course on the
 // player's own account. Hidden behind env: with no contract configured the dialog says so honestly.
@@ -10,17 +11,21 @@ import { track } from './track.ts'
 import type { SkillId } from './logic.ts'
 import { takeExam, heldTicket } from './certExam.ts'
 import { withBuilderCode } from './builderCode.ts'
+import { EVM_CERT_ORDER, evmCertChain, evmNftUrl, evmTxUrl, type EvmCertChain, type EvmCertChainKey } from './chains/router.ts'
+import { CHAIN_LOGOS } from './chains/certLogos.ts'
+import './certMint.css'
 
 const BASE_NFT = String(import.meta.env.VITE_CERT_NFT_BASE ?? '')
-const BASE_CHAIN = Number(import.meta.env.VITE_CERT_NFT_BASE_CHAIN || 8453)
 const NEAR_NFT = String(import.meta.env.VITE_CERT_NFT_NEAR ?? '')
 /** Grind District on NEAR Hunt, the NEAR hackathon's community board (upvotes need a NEAR mainnet account). */
 const HUNT = 'https://nearhunt.xyz/p/c1c7b574-850a-4f47-9af9-22a49339df07'
 export const baseMintOn = () => /^0x[0-9a-fA-F]{40}$/.test(BASE_NFT)
 export const nearMintOn = () => /^[a-z0-9._-]{2,64}$/.test(NEAR_NFT)
 const NEAR_NET: 'testnet' | 'mainnet' = NEAR_NFT.endsWith('.testnet') ? 'testnet' : 'mainnet'
-const BASE_RPC = BASE_CHAIN === 84532 ? 'https://sepolia.base.org' : 'https://mainnet.base.org'
-const BASESCAN = BASE_CHAIN === 84532 ? 'https://sepolia.basescan.org' : 'https://basescan.org'
+/** Every EVM chain with a contract configured (Base keeps its Sepolia switch). Order = the order of the chain keys. */
+type EvmLive = EvmCertChain & { contract: `0x${string}` }
+const EVM: EvmLive[] = EVM_CERT_ORDER.map((k) => evmCertChain(k, import.meta.env as Record<string, string | undefined>)).filter((c): c is EvmLive => !!c)
+export const evmMintOn = () => EVM.length > 0
 const NEAR_RPC = NEAR_NET === 'testnet' ? 'https://rpc.testnet.near.org' : 'https://rpc.mainnet.near.org'
 const NEARBLOCKS = NEAR_NET === 'testnet' ? 'https://testnet.nearblocks.io' : 'https://nearblocks.io'
 const NEAR_STORAGE_YOCTO = '50000000000000000000000' // 0.05 NEAR attached for storage; unused part refunded
@@ -38,19 +43,18 @@ const ABI = [
   { type: 'function', name: 'tokenOfKey', stateMutability: 'view', inputs: [{ type: 'bytes32' }], outputs: [{ type: 'uint256' }] },
 ] as const
 
-type Minted = { chain: 'base' | 'near'; tokenId: string; explorer: string; tx?: string }
+type ChainKey = EvmCertChainKey | 'near'
+type Minted = { chain: ChainKey; tokenId: string; explorer: string; tx?: string }
 const MINT_KEY = 'gd.certs.mints'
-const mints = (): Record<string, Partial<Record<'base' | 'near', Minted>>> => { try { return JSON.parse(localStorage.getItem(MINT_KEY) || '{}') } catch { return {} } }
+const mints = (): Record<string, Partial<Record<ChainKey, Minted>>> => { try { return JSON.parse(localStorage.getItem(MINT_KEY) || '{}') } catch { return {} } }
 const remember = (course: string, m: Minted) => { try { const all = mints(); all[course] = { ...all[course], [m.chain]: m }; localStorage.setItem(MINT_KEY, JSON.stringify(all)) } catch { /* private mode */ } }
 
-const baseExplorer = (id: bigint | string) => `${BASESCAN}/nft/${BASE_NFT}/${id}`
-
-async function baseTokenOf(username: string, course: string): Promise<bigint> {
+async function evmTokenOf(ch: EvmLive, username: string, course: string): Promise<bigint> {
   const key = keccak256(encodeAbiParameters([{ type: 'string' }, { type: 'string' }], [username, course]))
   const data = encodeFunctionData({ abi: ABI, functionName: 'tokenOfKey', args: [key] })
-  const r = await fetch(BASE_RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: BASE_NFT, data }, 'latest'] }) })
+  const r = await fetch(ch.rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: ch.contract, data }, 'latest'] }) })
   const j = (await r.json()) as { result?: `0x${string}` }
-  if (!j.result) throw new Error('Base RPC error')
+  if (!j.result) throw new Error(`${ch.label} RPC error`)
   return decodeFunctionResult({ abi: ABI, functionName: 'tokenOfKey', data: j.result }) as bigint
 }
 
@@ -115,44 +119,113 @@ const linkTo = (href: string, text: string) => { const a = el('a', text); a.href
 
 export function renderMint(root: HTMLElement, course: SkillId, certId: string): void {
   root.replaceChildren()
-  if (!baseMintOn() && !nearMintOn()) return
-  root.style.cssText = 'border:1px solid rgba(201,162,94,.45);border-radius:12px;padding:12px;display:grid;gap:8px;background:rgba(201,162,94,.05)'
-  const head = el('p', 'Mint as NFT'); head.style.cssText = 'font-weight:700;margin:0;color:#e9cd8f'
-  const note = el('p', 'First a short exam on this course, graded on the server. Then this certificate is written to the chain you pick, into your own wallet. It is soulbound: it cannot be sold or moved, and it has no money value. You pay the network fee (Base: a little ETH for gas; NEAR: 0.05 NEAR attached for storage, unused part refunded). Gas sponsorship comes later. Your name, @username, course and issue time become public on-chain.', 'muted')
-  note.style.margin = '0'
-  const pick = el('div', '', 'tabs'); pick.setAttribute('role', 'radiogroup'); pick.setAttribute('aria-label', 'Chain')
-  const status = el('p', '', 'muted'); status.setAttribute('role', 'status'); status.style.margin = '0'
-  const act = el('div'); act.style.cssText = 'display:grid;gap:6px'
-  root.append(head, note, pick, status, act)
-  // NEAR first: it is the chain the core loop and the README walk through; Base stays one tap away.
-  let chain: 'base' | 'near' = nearMintOn() ? 'near' : 'base'
-  const chip = (c: 'base' | 'near', label: string, on: boolean) => {
-    const b = el('button', on ? label : `${label} (soon)`, 'ghost'); b.setAttribute('role', 'radio'); b.disabled = !on
-    b.onclick = () => { chain = c; pick.querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', String(x === b))); void show() }
-    b.setAttribute('aria-checked', String(c === chain)); return b
+  if (!evmMintOn() && !nearMintOn()) return
+  root.removeAttribute('style')
+  root.classList.add('gd-mint')
+  const head = el('div', '', 'gm-head')
+  const title = el('p', 'Mint as NFT', 'gm-title')
+  const seal = el('span', 'Soulbound · no money value', 'gm-seal')
+  head.append(title, seal)
+  const note = el('p', 'A short exam first, graded on the server. Then this certificate is written to the chain you pick, into your own wallet, where it stays: it cannot be sold or moved.', 'gm-note')
+  const more = el('details', '', 'gm-more')
+  const sum = el('summary', 'Fees and what goes on-chain')
+  more.append(sum, el('p', 'You pay the network fee yourself: a few cents of the chain\'s gas token (ETH on Base, Arbitrum, OP Mainnet and Robinhood Chain; POL on Polygon; BNB on BNB Chain), or 0.05 NEAR attached for storage on NEAR, unused part refunded. Your name, @username, course and issue time become public on-chain. One certificate per course on each chain.'))
+  const pick = el('div', '', 'gm-picks'); pick.setAttribute('role', 'radiogroup'); pick.setAttribute('aria-label', 'Chain')
+  const status = el('p', '', 'gm-status'); status.setAttribute('role', 'status')
+  const act = el('div', '', 'gm-act')
+  const panel = el('div', '', 'gm-panel'); panel.append(status, act)
+  root.append(head, note, more, pick, panel)
+  // NEAR first: it is the chain the core loop and the README walk through; the EVM chains stay one tap away.
+  let chain: ChainKey = nearMintOn() ? 'near' : EVM[0]!.key
+  const evmOf = (k: ChainKey) => EVM.find((c) => c.key === k) ?? null
+  const labelOf = (k: ChainKey) => (k === 'near' ? (NEAR_NET === 'testnet' ? 'NEAR testnet' : 'NEAR') : evmOf(k)?.label ?? k)
+  const logo = (k: ChainKey, cls = 'gm-logo') => { const i = el('span', '', cls); i.innerHTML = CHAIN_LOGOS[k] ?? ''; return i }
+  const keys: HTMLButtonElement[] = []
+  const chip = (k: ChainKey, sub: string, color: string) => {
+    const b = el('button', '', 'gm-key'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.chain = k
+    b.style.setProperty('--chain', color)
+    const txt = el('span', '', 'gm-key-txt'); txt.append(el('b', labelOf(k).replace(/^Robinhood Chain$/, 'Robinhood')), el('small', sub))
+    const tick = el('span', '✓', 'gm-tick'); tick.setAttribute('aria-hidden', 'true')
+    b.append(logo(k), txt, tick)
+    b.onclick = () => { chain = k; mark(); void show() }
+    keys.push(b); return b
   }
-  pick.append(chip('base', 'Base', baseMintOn()), chip('near', NEAR_NET === 'testnet' ? 'NEAR (testnet)' : 'NEAR', nearMintOn()))
-  const set = (msg: string, ...nodes: HTMLElement[]) => { status.textContent = msg; act.replaceChildren(...nodes) }
+  const mark = () => {
+    const done = mints()[course] ?? {}
+    for (const b of keys) { const k = b.dataset.chain as ChainKey; b.setAttribute('aria-checked', String(k === chain)); b.classList.toggle('minted', !!done[k]) }
+  }
+  if (EVM.length) {
+    pick.append(el('p', 'Game wallet · one address on every chain', 'gm-group'))
+    const grid = el('div', '', 'gm-grid')
+    for (const c of EVM) grid.append(chip(c.key, `Gas in ${c.native}`, c.color))
+    pick.append(grid)
+  }
+  if (nearMintOn()) {
+    pick.append(el('p', 'NEAR wallet', 'gm-group'))
+    const grid = el('div', '', 'gm-grid')
+    grid.append(chip('near', NEAR_NET === 'testnet' ? 'Free test network' : '0.05 NEAR storage', '#00ec97'))
+    pick.append(grid)
+  }
+  mark()
+  const set = (msg: string, ...nodes: HTMLElement[]) => { panel.className = 'gm-panel'; status.textContent = msg; act.replaceChildren(...nodes) }
   const btn = (label: string, fn: () => void) => { const b = el('button', label, 'primary'); b.onclick = fn; return b }
-  const showMinted = (m: Minted) => set(`Minted on ${m.chain === 'base' ? 'Base' : 'NEAR'} · token #${m.tokenId}. The certificate fields are stored on-chain with it.`, linkTo(m.explorer, 'View on explorer'), ...(m.tx ? [linkTo(m.chain === 'base' ? `${BASESCAN}/tx/${m.tx}` : `${NEARBLOCKS}/txns/${m.tx}`, 'View transaction')] : []), linkTo(`/cert/${certId}`, 'Public certificate page'), linkTo(HUNT, 'Enjoyed it? Upvote Grind District on NEAR Hunt'))
+  const keyLink = (href: string, text: string) => { const a = linkTo(href, text); a.className = 'gm-link'; return a }
+  const showMinted = (m: Minted) => {
+    mark()
+    const ev = m.chain === 'near' ? null : evmOf(m.chain)
+    const txHref = m.tx ? (ev ? evmTxUrl(ev, m.tx) : `${NEARBLOCKS}/txns/${m.tx}`) : ''
+    const card = el('div', '', 'gm-done')
+    const badge = el('div', '', 'gm-done-badge'); badge.append(logo(m.chain, 'gm-done-logo'), el('span', '✓', 'gm-done-check'))
+    const words = el('div', '', 'gm-done-words')
+    words.append(el('p', `Minted on ${labelOf(m.chain)}`, 'gm-done-title'), el('p', `Token #${m.tokenId} · soulbound to your wallet · every field stored on-chain`, 'gm-done-sub'))
+    card.append(badge, words)
+    const links = el('div', '', 'gm-links')
+    links.append(keyLink(m.explorer, `View on ${ev ? ev.explorerName : 'NEARBlocks'}`))
+    if (txHref) links.append(keyLink(txHref, 'Transaction'))
+    links.append(keyLink(`/cert/${certId}`, 'Public certificate page'))
+    panel.className = 'gm-panel ok'
+    status.textContent = ''
+    act.replaceChildren(card, links, linkTo(HUNT, 'Enjoyed it? Upvote Grind District on NEAR Hunt'))
+  }
+  // Not enough gas on this chain: say which token, on which chain, to which address; nothing was sent.
+  const showGas = (ch: EvmLive, addr: string) => {
+    const box = el('div', '', 'gm-gas')
+    box.append(logo(ch.key), el('p', `Your game wallet needs a little ${ch.native} on ${ch.label} for the network fee, usually a few cents. Nothing was sent.`))
+    const row = el('div', '', 'gm-addr')
+    const code = el('code', `${addr.slice(0, 8)}…${addr.slice(-6)}`)
+    const copy = el('button', 'Copy address', 'gm-link'); copy.type = 'button'
+    copy.onclick = () => { void navigator.clipboard?.writeText(addr).then(() => { copy.textContent = 'Copied' }).catch(() => { copy.textContent = addr }) }
+    row.append(code, copy)
+    panel.className = 'gm-panel warn'
+    status.textContent = `Add ${ch.native} on ${ch.label}, then mint`
+    act.replaceChildren(box, row, btn(`I added ${ch.native}, mint on ${ch.label}`, () => void mintEvm(ch, addr)), el('p', 'Or pick another chain above.', 'gm-hint'))
+  }
   const username = getSave().username
 
+  // Each tap starts a fresh read; a slower answer for a chain the player already left is dropped.
+  let seq = 0
   const show = async () => {
+    const my = ++seq
+    const live = () => my === seq
     const saved = mints()[course]?.[chain]
     if (saved) return showMinted(saved)
     set('Checking the chain…')
     try {
-      if (chain === 'base') {
-        const id = await baseTokenOf(username, course)
-        if (id > 0n) { const m = { chain, tokenId: id.toString(), explorer: baseExplorer(id) } as Minted; remember(course, m); return showMinted(m) }
+      const ev = chain === 'near' ? null : evmOf(chain)
+      if (ev) {
+        const id = await evmTokenOf(ev, username, course)
+        if (!live()) return
+        if (id > 0n) { const m = { chain: ev.key, tokenId: id.toString(), explorer: evmNftUrl(ev, ev.contract, id) } as Minted; remember(course, m); return showMinted(m) }
         const addr = gameWalletAddress()
-        if (!addr) return set('Base minting uses your game wallet. Sign in with Google, X or email to create it, then come back.')
-        return set(`Not minted yet. Mints to your game wallet ${addr.slice(0, 6)}…${addr.slice(-4)} on Base.`, btn('Mint on Base', () => void mintBase(addr)))
+        if (!addr) return set(`${ev.label} minting uses your game wallet. Sign in with Google, X or email to create it, then come back.`)
+        return set(`Not minted yet. Mints to your game wallet ${addr.slice(0, 6)}…${addr.slice(-4)} on ${ev.label}.`, btn(`Mint on ${ev.label}`, () => void mintEvm(ev, addr)))
       }
       const t = await nearView<NearToken>('cert_for', { username, course_id: course })
-      if (t) { const m = { chain, tokenId: t.token_id, explorer: `${NEARBLOCKS}/nft-token/${NEAR_NFT}/${t.token_id}` } as Minted; remember(course, m); return showMinted(m) }
+      if (!live()) return
+      if (t) { const m = { chain: 'near', tokenId: t.token_id, explorer: `${NEARBLOCKS}/nft-token/${NEAR_NFT}/${t.token_id}` } as Minted; remember(course, m); return showMinted(m) }
       return set('Not minted yet. Connect your NEAR wallet to mint.', btn('Connect NEAR wallet and mint', () => void mintNear()))
     } catch {
+      if (!live()) return
       set('Could not reach the chain. Nothing was changed.', btn('Retry', () => void show()))
     }
   }
@@ -165,26 +238,39 @@ export function renderMint(root: HTMLElement, course: SkillId, certId: string): 
     return true
   }
 
-  const mintBase = async (addr: string) => {
-    if (!(await examFirst(() => void mintBase(addr)))) return
+  // The picker holds still while a mint is in flight, so its progress never lands under another chain's key.
+  const lock = (on: boolean) => { for (const b of keys) b.disabled = on; pick.classList.toggle('busy', on) }
+  const mintEvm = async (ch: EvmLive, addr: string) => {
+    lock(true)
+    try { await mintEvmRun(ch, addr) } finally { lock(false) }
+  }
+  const mintEvmRun = async (ch: EvmLive, addr: string) => {
+    if (!(await examFirst(() => void mintEvm(ch, addr)))) return
     set('Preparing your certificate…')
     try {
-      const j = await voucher({ chain: 'base', course, certId, to: addr })
-      if (j.already) { const a = j.already as { tokenId: string; explorer: string }; const m = { chain: 'base', tokenId: a.tokenId, explorer: a.explorer } as Minted; remember(course, m); return showMinted(m) }
+      const j = await voucher({ chain: ch.key, course, certId, to: addr })
+      if (j.already) { const a = j.already as { tokenId: string; explorer: string }; const m = { chain: ch.key, tokenId: a.tokenId, explorer: a.explorer } as Minted; remember(course, m); return showMinted(m) }
       if (typeof j.certId === 'string') adoptCertId(course, j.certId)
       const v = j.voucher as Record<string, string>
-      const data = withBuilderCode(encodeFunctionData({ abi: ABI, functionName: 'mint', args: [{ to: v.to as `0x${string}`, courseId: v.courseId, courseTitle: v.courseTitle, playerName: v.playerName, username: v.username, rank: v.rank, issuedAt: BigInt(v.issuedAt), issuedWat: v.issuedWat, serial: v.serial, certId: v.certId, deadline: BigInt(v.deadline) }, j.signature as `0x${string}`] })) // Base Builder Code on the end
+      const call = encodeFunctionData({ abi: ABI, functionName: 'mint', args: [{ to: v.to as `0x${string}`, courseId: v.courseId, courseTitle: v.courseTitle, playerName: v.playerName, username: v.username, rank: v.rank, issuedAt: BigInt(v.issuedAt), issuedWat: v.issuedWat, serial: v.serial, certId: v.certId, deadline: BigInt(v.deadline) }, j.signature as `0x${string}`] })
+      const data = ch.key === 'base' ? withBuilderCode(call) : call // Base Builder Code on the end (Base only)
       set('Confirm in your game wallet…')
-      const { callFromGameWallet } = await import('./privyWallet.ts')
-      const { hash } = await callFromGameWallet(String(j.contract), data, Number(j.chainId) || BASE_CHAIN)
-      track('cert_minted', { course, chain: 'base' })
-      set('Submitted. Waiting for Base to confirm…', linkTo(`${BASESCAN}/tx/${hash}`, 'View transaction'))
+      const { callFromGameWallet, WalletNeedsFunds } = await import('./privyWallet.ts')
+      let hash: string
+      try {
+        ;({ hash } = await callFromGameWallet(String(j.contract), data, Number(j.chainId) || ch.chainId, ch.key === 'base' ? undefined : { rpc: ch.rpc, label: ch.label, native: ch.native }))
+      } catch (e) {
+        if (e instanceof WalletNeedsFunds) return showGas(ch, addr)
+        throw e
+      }
+      track('cert_minted', { course, chain: ch.key })
+      set(`Submitted. Waiting for ${ch.label} to confirm…`, keyLink(evmTxUrl(ch, hash), 'View transaction'))
       for (let i = 0; i < 20; i += 1) {
         await new Promise((r) => setTimeout(r, 3000))
-        const id = await baseTokenOf(username, course).catch(() => 0n)
-        if (id > 0n) { const m = { chain: 'base', tokenId: id.toString(), explorer: baseExplorer(id), tx: hash } as Minted; remember(course, m); return showMinted(m) }
+        const id = await evmTokenOf(ch, username, course).catch(() => 0n)
+        if (id > 0n) { const m = { chain: ch.key, tokenId: id.toString(), explorer: evmNftUrl(ch, ch.contract, id), tx: hash } as Minted; remember(course, m); return showMinted(m) }
       }
-      set('Still confirming. Check the transaction; this panel shows the token once it lands.', linkTo(`${BASESCAN}/tx/${hash}`, 'View transaction'), btn('Check again', () => void show()))
+      set('Still confirming. Check the transaction; this panel shows the token once it lands.', keyLink(evmTxUrl(ch, hash), 'View transaction'), btn('Check again', () => void show()))
     } catch (e) {
       set(`Not minted: ${(e as Error).message}`, btn('Try again', () => void show()))
     }

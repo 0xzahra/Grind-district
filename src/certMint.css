@@ -1,0 +1,78 @@
+/* Certificate "Mint as NFT" panel (src/certMint.ts): a gold-edged slab with raised chain keys in the game's key style
+   (lit top edge, shaded foot, solid lip, cast shadow; pressing pushes the key onto its lip). Each key carries its
+   chain's brand colour only as a thin underglow and on the selected ring. Shadows and gradients only (no blur). */
+html body .gd-mint { position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 16px; color: #f6f1e6;
+  background: linear-gradient(180deg, #23252a 0%, #17181b 100%);
+  border: 1px solid rgba(233, 205, 143, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.5), 0 10px 26px rgba(0, 0, 0, 0.38); }
+.gd-mint .gm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.gd-mint .gm-title { margin: 0; font-weight: 750; font-size: 16px; letter-spacing: -0.015em; color: #f3d58a; }
+.gd-mint .gm-seal { font-size: 11px; font-weight: 650; letter-spacing: 0.02em; padding: 4px 9px; border-radius: 999px; color: #f3d58a;
+  background: rgba(243, 213, 138, 0.1); box-shadow: inset 0 0 0 1px rgba(243, 213, 138, 0.35); }
+.gd-mint .gm-note { margin: 0; font-size: 13px; line-height: 1.4; color: rgba(246, 241, 230, 0.78); }
+.gd-mint .gm-more { font-size: 12px; color: rgba(246, 241, 230, 0.7); }
+.gd-mint .gm-more summary { cursor: pointer; color: #e9cd8f; font-weight: 600; list-style: none; }
+.gd-mint .gm-more summary::-webkit-details-marker { display: none; }
+.gd-mint .gm-more summary::before { content: '›'; display: inline-block; margin-right: 6px; transition: transform 120ms ease; }
+.gd-mint .gm-more[open] summary::before { transform: rotate(90deg); }
+.gd-mint .gm-more p { margin: 6px 0 0; line-height: 1.45; }
+.gd-mint .gm-picks { display: grid; gap: 6px; }
+.gd-mint .gm-group { margin: 4px 0 0; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(233, 205, 143, 0.75); }
+.gd-mint .gm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+
+html body .gd-mint .gm-key { --chain: #f3d58a; position: relative; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px 8px 9px;
+  text-align: left; cursor: pointer; border-radius: 14px; border: 1px solid rgba(0, 0, 0, 0.7); color: #f6f1e6;
+  background: var(--key-dark, linear-gradient(180deg, #474a50 0%, #2c2e32 46%, #1b1c1f 100%));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 2px 0 #08090a, 0 7px 16px rgba(0, 0, 0, 0.42), 0 3px 10px -4px var(--chain);
+  transition: transform 70ms ease-out, box-shadow 120ms ease-out, filter 120ms ease; transform: translateY(0);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; font: inherit; }
+html body .gd-mint .gm-key:hover, html body .gd-mint .gm-key:focus-visible { filter: brightness(1.1); outline: none; }
+html body .gd-mint .gm-key:focus-visible { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 2px 0 #08090a, 0 0 0 2px #f3d58a; }
+html body .gd-mint .gm-key:active { transform: translateY(2px); box-shadow: var(--key-down, inset 0 2px 5px rgba(0, 0, 0, 0.5)); filter: brightness(0.96); }
+html body .gd-mint .gm-picks.busy .gm-key:not([aria-checked='true']) { opacity: 0.5; cursor: wait; filter: saturate(0.5); }
+html body .gd-mint .gm-key:disabled { cursor: wait; transform: none; }
+html body .gd-mint .gm-key[aria-checked='true'] { border-color: color-mix(in srgb, var(--chain) 70%, #000);
+  background: linear-gradient(180deg, #3b3e44 0%, #26282c 50%, #1a1b1e 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 2px 0 #08090a, 0 0 0 2px var(--chain), 0 8px 20px -6px var(--chain); }
+.gd-mint .gm-logo { flex: 0 0 auto; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45)); }
+.gd-mint .gm-logo svg { width: 32px; height: 32px; display: block; }
+.gd-mint .gm-key-txt { display: grid; gap: 1px; min-width: 0; }
+.gd-mint .gm-key-txt b { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55); }
+.gd-mint .gm-key-txt small { font-size: 11px; color: rgba(246, 241, 230, 0.62); }
+.gd-mint .gm-tick { position: absolute; top: 6px; right: 7px; width: 16px; height: 16px; border-radius: 50%; display: none; place-items: center;
+  font-size: 10px; font-weight: 800; color: #032612; background: var(--key-gold, #06ee74); box-shadow: 0 1px 0 #03733a; }
+.gd-mint .gm-key.minted .gm-tick { display: grid; }
+
+.gd-mint .gm-panel { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06); }
+.gd-mint .gm-panel.warn { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(243, 213, 138, 0.45); }
+.gd-mint .gm-panel.ok { background: radial-gradient(120% 140% at 0% 0%, rgba(6, 238, 116, 0.14), rgba(0, 0, 0, 0.28) 60%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(6, 238, 116, 0.4); }
+.gd-mint .gm-panel.ok .gm-status:empty { display: none; }
+.gd-mint .gm-status { margin: 0; font-size: 13px; line-height: 1.4; color: rgba(246, 241, 230, 0.85); }
+.gd-mint .gm-act { display: grid; gap: 8px; }
+.gd-mint .gm-act > a:not(.gm-link) { font-size: 12px; color: #e9cd8f; }
+.gd-mint .gm-hint { margin: 0; font-size: 12px; color: rgba(246, 241, 230, 0.6); }
+
+.gd-mint .gm-done { display: flex; align-items: center; gap: 12px; animation: gm-in 260ms cubic-bezier(.2, .9, .3, 1.2) both; }
+.gd-mint .gm-done-badge { position: relative; flex: 0 0 auto; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #fff1c4, #f3d58a 45%, #b3842e 100%);
+  box-shadow: 0 0 0 3px #121417, 0 0 0 5px #f3d58a, 0 0 18px rgba(243, 213, 138, 0.5), inset 0 2px 3px rgba(255, 255, 255, 0.55), inset 0 -3px 5px rgba(0, 0, 0, 0.35); }
+.gd-mint .gm-done-logo svg { width: 34px; height: 34px; display: block; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
+.gd-mint .gm-done-check { position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 900; color: #032612; background: var(--key-gold, #06ee74); box-shadow: 0 0 0 2px #121417, 0 2px 0 #03733a; }
+.gd-mint .gm-done-title { margin: 0; font-size: 17px; font-weight: 750; letter-spacing: -0.02em; color: #fff; }
+.gd-mint .gm-done-sub { margin: 2px 0 0; font-size: 12px; color: rgba(246, 241, 230, 0.7); }
+.gd-mint .gm-links { display: flex; flex-wrap: wrap; gap: 8px; }
+html body .gd-mint .gm-link { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  text-decoration: none; color: #f6f1e6; cursor: pointer; border: 1px solid rgba(0, 0, 0, 0.7);
+  background: var(--key-dark, #2c2e32); box-shadow: var(--key-dark-sh, 0 2px 0 #08090a); transition: transform 70ms ease-out; font-family: inherit; }
+html body .gd-mint .gm-link:active { transform: translateY(2px); box-shadow: var(--key-down, none); }
+.gd-mint .gm-gas { display: flex; align-items: flex-start; gap: 10px; }
+.gd-mint .gm-gas p { margin: 0; font-size: 13px; line-height: 1.4; }
+.gd-mint .gm-addr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gd-mint .gm-addr code { font-size: 12px; padding: 6px 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.4); color: #f3d58a; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
+@keyframes gm-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .gd-mint .gm-done { animation: none; } }
+@media (max-width: 380px) { .gd-mint .gm-grid { grid-template-columns: 1fr 1fr; } .gd-mint .gm-key { min-height: 52px; padding: 7px 8px; gap: 7px; } .gd-mint .gm-key-txt b { font-size: 13px; } }

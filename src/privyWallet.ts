@@ -107,7 +107,11 @@ function walletClient() {
   if (!APP_ID) return Promise.reject(new Error('Game wallet is not set up on this build.'))
   walletPrivy ??= (async () => {
     const mod = await import('@privy-io/js-sdk-core')
-    const p = new mod.default({ appId: APP_ID, storage: new mod.LocalStorage() }) as unknown as WalletPrivy
+    // Privy's default chains plus Robinhood Chain (4663), which is not in its default list. Base and the other
+    // certificate chains (OP, Arbitrum, Polygon, BNB Chain) are already defaults, so nothing else changes.
+    const [{ addToDefaultChains }, { robinhood }] = await Promise.all([import('@privy-io/chains'), import('viem/chains')])
+    const supportedChains = addToDefaultChains([robinhood as never]) as never
+    const p = new mod.default({ appId: APP_ID, storage: new mod.LocalStorage(), supportedChains }) as unknown as WalletPrivy
     await p.initialize?.()
     await mountBridge(p)
     return { mod, p }
@@ -191,11 +195,14 @@ async function payUsdcInner(usdc: string, to: string, amount: bigint): Promise<{
   return { hash, sponsored: false, from }
 }
 
+/** Where a game-wallet call goes when it is not Base: the chain's public RPC, its name and its gas token (for the gas message). */
+export type CallNet = { rpc: string; label: string; native: string }
 /**
- * Send one contract call (no value) from the player's game wallet on Base (8453) or Base Sepolia (84532).
- * Used by the certificate NFT mint. The player pays their own gas (sponsorship is later). Never sends value.
+ * Send one contract call (no value) from the player's game wallet on Base (8453), Base Sepolia (84532) or, with `net`,
+ * another EVM chain (the certificate chains in src/chains/router.ts). Used by the certificate NFT mint.
+ * The player pays their own gas (sponsorship is Base only and off). Never sends value.
  */
-export async function callFromGameWallet(to: string, data: `0x${string}`, chainId = 8453): Promise<{ hash: string; from: string }> {
+export async function callFromGameWallet(to: string, data: `0x${string}`, chainId = 8453, net?: CallNet): Promise<{ hash: string; from: string }> {
   try {
     const { mod, p } = await walletClient()
     const user = (await p.user.get()).user as Parameters<typeof mod.getUserEmbeddedEthereumWallet>[0]
@@ -205,17 +212,19 @@ export async function callFromGameWallet(to: string, data: `0x${string}`, chainI
     if (GASLESS && chainId === 8453) {
       try { return await (await import('./gasless.ts')).sponsoredCalls([{ to: to as `0x${string}`, data }]) } catch (e) { console.warn('Gas-free mint not used:', (e as Error).message) }
     }
-    const rpcUrl = chainId === 84532 ? 'https://sepolia.base.org' : BASE_RPC
+    const rpcUrl = net?.rpc ?? (chainId === 84532 ? 'https://sepolia.base.org' : BASE_RPC)
     const call = async <T = string>(method: string, params: unknown[]): Promise<T> => {
       const r = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })
       const j = (await r.json()) as { result?: T; error?: { message: string } }
-      if (j.error || j.result === undefined) throw new Error(j.error?.message ?? 'Base RPC error')
+      if (j.error || j.result === undefined) throw new Error(j.error?.message ?? `${net?.label ?? 'Base'} RPC error`)
       return j.result
     }
     const gas = BigInt(await call('eth_estimateGas', [{ from, to, data }]))
     const price = BigInt(await call('eth_gasPrice', []))
     const eth = BigInt(await call('eth_getBalance', [from, 'latest']))
-    if (eth < gas * price * 2n) throw new WalletNeedsFunds(`Your game wallet needs a little ETH on Base for gas (usually under $0.05). Send a small amount of ETH on Base to ${from}, then tap again.`)
+    if (eth < gas * price * 2n) throw new WalletNeedsFunds(net
+      ? `Your game wallet needs a little ${net.native} on ${net.label} for gas (usually a few cents). Send a small amount of ${net.native} on ${net.label} to ${from}, then tap again.`
+      : `Your game wallet needs a little ETH on Base for gas (usually under $0.05). Send a small amount of ETH on Base to ${from}, then tap again.`)
     const hex = '0x' + chainId.toString(16)
     const provider = await p.embeddedWallet.getEthereumProvider({ wallet, ...mod.getEntropyDetailsFromUser(user) })
     try { await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] }) } catch { /* already there */ }
