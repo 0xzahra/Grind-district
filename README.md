@@ -1,6 +1,6 @@
 # Grind District
 
-**Learn Web3 in a 3D city and leave with proof.** Pass a short lesson at Campus and it goes on your CV with a certificate, which you can mint on Base or NEAR as a soulbound NFT.
+**Learn Web3 in a 3D city and leave with proof.** Pass a short lesson at Campus and it goes on your CV with a certificate, which you can mint on Base or NEAR testnet as a soulbound NFT. After the exam, the game also records it on Solana devnet.
 
 Millions of people want to work in Web3, but they learn from scattered videos, get scammed on the way, and end up with nothing that proves what they know. Grind District turns a short lesson into proof you keep.
 
@@ -14,7 +14,7 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 2. **Go to Campus.** The gold *Next step* button takes you there. Campus is just north of the plaza.
 3. **Finish a short lesson.** Three short cards and two quick checks with Zahra.
 4. **See the proof.** The course is on your CV with a certificate: Profile, right under your name.
-5. **Optional: mint it on Base or NEAR.** Open the certificate and tap *Mint as NFT*, then Base or NEAR. First comes a short exam on the course, graded on the server (the device's own record of the lesson is not enough). Then the game mints, reads the token back and marks the course *Verified on NEAR*.
+5. **Optional: mint it on Base or NEAR testnet.** Open the certificate and tap *Mint as NFT*, then Base or NEAR (testnet). First comes a short exam on the course, graded on the server (the device's own record of the lesson is not enough). Then the game mints, reads the token back and marks the course *Verified on NEAR*. Passing the exam also records the certificate on Solana devnet, with no wallet needed.
 
 The rest of the city (jobs, practice trading, shops, the park, the airport) is optional. It stays in the background until you have passed a first lesson.
 
