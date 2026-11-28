@@ -790,10 +790,29 @@ export function createWorld(options: {
       g.beginPath(); g.arc(mid, mid, (RING_OUT + 1.6) * scale, 0, Math.PI * 2); g.fill()
       g.fillStyle = ASPHALT
       g.beginPath(); g.arc(mid, mid, RING_OUT * scale, 0, Math.PI * 2); g.fill()
+      // Recut each arm through the footway so the driveway is asphalt where it meets the ring,
+      // not a leftover band of paving. All four mouths share this join.
+      fillRect({ x: 0, z: 0, hx: RING_OUT + 1.8, hz: ROAD_HALF })
+      fillRect({ x: 0, z: 0, hx: ROAD_HALF, hz: RING_OUT + 1.8 })
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) for (const sgn of [-1, 1]) {
         const cx = dx * (RING_OUT + 0.6) + (dx ? 0 : sgn * (ROAD_HALF + 0.6)), cz = dz * (RING_OUT + 0.6) + (dz ? 0 : sgn * (ROAD_HALF + 0.6))
         g.beginPath(); g.arc(mid + cx * scale, mid + cz * scale, 1.6 * scale, 0, Math.PI * 2); g.fill()
       }
+      // Arm centre dashes sit on the recut mouths (the footway ring had covered the earlier stroke).
+      g.strokeStyle = 'rgba(230, 236, 232, 0.5)'
+      g.lineWidth = 3
+      g.setLineDash([18, 16])
+      g.beginPath()
+      g.moveTo(mid - (TURN_C - 2) * scale, mid)
+      g.lineTo(mid - (RING_OUT + 1) * scale, mid)
+      g.moveTo(mid + (RING_OUT + 1) * scale, mid)
+      g.lineTo(mid + (TURN_C - 2) * scale, mid)
+      g.moveTo(mid, mid - (TURN_C - 2) * scale)
+      g.lineTo(mid, mid - (RING_OUT + 1) * scale)
+      g.moveTo(mid, mid + (RING_OUT + 1) * scale)
+      g.lineTo(mid, mid + (TURN_C - 2) * scale)
+      g.stroke()
+      g.setLineDash([])
       g.strokeStyle = 'rgba(230, 236, 232, 0.45)'
       g.lineWidth = 2
       g.setLineDash([10, 12])
