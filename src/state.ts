@@ -181,6 +181,14 @@ async function serverGrantStatus(id: string, amount: number): Promise<'fresh' | 
   } catch { return 'error' }
 }
 
+/** Credit a leaderboard prize the server has just recorded for this account (first time only). In-game cash, no save field added. */
+export function creditBoardReward(amount: number, rank: number): void {
+  if (!(amount > 0)) return
+  save.ledger = cents(save.ledger + amount)
+  log('money', 'Lessons leaderboard prize', `+${money(amount)} in-game for finishing #${rank} last week.`)
+  persist(); emit()
+}
+
 export function tradeCoin(id: string, side: 'buy' | 'sell', fraction: number): { ok: boolean; message: string } {
   const coin = COINS.find((c) => c.id === id)
   if (!coin) return { ok: false, message: 'Not listed.' }

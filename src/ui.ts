@@ -26,7 +26,6 @@ import { COURSES, cafeBoard } from './courses.ts'
 import { renderLearnHome } from './learnUi.ts'
 import { biteCards } from './mentor.ts'
 import { courseVisual } from './courseArt.ts'
-import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
 import { PIECES, owns, own, wear, worn, tintLook, wornGadgets, setGadgetWorn, WEARABLE, type Piece, type Slot } from './wardrobe.ts'
@@ -726,7 +725,7 @@ export function mountUi(
     body.className = 'stack'
     const showList = () => {
       leaveLesson()
-      body.replaceChildren(renderLearnHome((id) => showCourse(id)))
+      body.replaceChildren(renderLearnHome((id) => showCourse(id), () => { void import('./leaderboard.ts').then((m) => { body.replaceChildren(m.renderLeaderboard(button('← Your path', 'ghost', showList))) }) }))
       body.append(advice())
     }
     const showCourse = (id: SkillId) => {
@@ -770,7 +769,6 @@ export function mountUi(
           keys.append(button('View certificate', next && next !== id ? 'ghost' : 'primary', () => void openCertificate(id)))
           wrap.append(keys)
         }
-        if (passed && nearPassportOn()) wrap.append(nearPassportPanel(id, passed))
         // Bite-size cards (one or two sentences, large type) instead of a wall of small text.
         // The last card is the one line to keep (the same line your CV gets): easier to remember than a paragraph.
         const keep = SKILL_META[id].cv.split(' — ')[1]

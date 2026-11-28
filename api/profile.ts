@@ -9,6 +9,7 @@ import { BUCKET as DM_BUCKET } from './_dmMedia.js'
 import { issueCert, recordExamPass, hasExamPass, rowData } from './_certStore.js'
 import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
 import { publicFields } from './_publicFields.js'
+import { buildBoard } from './_leaderboard.js'
 
 // POST with a Privy Bearer token or a NEP-413 NEAR proof: upsert the caller's public share-card / progress.
 // The username comes from the server's players row, never from the client.
@@ -130,6 +131,11 @@ export default async function handler(req: Req, res: Res) {
       }
     }
     return res.status(200).json({ certId: r.row.cert_id, serial: r.row.serial, name: r.row.player_name, at: r.row.issued_ms, ...(solana ? { solana } : {}) })
+  }
+  if (req.query?.op === 'lb') {
+    // Lessons leaderboard (signed-in players only). Built from server-graded exam passes; names are public in-game names.
+    const board = await buildBoard(db, userId)
+    return board ? res.status(200).json(board) : res.status(503).json({ error: 'leaderboard unavailable' })
   }
   if (req.query?.op === 'cert-exam') {
     // A fresh certificate exam paper: the course's checks, shuffled, no answers, with a time limit.

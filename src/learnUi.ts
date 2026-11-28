@@ -35,7 +35,7 @@ export function ring(frac: number, size = 44, label = ''): HTMLElement {
   return w
 }
 
-export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
+export function renderLearnHome(onCourse: (id: SkillId) => void, onBoard?: () => void): HTMLElement {
   const s = getSave()
   const root = h('div', 'lx')
   const passed = (id: SkillId) => Boolean(s.skills[id]?.passed)
@@ -67,6 +67,13 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
     card.append(h('small', '', `Your next certificate · World ${w?.n ?? 1}: ${w?.title ?? ''}`), h('b', '', SKILL_META[nextCourse.id].title), h('span', '', `On your CV in ${nextCourse.minutes} · ${nextCourse.questions.length} checks · +5 reputation`))
     card.onclick = () => onCourse(nextCourse.id)
     root.append(card)
+  }
+  if (onBoard) {
+    const lb = h('button', 'lx-board'); lb.type = 'button'
+    lb.append(h('span', 'lx-board-ic', '🏆'), h('div', '', '')); lb.lastElementChild!.append(h('b', '', 'Lessons leaderboard'), h('small', '', 'Weekly top 3 win in-game cash'))
+    lb.append(h('span', 'lx-chev'))
+    lb.onclick = onBoard
+    root.append(lb)
   }
   const earned = badges()
   root.append(h('p', 'lx-sub', `Your worlds · ${done}/${onPath.length} missions · ${earned.length ? `Badges: ${earned.join(', ')}` : 'no badges yet'}`))

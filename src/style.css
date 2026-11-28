@@ -5231,3 +5231,41 @@ html body.first-entry .goal-pill .goal-go { animation: goal-breathe 2.4s ease-in
 @media (prefers-reduced-motion: reduce) { html body.first-entry .goal-pill .goal-go { animation: none; } }
 html body #sheet .sheet-card button.ghost.choice.lx-answer.is-right { opacity: 1 !important; filter: none !important; }
 html body #sheet .sheet-card button.ghost.choice.lx-answer:has(.lx-coin) { padding-right: 86px !important; }
+
+/* Lessons leaderboard (Campus): raised gold podium, same gold and glass as the lesson cards. */
+.lx-board { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px; border-radius: 16px; color: inherit; border: 1px solid rgba(216, 180, 106, 0.45); background: linear-gradient(160deg, rgba(216, 180, 106, 0.22), rgba(255, 255, 255, 0.04)); box-shadow: 0 3px 0 rgba(120, 90, 30, 0.55), 0 8px 18px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+.lx-board:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(120, 90, 30, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+.lx-board .lx-board-ic { font-size: 24px; }
+.lx-board b { display: block; font-size: 15px; }
+.lx-board small { display: block; opacity: 0.7; font-size: 12px; }
+.lx-board > div { flex: 1; }
+.lx-board .lx-chev { width: 10px; height: 10px; border-right: 2px solid rgba(232, 201, 143, 0.85); border-top: 2px solid rgba(232, 201, 143, 0.85); transform: rotate(45deg); flex: none; }
+.lb .lb-body { display: flex; flex-direction: column; gap: 10px; }
+.lb-sub { margin: 8px 0 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.lb-note { padding: 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); font-size: 14px; line-height: 1.45; }
+.lb-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; min-height: 150px; padding: 10px 6px 0; border-radius: 16px; background: radial-gradient(120% 90% at 50% 0%, rgba(216, 180, 106, 0.16), rgba(255, 255, 255, 0.03)); }
+.lb-podium .lb-empty { grid-column: 1 / -1; align-self: center; text-align: center; font-size: 13px; margin: 0; padding: 18px 8px; }
+.lb-step { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding: 8px 4px 10px; border-radius: 12px 12px 0 0; text-align: center; border: 1px solid rgba(216, 180, 106, 0.4); border-bottom: 0; background: linear-gradient(180deg, rgba(240, 214, 150, 0.32), rgba(150, 112, 44, 0.32)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -10px 16px rgba(0, 0, 0, 0.22), 0 -2px 10px rgba(216, 180, 106, 0.12); min-width: 0; }
+.lb-step.s1 { min-height: 128px; background: linear-gradient(180deg, rgba(250, 226, 160, 0.5), rgba(170, 125, 44, 0.42)); }
+.lb-step.s2 { min-height: 104px; }
+.lb-step.s3 { min-height: 88px; }
+.lb-step.none { opacity: 0.45; }
+.lb-step.me { outline: 2px solid #d8b46a; outline-offset: -2px; }
+.lb-medal { font-size: 24px; line-height: 1; }
+.lb-step b { max-width: 100%; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-step small { font-size: 11px; opacity: 0.75; }
+.lb-step em { font-style: normal; font-size: 12px; font-weight: 700; color: #f1d68f; }
+.lb-rules { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); font-size: 13px; }
+.lb-rules small { opacity: 0.72; line-height: 1.45; font-size: 12px; }
+.lb-prize { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; border: 1px solid rgba(216, 180, 106, 0.55); background: linear-gradient(135deg, rgba(216, 180, 106, 0.28), rgba(255, 255, 255, 0.05)); }
+.lb-prize span { font-size: 13px; opacity: 0.85; }
+.lb-you { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(216, 180, 106, 0.14); border: 1px solid rgba(216, 180, 106, 0.35); font-size: 13px; font-weight: 600; }
+.lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lb-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+.lb-row.me { border-color: #d8b46a; background: rgba(216, 180, 106, 0.14); }
+.lb-row .lb-pos { flex: none; min-width: 30px; font-weight: 700; color: #e8c98f; font-size: 13px; }
+.lb-row .lb-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.lb-row .lb-mid b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-row .lb-n { flex: none; font-size: 12px; opacity: 0.8; }
+.lb-row.lb-empty, .lb-list .lb-empty { padding: 8px 2px; font-size: 13px; background: none; border: 0; box-shadow: none; }
+.lb-fine { font-size: 11.5px; line-height: 1.4; margin: 4px 0 8px; }
