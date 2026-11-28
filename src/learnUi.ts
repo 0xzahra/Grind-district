@@ -1,4 +1,5 @@
 // Courses home: unit path with progress rings, continue card, streak, XP/level header, certificate gallery.
+import { lessonStreak, welcomeBack } from './lessonStreak.ts'
 import { COURSES } from './courses.ts'
 import { getSave } from './state.ts'
 import { RANKS, SKILL_META, type SkillId } from './logic.ts'
@@ -51,9 +52,12 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
   const meta = h('div', 'lx-meta')
   meta.append(h('b', '', `Level ${rankI + 1} · ${cur.label}`), h('small', '', next ? `Reputation ${s.reputation} · next rank ${next.label}` : `Reputation ${s.reputation} · top rank`))
   const bar = h('div', 'lx-bar'); const fill = h('i'); fill.style.width = `${Math.round(frac * 100)}%`; bar.append(fill); meta.append(bar)
-  const streak = h('div', 'lx-streak'); streak.innerHTML = `<svg width="18" height="22" viewBox="0 0 18 22"><path d="M9 1c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z" fill="#c8894a"/></svg><b>${s.streak}</b><small>day streak</small>`
+  const streak = h('div', 'lx-streak'); streak.innerHTML = `<svg width="18" height="22" viewBox="0 0 18 22"><path d="M9 1c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z" fill="#c8894a"/></svg><b>${lessonStreak()}</b><small>day streak</small>`
   head.append(lvl, meta, streak)
   root.append(head)
+  // Soft streak: missed days reset it quietly; a returning player gets one gentle line, once that day.
+  const back = welcomeBack()
+  if (back) root.append(h('p', 'lx-welcome', back))
   // Continue: the next playable mission in World order.
   const nextId = nextMission()
   const nextCourse = nextId ? COURSES.find((c) => c.id === nextId) : undefined

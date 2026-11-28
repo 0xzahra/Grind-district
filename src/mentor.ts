@@ -1,6 +1,7 @@
 // Zahra, the Campus mentor: the first lesson happens in the street, not in a quiz app.
 // A few short cards (one or two sentences each), then two quick questions, then the pass files to the CV
 // through the same submitCourse() as the Campus panel, so save, certificate and CV data are unchanged.
+import { recordLessonDay } from './lessonStreak.ts'
 import { speak, stopSpeaking } from './speech.ts'
 import { COURSES, type Course } from './courses.ts'
 import { getSave, submitCourse, slotKey, type CourseResult } from './state.ts'
@@ -150,10 +151,13 @@ export function createMentorCard(hooks: MentorHooks) {
       const result = h('p', 'mentor-hint')
       const list = h('div', 'mentor-choices')
       q.choices.forEach((choice, ci) => list.append(btn(choice, 'choice', () => {
-        if (ci !== q.answer) { result.textContent = `Not quite. ${q.hint}`; return }
+        if (ci !== q.answer) { result.textContent = `Not quite. ${q.hint} Try again, it is free.`; return }
         picks[course.questions.indexOf(q)] = ci
-        if (qi + 1 < qs.length) showQ(qi + 1)
-        else pass()
+        // A short reaction, then straight on (about a second): no screen change while she says it.
+        result.textContent = qi % 2 ? 'Yes, exactly.' : 'Nice, that is it.'
+        list.querySelectorAll('button').forEach((b) => { (b as HTMLButtonElement).disabled = true })
+        window.dispatchEvent(new CustomEvent('gd:gesture', { detail: 'nod' }))
+        window.setTimeout(() => { if (!root.contains(list)) return; if (qi + 1 < qs.length) showQ(qi + 1); else pass() }, 900)
       })))
       root.replaceChildren(head, dots, h('p', 'mentor-say', q.prompt), list, result)
     }
@@ -163,6 +167,7 @@ export function createMentorCard(hooks: MentorHooks) {
       const outcome: CourseResult = submitCourse(id, picks)
       const [head] = shell('Lesson passed', total, total)
       if (outcome.ok) {
+        recordLessonDay()
         if (outcome.rankedUp) hooks.onRank()
         hooks.toast(`${SKILL_META[id].title} filed to your CV.${outcome.stipend ? ' +$25 practice funds.' : ''}`)
         // The payoff, at once: the CV with this course on it, and the certificate on top (share, download, mint).

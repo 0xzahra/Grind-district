@@ -53,6 +53,7 @@ import { languagePicker } from './i18n.ts'
 import { renderCalendar } from './calendar.ts'
 import { prayerNodes } from './prayer.ts'
 import { speak, stopSpeaking } from './speech.ts'
+import { recordLessonDay } from './lessonStreak.ts'
 import {
   BODIES,
   CHAIN_USD,
@@ -663,6 +664,12 @@ export function mountUi(
       const save = getSave()
       const passed = save.skills[id]?.passed
       const picks: Array<number | null> = course.questions.map(() => null)
+      // Quick check pay: the one-time course bonus split across the questions. A first-try right answer earns its
+      // share; after a wrong pick the free retry still counts for the CV but earns $0 for that question.
+      const shareCents = Math.floor((COURSE_CASH * 100) / course.questions.length)
+      const shares = course.questions.map((_, k) => (k < course.questions.length - 1 ? shareCents : COURSE_CASH * 100 - shareCents * (course.questions.length - 1)) / 100)
+      const missed = new Set<number>()
+      const earnedQ: number[] = course.questions.map(() => 0)
       if (!passed) {
         // first: the player has never passed a course and has not opened one before on this device.
         let fresh = !Object.values(save.skills).some((skill) => skill?.passed)
@@ -759,49 +766,99 @@ export function mountUi(
           range.addEventListener('change', () => { picks[questionIndex] = Number(range.value) })
           range.addEventListener('pointerup', () => { picks[questionIndex] = Number(range.value) })
         }
+        // Live quick check (not yet passed): Zahra asks, a tap shows right or wrong at once, and a right answer moves
+        // on by itself in about a second. Wrong picks are greyed out and the retry is free. No hearts, no lockout.
+        const live = !passed && question.kind !== 'slider'
+        let settled = false
+        const zahra = document.createElement('div'); zahra.className = 'lx-zahra'
+        const zFace = document.createElement('span'); zFace.className = 'lx-zahra-face'; zFace.setAttribute('aria-hidden', 'true')
+        const zSay = para(live ? (missed.has(questionIndex) ? 'Have another go, it is free.' : `Worth +${money(shares[questionIndex] ?? 0)} on the first try.`) : '', 'lx-zahra-say')
+        zSay.setAttribute('aria-live', 'polite')
+        zahra.append(zFace, zSay)
+        const RIGHT = ['Nice, that is it.', 'Yes, exactly.', 'Spot on.', 'Correct.', 'That is right.']
+        const advance = () => { if (!wrap.isConnected) return; if (questionIndex < total - 1) showExercise(questionIndex + 1); else submitNow() }
+        const answer = (node: HTMLButtonElement, choiceIndex: number) => {
+          if (settled) return
+          if (choiceIndex === question.answer) {
+            settled = true
+            picks[questionIndex] = choiceIndex
+            const got = missed.has(questionIndex) ? 0 : shares[questionIndex] ?? 0
+            earnedQ[questionIndex] = got
+            node.classList.add('is-right')
+            wrap.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((peer) => { peer.disabled = true })
+            zahra.classList.remove('oops'); zahra.classList.add('yay')
+            zSay.textContent = `${RIGHT[(questionIndex + choiceIndex) % RIGHT.length]}${got ? ` +${money(got)}` : ' It counts for your CV.'}`
+            window.dispatchEvent(new CustomEvent('gd:gesture', { detail: 'nod' }))
+            window.setTimeout(advance, 1100)
+          } else {
+            missed.add(questionIndex)
+            node.classList.add('is-wrong'); node.disabled = true
+            zahra.classList.remove('yay'); zahra.classList.add('oops')
+            zSay.textContent = `Not quite. ${question.hint} Try again, it is free.`
+          }
+        }
+        if (live) wrap.append(zahra)
         if (question.kind !== 'slider') question.choices.forEach((choice, choiceIndex) => {
           const node = button(choice, 'ghost choice', () => {
+            if (live) { answer(node, choiceIndex); return }
             if (passed) return
             picks[questionIndex] = choiceIndex
             wrap.querySelectorAll<HTMLButtonElement>('[data-c]').forEach((peer) => peer.setAttribute('aria-pressed', String(peer.dataset.c === String(choiceIndex))))
             result.textContent = ''
           })
           node.dataset.c = String(choiceIndex)
+          if (live) node.classList.add('lx-answer')
           node.setAttribute('aria-pressed', String(picks[questionIndex] === choiceIndex))
           node.disabled = Boolean(passed)
           wrap.append(node)
         })
         const nav = document.createElement('div')
         nav.className = 'ex-nav'
-        if (questionIndex > 0) nav.append(button('← Previous', 'ghost', () => showExercise(questionIndex - 1)))
-        if (questionIndex < total - 1) {
+        if (questionIndex > 0 && !live) nav.append(button('← Previous', 'ghost', () => showExercise(questionIndex - 1)))
+        if (live) { /* answers move on by themselves */ } else if (!passed && question.kind === 'slider') {
+          // Slider: leave it on your answer, then Check (same instant feedback and free retry).
+          nav.append(button('Check', 'primary', () => {
+            if (settled) return
+            const v = picks[questionIndex] ?? -1
+            if (v === question.answer) {
+              settled = true
+              const got = missed.has(questionIndex) ? 0 : shares[questionIndex] ?? 0
+              earnedQ[questionIndex] = got
+              result.textContent = `Correct.${got ? ` +${money(got)}` : ' It counts for your CV.'}`
+              window.setTimeout(advance, 1100)
+            } else { missed.add(questionIndex); result.textContent = `Not quite. ${question.hint} Try again, it is free.` }
+          }))
+        } else if (questionIndex < total - 1) {
           nav.append(button('Next →', 'primary', () => {
             if (picks[questionIndex] === null && !passed) { result.textContent = 'Pick an answer first.'; return }
             showExercise(questionIndex + 1)
           }))
         } else {
-          const submit = button(passed ? 'On your CV' : `Add it to my CV · +${money(COURSE_CASH)}`, 'primary', () => {
-            const missing = picks.findIndex((pick) => pick === null)
-            if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
-            const firstPass = !Object.values(getSave().skills).some((x) => x?.passed)
-            const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1))
-            if (outcome.ok) {
-              journeyStep('lesson_complete', { course: id })
-              lessonNow = null
-              const extra = (outcome.stipend ? ' Campus put $25.00 practice on your ledger.' : '') + ` +${money(COURSE_CASH)} course bonus.`
-              const focus = outcome.focus ? ' Focus added a quarter.' : ''
-              const bonus = outcome.bonus ? ' Streak kept.' : ''
-              finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
-              // First pass: straight to the payoff, the CV with this course on it and the certificate on top.
-              if (firstPass) { open('profile'); void openCertificate(id, { first: true }); return }
-              showCourse(id)
-              return
-            }
-            if (outcome.already) { result.textContent = 'Already on your CV.'; return }
-            result.textContent = outcome.hints.filter(Boolean).join(' ')
-          })
-          submit.disabled = Boolean(passed)
+          const submit = button('On your CV', 'primary', () => undefined)
+          submit.disabled = true
           nav.append(submit)
+        }
+        function submitNow(): void {
+          const missing = picks.findIndex((pick) => pick === null)
+          if (missing >= 0) { showExercise(missing); return }
+          const firstPass = !Object.values(getSave().skills).some((x) => x?.passed)
+          const pay = Math.round(earnedQ.reduce((a, b) => a + b, 0) * 100) / 100
+          const outcome: CourseResult = submitCourse(id, picks.map((pick) => pick ?? -1), pay)
+          if (outcome.ok) {
+            journeyStep('lesson_complete', { course: id })
+            lessonNow = null
+            const days = recordLessonDay()
+            const extra = (outcome.stipend ? ' Campus put $25.00 practice on your ledger.' : '') + (pay > 0 ? ` +${money(pay)} course bonus.` : '')
+            const focus = outcome.focus ? ' Focus added a quarter.' : ''
+            const bonus = days > 1 ? ` ${days}-day lesson streak.` : ''
+            finish(`Filed to your CV.${focus}${bonus}${extra}`, outcome.rankedUp)
+            // First pass: straight to the payoff, the CV with this course on it and the certificate on top.
+            if (firstPass) { open('profile'); void openCertificate(id, { first: true }); return }
+            showCourse(id)
+            return
+          }
+          if (outcome.already) { result.textContent = 'Already on your CV.'; return }
+          result.textContent = outcome.hints.filter(Boolean).join(' ')
         }
         wrap.append(nav, result)
         body.replaceChildren(wrap)

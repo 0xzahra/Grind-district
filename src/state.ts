@@ -564,7 +564,9 @@ export type CourseResult =
 
 const COURSE_REP = 5
 
-export function submitCourse(id: SkillId, picks: number[]): CourseResult {
+// pay (optional): the course bonus actually earned in the quick check (first-try answers). It can only lower the
+// one-time bonus, never raise it, and never affects grading or the CV.
+export function submitCourse(id: SkillId, picks: number[], pay?: number): CourseResult {
   const course = courseById(id)
   if (!course) return { ok: false, hints: ['That course is not on the board.'], tries: 0 }
   const prev = save.skills[id] ?? { passed: false, tries: 0 }
@@ -596,9 +598,10 @@ export function submitCourse(id: SkillId, picks: number[]): CourseResult {
   // One-time in-game $ per course pass (replaces SP/skill-point reward language). Already-passed courses return above.
   {
     const label = `Course bonus: ${SKILL_META[id].title}`
-    if (!save.activities.some((item) => item.label === label)) {
-      save.ledger = cents(save.ledger + COURSE_CASH)
-      log('money', label, `${money(COURSE_CASH)} in-game for passing the course.`)
+    const earned = cents(Math.min(COURSE_CASH, Math.max(0, Number.isFinite(pay) ? (pay as number) : COURSE_CASH)))
+    if (earned > 0 && !save.activities.some((item) => item.label === label)) {
+      save.ledger = cents(save.ledger + earned)
+      log('money', label, `${money(earned)} in-game for passing the course.`)
     }
   }
   // World 1 reward (Zahra's six worlds): in-game balance once, when World 1's three missions are passed.
