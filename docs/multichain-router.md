@@ -17,15 +17,15 @@ Last checked on-chain: 28 Nov 2026.
 
 ### Other EVM mainnets (28 Nov 2026)
 
-Same `GrindCertificate` bytecode and settings as Base (signer `0x5c9a636347394E2381EfD107076B15269674d820`, base URI `https://www.grinddistrict.app/cert/`), deployed from the game deployer wallet. All five are at the same address, `0x6bC81E26832986d56B6e59c31599F3113971Ec33`. Source verified on Sourcify (exact match). Wired in `router.ts` (`EVM_CERT_CHAINS`): each chain shows in the mint picker once its `VITE_CERT_NFT_<KEY>` is set, and `/api/profile?op=cert-voucher` signs for it with the Base signer key (vouchers carry the chain id, so they cannot be replayed on another chain). Players pay gas in the chain's own token; no sponsorship. Robinhood Chain is added to Privy's chain list in `src/privyWallet.ts` (it is not in Privy's defaults).
+Same `GrindCertificate` bytecode and settings as Base (signer `0x5c9a636347394E2381EfD107076B15269674d820`, base URI `https://www.grinddistrict.app/cert/`), deployed from the game deployer wallet. All five are at the same address, `0x6bC81E26832986d56B6e59c31599F3113971Ec33`. Source verified on Sourcify (exact match). Wired in `router.ts` (`EVM_CERT_CHAINS`): each chain shows in the mint picker once its `VITE_CERT_NFT_<KEY>` is set, and `/api/profile?op=cert-voucher` signs for it with the Base signer key (vouchers carry the chain id, so they cannot be replayed on another chain). Players pay gas in the chain's own token; no sponsorship. Robinhood Chain is added to the game's Privy chain list in `src/privyWallet.ts` (it is not in Privy's defaults); it also needs to be allowed in the Privy dashboard before a mint there can go through. Live in the mint picker as of 28 November 2026 (commit `947bd81`). No player mint on these five contracts has been recorded yet.
 
 | Chain | Chain id | Explorer | Owner today | Status |
 | --- | --- | --- | --- | --- |
-| OP Mainnet | 10 | https://optimistic.etherscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
-| Arbitrum One | 42161 | https://arbiscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
-| Robinhood Chain | 4663 | https://robinhoodchain.blockscout.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
-| Polygon PoS | 137 | https://polygonscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
-| BNB Chain | 56 | https://bscscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live when env set |
+| OP Mainnet | 10 | https://optimistic.etherscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live in the mint picker |
+| Arbitrum One | 42161 | https://arbiscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live in the mint picker |
+| Robinhood Chain | 4663 | https://robinhoodchain.blockscout.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live in the mint picker; Privy dashboard must allow chain 4663 |
+| Polygon PoS | 137 | https://polygonscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live in the mint picker |
+| BNB Chain | 56 | https://bscscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Live in the mint picker |
 
 Ownership is two-step (`transferOwnership`, then `acceptOwnership` by the new owner). The Safe `0x43985e56ac0c2CD9F95d4C1248cEB14E66Aa254a` does not exist on these chains yet; it has to be created at the same address by its owner, then ownership handed over and accepted.
 
@@ -34,8 +34,8 @@ other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
 
 ## Wallet model
 
-- **EVM (Base, later BNB Chain / Robinhood Chain):** one Privy embedded wallet address, shared by every EVM chain.
-  The server signs a Base voucher only for a wallet linked to the player's Privy account.
+- **EVM (Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain):** one Privy embedded wallet address, shared by every EVM chain.
+  The server signs a voucher only for a wallet linked to the player's Privy account. The voucher names the chain id, so it cannot be replayed on another chain.
 - **Solana:** a separate address (Privy Solana wallet or Phantom). Never derived from the EVM address.
 - **NEAR:** the existing flow. Players who signed in with NEAR mint only to that account; others connect a NEAR
   wallet. Testnet accounts (`.testnet`) mint on testnet, mainnet accounts on mainnet.

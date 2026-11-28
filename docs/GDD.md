@@ -2,9 +2,14 @@
 
 <h1 align="center">Grind District: Game Design Document</h1>
 
-<p align="center"><b>Version 2.5 · 24 November 2026</b><br>
+<p align="center"><b>Version 2.6 · 28 November 2026</b><br>
 City · Career · Skills · CV<br>
 <a href="https://www.grinddistrict.app">www.grinddistrict.app</a> · free, in the browser, phone or desktop</p>
+
+**Changelog**
+
+- **2.6 — 28 November 2026.** Live on grinddistrict.app (commit `947bd81`). First-visit onboarding uses the title line *Walk out with a CV, Resume and Portfolio*, one gold *Go to the Learning Center* card, and the CV and certificate opening after the first lesson. Lessons give instant right-or-wrong feedback, Zahra reacts, a wrong pick gets a free retry, first-try answers earn a share of the course's $15 in-game bonus, and a soft lesson streak is kept (no hearts or XP). The Chain Gallery, a glass hall beside the airport, has seven display slots, with NEAR, Base and Solana filled (display only). The certificate mint screen lists Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain, NEAR testnet and Solana devnet. Solana writes a soulbound certificate record, not a token NFT, automatically after the exam, free. UI polish from the same day: a smaller resident card, separate gadget cards, Buy / Equip / Pocket on drones, glasses and jewellery visible on the figure, feet kept on the ground, a tidier settings grid, map travel to Grind Park, the mall, the metro and the masjid, and arriving at the plaza no longer clipping into the kiosk. Live counts at 09:42 WAT: 1,648 visitors, 95 registered, 48 learners, 90 lessons passed, 36 certificates.
+- **2.5 — 24 November 2026.** Competitor research (section 24) and the design intent for the title line and first-lesson proof, now live in 2.6.
 
 ---
 
@@ -20,7 +25,7 @@ City · Career · Skills · CV<br>
 8. [Careers and progression](#8-careers-and-progression)
 9. [Practice trading](#9-practice-trading)
 10. [In-game economy](#10-in-game-economy)
-11. [Proof: CV, certificates and NFTs on NEAR](#11-proof-cv-certificates-and-nfts-on-near)
+11. [Proof: CV, certificates and on-chain credentials](#11-proof-cv-certificates-and-on-chain-credentials)
 12. [Social](#12-social)
 13. [AI agents](#13-ai-agents)
 14. [Art, audio and UX](#14-art-audio-and-ux)
@@ -46,13 +51,13 @@ City · Career · Skills · CV<br>
 | **Platform** | Web browser on phones and desktops. No install. |
 | **Audience** | People new to crypto ("Normies") and people already in it ("Homies") who want proof of skill. Ages 16+, mobile-first, with emerging markets in mind. |
 | **Business model** | Free to play. Optional premium cosmetics, the Grind Pass and paid ranks, bought with in-game balance; paid ranks need a real top-up first (USDC or ETH on Base). No pay-to-win: lessons, certificates and the CV are always free. |
-| **Status** | Live at grinddistrict.app. NEAR testnet contracts deployed for certificates and the Skill Passport. |
+| **Status** | Live at grinddistrict.app. Certificates can be minted on Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain and NEAR testnet; a soulbound record is also written on Solana devnet after the exam. |
 
 **One-line pitch.** Everyone starts at zero as a Shrimp. Walk the city, learn one minute at a time with Zahra, work a job, trade with practice money, and climb to Whale. Leave with a CV, certificates and NFTs that do something.
 
 **What makes it different**
 
-- **Learning leaves proof.** Every pass is filed to a professional CV and gets a certificate with a public page. A certificate can be minted as a soulbound NFT on NEAR, and the game reads it back to unlock things.
+- **Learning leaves proof.** Every pass is filed to a professional CV and gets a certificate with a public page. A certificate can be minted as a soulbound NFT on Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain or NEAR, or recorded on Solana devnet, and the game reads it back to unlock things.
 - **A place, not a quiz app.** Lessons happen in a living city with real-looking people, homes, a trading floor, a boutique, a masjid, a church, a gym and a conference centre.
 - **Safe by design.** Practice money only, no seed phrases ever, testnet contracts, simulated prices. Scam awareness is taught before trading.
 - **Built for phones.** Low, Medium and High graphics, a joystick and big 3D buttons, light and dark themes.
@@ -82,7 +87,7 @@ flowchart LR
   E --> F[Spend<br>needs · home · wardrobe · pass · rank]
   F --> G[Rise<br>reputation · Shrimp → Whale]
   G --> A
-  B -.mint.-> H[Certificate NFT on NEAR]
+  B -.mint.-> H[Certificate on Base, other EVM chains, NEAR or Solana]
   H -.unlocks.-> I[Verified mark + Holders' room]
 ```
 
@@ -96,10 +101,12 @@ flowchart LR
 
 ### First ten minutes
 
-1. **Sign up** on the title screen with Google, X, email or a NEAR wallet. You get a $1,000 in-game welcome bonus once per account.
+1. **Sign up** on the title screen (*Walk out with a CV, Resume and Portfolio.*) with Google, X, email, a NEAR wallet or a Solana wallet. You get a $1,000 in-game welcome bonus once per account. A calm line notes that lessons are free.
 2. **Zahra's welcome tour.** Zahra, your guide, gives a one-minute spoken tour: what Web3 is, how to move, where the menu is, what Campus, Career and the trading floor are for, and the one rule (never share your seed phrase). Her face shows on the card while she talks.
-3. **Meet her at Campus.** Follow the gold marker north. Walk up to Zahra (or tap her) and she places you as a **Normie** or a **Homie** with three quick questions, then teaches your first one-minute lesson.
-4. **Your first pass** goes on your CV with a certificate and +$15 in-game.
+3. **Go to the Learning Center.** New players get one gold *Go to the Learning Center* card and no extra clutter until they pass a first lesson. Tap *Go* to arrive at Campus beside Zahra. She places you as a **Normie** or a **Homie** with three quick questions, then teaches your first one-minute lesson.
+4. **Your first pass** goes on your CV with a certificate and +$15 in-game. The CV and certificate open straight away. A featured activity tile then appears in the menu and changes each visit.
+
+<p align="center"><img src="screenshots/title-mobile.webp" alt="Title screen: Walk out with a CV, Resume and Portfolio" width="220"> <img src="screenshots/onboarding-before-after.webp" alt="Before and after the first-visit Learning Center card" width="420"></p>
 
 <p align="center"><img src="screenshots/zahra-tour.jpg" alt="Zahra's welcome tour" width="240"> <img src="screenshots/zahra-campus.jpg" alt="Zahra at the Campus steps" width="240"> <img src="screenshots/campus.jpg" alt="Campus: worlds and missions" width="240"></p>
 
@@ -120,7 +127,7 @@ flowchart LR
 
 ### The menu
 
-**Learn** comes first: a green card with the first lesson ("Learn at Campus · about a minute · it goes on your CV") or the next one. Beside it: Messages · Notifications · Map · Home, and Profile (CV, certificates, books) · Career · Settings · Shortcuts. Boutique, Trade and Seasons join once the first lesson is passed, so a new player sees the learning path first. The Balance card opens the wallet; the Needs card shows your mood and each need. Main keys are in the logo's green; red is kept for delete and reset.
+**Learn** comes first: a green card with the first lesson ("Learn at Campus · about a minute · it goes on your CV") or the next one. Until the first lesson is passed, the only next-step card is the gold *Go to the Learning Center* card. Beside it: Messages · Notifications · Map · Home, and Profile (CV, certificates, books) · Career · Settings · Shortcuts. Boutique, Trade and Seasons, plus a featured activity that changes each visit, join once the first lesson is passed, so a new player sees the learning path first. The Balance card opens the wallet; the Needs card shows your mood and each need. Main keys are in the logo's green; red is kept for delete and reset.
 
 ### Settings
 
@@ -152,6 +159,7 @@ A walkable district built around a central plaza, with interiors you enter throu
 | **Hospital** | A daily check-up, a free ward bed when you are exhausted, physio. |
 | **The Velvet Room** | A casino front, closed for good. Its door opens a card on how gambling and trading differ, with helplines. No game of chance exists in the city. |
 | **Gym, Masjid, Church, Café, Dealership, Marina, Beach** | Daily life: workouts, prayer, rest, coffee, cars, the waterfront and the sea. |
+| **Chain Gallery** | A glass hall beside the airport forecourt. Seven display slots; NEAR, Base and Solana are filled, the rest stay dark. Display only: nothing here connects a wallet or sends a transaction. |
 | **Grind International Airport** *(after the deadline)* | By metro, east of the city: a glass terminal, check-in by cabin, gate lounges, the Grind One Lounge, airliners on their stands, a runway over the sea, and the Grind Orbital spaceport past the runway. |
 | **The Grind Grand** *(after the deadline)* | A hotel tower west of the city: a marble lobby, a suite for the night, and a lift to a rooftop infinity pool and sky bar. |
 | **Grind Mall** *(after the deadline)* | East of the city: two floors round an atrium with an escalator and a glass lift, the Grind Fresh supermarket, fashion, tech, a pharmacy, a food court and a cinema. |
@@ -159,6 +167,10 @@ A walkable district built around a central plaza, with interiors you enter throu
 <p align="center"><img src="screenshots/plaza.jpg" alt="Plaza" width="240"> <img src="screenshots/trading-floor.jpg" alt="Trading floor" width="240"> <img src="screenshots/home.jpg" alt="Home" width="240"> <img src="screenshots/boutique.jpg" alt="Boutique" width="240"></p>
 
 <p align="center"><img src="screenshots/street.jpg" alt="Corner store and pharmacy on your street" width="240"> <img src="screenshots/casino.jpg" alt="The casino front: gambling vs trading" width="240"> <img src="screenshots/boutique-racks.jpg" alt="Clothes on the rails" width="240"> <img src="screenshots/makeup.jpg" alt="Makeup kit" width="240"></p>
+
+<p align="center"><img src="screenshots/chain-gallery.webp" alt="Chain Gallery: a glass hall with NEAR, Base and Solana on display" width="520"></p>
+
+The map can send you to every listed place, including Grind Park, the mall, the metro and the masjid.
 
 **Time and weather.** Day, dusk and night with matching light, street lamps and city sound (wind, traffic, footsteps, cups, passing cars).
 
@@ -170,7 +182,7 @@ A walkable district built around a central plaza, with interiors you enter throu
 
 ## 6. Characters
 
-- **Zahra, Campus guide.** A young woman in a white veil. She runs the welcome tour, places new players as Normie or Homie and teaches first lessons. Her lines are recorded with a natural neural voice, and her face appears on her card while she speaks. Players can talk to her any time at the Campus steps.
+- **Zahra, Campus guide.** A young woman in a white veil. She runs the welcome tour, places new players as Normie or Homie and teaches first lessons. During a lesson she asks each question and reacts when the answer is right or wrong. Her lines are recorded with a natural neural voice, and her face appears on her card while she speaks. Players can talk to her any time at the Campus steps.
 - **Residents.** Semi-realistic people with motion-captured walking, sitting and talking. Each has a name that fits them, a trait and a daily routine (for example Aisha, Chidi, Hana, Diego, Kenji). Walk up and they greet you, with a voice that matches them.
 - **The server at the Grind Ring.** Greets you when you come to the counter.
 - **Other players.** Shown in the city in real time, with name cards, chat and profiles.
@@ -192,9 +204,11 @@ A walkable district built around a central plaza, with interiors you enter throu
 | 5 | The Earning Map | Ways to earn, Web2 skills, time, money and builder paths | Pathfinder badge, unlocks Careers |
 | 6 | Your Career | Spot trading, risk, meme coins | The open city: jobs, careers and the trading floor |
 
-**Lesson format.** Short cards (one or two sentences each), then quick graded questions with right/wrong feedback and a hint. Some use sort, match or slider questions. A "final check" closes each world.
+**Lesson format.** Short cards (one or two sentences each), then quick graded questions. You see right or wrong as soon as you tap; Zahra reacts to each answer, and a wrong pick gets a free retry (it still counts for the CV, but that question earns no coins). First-try answers earn a share of the course's $15 in-game bonus. A soft lesson streak counts consecutive days with at least one lesson passed; it resets quietly if a day is missed. There are no hearts or XP. Some questions use sort, match or slider. A "final check" closes each world.
 
 **Normie or Homie.** Three placement questions set the label. Everyone still plays World 1, so nobody misses the basics.
+
+<p align="center"><img src="screenshots/lesson-before-after.webp" alt="Before and after instant lesson feedback" width="420"> <img src="screenshots/lesson-right.webp" alt="Zahra reacts to a right answer" width="280"></p>
 
 ---
 
@@ -315,18 +329,22 @@ Nothing is rolled when you press a button: a visit is fixed by the resident, the
 
 ---
 
-## 11. Proof: CV, certificates and NFTs on NEAR
+## 11. Proof: CV, certificates and on-chain credentials
 
 - **CV.** A professional, printable CV built from what you completed: profile, experience (job and practical tracks), education and certifications (the five-module Web3 Foundations Programme and specialist courses), skills. No ranks or XP on it. Download as PDF; share a public page at `/cv/<username>`.
 - **Certificates.** A premium certificate for every pass, each with a public page at `/cert/<id>` and an image for sharing.
-- **Certificate NFTs.** Mint a passed course as a **soulbound NEP-171 NFT** on NEAR testnet (`grinddistrict-cert.testnet`). One per username and course; the player pays the small storage fee. **Minting starts with a short exam graded on the server**: the course's own checks, shuffled and timed by the server, three in four to pass. A pass returns a signed 30-minute ticket and the mint voucher is refused without it, so editing a save cannot produce a certificate. The exam is open-book, not proctored. Moving the contract to mainnet is a configuration change ([`docs/NEAR-MAINNET.md`](NEAR-MAINNET.md)). The mint dialog also offers Base (a soulbound `GrindCertificate`); that option is not part of the NEAR entry.
+- **Minting starts with a short exam graded on the server**: the course's own checks, shuffled and timed by the server, three in four to pass. A pass returns a signed 30-minute ticket and a mint voucher is refused without it, so editing a save cannot produce a certificate. The exam is open-book, not proctored. The mint screen then lists every live chain.
+- **Certificate NFTs (EVM and NEAR).** A passed course can be minted as a **soulbound ERC-721 NFT** on Base (`0xBEC44b497b5D4696644A5ad581804476CB20808f`) or, on Arbitrum, OP Mainnet, Robinhood Chain, Polygon and BNB Chain, as the same Sourcify-verified `GrindCertificate` at `0x6bC81E26832986d56B6e59c31599F3113971Ec33`. It can also be minted as a **soulbound NEP-171 NFT** on NEAR testnet (`grinddistrict-cert.testnet`). One per username and course on each contract; the player pays gas (and, on NEAR, a small storage fee). Moving the NEAR contract to mainnet is a configuration change ([`docs/NEAR-MAINNET.md`](NEAR-MAINNET.md)). The five newer EVM contracts are live in the picker as of 28 November 2026 (`947bd81`); no player mint on those five has been recorded yet. Robinhood Chain (id 4663) also needs to be allowed in the Privy dashboard. Routing notes: [`docs/multichain-router.md`](multichain-router.md).
+- **Solana certificate record (devnet).** Passing the exam also writes a soulbound certificate account on Solana devnet automatically, with no wallet and no fee, through program `6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd`. This is a grind-cert account (course id, certificate hash, serial and timestamp), not a tradable token NFT. The public certificate page shows *Recorded on Solana*, with a medal card and a Solana Explorer link. The mint screen has a Solana button, already ticked if the record has landed.
 - **NFTs that do something.** The game reads each certificate back from the chain (never from local data) and then:
-  - marks the course **Verified on NEAR**, with the token link, on the CV, the certificate list and the profile nameplate;
+  - marks the course **Verified** on that chain, with the token or explorer link, on the CV, the certificate list and the profile nameplate;
   - adds an **On-chain credentials** entry to the CV;
-  - opens the **Holders' room** in the Members' lounge. Its desks give holders tools the lounge keeps for higher ranks.
+  - opens the **Holders' room** in the Members' lounge when a NEAR certificate NFT is held. Its desks give holders tools the lounge keeps for higher ranks.
 - **Skill Passport.** A separate self-attested NEAR contract (`grinddistrict-passport.testnet`): a record written from the player's own account unlocks an apprenticeship quest.
 
-<p align="center"><img src="screenshots/certificate.jpg" alt="Certificate" width="360"> <img src="screenshots/cv.jpg" alt="CV" width="200"> <img src="screenshots/profile-verified.jpg" alt="Verified on NEAR" width="200"> <img src="screenshots/holders-room.jpg" alt="Holders' room door" width="200"></p>
+<p align="center"><img src="screenshots/mint-picker.webp" alt="Mint screen listing Base, Arbitrum, OP, Robinhood, Polygon, BNB, NEAR and Solana" width="280"> <img src="screenshots/mint-solana.webp" alt="Certificate recorded on Solana devnet" width="280"> <img src="screenshots/certificate.jpg" alt="Certificate" width="280"></p>
+
+<p align="center"><img src="screenshots/cv.jpg" alt="CV" width="200"> <img src="screenshots/profile-verified.jpg" alt="Verified on NEAR" width="200"> <img src="screenshots/holders-room.jpg" alt="Holders' room door" width="200"></p>
 
 ---
 
@@ -384,7 +402,7 @@ Performance budget: Low, Medium and High graphics; phone pixel ratio capped; ren
 - No game of chance exists anywhere in the city. The casino is a closed front that explains gambling against trading, with helplines.
 - Balances, holdings and the ledger never appear on a public profile.
 - Certificates are practice credentials, not accredited qualifications, and say so.
-- NFTs are soulbound (cannot be sold) and have no money value. The NEAR contracts are on testnet.
+- NFTs are soulbound (cannot be sold) and have no money value. The NEAR certificate and Skill Passport contracts are on testnet. The Solana certificate is a soulbound record on devnet, not a token NFT.
 - No personal data is written on chain. Players can delete their account and data.
 - Agents are labelled and rate-limited.
 
@@ -398,7 +416,7 @@ North star: **weekly players who pass at least one lesson.**
 | --- | --- | --- | --- |
 | Title → sign up → first lesson passed | D1, D7, D30; daily check-in streaks | Certificates issued, CVs shared, NFTs minted | Earned vs topped-up balance, sink usage, top-up conversion |
 
-**Live now** in the city stats (the Online pill) and at `https://www.grinddistrict.app/api/track?op=stats`, counts only: players active today, learners (a course passed), courses passed, certificates issued and players who came back on another day in the last seven. On 15 November: 9 learners, 26 courses passed, 18 certificates, 10 players back on a later day this week, 27 registered.
+**Live now** in the city stats (the Online pill) and at `https://www.grinddistrict.app/api/track?op=stats`, counts only: players active today, learners (a course passed), courses passed, certificates issued and players who came back on another day in the last seven. On 15 November: 9 learners, 26 courses passed, 18 certificates, 10 players back on a later day this week, 27 registered. On 28 November 2026, 09:42 WAT: 1,648 visitors, 95 registered, 48 learners, 90 lessons passed, 36 certificates.
 
 ---
 
@@ -406,7 +424,7 @@ North star: **weekly players who pass at least one lesson.**
 
 | Phase | When | What |
 | --- | --- | --- |
-| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). Since 15 Nov (after the hackathon deadline): a short exam graded on the server before any certificate mint, live learning numbers, a Learn-first menu, a NEAR top-up for in-game purchases (off until configured), the city opening in daytime and faster; luxury homes, the metro, Grind Park with its rides, zoo and golf, the airport with three cabins, the party jet and yacht, a trip to orbit, the four seasons and climate previews, the hotel and the mall. |
+| **Now** | Nov 2026 | Live city, six worlds, careers, practice trading, homes, boutique, messages, Zahra's tour and voice, 14 languages, needs and mood, the Grind Pass season, wallet and ledger, street shops and hospital, a town economy with player businesses, friendships, the Etiquette House, Raceway and District Cards, push and email alerts for messages, certificate NFTs that unlock the Holders' room (NEAR testnet). Since 28 Nov: the first-visit Learning Center card, instant lesson feedback with a free retry and a soft streak, the Chain Gallery, and a mint screen for Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain, NEAR testnet and a Solana devnet certificate record. Since 15 Nov (after the hackathon deadline): a short exam graded on the server before any certificate mint, live learning numbers, a Learn-first menu, a NEAR top-up for in-game purchases (off until configured), the city opening in daytime and faster; luxury homes, the metro, Grind Park with its rides, zoo and golf, the airport with three cabins, the party jet and yacht, a trip to orbit, the four seasons and climate previews, the hotel and the mall. |
 | **Next** | Dec 2026 – Q1 2027 | An AI companion you feed and dress, run on NEAR AI. Sign-in from any chain (NEAR Intents). Private, selective sharing of certificates on Midnight. Alerts for daily streaks and events. A conference host like Zahra and live events. Satellite map. More homes and cars. Gas-sponsored certificate mints. |
 | **Then** | Q1 – Q2 2027 | Agents that help their owners play and earn rewards. Partner courses from Web3 projects with their own certificates. Guilds and team challenges. Creator tools for community lessons. |
 | **Later** | H2 2027 | Mainnet credentials, verifiable by employers. Job board linking CVs to real Web3 roles. Seasonal cities. Governance of the course catalogue by holders. A token only after legal review (see section 20). |
@@ -492,8 +510,12 @@ Grind District enters the [NEAR Hackathon](https://nearhackathon.com) in four tr
 
 - **Play:** https://www.grinddistrict.app
 - **Source:** https://github.com/0xzahra/Grind-district
-- **Certificate NFT contract:** [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) (soulbound NEP-171)
+- **Certificate NFT, NEAR testnet:** [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) (soulbound NEP-171)
+- **Certificate NFT, Base:** [`0xBEC44b497b5D4696644A5ad581804476CB20808f`](https://basescan.org/address/0xBEC44b497b5D4696644A5ad581804476CB20808f) (soulbound ERC-721)
+- **Certificate NFT, Arbitrum / OP Mainnet / Robinhood Chain / Polygon / BNB Chain:** [`0x6bC81E26832986d56B6e59c31599F3113971Ec33`](https://github.com/0xzahra/Grind-district/blob/main/docs/multichain-router.md) (same Sourcify-verified `GrindCertificate` on each)
+- **Certificate record, Solana devnet:** program [`6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd`](https://explorer.solana.com/address/6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd?cluster=devnet) (soulbound grind-cert account, not a token NFT)
 - **Skill Passport contract:** [`grinddistrict-passport.testnet`](https://testnet.nearblocks.io/address/grinddistrict-passport.testnet)
+- **Multichain router:** [`docs/multichain-router.md`](multichain-router.md)
 - **Made by:** [Zahra](https://0xzahra.github.io)
 
 ---

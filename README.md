@@ -1,6 +1,6 @@
 # Grind District
 
-**Learn Web3 in a 3D city and leave with proof.** Pass a short lesson at Campus and it goes on your CV with a certificate, which you can mint on Base or NEAR testnet as a soulbound NFT. After the exam, the game also records it on Solana devnet.
+**Learn Web3 in a 3D city and leave with proof.** Pass a short lesson at Campus and it goes on your CV with a certificate, which you can mint as a soulbound NFT on Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain or NEAR testnet. After the exam, the game also writes a soulbound certificate record on Solana devnet (not a token NFT).
 
 Millions of people want to work in Web3, but they learn from scattered videos, get scammed on the way, and end up with nothing that proves what they know. Grind District turns a short lesson into proof you keep.
 
@@ -10,17 +10,42 @@ Millions of people want to work in Web3, but they learn from scattered videos, g
 
 ## The core loop (about 5 minutes)
 
-1. **Enter the Enter the district: grinddistrict.app** Sign up with Google, X, email or a NEAR wallet. Zahra, the Campus guide, gives a one-minute tour.
-2. **Go to Campus.** The gold *Next step* button takes you there. Campus is just north of the plaza.
-3. **Finish a short lesson.** Three short cards and two quick checks with Zahra.
-4. **See the proof.** The course is on your CV with a certificate: Profile, right under your name.
-5. **Optional: mint it on Base or NEAR testnet.** Open the certificate and tap *Mint as NFT*, then Base or NEAR (testnet). First comes a short exam on the course, graded on the server (the device's own record of the lesson is not enough). Then the game mints, reads the token back and marks the course *Verified on NEAR*. Passing the exam also records the certificate on Solana devnet, with no wallet needed.
+1. **Enter the district.** Open [grinddistrict.app](https://www.grinddistrict.app). Sign up with Google, X, email, a NEAR wallet or a Solana wallet. The title line is *Walk out with a CV, Resume and Portfolio.* Zahra, the Campus guide, gives a one-minute tour.
+2. **Go to Campus.** The gold *Go to the Learning Center* card takes you there. Until you pass a first lesson, that is the only next-step card. Campus is just north of the plaza.
+3. **Finish a short lesson.** Three short cards and two quick checks with Zahra. You see right or wrong as soon as you tap; Zahra reacts, and a wrong pick gets a free retry. First-try answers earn a share of the course's $15 in-game bonus.
+4. **See the proof.** After your first lesson, your CV and certificate open straight away. Later courses are on your CV with a certificate: Profile, right under your name.
+5. **Optional: mint it on-chain.** Open the certificate and tap *Mint as NFT*. First comes a short exam on the course, graded on the server (the device's own record of the lesson is not enough). Then pick a chain: Base, Arbitrum, OP Mainnet, Robinhood Chain, Polygon or BNB Chain for a soulbound ERC-721 NFT, or NEAR testnet for a soulbound NEP-171 NFT. The game reads the token back and marks the course verified. Passing the exam also writes a soulbound certificate record on Solana devnet automatically, with no wallet and no fee. That Solana record is not a tradable token NFT. The mint screen has a Solana button, already ticked if the record landed, with a medal card and a Solana Explorer link.
 
 The rest of the city (jobs, practice trading, shops, the park, the airport) is optional. It stays in the background until you have passed a first lesson.
 
 | Campus | Your CV | Your certificate |
 | --- | --- | --- |
 | ![Campus: worlds, missions and progress](docs/screenshots/campus.jpg) | ![A CV built from the courses the player passed](docs/screenshots/cv.jpg) | ![Certificate of completion](docs/screenshots/certificate.jpg) |
+
+As of 28 November 2026, 09:42 WAT: 1,648 visitors, 95 registered, 48 learners, 90 lessons passed, 36 certificates.
+
+| Title | First visit | A lesson |
+| --- | --- | --- |
+| ![Title screen: Walk out with a CV, Resume and Portfolio](docs/screenshots/title-mobile.webp) | ![Before and after the first-visit Learning Center card](docs/screenshots/onboarding-before-after.webp) | ![Before and after instant lesson feedback](docs/screenshots/lesson-before-after.webp) |
+
+| A right answer | Chain Gallery | Mint screen |
+| --- | --- | --- |
+| ![Zahra reacts to a right answer](docs/screenshots/lesson-right.webp) | ![The Chain Gallery beside the airport](docs/screenshots/chain-gallery.webp) | ![The live mint picker with Base, Arbitrum, OP, Robinhood, Polygon, BNB, NEAR and Solana](docs/screenshots/mint-picker.webp) |
+
+![Certificate recorded on Solana devnet, with a medal card and explorer link](docs/screenshots/mint-solana.webp)
+
+## Certificate chains (live 28 November 2026)
+
+After the exam, the mint screen lists every live chain. Players pay their own gas on EVM and NEAR. Solana is recorded by the game server, free.
+
+| Chain | What is minted | Contract or program |
+| --- | --- | --- |
+| **Base** (mainnet) | Soulbound ERC-721 NFT | [`0xBEC44b497b5D4696644A5ad581804476CB20808f`](https://basescan.org/address/0xBEC44b497b5D4696644A5ad581804476CB20808f) |
+| **Arbitrum, OP Mainnet, Robinhood Chain, Polygon, BNB Chain** | Soulbound ERC-721 NFT (same Sourcify-verified `GrindCertificate` on each) | [`0x6bC81E26832986d56B6e59c31599F3113971Ec33`](https://github.com/0xzahra/Grind-district/blob/main/docs/multichain-router.md) |
+| **NEAR** (testnet) | Soulbound NEP-171 NFT | [`grinddistrict-cert.testnet`](https://testnet.nearblocks.io/address/grinddistrict-cert.testnet) |
+| **Solana** (devnet) | A soulbound certificate record (not a token NFT). Written automatically after the exam, no wallet needed. | Program [`6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd`](https://explorer.solana.com/address/6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd?cluster=devnet) |
+
+The five newer EVM contracts are live in the picker. No player mint on those five has been recorded yet. Robinhood Chain (id 4663) also needs to be allowed in the Privy dashboard before a mint there can go through. Full routing notes are in [`docs/multichain-router.md`](docs/multichain-router.md).
 
 ## The NEAR mint, step by step (about 3 minutes)
 
@@ -50,7 +75,7 @@ The rest of the city (jobs, practice trading, shops, the park, the airport) is o
 | --- | --- |
 | **What it is** | A free 3D city in the browser where you learn Web3 in short lessons, pass a server-graded exam and leave with a certificate you can prove on-chain. Live: https://www.grinddistrict.app |
 | **Solana program (devnet)** | `grind-cert`, Grind District's own Rust program (native `solana-program`, no framework): [`6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd`](https://explorer.solana.com/address/6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd?cluster=devnet). Source: [`programs/grind-cert/src/lib.rs`](programs/grind-cert/src/lib.rs). Deploy tx: [44YTEs9w…](https://explorer.solana.com/tx/44YTEs9wMkYH7i9CYNsAh2e96cibKc5PbjS8cyDbw2sxrFJLpkkSGbtYbEiDw9nng1ivffKXSRmaRs1ivcnKeNSf?cluster=devnet). Config set up (issuer + project owner): [4hXJqQ3c…](https://explorer.solana.com/tx/4hXJqQ3cMNi6S7xhVTLwjXYFMLZMygsyUEMTCdvwZTcrJHuwXz5MwSaEZ6XtnydNFE76R2YDhVFs9iKyHJvan87t?cluster=devnet). |
-| **How Solana is used** | 1) **Certificates:** when a player passes a course and its server-graded exam, the game server (the only issuer) writes a soulbound certificate account on Solana: one PDA per player and course (`["cert", player_id, sha256(course)]`) holding the course id, the sha256 of the certificate id, a serial number and the on-chain timestamp. There is no transfer instruction, so it cannot be moved or sold. No name, email or wallet goes on-chain: `player_id` is an HMAC of the username. The public certificate page reads the record back and shows *Recorded on Solana*. 2) **Top-ups:** an optional Solana Pay top-up (SOL or USDC) for in-game dollars, live since 21 Nov. |
+| **How Solana is used** | 1) **Certificates:** when a player passes a course and its server-graded exam, the game server (the only issuer) writes a soulbound certificate account on Solana: one PDA per player and course (`["cert", player_id, sha256(course)]`) holding the course id, the sha256 of the certificate id, a serial number and the on-chain timestamp. There is no transfer instruction, so it cannot be moved or sold. No name, email or wallet goes on-chain: `player_id` is an HMAC of the username. The public certificate page reads the record back and shows *Recorded on Solana*. The live mint screen also has a Solana devnet button, already ticked when the record has landed, with a medal card and a Solana Explorer link. This is a grind-cert account, not a Metaplex or Token-2022 NFT. 2) **Top-ups:** an optional Solana Pay top-up (SOL or USDC) for in-game dollars, live since 21 Nov. |
 | **Program instructions** | `InitConfig` (issuer + project owner address, once), `Issue` (issuer only, one per player and course), `SetIssuer` (key rotation), `Revoke`, `Close` (issuer only; used to clean up self-tests). Errors: `NotIssuer` 6000, `AlreadyInitialized` 6001, `BadAccount` 6002, `AlreadyIssued` 6003. |
 | **Server and game code** | `api/_certSolana.ts` (builds and sends `Issue`, reads records back), `api/profile.ts` (`op=cert-issue` records on Solana after the exam pass), `api/_certMint.ts` (`chain: "solana"`, same gates as Base and NEAR: exam pass ticket, one per course), `src/chains/router.ts` + [`docs/multichain-router.md`](docs/multichain-router.md) (route `solana-devnet`), `tests/chains.check.ts` (Solana checks). |
 | **Check it yourself** | `solana account GUgLpSq12rRVBWt1e2mdyAdqJkskJPdo2437iwQg7G1f -u devnet` (the config: issuer, owner, number issued) · `solana program show 6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd -u devnet` |
@@ -123,6 +148,14 @@ A NEAR mainnet top-up for in-game purchases (the player sends NEAR from their ow
 - **Next (plans).** Dec 2026 to Q1 2027: an AI companion run on NEAR AI, sign-in from any chain with NEAR Intents, gas-sponsored certificate mints and alerts for streaks and events. Q1 to Q2 2027: partner courses, guilds and team challenges, and tools for community lessons. H2 2027: mainnet credentials that employers can check, and the job board. The full roadmap is in the [GDD](docs/GDD.md#18-roadmap).
 
 ## Screenshots
+
+| Title | First visit | Lessons |
+| --- | --- | --- |
+| ![Title screen](docs/screenshots/title-mobile.webp) | ![First-visit Learning Center card](docs/screenshots/onboarding-before-after.webp) | ![Instant lesson feedback](docs/screenshots/lesson-before-after.webp) |
+
+| Chain Gallery | Mint picker | Recorded on Solana |
+| --- | --- | --- |
+| ![Chain Gallery](docs/screenshots/chain-gallery.webp) | ![Multichain mint picker](docs/screenshots/mint-picker.webp) | ![Solana certificate record](docs/screenshots/mint-solana.webp) |
 
 | Campus | Zahra's tour | CV |
 | --- | --- | --- |
