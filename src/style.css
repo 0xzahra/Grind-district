@@ -5080,3 +5080,36 @@ html body #sheet .sheet-card .td-quest > button.td-go, html body .sheet-card .td
 html body .td-quest { grid-template-columns: 40px minmax(0, 1fr) 76px !important; }
 html body .selfie-bar .selfie-key.drone-rec { color: #ff3b3b !important; font-size: 20px !important; }
 body.drone-mode .note-banner, body.glass-mode .note-banner, body.selfie-mode .note-banner { display: none !important; }
+
+/* --- Sign in / Sign up cards: Continue with X, Google, NEAR and Solana wallet as raised 3D keys ---
+   Same green key as Campus Continue (--key-gold): lit top edge, shaded lower edge, solid lip, and the key
+   presses down onto its lip. The card's flat "#login-dlg .glass-btn.primary" rule is out-ranked here only for
+   these provider keys. Shadows and gradients only (no blur, no images), so phones stay fast. */
+html body #login-dlg .login-providers { gap: 10px !important; padding-bottom: 3px; }
+html body #login-dlg .login-providers .glass-btn.primary {
+  position: relative;
+  min-height: 46px;
+  border-radius: 14px !important;
+  border: 1px solid #04803f !important;
+  background: var(--key-gold) !important;
+  box-shadow: var(--key-gold-sh) !important;
+  color: #032612 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  transform: translateY(0);
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 120ms ease !important;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer;
+}
+html body #login-dlg .login-providers .glass-btn.primary:hover { filter: brightness(1.05); }
+html body #login-dlg .login-providers .glass-btn.primary:active {
+  transform: translateY(2px) !important;
+  box-shadow: var(--key-down) !important;
+  filter: brightness(0.96);
+}
+html body #login-dlg .login-providers .glass-btn.primary:disabled { transform: translateY(1px); box-shadow: var(--key-down) !important; filter: saturate(0.5) brightness(0.85); cursor: default; }
+html body #login-dlg .login-sol-wrap { display: grid; gap: 10px; }
+html body #login-dlg .login-sol-wrap .login-wallet-pick { display: grid; gap: 8px; }
+html body #login-dlg .login-sol-wrap .login-wallet-pick[hidden] { display: none; }
+html body #login-dlg .login-wallet-opt { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
+html body #login-dlg .login-wallet-opt img { border-radius: 6px; }

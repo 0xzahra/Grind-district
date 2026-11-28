@@ -3,10 +3,13 @@ import { track, flushTracking } from './track.ts'
 // Lazy-loaded. Without VITE_PRIVY_APP_ID the Privy methods are hidden; NEAR still works. Guest play is gated off.
 // creator.ts pulls in Three and the people: loaded only after sign-in, so the sign-in card itself opens fast.
 import { ensureEmbeddedWallet, GAME_WALLET_KEY } from './privyWallet.ts'
+import type { SolWallet } from './solanaLogin.ts'
 const APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
 const USERNAME = /^[a-z0-9_]{3,20}$/
 export const CLAIMED_KEY = 'gd.privy.username'
 export const NEAR_KEY = 'gd.near.account'
+/** Public address of the Solana wallet this player signed in with. Local only (like the NEAR account key); never part of the save. */
+export const SOL_KEY = 'gd.sol.account'
 const DRAFT_KEY = 'gd.signup.username'
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''): HTMLElementTagNameMap[K] {
@@ -205,6 +208,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   document.body.append(dlg)
   void warmNearLoginConnector()
   warmNearChallenge()
+  void import('./solanaLogin.ts').then((m) => m.watchSolanaWallets()).catch(() => { /* wallet list is optional */ })
   const msg = el('p', notice, 'muted')
 
   const bind = async (token: string | null, j: { username?: string | null; userId?: string; save?: unknown }, nearProof?: unknown, opts?: { firstClaim?: boolean }) => {
@@ -320,7 +324,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
       if (err !== true) { state.textContent = String(err); save.disabled = false }
     }
     body.replaceChildren(
-      el('p', 'Choose your Game ID. This is your unique username in the city — it stays with this account (Google, X, email, or NEAR).'),
+      el('p', 'Choose your Game ID. This is your unique username in the city — it stays with this account (Google, X, email, NEAR, or Solana wallet).'),
       input, state, save,
     )
     void userId
@@ -483,6 +487,60 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
     return b
   }
 
+  const solanaButton = () => {
+    const label = 'Continue with Solana wallet'
+    const b = el('button', label, 'glass-btn primary login-sol')
+    const pick = el('div', '', 'login-wallet-pick')
+    pick.hidden = true
+    const wrap = el('div', '', 'login-sol-wrap')
+    wrap.append(b, pick)
+    const reset = () => { b.disabled = false; b.textContent = label }
+    const go = async (w: SolWallet) => {
+      if (closed) return
+      pick.hidden = true
+      b.disabled = true
+      b.textContent = `Opening ${w.name}…`
+      msg.textContent = 'No funds or transactions — only a signed login message.'
+      try {
+        const [privy, sol] = await Promise.all([client(), import('./solanaLogin.ts')])
+        if (closed) return
+        const address = await sol.loginWithSolanaWallet(privy, w, WALLET_ON_LOGIN)
+        if (closed) return
+        try { localStorage.setItem(SOL_KEY, address) } catch { /* private mode */ }
+        msg.textContent = ''
+        await afterLogin(privy)
+      } catch (e) {
+        if (closed) return
+        reset()
+        const err = (e as Error).message || 'unknown error'
+        msg.textContent = /reject|cancel|denied|closed|dismiss|abort|declin/i.test(err)
+          ? ''
+          : `Solana wallet sign-in failed: ${err}. No funds were requested.`
+      }
+    }
+    b.onclick = async () => {
+      if (closed) return
+      if (mode === 'signup' && !ensureGameId()) return
+      if (!pick.hidden) { pick.hidden = true; return }
+      const sol = await import('./solanaLogin.ts')
+      const wallets = sol.listSolanaWallets()
+      if (wallets.length === 0) {
+        msg.textContent = 'No Solana wallet found in this browser. Install Phantom or Solflare, or open Grind District inside your wallet app\u2019s browser. You can also use Google, X, email or NEAR.'
+        return
+      }
+      if (wallets.length === 1) { void go(wallets[0]); return }
+      pick.replaceChildren(...wallets.map((w) => {
+        const o = el('button', w.name, 'glass-btn login-wallet-opt')
+        o.type = 'button'
+        if (w.icon.startsWith('data:image/')) { const im = document.createElement('img'); im.src = w.icon; im.alt = ''; im.width = 20; im.height = 20; o.prepend(im) }
+        o.onclick = () => { void go(w) }
+        return o
+      }))
+      pick.hidden = false
+    }
+    return wrap
+  }
+
   const email = el('input'); email.type = 'email'; email.placeholder = 'you@example.com'
   const send = el('button', 'Email me a code', 'glass-btn ghost')
   const code = el('input'); code.inputMode = 'numeric'; code.placeholder = '6-digit code'; code.hidden = true
@@ -518,7 +576,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
   const loading = el('p', mode === 'signup' ? 'Loading sign up…' : 'Loading sign in…', 'muted')
   body.append(loading, msg)
 
-  const renderOptions = (opts: { google: boolean; twitter: boolean; email: boolean; domainOk: boolean; alt?: string } | null, privyError = '') => {
+  const renderOptions = (opts: { google: boolean; twitter: boolean; email: boolean; solana?: boolean; domainOk: boolean; alt?: string } | null, privyError = '') => {
     if (closed) return
     loading.remove()
     const parts: HTMLElement[] = []
@@ -552,7 +610,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
       parts.push(gameBox)
     }
     const stack = el('div', '', 'login-providers')
-    // Order: X, Google, NEAR (always), then compact email (Privy one-time code — email cannot verify without a code).
+    // Order: X, Google, NEAR (always), Solana wallet (when Privy has it on), then compact email (Privy one-time code — email cannot verify without a code).
     // Never hide Google / X because of our own domain check: if Privy has them on, show them and let Privy's
     // own error appear if this origin is not allowed in the dashboard.
     if (APP_ID && opts) {
@@ -560,6 +618,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
       if (opts.google) stack.append(social('google'))
     }
     stack.append(nearButton())
+    if (APP_ID && opts?.solana) stack.append(solanaButton())
     parts.push(stack)
     if (!APP_ID) {
       parts.push(el('p', 'Google, X and email need the Privy app set up on this build. NEAR still works.', 'muted'))
@@ -608,7 +667,7 @@ export function openLogin(notice = '', mode: LoginMode = 'signin'): void {
       const here = location.origin.toLowerCase()
       const localDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
       const domainOk = localDev || allowed.length === 0 || allowed.some((d: string) => d === here || d === location.host.toLowerCase() || (d.startsWith('https://*.') && here.endsWith(d.slice(9))))
-      renderOptions({ google: !!cfg.google_oauth, twitter: !!cfg.twitter_oauth, email: !!cfg.email_auth, domainOk, alt: allowed.find((d: string) => !d.includes('*'))?.replace(/^https?:\/\//, '') })
+      renderOptions({ google: !!cfg.google_oauth, twitter: !!cfg.twitter_oauth, email: !!cfg.email_auth, solana: !!cfg.solana_wallet_auth, domainOk, alt: allowed.find((d: string) => !d.includes('*'))?.replace(/^https?:\/\//, '') })
     } catch {
       if (!closed) renderOptions(null)
     }
@@ -668,7 +727,7 @@ export async function signOut(): Promise<void> {
     const w = await c.wallet().catch(() => null)
     if (w) await w.signOut().catch(() => {})
   } catch { /* no near session */ }
-  for (const k of [CLAIMED_KEY, NEAR_KEY, 'gd.privy.userId', GAME_WALLET_KEY, 'gd.privy.near', 'grind-district-save-v1']) {
+  for (const k of [CLAIMED_KEY, NEAR_KEY, SOL_KEY, 'gd.privy.userId', GAME_WALLET_KEY, 'gd.privy.near', 'grind-district-save-v1']) {
     try { localStorage.removeItem(k) } catch { /* ignore */ }
   }
   location.assign(location.pathname)
@@ -699,7 +758,7 @@ export async function openEmailAccountActions(): Promise<void> {
     const email = (user as { email?: { address?: string } | null }).email?.address
       ?? (user as { linkedAccounts?: Array<{ type?: string; address?: string }> }).linkedAccounts?.find((a) => a.type === 'email')?.address
     if (!email) {
-      status.textContent = 'No email is linked to this account (you may have signed in with Google, X, or NEAR only). To change identity, delete the account and sign up again.'
+      status.textContent = 'No email is linked to this account (you may have signed in with Google, X, NEAR, or a Solana wallet only). To change identity, delete the account and sign up again.'
       const c1 = el('button', 'Close', 'glass-btn ghost'); c1.onclick = close; body.append(c1)
       return
     }
@@ -792,7 +851,7 @@ export async function deleteAccount(): Promise<boolean> {
     if (w) await w.signOut().catch(() => {})
   } catch { /* */ }
   const uid = localStorage.getItem('gd.privy.userId')
-  for (const k of [CLAIMED_KEY, NEAR_KEY, 'gd.privy.userId', 'grind-district-save-v1', DRAFT_KEY, 'gd.signup.username']) {
+  for (const k of [CLAIMED_KEY, NEAR_KEY, SOL_KEY, 'gd.privy.userId', 'grind-district-save-v1', DRAFT_KEY, 'gd.signup.username']) {
     try { localStorage.removeItem(k) } catch { /* */ }
   }
   if (uid) {

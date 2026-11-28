@@ -651,6 +651,12 @@
       "title": "A real drone and lots of polish",
       "body": "Your drone is a proper camera quadcopter with spinning props. Hippos and elephants look better, the masjid's minbar steps are gone, the drone and car controls sit at the bottom where your thumbs are, and Today, your persona and the needs pyramid are easier to read.",
       "push": false
+    },
+    {
+      "id": "u1128-solana-signin",
+      "title": "New: sign in with a Solana wallet",
+      "body": "Sign in or sign up with Phantom, Solflare or another Solana wallet. The sign-in buttons are now raised keys too.",
+      "push": false
     }
   ]
 }
