@@ -1,7 +1,7 @@
 import { PrivyClient } from '@privy-io/server-auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cleanUsername } from './_username.js'
-import { attachUploaded, EDITED, previewBody, removeMedia, signLines, splitBody, storeMedia, uploadSlot } from './_dmMedia.js'
+import { attachUploaded, EDITED, markFor, ownsPath, plainText, previewBody, removeMedia, signLines, splitBody, storeMedia, uploadSlot } from './_dmMedia.js'
 import { verifyNearAuth, nearUserId, issueDmSession, readDmSession, nearAuthConfigured } from './_nearAuth.js'
 import { cronAuthorized } from './_cron.js'
 import { broadcastUpdate, cleanSub, emailOff, emailToken, notifyMessage, nudgeLapsed, savePushSub, setEmailOff, vapidKeys } from './_notify.js'
@@ -227,14 +227,15 @@ export default async function handler(req: Req, res: Res) {
     const row = await db.from('messages').select('id,sender,recipient,body,created_at,read_at').eq('id', id).maybeSingle()
     if (!row.data || row.data.sender !== user) return res.status(404).json({ error: 'You can only change your own messages' })
     const parts = splitBody(String(row.data.body))
+    const ownFile = ownsPath(parts.path, row.data.sender)
     if (op === 'delete') {
-      if (parts.path) await removeMedia(db, parts.path)
+      if (ownFile) await removeMedia(db, parts.path!)
       const del = await db.from('messages').delete().eq('id', id).eq('sender', user)
       return del.error ? res.status(500).json({ error: 'Could not delete' }) : res.status(200).json({ ok: true })
     }
     if (Date.now() - Date.parse(String(row.data.created_at)) > 86_400_000) return res.status(403).json({ error: 'Messages can be edited for 24 hours' })
-    const mark = parts.kind && parts.path ? `[[media:${parts.kind}:${parts.path}]]` : ''
-    let text = cleanText(b.text)
+    const mark = ownFile ? markFor(parts) : ''
+    let text = plainText(cleanText(b.text))
     if (!text && !mark) return res.status(400).json({ error: 'Empty message: delete it instead' })
     text = text.slice(0, MAX - EDITED.length - (mark ? mark.length + 1 : 0))
     const body = EDITED + (text && mark ? `${text}\n${mark}` : text || mark)
@@ -256,7 +257,7 @@ export default async function handler(req: Req, res: Res) {
     return res.status(200).json(slot)
   }
   if (op === 'send') {
-    const text = cleanText(b.text)
+    const text = plainText(cleanText(b.text))
     if (!text && !b.media && !b.upload) return res.status(400).json({ error: 'Empty message' })
     if (text.length > MAX) return res.status(400).json({ error: `Max ${MAX} characters` })
     const exists = await db.from('players').select('username').eq('username', other).maybeSingle()

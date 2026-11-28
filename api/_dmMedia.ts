@@ -97,6 +97,24 @@ export async function storeMedia(db: SupabaseClient, user: string, raw: unknown)
 
 /** An edited message starts with this marker (no extra column needed); readers see an "Edited" label instead. */
 export const EDITED = '[[edited]]'
+
+/** Typed text can never carry a marker: only the server writes `[[media:…]]` and `[[edited]]`. A zero-width space
+ *  between the brackets keeps what the player typed readable while the parser no longer sees a marker. */
+export const plainText = (text: string): string => text.replace(/\[(?=\[)/g, '[\u200b')
+
+/** A stored file belongs to the person who sent the message: only paths inside the sender's own folder are signed
+ *  or removed, and never a path that climbs out of it. */
+export function ownsPath(path: string | undefined, sender: unknown): path is string {
+  if (typeof path !== 'string' || typeof sender !== 'string' || !sender) return false
+  if (!path.startsWith(`${sender}/`) || path.includes('..') || path.includes('//')) return false
+  return /^[A-Za-z0-9_./-]{8,160}$/.test(path)
+}
+
+/** The attachment marker for an existing message, kept as it was (kind, path and file name). */
+export function markFor(p: { kind?: Kind; path?: string; name?: string }): string {
+  if (!p.kind || !p.path) return ''
+  return `[[media:${p.kind}:${p.path}${p.name ? `|${encodeURIComponent(safeName(p.name))}` : ''}]]`
+}
 /** The text part of a body, the attachment marker if there is one, and whether it was edited. */
 export function splitBody(body: string): { text: string; kind?: Kind; path?: string; name?: string; edited?: boolean } {
   const edited = body.startsWith(EDITED)
@@ -120,9 +138,14 @@ export function previewBody(body: string): string {
   return s.text ? `${tag} · ${s.text}` : tag
 }
 
-/** Replace markers in thread lines with signed links (one batch call). */
-export async function signLines<T extends { body: string }>(db: SupabaseClient, lines: T[]): Promise<Array<T & { media?: Media }>> {
-  const parts = lines.map((l) => splitBody(l.body))
+/** Replace markers in thread lines with signed links (one batch call). Only files in the sender's own folder get a
+ *  link; any other path is dropped from the line. */
+export async function signLines<T extends { body: string; sender?: unknown }>(db: SupabaseClient, lines: T[]): Promise<Array<T & { media?: Media }>> {
+  const parts = lines.map((l) => {
+    const p = splitBody(l.body)
+    if (p.path && !ownsPath(p.path, l.sender)) return { text: p.text, ...(p.edited ? { edited: true } : {}) } as ReturnType<typeof splitBody>
+    return p
+  })
   const paths = [...new Set(parts.flatMap((p) => (p.path ? [p.path] : [])))]
   const urls = new Map<string, string>()
   if (paths.length) {
