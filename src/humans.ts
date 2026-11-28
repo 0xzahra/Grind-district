@@ -38,7 +38,7 @@ export type Look = {
   couture?: Couture
 }
 export type { Makeup } from './skinPaint.ts'
-export type Metal = 'gold' | 'rose' | 'steel'
+export type Metal = 'gold' | 'rose' | 'steel' | 'onyx' | 'platinum'
 export type Extras = {
   chain?: boolean; shades?: boolean; cap?: boolean; pearls?: boolean
   /** `true` is the steel watch (older saves). */
@@ -46,6 +46,10 @@ export type Extras = {
   earrings?: 'hoops' | 'studs' | 'drops'
   necklace?: 'chain' | 'pearls' | 'pendant'
   ring?: 'band' | 'solitaire' | 'signet'
+  /** Metal of the ring and necklace (default gold) and the stone (default diamond). */
+  metal?: Metal; stone?: 'diamond' | 'emerald'
+  /** Worn gadgets: the camera glasses, the mixed-reality visor and earbuds. */
+  lens?: boolean; visor?: boolean; buds?: boolean
 }
 
 type Region = 'skin' | 'hair' | 'top' | 'bottom' | 'shoes'
@@ -100,8 +104,16 @@ const CAP = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.9 })
 const ROSE = new THREE.MeshStandardMaterial({ color: 0xd9a08a, metalness: 0.9, roughness: 0.28 })
 const GEM = new THREE.MeshStandardMaterial({ color: 0xf4fbff, metalness: 0.15, roughness: 0.04, envMapIntensity: 2.4 })
 const DIAL = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.25, metalness: 0.4 })
-const METAL: Record<Metal, THREE.Material> = { gold: GOLD, rose: ROSE, steel: STEEL }
+const ONYX = new THREE.MeshStandardMaterial({ color: 0x232327, metalness: 0.7, roughness: 0.3 })
+const PLATINUM = new THREE.MeshStandardMaterial({ color: 0xe4e6ea, metalness: 0.95, roughness: 0.18 })
+const EMERALD = new THREE.MeshStandardMaterial({ color: 0x1f9e6a, metalness: 0.1, roughness: 0.06, envMapIntensity: 2.2 })
+const FRAME = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.35, metalness: 0.3 })
+const BUD = new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.3 })
+const METAL: Record<Metal, THREE.Material> = { gold: GOLD, rose: ROSE, steel: STEEL, onyx: ONYX, platinum: PLATINUM }
 const B = { root: 'Bip01', hips: 'Bip01_Pelvis', neck: 'Bip01_Neck', head: 'Bip01_Head' }
+const tmpFoot = new THREE.Vector3()
+/** Most a stride is lifted or lowered to keep the feet on the ground, in metres. */
+const PLANT_MAX = 0.08
 // Everything under /models/ is cached by browsers for a year as immutable (vercel.json), so a file here must
 // NEVER change in place: a phone that has the old bytes keeps them. Change a figure -> bump this folder (r2, r3).
 // (The first figures reused the old blocky people's file names, and returning phones drew those old files.)
@@ -453,13 +465,19 @@ function jewels(person: THREE.Object3D, t: Template, e: Extras): THREE.Object3D[
     made.push(obj)
   }
   const covered = COVERED.has(t.name)
+  const MET = e.metal ? METAL[e.metal] : GOLD
+  const STONE = e.stone === 'emerald' ? EMERALD : GEM
+  if (e.buds && fit.ears && !covered) for (const [i, lobe] of fit.ears.entries()) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 10, 8), BUD); b.scale.set(0.8, 1, 0.8)
+    hang(B.head, b, lobe.clone().add(new THREE.Vector3((i === 0 ? 1 : -1) * 0.002, 0.012, 0.004)))
+  }
   if (e.earrings && fit.ears && !covered) {
     for (const [i, lobe] of fit.ears.entries()) {
       const side = i === 0 ? 1 : -1
       const g = new THREE.Group()
       if (e.earrings === 'hoops') { const h = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0013, 6, 20), GOLD); h.rotation.y = Math.PI / 2; h.position.y = -0.011; g.add(h) }
-      else if (e.earrings === 'studs') g.add(new THREE.Mesh(new THREE.SphereGeometry(0.0042, 10, 8), PEARL))
-      else { const s = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 6), GOLD); const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.0055, 0), GEM); d.scale.set(0.75, 1.5, 0.75); d.position.y = -0.012; g.add(s, d) }
+      else if (e.earrings === 'studs') g.add(new THREE.Mesh(new THREE.SphereGeometry(0.0042, 10, 8), e.stone === 'emerald' ? EMERALD : PEARL))
+      else { const s = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 6), GOLD); const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.0055, 0), STONE); d.scale.set(0.75, 1.5, 0.75); d.position.y = -0.012; g.add(s, d) }
       hang(B.head, g, lobe.clone().add(new THREE.Vector3(side * 0.0015, -0.006, 0.002)))
     }
   }
@@ -477,18 +495,18 @@ function jewels(person: THREE.Object3D, t: Template, e: Extras): THREE.Object3D[
     const g = new THREE.Group()
     if (necklace === 'pearls') { for (let i = 0; i < 34; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.0042, 8, 6), PEARL); b.position.copy(path.getPointAt(i / 34)); g.add(b) } }
     else {
-      g.add(new THREE.Mesh(new THREE.TubeGeometry(path, 56, necklace === 'chain' ? 0.0028 : 0.0012, 5, true), GOLD))
-      if (necklace === 'pendant') { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.008, 0), GEM); d.scale.set(0.8, 1.25, 0.5); d.position.copy(along).multiplyScalar(half).add(new THREE.Vector3(0, -0.01, 0.002)); g.add(d) }
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(path, 56, necklace === 'chain' ? 0.0028 : 0.0012, 5, true), MET))
+      if (necklace === 'pendant') { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.008, 0), STONE); d.scale.set(0.8, 1.25, 0.5); d.position.copy(along).multiplyScalar(half).add(new THREE.Vector3(0, -0.01, 0.002)); g.add(d) }
     }
     hang('Bip01_Spine2', g, mid)
   }
   if (e.ring && fit.finger) {
     const f = fit.finger
     const g = new THREE.Group()
-    const band = new THREE.Mesh(new THREE.TorusGeometry(f.r, e.ring === 'signet' ? 0.0022 : 0.0016, 6, 20), GOLD)
+    const band = new THREE.Mesh(new THREE.TorusGeometry(f.r, e.ring === 'signet' ? 0.0022 : 0.0016, 6, 20), MET)
     g.add(band)
-    if (e.ring === 'solitaire') { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.0042, 0), GEM); d.position.y = f.r + 0.0028; g.add(d) }
-    if (e.ring === 'signet') { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.0026, 10), GOLD); p.position.y = f.r + 0.0012; g.add(p) }
+    if (e.ring === 'solitaire') { const d = new THREE.Mesh(new THREE.OctahedronGeometry(0.0042, 0), STONE); d.position.y = f.r + 0.0028; g.add(d) }
+    if (e.ring === 'signet') { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.0026, 10), MET); p.position.y = f.r + 0.0012; g.add(p) }
     // The torus lies in its own xy plane: turn its axis (z) along the finger.
     g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), f.dir)
     hang('Bip01_L_Hand', g, f.at)
@@ -604,7 +622,7 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         person.add(obj); person.updateMatrixWorld(true); b.attach(obj)
       }
       const eye = t.eye ?? [0, 0.095, 0.12, 0.062]
-      if (opts.glasses) at(B.head, wireGlasses(eye[3]), eye[0], eye[1], eye[2] + 0.012)
+      if (opts.glasses) { const wg = wireGlasses(eye[3]); at(B.head, wg, eye[0], eye[1], eye[2] + 0.012); root.userData.specs = wg }
       {
         // Face shape from the creator: widen or narrow the head across and front to back, never its height.
         const head = person.getObjectByName(B.head)
@@ -621,10 +639,17 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         // what is worn changes.
         const shades = (() => { const g = new THREE.Group(); for (const x of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.03, 0.006), SHADE); l.position.x = x * eye[3] / 2; g.add(l) } const bar = new THREE.Mesh(new THREE.BoxGeometry(eye[3], 0.005, 0.005), SHADE); bar.position.y = 0.008; g.add(bar); return g })()
         const cap = (() => { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.SphereGeometry(0.108, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), CAP); c.scale.set(0.92, 0.82, 1.12); const v = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.008, 0.075), CAP); v.position.set(0, 0.004, 0.14); g.add(c, v); return g })()
+        // Camera glasses: thick dark frames with the small lens and its light in the corner. The visor: one band.
+        const lens = (() => { const g = new THREE.Group(); for (const x of [-1, 1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0042, 6, 16), FRAME); r.scale.set(1.2, 0.85, 1); r.position.x = x * eye[3] / 2; g.add(r) } const bar = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.008, eye[3] - 0.056), 0.005, 0.005), FRAME); bar.position.y = 0.006; const cam = new THREE.Mesh(new THREE.SphereGeometry(0.0045, 8, 6), DIAL); cam.position.set(eye[3] / 2 + 0.026, 0.012, 0.002); g.add(bar, cam); return g })()
+        const visor = (() => { const g = new THREE.Group(); const v = new THREE.Mesh(new THREE.BoxGeometry(eye[3] + 0.09, 0.062, 0.05), BUD); const f = new THREE.Mesh(new THREE.BoxGeometry(eye[3] + 0.08, 0.05, 0.004), DIAL); f.position.z = 0.026; g.add(v, f); return g })()
+        at(B.head, lens, eye[0], eye[1], eye[2] + 0.016); at(B.head, visor, eye[0], eye[1], eye[2] + 0.004)
         at(B.head, shades, eye[0], eye[1], eye[2] + 0.014); at(B.head, cap, 0, t.crown - 0.062, 0.012)
+        const specs = root.userData.specs as THREE.Object3D | undefined
         let worn: THREE.Object3D[] = []
         const setExtras = (e: Extras = {}) => {
-          shades.visible = !!e.shades; cap.visible = !!e.cap
+          lens.visible = !!e.lens && !e.visor; visor.visible = !!e.visor
+          shades.visible = !!e.shades && !e.lens && !e.visor; cap.visible = !!e.cap
+          if (specs) specs.visible = !e.lens && !e.visor
           for (const o of worn) o.removeFromParent()
           worn = jewels(person, t, e)
         }
@@ -668,6 +693,18 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
       const w = [1, 0, 0, 0, 0]
       let danceT = 0, rig: Limbs | null = null
       const pace = { walk: t.speed.Walk || 1.1, jog: t.speed.Jog || 2.8, run: t.speed.Run || 5.6 }
+      // Where each foot and toe sits in the figure's own standing (bind) pose, in the figure's units.
+      const plant = (() => {
+        const hips = person.getObjectByName(B.root)
+        if (!hips) return null
+        t.scene.updateMatrixWorld(true)
+        const feet: Array<[THREE.Object3D, number]> = []
+        for (const n of ['Bip01_L_Foot', 'Bip01_L_Toe0', 'Bip01_R_Foot', 'Bip01_R_Toe0']) {
+          const live = person.getObjectByName(n), rest = t.scene.getObjectByName(n)
+          if (live && rest) feet.push([live, new THREE.Vector3().setFromMatrixPosition(rest.matrixWorld).y])
+        }
+        return feet.length === 4 ? { hips, feet } : null
+      })()
       mixer.update(0)
       step = (dt, moving, speed) => {
         // Gait by ground speed, so feet match the pace: walk, then jog, then run.
@@ -696,6 +733,18 @@ export function upgradeToHuman(avatar: ShrimpAvatar, model: HumanModel, opts: { 
         if (root.userData.acc < lod) return
         mixer.update(root.userData.acc)
         root.userData.acc = 0
+        // Feet on the ground: the clips were captured on another actor, so a stride can leave a figure's planted
+        // foot a few centimetres under the street (or over it). Lift or lower the hips so the lower foot rests where
+        // it does in the figure's own standing pose. Seated, swimming and dancing poses are left as they are.
+        if (plant && !root.userData.dance && person.position.y === 0 && person.rotation.x === 0) {
+          plant.hips.updateMatrixWorld(true)
+          let low = Infinity
+          for (const [bone, rest] of plant.feet) { tmpFoot.setFromMatrixPosition(bone.matrixWorld); person.worldToLocal(tmpFoot); low = Math.min(low, tmpFoot.y - rest) }
+          if (Number.isFinite(low)) {
+            const fix = low < 0 ? Math.min(-low, PLANT_MAX / person.scale.y) : gait <= 1 ? -Math.min(low, PLANT_MAX / person.scale.y) : 0
+            plant.hips.position.y += fix
+          }
+        }
         // Dancing (root.userData.dance, the player's Dance button or a friend's synced emote): posed on top
         // of the idle clip right after each update, so it never builds up between frames.
         if (root.userData.dance && !moving) { danceT += Math.max(0.016, dt); rig ??= limbs(person); if (rig) dancePose(person, rig, danceT) }

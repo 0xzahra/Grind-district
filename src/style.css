@@ -4827,6 +4827,16 @@ html[data-ui='light'] .pass-card .pass-line { color: #5a554a; }
 html[data-ui='light'] .pass-card .pass-extra { color: #0f7a48; }
 html[data-ui='light'] .pass-card .pass-go { color: #8a8478; }
 body.sheet-open .pass-card { display: none; }
+/* Compact and clear of the middle of the screen, where the player and the person beside them stand. */
+.pass-card { gap: 8px; width: min(236px, calc(100vw - 24px)); padding: 7px 8px 7px 7px; border-radius: 14px; top: calc(max(14px, env(safe-area-inset-top)) + 120px); }
+.pass-face { width: 32px; height: 32px; font-size: 14px; }
+.pass-top b { font-size: 13.5px; }
+.pass-sub, .pass-line, .pass-extra { font-size: 11.5px; }
+.pass-go { font-size: 18px; }
+@media (max-height: 560px) and (orientation: landscape) {
+  .pass-card { top: calc(max(10px, env(safe-area-inset-top)) + 50px); width: min(214px, 34vw); }
+  .pass-card .pass-extra { display: none; }
+}
 
 
 /* Place caption: always light text on its dark glass, whatever the theme. */
@@ -5113,3 +5123,28 @@ html body #login-dlg .login-sol-wrap .login-wallet-pick { display: grid; gap: 8p
 html body #login-dlg .login-sol-wrap .login-wallet-pick[hidden] { display: none; }
 html body #login-dlg .login-wallet-opt { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
 html body #login-dlg .login-wallet-opt img { border-radius: 6px; }
+/* Gadgets: one card per item (picture, name, price or state, what it does, its keys). */
+.gadget-card { display: grid; gap: 6px; margin: 0 0 12px; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.08); min-width: 0; }
+.gadget-card.on { border-color: rgba(46, 230, 138, 0.45); background: rgba(46, 230, 138, 0.06); }
+.gadget-card .shop-pic { margin: 0; }
+.gadget-card p { margin: 0; overflow-wrap: anywhere; }
+.gadget-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.gadget-head b { font-size: 15px; min-width: 0; overflow-wrap: anywhere; }
+.gadget-head small { flex: 0 0 auto; font-size: 12px; color: #d9b26a; }
+.gadget-card.on .gadget-head small { color: #2ee68a; }
+.gadget-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.gadget-acts button { flex: 1 1 160px; min-width: 0; white-space: normal; }
+.cam-row .cam-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.cam-row .cam-acts button { white-space: nowrap; }
+@media (max-width: 380px) { .cam-row { grid-template-columns: 1fr; } .cam-row .cam-acts { justify-content: stretch; } .cam-row .cam-acts button { flex: 1 1 auto; } }
+html[data-ui='light'] .gadget-card { background: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.08); }
+/* With a panel open, notes sit in the strip above it instead of over the panel's title and keys. */
+html body.sheet-open #toast { top: calc(max(8px, env(safe-area-inset-top)) + 2px) !important; max-width: min(92vw, 460px) !important; }
+/* Settings: every key whole and in line. Rows of choices share the width evenly and words wrap instead of being cut. */
+.settings-glass .tabs { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px !important; align-items: stretch; }
+.settings-glass .tabs > button { width: 100% !important; min-width: 0 !important; max-width: none !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.2; padding: 8px 10px !important; }
+html body #sheet .sheet-card.settings-glass .tabs > button.primary.primary:not(.topup *):not(.xch *):not(.ward *) { width: 100% !important; min-width: 0 !important; justify-self: stretch; padding: 8px 10px !important; }
+html body #sheet .sheet-card .gadget-acts > button.primary.primary:not(.topup *):not(.xch *):not(.ward *) { width: auto !important; min-width: 0; padding: 10px 14px !important; }
+.settings-glass button { max-width: 100%; white-space: normal !important; text-overflow: clip !important; }
+.settings-glass .tabs:has(input[type='range']) { grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: center; }
+.settings-glass .tabs input[type='range'] { width: 100%; min-width: 0; }

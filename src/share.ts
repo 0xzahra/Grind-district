@@ -2,14 +2,12 @@ import { track } from './track.ts'
 import { getSave } from './state.ts'
 import { rankFor, skillLines } from './logic.ts'
 
-/** Every outgoing share link carries src, ref (the sharer's username) and utm_* params. */
+/** Every outgoing share link carries only src and ref (the sharer's username): short enough to read in a post.
+ *  The stats count a player's source from src (utm_source is still read on links that already carry it). */
 export function shareLink(base: string, src: 'profile' | 'cv' | 'cert' | 'invite', username: string): string {
   const url = new URL(base, 'https://www.grinddistrict.app')
   url.searchParams.set('src', src)
-  if (username) url.searchParams.set('ref', username)
-  url.searchParams.set('utm_source', 'player_share')
-  url.searchParams.set('utm_medium', 'social')
-  url.searchParams.set('utm_campaign', src)
+  if (username) url.searchParams.set('ref', username.toLowerCase())
   return url.toString()
 }
 
@@ -36,7 +34,8 @@ export function profileLink(username: string): string {
 export function shareToX(username: string, rank: string): void {
   void publishProfile()
   track('share_click', { src: 'x' })
-  const text = username ? `I'm grinding in Grind District as @${username}, ${rank} rank. Come join:` : "I'm grinding in Grind District. Come join:"
+  void rank
+  const text = 'Learning Web3 in Grind District, a free 3D city. Lessons go straight onto my CV. Come join:'
   const intent = new URL('https://x.com/intent/post')
   intent.searchParams.set('text', text)
   intent.searchParams.set('url', profileLink(username))

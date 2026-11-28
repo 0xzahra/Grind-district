@@ -29,7 +29,7 @@ import { courseVisual } from './courseArt.ts'
 import { nearPassportOn, nearPassportPanel } from './nearPassport.ts'
 import { renderBadges, renderLuxury } from './luxury.ts'
 import { GUIDE } from './guide.ts'
-import { PIECES, owns, own, wear, worn, tintLook, type Piece, type Slot } from './wardrobe.ts'
+import { PIECES, owns, own, wear, worn, tintLook, wornGadgets, setGadgetWorn, WEARABLE, type Piece, type Slot } from './wardrobe.ts'
 import { featured, endsIn, BUNDLE_OFF } from './featured.ts'
 import { renderLedger } from './ledger.ts'
 import { PLACES, placeNodes, casinoNodes, wellnessNodes, buyAt } from './places.ts'
@@ -1128,6 +1128,22 @@ export function mountUi(
   const DRIVABLE_CARS: string[] = ['cityhatch', 'familysedan', 'saloon', 'tourer', 'evcoupe', 'sportsaloon', 'executive', 'supercar', 'hypercar']
   const shopItem = (v: (typeof VEHICLES)[number], panel: 'gadgets' | 'dealer'): HTMLElement[] => {
     const owned = (getSave().ownedVehicles ?? []).includes(v.id)
+    if (panel === 'gadgets') {
+      // A card per gadget: picture, name, what it does and its key(s) together, so nothing runs into the next item.
+      const card = document.createElement('section'); card.className = 'gadget-card'
+      const head = document.createElement('div'); head.className = 'gadget-head'
+      const nm = document.createElement('b'); nm.textContent = v.label
+      const tag = document.createElement('small'); tag.textContent = owned ? 'Yours' : money(v.price)
+      head.append(nm, tag)
+      const acts = document.createElement('div'); acts.className = 'gadget-acts'
+      if (!owned) acts.append(button(`Buy ${v.label} · ${money(v.price)}`, 'ghost', () => { const outcome = buyVehicle(v.id); hooks.onStyle(); finish(outcome.message); open('gadgets') }))
+      else if (WEARABLE.has(v.id)) {
+        const on = wornGadgets().includes(v.id)
+        acts.append(button(on ? `Take off the ${v.label.toLowerCase()}` : `Wear the ${v.label.toLowerCase()}`, on ? 'ghost' : 'primary', () => { setGadgetWorn(v.id, !on); hooks.onStyle(); finish(on ? `${v.label} off.` : `${v.label} on. You can see it on your character.`); open('gadgets') }))
+      } else acts.append(button(`${v.label} · owned`, 'primary', () => finish(`The ${v.label.toLowerCase()} is already yours.`)))
+      card.append(itemPic(v.id, v.label), head, para(v.blurb, 'muted'), acts)
+      return [card]
+    }
     return [itemPic(v.id, v.label), para(`${v.label} · ${v.blurb}`, 'muted'), button(owned ? `${v.label} · owned` : `Buy ${v.label} · ${money(v.price)}`, owned ? 'primary' : 'ghost', () => {
       const outcome = buyVehicle(v.id)
       hooks.onStyle()
@@ -1177,24 +1193,22 @@ export function mountUi(
       else cams.append(para('Photos and videos are saved to My Gallery (the picture key beside the menu), ready to post.', 'muted'))
       wrap.append(cams)
     }
+    // Drones: one card each, so Equip and Pocket always sit with the drone they belong to.
+    wrap.append(para('Drones', 'kicker'))
     for (const drone of DRONES) {
       const owned = save.ownedDrones.includes(drone.id)
       const equipped = save.drone === drone.id
-      const label = equipped ? `${drone.label} · flying` : owned ? `Equip ${drone.label}` : `Buy ${drone.label} · ${money(drone.price)}`
-      wrap.append(itemPic(drone.id, drone.label), para(drone.blurb, 'muted'))
-      wrap.append(button(label, equipped ? 'primary' : 'ghost', () => {
-        const outcome = buyDrone(drone.id)
-        hooks.onStyle()
-        finish(outcome.message)
-        open('gadgets')
-      }))
-    }
-    if (save.drone !== 'none') {
-      wrap.append(button('Pocket the drone', 'ghost', () => {
-        hooks.onStyle()
-        finish(pocketDrone().message)
-        open('gadgets')
-      }))
+      const card = document.createElement('section'); card.className = `gadget-card${equipped ? ' on' : ''}`
+      const head = document.createElement('div'); head.className = 'gadget-head'
+      const nm = document.createElement('b'); nm.textContent = drone.label
+      const tag = document.createElement('small'); tag.textContent = equipped ? 'Flying beside you' : owned ? 'Yours · in your pocket' : money(drone.price)
+      head.append(nm, tag)
+      const acts = document.createElement('div'); acts.className = 'gadget-acts'
+      if (!owned) acts.append(button(`Buy ${drone.label} · ${money(drone.price)}`, 'ghost', () => { const outcome = buyDrone(drone.id); hooks.onStyle(); finish(outcome.message); open('gadgets') }))
+      else if (!equipped) acts.append(button(`Equip ${drone.label}`, 'primary', () => { const outcome = buyDrone(drone.id); hooks.onStyle(); finish(outcome.message); open('gadgets') }))
+      else acts.append(button(`Pocket ${drone.label}`, 'ghost', () => { hooks.onStyle(); finish(pocketDrone().message); open('gadgets') }))
+      card.append(itemPic(drone.id, drone.label), head, para(drone.blurb, 'muted'), acts)
+      wrap.append(card)
     }
     wrap.append(para('Phones, computers and accessories', 'kicker'))
     for (const v of VEHICLES.filter((x) => x.kind === 'phone' || x.kind === 'laptop' || x.kind === 'accessory')) wrap.append(...shopItem(v, 'gadgets'))

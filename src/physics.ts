@@ -17,9 +17,10 @@ function pushCircle(pos: Vec, vel: Vec, obstacle: Circle, radius: number): void 
   const min = obstacle.r + radius
   const distSq = dx * dx + dz * dz
   if (distSq >= min * min) return
-  const dist = Math.sqrt(distSq) || 0.0001
-  const nx = dx / dist
-  const nz = dz / dist
+  // Exactly on the centre (a jump straight onto a round obstacle): step out to the south rather than stay inside.
+  const dist = Math.sqrt(distSq)
+  const nx = dist > 1e-4 ? dx / dist : 0
+  const nz = dist > 1e-4 ? dz / dist : 1
   const push = min - dist
   pos.x += nx * push
   pos.z += nz * push

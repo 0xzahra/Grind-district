@@ -129,15 +129,28 @@ export const RESIDENTS: ReadonlyArray<{ name: string; trait: string }> = [...WOM
 
 const CHAT = ['Did you see the demo day list?', 'Passed Risk sizing this morning.', 'Size first, story second.', 'Never sharing a seed. Ever.', 'The café board is gossip, not a signal.', 'Heading to the Campus.', 'Who is speaking at the podium?', 'Reading proposals before I vote.', 'Testnet points are a score, not a promise.', 'Same time at the gym tomorrow?']
 function bubble(text: string): THREE.Sprite {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 96
+  // Sized to the words and wrapped onto two lines at most, so a long line never runs off the edge and the
+  // bubble stays narrow enough not to cover the player or the person beside the speaker.
+  const c = document.createElement('canvas'); c.width = 512; c.height = 150
   const g = c.getContext('2d')!
   g.font = '500 30px -apple-system, system-ui, sans-serif'
-  const w = Math.min(500, g.measureText(text).width + 44)
-  g.fillStyle = 'rgba(248,246,242,0.92)'; g.beginPath(); g.roundRect((512 - w) / 2, 10, w, 70, 22); g.fill()
-  g.fillStyle = '#1c1c1e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 46)
+  const MAX = 420
+  const lines: string[] = []
+  let cur = ''
+  for (const word of text.split(/\s+/)) {
+    const next = cur ? `${cur} ${word}` : word
+    if (g.measureText(next).width > MAX && cur) { lines.push(cur); cur = word } else cur = next
+  }
+  if (cur) lines.push(cur)
+  if (lines.length > 2) { lines.length = 2; let l = lines[1]!; while (l.length > 1 && g.measureText(`${l}…`).width > MAX) l = l.slice(0, -1); lines[1] = `${l.trimEnd()}…` }
+  const w = Math.min(500, Math.max(...lines.map((l) => g.measureText(l).width)) + 44)
+  const h = 24 + lines.length * 38
+  g.fillStyle = 'rgba(248,246,242,0.92)'; g.beginPath(); g.roundRect((512 - w) / 2, (150 - h) / 2, w, h, 22); g.fill()
+  g.fillStyle = '#1c1c1e'; g.textAlign = 'center'; g.textBaseline = 'middle'
+  lines.forEach((l, i) => g.fillText(l, 256, 75 + (i - (lines.length - 1) / 2) * 38))
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }))
-  sp.scale.set(2.4, 0.45, 1); sp.position.y = 2.5; sp.userData.ghost = true; sp.raycast = () => undefined
+  sp.scale.set(1.9, 1.9 * 150 / 512, 1); sp.position.y = 2.5; sp.userData.ghost = true; sp.raycast = () => undefined
   return sp
 }
 

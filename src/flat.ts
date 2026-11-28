@@ -206,7 +206,7 @@ export async function startFlat(onReady: () => void): Promise<void> {
   // Map rows, pins, feed links and "Walk to Campus" all travel by place name, as in the 3D city.
   function findFlatSpot(title: string): Spot | undefined {
     const bare = (t: string) => t.replace(/^the\s+/i, '').trim().toLowerCase()
-    const alias: Record<string, string> = { plaza: 'grind ring', houses: 'your house', 'carbon desk': 'carbon' }
+    const alias: Record<string, string> = { plaza: 'grind ring', houses: 'your house', 'carbon desk': 'carbon', mosque: 'masjid', 'grand masjid': 'masjid', 'grand mosque': 'masjid' }
     const want = alias[bare(title)] ?? bare(title)
     return spots.find((h) => bare(h.title) === want) ?? spots.find((h) => want.startsWith(bare(h.title)) || bare(h.title).startsWith(want))
   }

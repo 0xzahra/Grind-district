@@ -21,7 +21,7 @@ export type ShareJob = {
   toast: (m: string) => void
 }
 
-const tagged = (url: string, via: string) => { const u = new URL(url); u.searchParams.set('src', via); u.searchParams.set('utm_source', via); return u.toString() }
+const tagged = (url: string, via: string) => { const u = new URL(url); u.searchParams.set('src', via); u.searchParams.delete('utm_source'); return u.toString() }
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n }
 
 let open: HTMLElement | null = null

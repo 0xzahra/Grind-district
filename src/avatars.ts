@@ -8,8 +8,8 @@ import { contactShadow, locomotion } from './rig.ts'
 import { createPlayer } from './player.ts'
 import { createShrimp, type ShrimpAvatar } from './shrimp.ts'
 import { createZuri } from './zuri.ts'
-import { MEN, WOMEN, upgradeToHuman, type Extras, type HumanModel, type Look } from './humans.ts'
-import { worn, piece, lookTinted } from './wardrobe.ts'
+import { MEN, WOMEN, upgradeToHuman, type Extras, type HumanModel, type Look, type Metal } from './humans.ts'
+import { worn, piece, lookTinted, wornGadgets } from './wardrobe.ts'
 
 export type Avatar = ShrimpAvatar
 
@@ -202,12 +202,20 @@ export function createAvatar(body: BodyId, tint: number, luxury: boolean, varian
     }
     const extras = (lux: boolean): Extras => {
       const a = worn().acc, has = (id: string) => a.includes(id)
+      // Every worn piece by its kind (boutique and Grind Pass alike), so nothing worn is left off the figure.
+      const of = (kind: string) => a.map((id) => piece(id)).find((p) => p?.kind === kind)?.id ?? ''
+      const metalOf = (id: string): Metal | undefined => /platinum/.test(id) ? 'platinum' : /onyx/.test(id) ? 'onyx' : /rose/.test(id) ? 'rose' : /steel/.test(id) ? 'steel' : /gold|band|signet|chain|hoops/.test(id) ? 'gold' : undefined
+      const w = of('watch'), n = of('necklace'), e = of('earrings'), r = of('ring')
+      const g = wornGadgets()
       return {
         shades: has('shades'), cap: has('cap'),
-        watch: has('watch-gold') ? 'gold' : has('watch-rose') ? 'rose' : has('watch-steel') ? 'steel' : undefined,
-        necklace: has('neck-pendant') ? 'pendant' : has('pearls') ? 'pearls' : has('neck-chain') || lux ? 'chain' : undefined,
-        earrings: has('ear-drops') ? 'drops' : has('ear-hoops') ? 'hoops' : has('ear-studs') ? 'studs' : undefined,
-        ring: has('ring-solitaire') ? 'solitaire' : has('ring-signet') ? 'signet' : has('ring-band') ? 'band' : undefined,
+        watch: w ? metalOf(w) ?? 'steel' : g.includes('watch') ? 'onyx' : undefined,
+        necklace: /pendant/.test(n) ? 'pendant' : /pearl/.test(n) ? 'pearls' : n || lux ? 'chain' : undefined,
+        earrings: /drops/.test(e) ? 'drops' : /hoops/.test(e) ? 'hoops' : e ? 'studs' : undefined,
+        ring: /solitaire|emerald/.test(r) ? 'solitaire' : /signet|onyx/.test(r) ? 'signet' : r ? 'band' : undefined,
+        metal: /rose|onyx|platinum/.test(n + r) ? metalOf(n + r) : undefined,
+        stone: /emerald/.test(n + e + r) ? 'emerald' : undefined,
+        lens: g.includes('camglasses'), visor: g.includes('vrset'), buds: g.includes('earbuds'),
       }
     }
     if (own) avatar.object.userData.extras = extras(luxury)

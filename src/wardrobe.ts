@@ -138,3 +138,17 @@ export function wear(p: Piece): void {
   }
   save()
 }
+
+// Gadgets you can wear (bought in Gadgets): the camera glasses and the smartwatch show on your character while
+// worn. Kept on this device beside the wardrobe, so the save format is unchanged.
+export const WEARABLE: ReadonlySet<string> = new Set(['camglasses', 'watch', 'earbuds', 'vrset'])
+const GADGET_KEY = 'gd.wear.gadgets'
+export function wornGadgets(): string[] {
+  try { const v = JSON.parse(localStorage.getItem(GADGET_KEY) ?? '[]') as unknown; return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && WEARABLE.has(x)) : [] } catch { return [] }
+}
+export function setGadgetWorn(id: string, on: boolean): void {
+  // The glasses and the headset both sit on the eyes: one at a time.
+  let next = wornGadgets().filter((x) => x !== id)
+  if (on) { if (id === 'camglasses' || id === 'vrset') next = next.filter((x) => x !== 'camglasses' && x !== 'vrset'); next.push(id) }
+  try { localStorage.setItem(GADGET_KEY, JSON.stringify(next)) } catch { /* this visit only */ }
+}

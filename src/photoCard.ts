@@ -166,8 +166,8 @@ export function shareCardToX(portrait: () => string | null, say: (m: string) => 
   const s = getSave(), u = s.username
   // Lead with what the player did: courses passed (each one a certificate), then who they are.
   const passed = Object.values(s.skills as Record<string, { passed?: boolean } | undefined>).filter((v) => v?.passed).length
-  const did = passed ? `I've passed ${passed} Web3 course${passed === 1 ? '' : 's'} in Grind District, each with a certificate on my CV.` : "I'm learning Web3 in Grind District."
-  const text = u ? `${did} @${u}, ${rankFor(s.xp).label} rank. Scan my card or tap to join:` : `${did} Come join:`
+  const did = passed ? `Passed ${passed} Web3 course${passed === 1 ? '' : 's'} in Grind District. Each one is on my CV.` : 'Learning Web3 in Grind District, a free 3D city.'
+  const text = `${did} Come join:`
   const open = (v: string) => {
     const intent = new URL('https://x.com/intent/post')
     intent.searchParams.set('text', text)

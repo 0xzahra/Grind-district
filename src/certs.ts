@@ -137,8 +137,8 @@ export async function openCertificate(course: SkillId, opts: { first?: boolean }
   // image itself; each link is tagged with where it was posted, so the stats page can show which one brings players.
   const nets = document.createElement('div')
   nets.className = 'cert-nets'
-  const tagged = (via: string) => { const u = new URL(link); u.searchParams.set('src', via); u.searchParams.set('utm_source', via); return u.toString() }
-  const blurb = () => `I just passed ${SKILL_META[course].title} on Grind District and earned my certificate. A free 3D city where you learn Web3 and walk out with a CV.`
+  const tagged = (via: string) => { const u = new URL(link); u.searchParams.set('src', via); u.searchParams.delete('utm_source'); return u.toString() }
+  const blurb = () => `Passed ${SKILL_META[course].title} in Grind District. Certificate's on my CV. Free 3D city, learn Web3 in a minute:`
   const net = (label: string, via: string, open: () => string | null) => {
     const b = document.createElement('button')
     b.type = 'button'; b.className = `ghost cert-net cert-net-${via}`; b.textContent = label

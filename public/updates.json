@@ -657,6 +657,13 @@
       "title": "New: sign in with a Solana wallet",
       "body": "Sign in or sign up with Phantom, Solflare or another Solana wallet. The sign-in buttons are now raised keys too.",
       "push": false
+    },
+    {
+      "id": "u1128-fixes-gadgets-map",
+      "title": "Gadgets, map and settings tidied up",
+      "body": "Each gadget now has its own card, so Equip and Pocket sit with the drone you bought. You can wear the camera glasses, smartwatch, earbuds and headset, and they show on your character. Grind Park, Grind Mall and the metro stops open from links and the map again. Settings keys fit, and feet stay on the ground.",
+      "go": "panel:gadgets",
+      "push": false
     }
   ]
 }

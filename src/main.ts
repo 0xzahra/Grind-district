@@ -1,3 +1,4 @@
+import { FAR } from './regionMap.ts'
 import { nextMission } from './worlds.ts'
 import { step as journeyStep } from './journey.ts'
 import { createDriveUi, nearestRoad, planRoute } from './drive.ts'
@@ -765,6 +766,13 @@ const apiAgents = createRemoteAgents(scene)
   let standUp: (() => void) | null = null
   function hooksTeleport(x: number, z: number) {
       standUp?.()
+      // Never arrive inside something (a kiosk, a car, a counter): take the nearest clear spot, rings outward.
+      if (!interiors.inside && !homes?.inside && blocked(world.obstacles, x, z, PLAYER_R + 0.05)) {
+        search: for (let r = 0.6; r <= 6; r += 0.6) for (let k = 0; k < 12; k += 1) {
+          const a = (k / 12) * Math.PI * 2 + Math.PI / 2, nx = x + Math.cos(a) * r, nz = z + Math.sin(a) * r
+          if (!blocked(world.obstacles, nx, nz, PLAYER_R + 0.05)) { x = nx; z = nz; break search }
+        }
+      }
       pos.x = x
       pos.z = z
       vel.x = 0
@@ -872,7 +880,28 @@ const apiAgents = createRemoteAgents(scene)
     void goingCard(spot.title, { x: pos.x, z: pos.z }, { x: spot.x, z: spot.z }).then(arrive)
   }
   travelHook = (title, enter) => {
-    const spot = findSpot(title)
+    const bare = (t: string) => t.replace(/^the\s+/i, '').replace(/[’']/g, "'").trim().toLowerCase()
+    const want = bare(title)
+    // Every name a place goes by: the street's doors first, then the places that load after the city opens
+    // (the mall, the hotel, the metro stops), then the places beyond the centre (Grind Park, the airport).
+    const MOSQUE = /^(grand )?(masjid|mosque)$/
+    let spot = MOSQUE.test(want) ? world.hotspots.find((h) => h.id === 'prayer') : findSpot(title)
+    if (!spot) {
+      const named = (h: Hotspot) => bare(h.title).replace(/^grind metro · /, 'metro · ')
+      spot = streetSpots.find((h) => named(h) === want || bare(h.title) === want)
+        ?? streetSpots.find((h) => !h.id.startsWith('bench-') && (named(h).startsWith(want) || want.startsWith(named(h))) && want.length > 3)
+    }
+    if (!spot && /^(grind )?(metro|train|station)( station| stop)?$/.test(want)) {
+      // "The metro": the nearest station on foot.
+      const stops = streetSpots.filter((h) => /^metro-(beach|marina|raceway|skytower)$/.test(h.id))
+      spot = stops.sort((a, b) => Math.hypot(a.x - pos.x, a.z - pos.z) - Math.hypot(b.x - pos.x, b.z - pos.z))[0]
+      if (!spot) { ui.toast('The trains are starting up. Try again in a moment.'); return }
+    }
+    if (!spot) {
+      const far = FAR.find((p) => !p.inside && (bare(p.title) === want || bare(p.title).startsWith(want) || want === p.area || want === `grind ${p.area}`))
+        ?? FAR.find((p) => bare(p.title) === want)
+      if (far) { if (homes?.inside !== far.area) { const paid = spendInGame(2, 'Grind Metro fare', `Straight to ${far.title}`); if (!paid.ok) { ui.toast(paid.message); return } } ui.close(); window.dispatchEvent(new CustomEvent('gd:home', { detail: { op: 'enter', id: far.area, viewing: true, at: far.at } })); window.setTimeout(() => ui.toast(`You are at ${far.title}.`), 3200); return }
+    }
     if (!spot) { ui.toast(`Couldn't find ${title} on the map.`); return }
     travelTo(spot, () => {
       if (!enter) return
@@ -985,7 +1014,7 @@ const apiAgents = createRemoteAgents(scene)
     document.body.append(selfieBar)
   }
   const startSelfie = () => {
-    if (ride || homes?.flying) { ui.toast('Step out first, then take a selfie.'); return }
+    if (ride?.driving || metro?.riding || homes?.flying) { ui.toast('Step out first, then take a selfie.'); return }
     target = null; vel.x = 0; vel.z = 0
     selfie = { angle: 0.35, dist: 1.5 }
     selfieBar.hidden = false; document.body.classList.add('selfie-mode')
@@ -1023,7 +1052,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   const startDroneCam = () => {
     if (getSave().drone === 'none') { ui.toast('Buy a drone in Gadgets (and equip it) to fly the drone camera.'); return }
-    if (ride || homes?.flying || interiors.inside || homes?.inside) { ui.toast(interiors.inside || homes?.inside ? 'Drones fly over the city: step outside first.' : 'Step out first, then launch the drone.'); return }
+    if (ride?.driving || metro?.riding || homes?.flying || interiors.inside || homes?.inside) { ui.toast(interiors.inside || homes?.inside ? 'Drones fly over the city: step outside first.' : 'Step out first, then launch the drone.'); return }
     if (selfie) endSelfie()
     ui.close()
     syncDrone()
@@ -1065,7 +1094,7 @@ const apiAgents = createRemoteAgents(scene)
   }
   const startGlassCam = () => {
     if (!((getSave().ownedVehicles ?? []) as string[]).includes('camglasses')) { ui.toast('Get Grind Lens camera glasses in Gadgets to film what you see.'); return }
-    if (ride || homes?.flying) { ui.toast('Step out first, then put the glasses on.'); return }
+    if (ride?.driving || metro?.riding || homes?.flying) { ui.toast('Step out first, then put the glasses on.'); return }
     if (selfie) endSelfie()
     if (droneCam) endDroneCam()
     ui.close(); setCC(false)
@@ -2896,7 +2925,7 @@ const apiAgents = createRemoteAgents(scene)
     return rc.intersectObjects(scene.children, true).slice(0, 4).map((h) => { const o = h.object as THREE.Mesh; const chain: string[] = []; for (let n: THREE.Object3D | null = o; n; n = n.parent) chain.push(n.name || n.type)
       const m = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial | undefined
       return { d: +h.distance.toFixed(2), p: h.point.toArray().map((v) => +v.toFixed(2)), geo: o.geometry?.type, params: (o.geometry as unknown as { parameters?: unknown })?.parameters, col: m?.color?.getHexString?.(), chain: chain.join('<') } })
-  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __area: (id: string) => { void enterHome(id as Parameters<typeof enterHome>[0], true) }, __spots: (q: string) => streetSpots.filter((s) => s.id.includes(q)).map((s) => ({ id: s.id, x: +s.x.toFixed(1), z: +s.z.toFixed(1) })), __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
+  }, __give: (n: number) => { getSave().ledger += n }, __swim: () => ({ swimming, swimMove: +swimMove.toFixed(2), tilt: +(((avatar.object.userData.person as THREE.Object3D | undefined)?.rotation.x ?? 0).toFixed(2)), top: (avatar.object.userData.look as { top?: number } | undefined)?.top, saved: !!swimSaved }), __traffic: () => traffic.debug(), __portraitHi: () => portraitShot(0, undefined, true), __sit: () => seating.sit({ x: pos.x, z: pos.z, yaw: 0, y: 0.45 } as Parameters<typeof seating.sit>[0], avatar.object), __tax: () => { getSave().taxOpen = true }, __use: (id: string) => { const u = (interiors.uses() as Array<{ id: string; use?: () => void }>).find((x) => x.id === id); u?.use?.(); return !!u }, __cam: (y: number, pi: number, d: number) => { camYaw = y; camPitch = pi; camDist = camDistGoal = d }, __camDist: () => camDist, __tp: (x: number, z: number) => { pos.x = x; pos.z = z }, __find: (t: string) => findSpot(t)?.id ?? null, __blockers: () => blockers.slice(), __bounds: () => interiors.bounds() ?? (homes?.inside ? homes.bounds() : null), __THREE: THREE, __travel: (t: string, enter = false) => travelHook(t, enter), __goSpot: (id: string) => { const h = streetSpots.find((x) => x.id === id) ?? world.hotspots.find((x) => x.id === id); if (h) travelTo(h); return !!h }, __spotTitles: () => world.hotspots.map((h) => h.title), __rooms: () => world.hotspots.filter((h) => interiors.roomFor(h.id)).map((h) => h.id), __enter: (q: string) => { const h = world.hotspots.find((x) => (x.id === q || x.action === q) && interiors.roomFor(x.id)); return h ? enterRoom(h) : false }, __pos: () => ({ x: pos.x, z: pos.z, y: +levelY.toFixed(2), sitting: !!seating.sitting }), __near: () => (interiors.inside ? (interiors.uses() as Hotspot[]) : streetSpots).map((u) => ({ id: u.id, enter: u.enter, d: +Math.hypot(u.x - pos.x, u.z - pos.z).toFixed(2) })).filter((u) => u.d < 2.5), __sat: () => { bakeSatellite(renderer, scene, 1024); return satelliteUrl() }, __obs: () => world.obstacles, __area: (id: string) => { void enterHome(id as Parameters<typeof enterHome>[0], true) }, __spots: (q: string) => streetSpots.filter((s) => s.id.includes(q)).map((s) => ({ id: s.id, x: +s.x.toFixed(1), z: +s.z.toFixed(1) })), __campos: () => [camera.position.x, camera.position.y, camera.position.z, camDist, camDistGoal], __crowdObs: () => crowdObstacles, __mk: () => { const r = avatar.object; const hd = r.getObjectByName("Head"); return { has: typeof r.userData.setMakeup, kids: hd ? hd.children.map((c) => c.type + ":" + c.children.length) : null, female: r.userData.person?.getObjectByName("Female") ? 1 : 0 } }, __shot: (a: number[], t: number[]) => {
     const c = new THREE.PerspectiveCamera(70, 0.6, 0.05, 200); c.position.set(a[0]!, a[1]!, a[2]!); c.lookAt(t[0]!, t[1]!, t[2]!)
     const W = 360, H = 600, rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace
     renderer.setRenderTarget(rt); renderer.render(scene, c); renderer.setRenderTarget(null)
