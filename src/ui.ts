@@ -443,7 +443,7 @@ export function mountUi(
         acts.append(button('Share my CV', 'primary', () => void shareCv().then((r) => toast(r === 'copied' ? 'CV link copied.' : r === 'shared' ? 'CV shared.' : 'Could not share just now.'))))
         acts.append(button('Latest certificate', 'ghost', () => void openCertificate(latest)))
       } else {
-        acts.append(button('Pass your first course', 'primary', () => open('learn')))
+        acts.append(button('Earn your first certificate', 'primary', () => open('learn')))
       }
       proof.append(acts)
     }
@@ -707,7 +707,7 @@ export function mountUi(
           nav.className = 'ex-nav'
           if (i > 0) nav.append(button('← Back', 'ghost', () => paint(i - 1)))
           if (i < cards.length - 1) nav.append(button(`Next · ${i + 1}/${cards.length}`, 'primary', () => paint(i + 1)))
-          else nav.append(button(passed ? 'Review the exercises' : `Quick check · ${total}`, 'primary', () => showExercise(0)))
+          else nav.append(button(passed ? 'Review the exercises' : `Earn the certificate · ${total} checks`, 'primary', () => showExercise(0)))
           const voice = button(lessonVoiceOn() ? '⏸ Pause voice' : '▶ Play voice', 'ghost lx-voice', () => {
             const on = !lessonVoiceOn(); setLessonVoice(on)
             voice.textContent = on ? '⏸ Pause voice' : '▶ Play voice'
@@ -718,7 +718,7 @@ export function mountUi(
           if (i === cards.length - 1 && sources) cardBox.append(para(sources, 'muted'))
         }
         paint(0)
-        wrap.append(cardBox, button(passed ? 'Jump to the exercises' : 'Skip to the quick check', 'ghost', () => showExercise(0)), advice())
+        wrap.append(cardBox, button(passed ? 'Jump to the exercises' : 'Skip to the certificate check', 'ghost', () => showExercise(0)), advice())
         body.replaceChildren(wrap)
         toTop()
       }
@@ -780,7 +780,7 @@ export function mountUi(
             showExercise(questionIndex + 1)
           }))
         } else {
-          const submit = button(passed ? 'On your CV' : `Check · +${money(COURSE_CASH)} · +5 reputation`, 'primary', () => {
+          const submit = button(passed ? 'On your CV' : `Add it to my CV · +${money(COURSE_CASH)}`, 'primary', () => {
             const missing = picks.findIndex((pick) => pick === null)
             if (missing >= 0) { if (missing === questionIndex) result.textContent = 'Pick an answer first.'; else showExercise(missing); return }
             const firstPass = !Object.values(getSave().skills).some((x) => x?.passed)

@@ -60,7 +60,7 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
   if (nextCourse) {
     const w = worldOf(nextCourse.id)
     const card = h('button', 'lx-continue')
-    card.append(h('small', '', `Continue · World ${w?.n ?? 1}: ${w?.title ?? ''}`), h('b', '', SKILL_META[nextCourse.id].title), h('span', '', `${nextCourse.minutes} · ${nextCourse.questions.length} checks · +5 reputation`))
+    card.append(h('small', '', `Your next certificate · World ${w?.n ?? 1}: ${w?.title ?? ''}`), h('b', '', SKILL_META[nextCourse.id].title), h('span', '', `On your CV in ${nextCourse.minutes} · ${nextCourse.questions.length} checks · +5 reputation`))
     card.onclick = () => onCourse(nextCourse.id)
     root.append(card)
   }
@@ -104,7 +104,7 @@ export function renderLearnHome(onCourse: (id: SkillId) => void): HTMLElement {
   root.append(h('p', 'lx-sub', 'Certificates'))
   const gal = h('div', 'lx-certs')
   const got = COURSES.filter((c) => passed(c.id))
-  if (!got.length) gal.append(h('p', 'muted', 'Pass a lesson to earn your first certificate.'))
+  if (!got.length) gal.append(h('p', 'muted', 'Your first certificate lands here, and on your CV, the moment you pass a lesson.'))
   for (const c of got) {
     const card = h('button', 'lx-cert'); card.append(h('small', '', 'Certificate'), h('b', '', SKILL_META[c.id].title))
     card.onclick = () => void openCertificate(c.id)

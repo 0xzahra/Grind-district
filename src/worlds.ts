@@ -45,7 +45,7 @@ export function lockReason(id: SkillId): string {
   if (!w) return ''
   if (!worldOpen(w.n)) return w.n === 6 ? 'Finish Worlds 1 to 5 to open Your Career' : `Finish World ${w.n - 1} to open`
   if (w.extra?.needsShield && w.extra.missions.includes(id) && !scamShield()) return 'Earn the Scam Shield badge to unlock'
-  if (w.boss === id && !w.missions.every(passed)) return 'Finish this World\'s missions first'
+  if (w.boss === id && !w.missions.every(passed)) return 'Unlocks once this World\'s missions are on your CV'
   return ''
 }
 /** Play order: every World's missions, then its final check, then its extra missions. */

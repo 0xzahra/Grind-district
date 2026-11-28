@@ -393,10 +393,19 @@ const apiAgents = createRemoteAgents(scene)
   resumeMusicOnFirstTap()
   ensureAmbientOnGesture()
   const needsFirstCourse = () => !Object.values(getSave().skills).some((s) => s?.passed)
+  // First city entry (once per device, before any lesson is passed): one next step only, the Learning Center.
+  // The menu badge, the notifications banner, the daily-streak card and the featured tile wait until the
+  // first lesson is passed or the next visit, so nothing competes with that one step.
+  const firstEntry = (() => { try { if (!needsFirstCourse() || localStorage.getItem('gd.firstEntry')) return false; localStorage.setItem('gd.firstEntry', '1'); return true } catch { return false } })()
+  const quietStart = () => firstEntry && needsFirstCourse()
+  if (firstEntry) {
+    document.body.classList.add('first-entry')
+    const lift = window.setInterval(() => { if (!quietStart()) { document.body.classList.remove('first-entry'); window.clearInterval(lift) } }, 2000)
+  }
   let firstOpened = false // re-armed when the player walks away from Zahra, so closing the card is never a dead end
   if (needsFirstCourse()) {
     scene.add(firstMarker)
-    window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Zahra at Campus', 'Follow the gold marker north of the plaza. Zahra gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
+    if (!firstEntry) window.setTimeout(() => { if (needsFirstCourse()) notify('Meet Zahra at Campus', 'Follow the gold marker north of the plaza. Zahra gives you a 1-minute first lesson that files to your CV.', 'first-task', 'place:Campus') }, 2500)
   }
   const calmSky = () => reduceMotion || getSave().reduceMotion
   // The sky (and so the season) stays where the player put it unless they choose Auto in Settings: the day
@@ -1506,7 +1515,8 @@ const apiAgents = createRemoteAgents(scene)
   goal.type = 'button'; goal.id = 'goal'; goal.className = 'goal-pill'
   const goalText = document.createElement('b'); const goalSub = document.createElement('small')
   const goalKick = document.createElement('span'); goalKick.className = 'goal-kick'; goalKick.textContent = 'Next step'
-  goal.append(goalKick, goalText, goalSub)
+  const goalGoKey = document.createElement('span'); goalGoKey.className = 'goal-go'; goalGoKey.textContent = 'Go'; goalGoKey.setAttribute('aria-hidden', 'true')
+  goal.append(goalKick, goalText, goalSub, goalGoKey)
   document.body.append(goal)
   let goalGo = ''
   const runStep = (go: string) => {
@@ -1536,7 +1546,7 @@ const apiAgents = createRemoteAgents(scene)
     const st = nextStep()
     goalGo = st.go
     let sub = st.sub
-    if (st.go === 'mentor' && !interiors.inside) { const d = Math.round(Math.hypot(pos.x, pos.z + 40.4)); if (d > 4) sub = `${d} m away · tap to go` }
+    if (st.go === 'mentor' && !interiors.inside) { const d = Math.round(Math.hypot(pos.x, pos.z + 40.4)); if (d > 4) sub = `Campus · ${d} m away` }
     if (goalText.textContent !== st.text) { goal.classList.remove('folded'); goalArmed = false; goalText.textContent = st.text }
     // Fold timer starts only once the pill is actually on screen (not behind the welcome sheet).
     if (!goalArmed && goal.getClientRects().length > 0 && !document.body.classList.contains('sheet-open') && getComputedStyle(goal).visibility !== 'hidden') { goalArmed = true; foldGoal(6000) }
@@ -1630,8 +1640,8 @@ const apiAgents = createRemoteAgents(scene)
   }
   const paintStreak = () => {
     const st = loginState()
-    streakCard.hidden = !st.claimable
-    if (!st.claimable) return
+    streakCard.hidden = !st.claimable || quietStart()
+    if (!st.claimable || quietStart()) return
     const r = streakReward(st)
     streakTitle.textContent = `Daily streak · day ${r.day}`
     streakSub.textContent = `Your check-in reward is ready: +$${r.usd} in-game`
@@ -1652,6 +1662,39 @@ const apiAgents = createRemoteAgents(scene)
   window.addEventListener('gd:revealed', () => window.setTimeout(paintStreak, 2500), { once: true })
   window.setInterval(paintStreak, 60_000) // a new day while playing
   window.setInterval(() => { try { paintLearn() } catch { /* booting */ } }, 2000)
+  // Featured this visit: one activity tile in the menu, a different one each session, cycling in order so the
+  // same one never shows twice in a row (the last one is kept on this device). Hidden on the first city entry.
+  {
+    const FEATURES = [
+      { id: 'trade', title: 'Trading floor', sub: 'Practice trades with in-game dollars, never real money', go: 'place:Trading floor', icon: '<path d="M4 5v14h16M8 15l3.5-4 3 2.5L19 8"/>' },
+      { id: 'campus', title: 'Campus lessons', sub: 'One short lesson adds a certificate to your CV', go: 'panel:learn', icon: '<path d="M3 8.5 12 5l9 3.5-9 3.5-9-3.5Zm3 2.2V15c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.3"/>' },
+      { id: 'beach', title: 'The beach', sub: 'Take the metro south to the sand and the sea', go: 'place:Beach', icon: '<circle cx="12" cy="8" r="3.2"/><path d="M3 17c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0M3 21c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/>' },
+      { id: 'wardrobe', title: 'Wardrobe', sub: 'Everyday looks are free: try one on', go: 'panel:boutique', icon: '<path d="M6 7h12l-1 13H7L6 7Zm3 0a3 3 0 0 1 6 0"/>' },
+      { id: 'mcgrind', title: 'McGrind job', sub: 'Work a shift at the counter for in-game pay', go: 'place:McGrind', icon: '<path d="M5 10h14l-1.5 9h-11L5 10Zm2-4h10l1 4H6l1-4Z"/>' },
+    ]
+    let pick = FEATURES[0]!
+    try {
+      const now = sessionStorage.getItem('gd.featured.now')
+      const held = FEATURES.find((f) => f.id === now)
+      if (held) pick = held
+      else {
+        const last = FEATURES.findIndex((f) => f.id === localStorage.getItem('gd.featured.last'))
+        pick = FEATURES[(last + 1) % FEATURES.length]!
+        sessionStorage.setItem('gd.featured.now', pick.id); localStorage.setItem('gd.featured.last', pick.id)
+      }
+    } catch { /* private mode: the trading floor */ }
+    const card = document.createElement('button')
+    card.type = 'button'; card.className = 'cc-card cc-wide cc-featured'; card.id = 'cc-featured'
+    card.dataset.feature = pick.id
+    card.setAttribute('aria-label', `Featured: ${pick.title}. ${pick.sub}`)
+    const icon = document.createElement('span'); icon.className = 'cc-circle cc-accent'
+    icon.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${pick.icon}</svg>`
+    const text = document.createElement('span'); text.className = 'cc-learn-text'
+    text.append(Object.assign(document.createElement('em'), { className: 'cc-feat-eyebrow', textContent: 'Featured this visit' }), Object.assign(document.createElement('strong'), { textContent: pick.title }), Object.assign(document.createElement('small'), { textContent: pick.sub }))
+    card.append(icon, text)
+    card.addEventListener('click', () => { runStep(pick.go) })
+    streakCard.after(card)
+  }
   must('#cc-career').addEventListener('click', openCareer)
   must('#cc-feed').addEventListener('click', openFeed)
   onCareer(() => { paintStatus(); if (!ccSheet.hidden && sheetTitle.textContent === 'City Feed') renderFeed(sheetBody, (to) => { follow(to) }) })
@@ -1704,18 +1747,18 @@ const apiAgents = createRemoteAgents(scene)
   window.setInterval(() => {
     const n = unreadCount()
     const msgUnread = must('#msg-btn').classList.contains('unread')
-    const total = n + dmUnread()
+    const total = quietStart() ? 0 : n + dmUnread()
     menuCount.hidden = total === 0
     menuCount.textContent = total > 9 ? '9+' : String(total)
     dot.hidden = total > 0 || !msgUnread
-    bellBadge.hidden = n === 0
+    bellBadge.hidden = n === 0 || quietStart()
     bellBadge.textContent = n > 9 ? '9+' : String(n)
     must('#cc-msg').classList.toggle('has-unread', msgUnread || dmUnread() > 0)
     // The banner: only in the open city (not over the menu, a panel, the title, a selfie or a skit).
     const clear = performance.getEntriesByName('gd:revealed').length > 0 && document.body.classList.contains('rail-shut') && !ui.isOpen() && ccSheet.hidden
       && !document.body.classList.contains('selfie-mode') && !document.body.classList.contains('drone-mode') && !document.body.classList.contains('glass-mode') && !document.getElementById('sk-bar') && !document.querySelector('.mentor:not([hidden])')
     // A prayer reminder on screen keeps its place; the notifications banner waits for it to go.
-    if (!clear || document.querySelector('.pt-banner')) return
+    if (!clear || document.querySelector('.pt-banner') || quietStart()) return
     if (n > 0 && (seenUnread < 0 || n > seenUnread)) showBanner(n)
     seenUnread = n
   }, 800)
@@ -3644,7 +3687,7 @@ const apiAgents = createRemoteAgents(scene)
           if (paceSum / paceN > 22) {
             lock30 = true; try { localStorage.setItem(FPS_KEY, '1') } catch { /* private mode */ }
             // A phone this slow also gets Lite, now and on later visits (unless Full was chosen in Settings).
-            if (noteStruggling()) { setLiteNow(true); applyGraphics(); ui.toast('Light performance on for smoother play. Change it in Settings > Performance.') }
+            if (noteStruggling()) { setLiteNow(true); applyGraphics(); if (!quietStart()) ui.toast('Light performance on for smoother play. Change it in Settings > Performance.') }
           }
           paceT = paceSum = paceN = 0
         }
@@ -3678,8 +3721,8 @@ const apiAgents = createRemoteAgents(scene)
           if (pcT / pcN > 34 && now - pcStepAt > 8000) {
             pcStepAt = now
             const g = getSave().graphics
-            if (g !== 'low') { setGraphics(g === 'high' ? 'medium' : 'low'); applyGraphics(); ui.toast(`Graphics set to ${g === 'high' ? 'Medium' : 'Low'} to keep the game smooth. Change it in Settings.`) }
-            else if (!liteOn() && noteStruggling()) { setLiteNow(true); applyGraphics(); ui.toast('Light performance on for smoother play. Change it in Settings > Performance.') }
+            if (g !== 'low') { setGraphics(g === 'high' ? 'medium' : 'low'); applyGraphics(); if (!quietStart()) ui.toast(`Graphics set to ${g === 'high' ? 'Medium' : 'Low'} to keep the game smooth. Change it in Settings.`) }
+            else if (!liteOn() && noteStruggling()) { setLiteNow(true); applyGraphics(); if (!quietStart()) ui.toast('Light performance on for smoother play. Change it in Settings > Performance.') }
           }
           pcT = pcN = 0
         }

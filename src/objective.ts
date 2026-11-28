@@ -11,7 +11,7 @@ export function nextStep(): Step {
   const s = getSave()
   const passed = SKILL_ORDER.filter((id) => s.skills[id]?.passed)
   // The core loop first: Campus → a short lesson → your CV and certificate → (optional) mint on NEAR.
-  if (!passed.length) return { text: 'Go to Campus for your first lesson', sub: 'Zahra teaches it in about a minute · it goes on your CV', go: 'mentor' }
+  if (!passed.length) return { text: 'Go to the Learning Center', sub: 'Campus · a 1-minute lesson puts your first certificate on your CV', go: 'mentor' }
   const seen = (k: string) => { try { return !!localStorage.getItem(k) } catch { return true } }
   if (!seen('gd.cvSeen')) return { text: 'See your course on your CV', sub: 'Profile · your first certificate is there too', go: 'panel:profile' }
   if (!seen('gd.certSeen')) return { text: 'Open your certificate', sub: 'Download or share it · minting on NEAR is optional', go: `cert:${passed[0]}` }
@@ -25,6 +25,6 @@ export function nextStep(): Step {
   const duty = job.duties.find((d) => !done.includes(d.id))
   if (duty) return { text: `Today: ${duty.text}`, sub: `${job.title} · ${duty.place} · pays in-game $`, go: `place:${duty.place}` }
   const course = mission
-  if (course) return { text: `Next lesson: ${SKILL_META[course].title}`, sub: `Study it at Campus · +$${COURSE_CASH}`, go: `course:${course}` }
+  if (course) return { text: `Next lesson: ${SKILL_META[course].title}`, sub: `Adds a certificate to your CV · +$${COURSE_CASH}`, go: `course:${course}` }
   return { text: 'Climb the weekly challenges', sub: 'Each weekly challenge pays +$50 in-game', go: 'career:weekly' }
 }

@@ -664,6 +664,13 @@
       "body": "Each gadget now has its own card, so Equip and Pocket sit with the drone you bought. You can wear the camera glasses, smartwatch, earbuds and headset, and they show on your character. Grind Park, Grind Mall and the metro stops open from links and the map again. Settings keys fit, and feet stay on the ground.",
       "go": "panel:gadgets",
       "push": false
+    },
+    {
+      "id": "u1128-first-session",
+      "title": "A clearer first visit",
+      "body": "New players see one next step: the Learning Center. A featured activity changes each visit, and lessons now tell you what you get: a certificate on your CV.",
+      "go": "panel:learn",
+      "push": false
     }
   ]
 }
