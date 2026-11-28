@@ -3984,6 +3984,25 @@ html body #nav.cc .cc-grid.few { grid-template-columns: repeat(5, minmax(0, 1fr)
 #gd-modal .gm-go { border-color: #04803f; background: var(--key-gold); box-shadow: var(--key-gold-sh); color: #032612; font-weight: 700; }
 #gd-modal .gm-brief { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14.5px; line-height: 1.45; }
 #gd-modal .gm-key:focus-visible { outline: 2px solid #06ee74; outline-offset: 2px; }
+#gd-modal .gm-key.gm-danger {
+  border-color: #7d1f29; background: var(--key-red); box-shadow: var(--key-red-sh);
+  color: #2a0508; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3); font-weight: 700;
+}
+#gd-modal .gm-key:disabled, #gd-modal .gm-key.gm-danger:disabled {
+  cursor: not-allowed; opacity: 0.42; filter: grayscale(0.35); transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+#gd-modal .gm-key:disabled:active { transform: none; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 0 rgba(0, 0, 0, 0.4); }
+#gd-modal .gm-confirm-word {
+  display: block; width: 100%; box-sizing: border-box; margin-top: 10px; padding: 12px 14px;
+  border-radius: 13px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(0, 0, 0, 0.35);
+  color: #f6f1e6; font: 650 16px/1.2 var(--sys); letter-spacing: 0.08em; text-transform: uppercase;
+}
+#gd-modal .gm-confirm-word:focus-visible { outline: 2px solid #06ee74; outline-offset: 2px; }
+html[data-ui='light'] #gd-modal .gm-confirm-word {
+  background: rgba(0, 0, 0, 0.05); color: #1d1b17; border-color: rgba(70, 56, 34, 0.35);
+}
+
 html[data-ui='light'] #gd-modal .gm-card { background: linear-gradient(180deg, #ffffff 0%, #f3efe7 100%); color: #1d1b17; border-color: rgba(70, 56, 34, 0.35); }
 html[data-ui='light'] #gd-modal .gm-sub, html[data-ui='light'] #gd-modal .gm-does, html[data-ui='light'] #gd-modal .gm-meta, html[data-ui='light'] #gd-modal .gm-price { color: #6b655a; }
 html[data-ui='light'] #gd-modal .gm-kick { color: #04803f; } html[data-ui='light'] #gd-modal .gm-hint { color: #8a6a1c; }

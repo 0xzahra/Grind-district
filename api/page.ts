@@ -88,7 +88,7 @@ export default async function handler(req: Req, res: Res) {
   let desc = 'Live a Web3 life. Build proof that travels with you. City · Career · Skills · CV.'
   let heading = title
   let sub = ''
-  let image = `${origin}/og-image-v3.png`
+  let image = `${origin}/og-image-v4.png`
   let imgW = 1200, imgH = 630
   let body = ''
   let valid = true

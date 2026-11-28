@@ -188,6 +188,79 @@ function stack(...nodes: Array<Node | string>): HTMLDivElement {
 }
 
 /** Which figure, colours and framing photograph a boutique piece (the same choice the avatar itself makes). */
+
+/** Typed confirm for irreversible Settings actions. Cancel is the safe default; the red key stays off until the word is typed. */
+function confirmDanger(opts: {
+  title: string
+  lines: string[]
+  word: 'RESET' | 'DELETE'
+  confirmLabel: string
+  onConfirm: () => void | Promise<void>
+}): void {
+  document.getElementById('gd-modal')?.remove()
+  const shade = document.createElement('div')
+  shade.id = 'gd-modal'
+  shade.className = 'gm-shade'
+  shade.setAttribute('role', 'dialog')
+  shade.setAttribute('aria-modal', 'true')
+  shade.setAttribute('aria-labelledby', 'gd-confirm-title')
+  const card = document.createElement('div')
+  card.className = 'gm-card'
+  const title = document.createElement('h2')
+  title.id = 'gd-confirm-title'
+  title.className = 'gm-title'
+  title.textContent = opts.title
+  card.append(title)
+  for (const line of opts.lines) card.append(para(line, 'gm-sub'))
+  card.append(para(`Type ${opts.word} below to unlock the red key.`, 'gm-hint'))
+  const input = document.createElement('input')
+  input.className = 'gm-confirm-word'
+  input.type = 'text'
+  input.autocomplete = 'off'
+  input.spellcheck = false
+  input.placeholder = opts.word
+  input.setAttribute('autocapitalize', 'characters')
+  input.setAttribute('aria-label', `Type ${opts.word} to confirm`)
+  const keys = document.createElement('div')
+  keys.className = 'gm-keys'
+  const cancel = document.createElement('button')
+  cancel.type = 'button'
+  cancel.className = 'gm-key gm-go'
+  cancel.textContent = 'Cancel'
+  const yes = document.createElement('button')
+  yes.type = 'button'
+  yes.className = 'gm-key gm-danger'
+  yes.textContent = opts.confirmLabel
+  yes.disabled = true
+  const dismiss = () => {
+    document.removeEventListener('keydown', onKey, true)
+    shade.remove()
+  }
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dismiss() }
+  }
+  document.addEventListener('keydown', onKey, true)
+  shade.addEventListener('click', (e) => { if (e.target === shade) dismiss() })
+  cancel.addEventListener('click', dismiss)
+  const sync = () => { yes.disabled = input.value.trim().toUpperCase() !== opts.word }
+  input.addEventListener('input', sync)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); if (!yes.disabled) yes.click() }
+  })
+  yes.addEventListener('click', () => {
+    if (yes.disabled) return
+    yes.disabled = true
+    dismiss()
+    void opts.onConfirm()
+  })
+  keys.append(cancel, yes)
+  card.append(input, keys)
+  shade.append(card)
+  document.body.append(shade)
+  input.focus()
+}
+
+
 function shotFor(pc: Piece, lady: boolean): { key: string; model: HumanModel; look?: Look; frame: Frame; extras?: Extras } | null {
   const key = `${pc.id}:${lady ? 'f' : 'm'}`
   if (pc.slot === 'look') return pc.figure ? { key, model: pc.figure as HumanModel, look: pc.couture ? { ...pc.palette, couture: pc.couture } : pc.palette, frame: 'full' } : null
@@ -1384,31 +1457,24 @@ export function mountUi(
       open('settings')
     }))
     const reset = button('Reset game progress…', 'danger', () => {
-      const dlg = document.createElement('div')
-      dlg.className = 'wallet-dlg'
-      dlg.setAttribute('role', 'dialog')
-      dlg.setAttribute('aria-label', 'Confirm reset')
-      const body = document.createElement('div')
-      body.className = 'wallet-body'
-      body.append(
-        para('Reset game progress?', 'kicker'),
-        para('This erases your in-game balance, reputation and rank progress, courses, trades, inventory, and activity history — including the cloud copy — and syncs $0.00 to your account.', 'muted'),
-        para('It does NOT sign you out. Username, email/sign-in, and avatar stay. The $1,000 starting bonus is not paid again.'),
-        para('Separate from Delete my account.', 'muted'),
-      )
-      const row = document.createElement('div'); row.className = 'tabs'
-      row.append(
-        button('Keep my progress', 'ghost', () => dlg.remove()),
-        button('Erase progress', 'danger', () => {
+      confirmDanger({
+        title: 'Reset game progress?',
+        lines: [
+          'This erases your in-game balance, reputation and rank progress, courses, trades, inventory, and activity history — including the cloud copy — and syncs $0.00 to your account.',
+          'It does not sign you out. Your username, email or sign-in, and avatar stay. The $1,000 starting bonus is not paid again.',
+          'This is separate from Delete my account.',
+        ],
+        word: 'RESET',
+        confirmLabel: 'Yes, reset',
+        onConfirm: () => {
           resetProgress()
           void import('./login.ts').then((l) => l.syncProgress().catch(() => {}))
           hooks.onBody(); hooks.onStyle(); hooks.onLook(); hooks.onGraphics()
           hooks.onRank(rankFor(getSave().xp).label)
-          dlg.remove(); close()
+          close()
           toast('Progress erased. Account kept. Balance is $0.00.')
-        }),
-      )
-      body.append(row); dlg.append(body); document.body.append(dlg)
+        },
+      })
     })
     const notifyRow = document.createElement('div')
     notifyRow.className = 'tabs'
@@ -1463,43 +1529,22 @@ export function mountUi(
       accountRow.append(button('Sign out', 'ghost', () => { void import('./login.ts').then((l) => l.signOut()) }))
       accountRow.append(button('Remove / change email…', 'ghost', () => { void import('./login.ts').then((l) => l.openEmailAccountActions()) }))
       accountRow.append(button('Delete my account / data…', 'danger', () => {
-        const dlg = document.createElement('div')
-        dlg.className = 'wallet-dlg'
-        dlg.setAttribute('role', 'dialog')
-        dlg.setAttribute('aria-label', 'Delete account')
-        const body = document.createElement('div')
-        body.className = 'wallet-body'
-        body.append(
-          para('Delete your Grind District account?', 'kicker'),
-          para('Permanently removes username, cloud progress, wallet records, and public profile, and deletes Privy sign-in for this app.', 'muted'),
-          para('Game Reset only clears progress. This deletes the account.'),
-        )
-        const row1 = document.createElement('div'); row1.className = 'tabs'
-        row1.append(
-          button('Cancel', 'ghost', () => dlg.remove()),
-          button('I understand — continue', 'danger', () => {
-            body.replaceChildren(para('Final confirmation', 'kicker'), para('Type DELETE below, then confirm. This cannot be undone.'))
-            const input = document.createElement('input')
-            input.type = 'text'; input.placeholder = 'DELETE'; input.autocomplete = 'off'
-            input.style.cssText = 'width:100%;margin:8px 0;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.35);color:#fff'
-            const status = para('', 'result')
-            const row2 = document.createElement('div'); row2.className = 'tabs'
-            row2.append(
-              button('Cancel', 'ghost', () => dlg.remove()),
-              button('Delete forever', 'danger', () => {
-                if (input.value.trim().toUpperCase() !== 'DELETE') { status.textContent = 'Type DELETE exactly to confirm.'; return }
-                status.textContent = 'Deleting…'
-                void import('./login.ts').then(async (l) => {
-                  const ok = await l.deleteAccount()
-                  if (!ok) { status.textContent = 'Could not delete. Sign in again and retry.'; return }
-                  dlg.remove(); toast('Account and data deleted.')
-                })
-              }),
-            )
-            body.append(input, status, row2)
-          }),
-        )
-        body.append(row1); dlg.append(body); document.body.append(dlg)
+        confirmDanger({
+          title: 'Delete your Grind District account?',
+          lines: [
+            'This permanently removes your username, cloud progress, wallet records and public profile, and deletes sign-in for this app.',
+            'Reset game progress only clears the game. This deletes the account. This cannot be undone.',
+          ],
+          word: 'DELETE',
+          confirmLabel: 'Yes, delete',
+          onConfirm: () => {
+            void import('./login.ts').then(async (l) => {
+              const ok = await l.deleteAccount()
+              if (!ok) { toast('Could not delete. Sign in again and retry.'); return }
+              toast('Account and data deleted.')
+            })
+          },
+        })
       }))
     } else {
       accountRow.append(button('Sign in', 'ghost', () => { close(); void import('./login.ts').then((l) => l.openLogin()) }))

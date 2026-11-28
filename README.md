@@ -191,7 +191,7 @@ A NEAR mainnet top-up for in-game purchases (the player sends NEAR from their ow
 
 ![The dealership: city saloon, executive saloon, sport saloon, grand tourer, electric coupé, V8 supercar and hypercar](docs/screenshots/cars.jpg)
 
-The full design is in the [GDD](docs/GDD.md).
+The full design is in the Game Design Document v2.6 (28 Nov 2026): [GDD on GitHub](docs/GDD.md) · [shared GDD page](https://cursor.com/canvas/store-8e296a3c-edb1-429c-a056-b1e0c268fdd7/63dd0272-7db3-48d6-8d85-a59043b880d2).
 
 ## Run from source
 
