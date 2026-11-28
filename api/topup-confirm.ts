@@ -8,6 +8,7 @@ import {
 import { nearRoute } from './_nearRoute.js'
 import { gaslessRoute } from './_gasless.js'
 import { railsRoute } from './_railsRoute.js'
+import { provePayer, type ProofDeps } from './_payerProof.js'
 
 // Automatic top-up: exact preset amount (e.g. 5 USDC = 5000000) + connected payer address.
 // Server finds Transfer/EthDeposited from that payer to the treasury, verifies via confirmTopup, credits once.
@@ -37,6 +38,28 @@ async function authUserId(headers: Req['headers']): Promise<string | null> {
   try { return (await new PrivyClient(appId, process.env.PRIVY_APP_SECRET).verifyAuthToken(token)).userId } catch { return null }
 }
 
+const privy = () => {
+  const appId = process.env.PRIVY_APP_ID ?? process.env.VITE_PRIVY_APP_ID
+  return appId && process.env.PRIVY_APP_SECRET ? new PrivyClient(appId, process.env.PRIVY_APP_SECRET) : null
+}
+/** Wallet ownership checks for top-up orders (see _payerProof.ts). Tests swap these out. */
+export const proofDeps: ProofDeps = {
+  async linked(userId) {
+    const c = privy()
+    if (!c) return []
+    const u = await c.getUser(userId)
+    return u.linkedAccounts.flatMap((a) => (a.type === 'wallet' && (a as { chainType?: string }).chainType === 'ethereum' ? [(a as { address: string }).address] : []))
+  },
+  async verify(address, message, signature) {
+    const { createPublicClient, http } = await import('viem')
+    const { base } = await import('viem/chains')
+    // viem checks plain signatures and smart-wallet ones (ERC-1271 / ERC-6492) against Base.
+    return createPublicClient({ chain: base, transport: http(rpcUrl()) }).verifyMessage({ address: address as `0x${string}`, message, signature: signature as `0x${string}` })
+  },
+}
+/** Optional injection for tests: database client and auth. */
+export const testHooks: { db?: SupabaseClient; auth?: (h: Req['headers']) => Promise<string | null>; confirm?: typeof confirmTopup } = {}
+
 function store(db: SupabaseClient): Store {
   return {
     async get(h) { const { data } = await db.from('topups').select('status,credit_micro').eq('tx_hash', h).maybeSingle(); return data },
@@ -48,8 +71,11 @@ function store(db: SupabaseClient): Store {
 async function runConfirm(db: SupabaseClient, hash: `0x${string}`, from: string, userId: string | null, orderId: string | null) {
   const op = process.env.GRIND_OPERATOR_KEY
   if (!op) return { ok: false as const, code: 503, error: 'top-ups are not configured' }
-  const r = await confirmTopup({ hash, rpc: rpcUrl(), operatorKey: op as `0x${string}`, store: store(db), userId, from })
+  const r = await (testHooks.confirm ?? confirmTopup)({ hash, rpc: rpcUrl(), operatorKey: op as `0x${string}`, store: store(db), userId, from })
   if (!r.ok) return r
+  // A payment recorded earlier without an owner (someone else confirmed it first) goes to the owner of the order that
+  // was opened for this wallet; an owned record is never moved.
+  if (r.already && orderId && userId) await db.from('topups').update({ privy_user_id: userId }).eq('tx_hash', hash).is('privy_user_id', null)
   if (orderId) {
     await db.from('topup_orders').update({
       status: 'credited',
@@ -66,8 +92,8 @@ async function runConfirm(db: SupabaseClient, hash: `0x${string}`, from: string,
 export default async function handler(req: Req, res: Res) {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return res.status(503).json({ error: 'top-ups are not configured' })
-  const db = createClient(url, key, { auth: { persistSession: false } })
+  if (!testHooks.db && (!url || !key)) return res.status(503).json({ error: 'top-ups are not configured' })
+  const db = testHooks.db ?? createClient(url!, key!, { auth: { persistSession: false } })
   // NEAR mainnet top-ups (off until NEAR_TOPUP_ACCOUNT is set). Same function: Vercel Hobby caps at 12 functions.
   if ((req.method === 'GET' && req.query?.near) || (req.method === 'POST' && String(req.body?.op ?? '').startsWith('near-'))) {
     return nearRoute(req, res, db, await authUserId(req.headers))
@@ -99,12 +125,15 @@ export default async function handler(req: Req, res: Res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const body = req.body ?? {}
   const opName = String(body.op ?? 'confirm')
-  const userId = await authUserId(req.headers)
+  const userId = await (testHooks.auth ?? authUserId)(req.headers)
 
   if (opName === 'create') {
     const asset = String(body.asset ?? 'USDC').toUpperCase() === 'ETH' ? 'ETH' : 'USDC'
     const from = String(body.from ?? '').toLowerCase()
     if (!/^0x[0-9a-f]{40}$/.test(from)) return res.status(400).json({ error: 'connect your wallet first' })
+    // The order is for the caller's own wallet only: linked to their account, or confirmed with a wallet signature.
+    const proof = await provePayer(from, userId, body.sig, body.issued, proofDeps)
+    if (!proof.ok) return res.status(403).json(proof)
     try {
       let amountRaw: bigint
       let tag: string
@@ -152,7 +181,7 @@ export default async function handler(req: Req, res: Res) {
     const amountRaw = BigInt(String(order.amount_raw))
 
     if (order.tx_hash && /^0x[0-9a-f]{64}$/.test(order.tx_hash)) {
-      const credited = await runConfirm(db, order.tx_hash as `0x${string}`, player, order.privy_user_id ?? userId, orderId)
+      const credited = await runConfirm(db, order.tx_hash as `0x${string}`, player, order.privy_user_id ?? null, orderId)
       if (!credited.ok) return res.status(credited.code).json({ error: credited.error, detected: true, txHash: order.tx_hash })
       return res.status(200).json({ ...credited, message: 'Credited' })
     }
@@ -184,12 +213,15 @@ export default async function handler(req: Req, res: Res) {
     if (!hit) return res.status(200).json({ ...orderPublic(order), ok: false, waiting: true, message: 'Waiting for payment…' })
 
     // Load sibling open orders (same payer + asset + exact amount) and any order already holding this tx.
-    const { data: siblings } = await db.from('topup_orders')
+    // Only the same account's orders compete for a payment: one account's payment never fills another's order.
+    let sib = db.from('topup_orders')
       .select('id,created_at,status,tx_hash')
       .eq('player', player)
       .eq('asset', order.asset)
       .eq('amount_raw', amountRaw.toString())
       .in('status', ['waiting', 'detected', 'credited'])
+    sib = order.privy_user_id ? sib.eq('privy_user_id', order.privy_user_id) : sib.is('privy_user_id', null)
+    const { data: siblings } = await sib
     const openOrders = (siblings ?? []).filter((o) => o.status === 'waiting' || o.status === 'detected')
     const ordersByTx: Record<string, string> = {}
     for (const o of siblings ?? []) {
@@ -225,7 +257,7 @@ export default async function handler(req: Req, res: Res) {
       if (claimErr) return res.status(200).json({ ...orderPublic(order), ok: false, waiting: true, message: 'Waiting for payment…' })
     }
 
-    const credited = await runConfirm(db, hit.hash as `0x${string}`, player, (winner ?? order).privy_user_id ?? userId, pick.orderId)
+    const credited = await runConfirm(db, hit.hash as `0x${string}`, player, (winner ?? order).privy_user_id ?? null, pick.orderId)
     if (!credited.ok) {
       await db.from('topup_orders').update({ error: credited.error }).eq('id', pick.orderId)
       return res.status(credited.code).json({ error: credited.error, detected: true, txHash: hit.hash, message: 'Payment detected…' })
@@ -242,21 +274,28 @@ export default async function handler(req: Req, res: Res) {
   const from = String(body.from ?? '')
   if (!/^0x[0-9a-fA-F]{40}$/.test(from)) return res.status(400).json({ error: 'connect the wallet you paid from' })
   const orderId = body.orderId ? String(body.orderId) : null
+  // Who the credit belongs to: the order's owner (the order was opened for a wallet its owner proved), never simply
+  // whoever calls. Without an order, only a wallet linked to the caller's own account counts as theirs.
+  let owner: string | null = null
   if (orderId) {
+    if (!/^[0-9a-f-]{36}$/i.test(orderId)) return res.status(400).json({ error: 'bad order' })
     const { data: order } = await db.from('topup_orders').select('*').eq('id', orderId).maybeSingle()
     if (!order) return res.status(404).json({ error: 'order not found' })
+    if (String(order.player ?? '').toLowerCase() !== from.toLowerCase()) return res.status(403).json({ error: 'this top-up was opened for another wallet' })
     if (order.status === 'credited') {
+      if (String(order.tx_hash ?? '').toLowerCase() !== hash.toLowerCase()) return res.status(409).json({ error: 'this top-up was already paid with another transaction' })
       return res.status(200).json({ ok: true, already: true, creditUsd: Number(order.credit_micro ?? 0) / 1e6, asset: order.asset, orderId })
     }
-    // Bind payer + hash; unique tx_hash prevents two orders claiming one payment.
-    const { error: bindErr } = await db.from('topup_orders').update({
-      status: 'detected',
-      tx_hash: hash.toLowerCase(),
-      player: from.toLowerCase(),
-    }).eq('id', orderId).in('status', ['waiting', 'detected'])
-    if (bindErr) return res.status(409).json({ error: 'this payment is already linked to another top-up' })
+    if (order.tx_hash && String(order.tx_hash).toLowerCase() !== hash.toLowerCase()) return res.status(409).json({ error: 'this top-up is already linked to another payment' })
+    // A payment already recorded on another order is not claimed a second time.
+    const { data: other } = await db.from('topup_orders').select('id').eq('tx_hash', hash.toLowerCase()).neq('id', orderId).limit(1)
+    if ((other ?? []).length) return res.status(409).json({ error: 'this payment is already linked to another top-up' })
+    owner = (order.privy_user_id as string | null) ?? null
+  } else if (userId) {
+    const mine = (await proofDeps.linked(userId).catch(() => [] as string[])).map((a) => a.toLowerCase())
+    owner = mine.includes(from.toLowerCase()) ? userId : null
   }
-  const r = await runConfirm(db, hash.toLowerCase() as `0x${string}`, from, userId, orderId)
+  const r = await runConfirm(db, hash.toLowerCase() as `0x${string}`, from, owner, orderId)
   if (!r.ok) return res.status(r.code).json({ error: r.error })
   res.status(200).json(r)
 }

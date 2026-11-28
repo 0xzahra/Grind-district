@@ -119,7 +119,7 @@ export async function railsRoute(req: Req, res: Res, db: SupabaseClient, userId:
 
   const credit = async (topupId: string, payer: string | null, usdMicro: bigint, fee: bigint, cr: bigint) => {
     const row = {
-      id: topupId, rail: order.rail, privy_user_id: (order.privy_user_id as string | null) ?? userId, payer: payer ?? order.payer ?? null, asset: order.asset,
+      id: topupId, rail: order.rail, privy_user_id: (order.privy_user_id as string | null) ?? null, payer: payer ?? order.payer ?? null, asset: order.asset,
       amount_raw: rawOf(order).toString(), usd_micro: usdMicro.toString(), fee_micro: fee.toString(), credit_micro: cr.toString(), order_id: order.id, credited_at: new Date().toISOString(),
     }
     const { error } = await db.from('rail_topups').insert(row)

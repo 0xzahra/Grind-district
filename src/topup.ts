@@ -233,8 +233,17 @@ export function renderTopup(root: HTMLElement, onCredited: () => void, opts: { d
       const body = asset === 'USDC'
         ? { op: 'create', asset: 'USDC', dollars, from }
         : { op: 'create', asset: 'ETH', milliEth, from }
-      const cr = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify(body) })
-      const order = (await cr.json().catch(() => ({}))) as Order & { error?: string }
+      let cr = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify(body) })
+      let order = (await cr.json().catch(() => ({}))) as Order & { error?: string; needSignature?: boolean; message?: string; issued?: number }
+      // A browser wallet that is not linked to this account confirms once that it is the player's own (a signature,
+      // no transaction, no gas); the order is then opened for this wallet.
+      if (cr.status === 403 && order.needSignature && order.message && source !== 'game') {
+        status.textContent = 'Confirm in your wallet that it is yours (no fee)…'
+        const hex = '0x' + Array.from(new TextEncoder().encode(order.message), (b) => b.toString(16).padStart(2, '0')).join('')
+        const sig = (await provider()!.request({ method: 'personal_sign', params: [hex, from] })) as string
+        cr = await api('/api/topup-confirm', { method: 'POST', body: JSON.stringify({ ...body, sig, issued: order.issued }) })
+        order = (await cr.json().catch(() => ({}))) as typeof order
+      }
       if (!cr.ok || !order.orderId) throw new Error(order.error || `Could not start top-up (${cr.status})`)
       currentOrder = order
       status.textContent = source === 'game' ? `Sending ${order.amountLabel} from your game wallet…` : `Approve ${order.amountLabel} in your wallet…`

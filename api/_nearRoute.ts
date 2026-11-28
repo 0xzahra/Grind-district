@@ -43,7 +43,7 @@ export async function nearRoute(req: Req, res: Res, db: SupabaseClient, userId: 
   const body = req.body ?? {}
   const op = String(body.op)
   const credit = async (hash: string, order: Record<string, unknown>) => {
-    const r = await confirmNearTopup(d, { hash, sender: String(order.sender), receiver, userId: (order.privy_user_id as string | null) ?? userId, orderId: String(order.id), notBeforeMs: new Date(String(order.created_at)).getTime() - 120_000 })
+    const r = await confirmNearTopup(d, { hash, sender: String(order.sender), receiver, userId: (order.privy_user_id as string | null) ?? null, orderId: String(order.id), notBeforeMs: new Date(String(order.created_at)).getTime() - 120_000 })
     if (r.ok && !r.already) await db.from('near_topup_orders').update({ status: 'credited', tx_hash: hash, credit_micro: Math.round(r.creditUsd * 1e6), credited_at: new Date().toISOString(), error: null }).eq('id', order.id)
     else if (!r.ok) await db.from('near_topup_orders').update({ error: r.error }).eq('id', order.id)
     return r
@@ -61,7 +61,10 @@ export async function nearRoute(req: Req, res: Res, db: SupabaseClient, userId: 
     if (sender === receiver) return res.status(400).json({ error: 'pay from your own NEAR account' })
     let yocto: bigint
     try { yocto = encodeNear(Number(body.near)) } catch (e) { return res.status(400).json({ error: (e as Error).message }) }
-    const row = { privy_user_id: userId, sender, yocto: yocto.toString(), status: 'waiting', expires_at: new Date(Date.now() + NEAR_ORDER_TTL_MS).toISOString() }
+    // The sender is typed by the client and not proven to be the caller's, so the order is not tied to the caller's
+    // account: the credit follows the paying NEAR account (GET ?near=<account>), never whoever opened the order.
+    void userId
+    const row = { privy_user_id: null, sender, yocto: yocto.toString(), status: 'waiting', expires_at: new Date(Date.now() + NEAR_ORDER_TTL_MS).toISOString() }
     const { data, error } = await db.from('near_topup_orders').insert(row).select(ORDER_COLS).single()
     // A missing table (the NEAR top-up migration not run yet) says so, so it can be fixed from the dashboard.
     if (error && /42P01|PGRST205|does not exist|schema cache/i.test(`${error.code ?? ''} ${error.message ?? ''}`)) return res.status(503).json({ error: 'NEAR top-ups are not set up yet: the near_topup_orders table is missing (run supabase/migrations/20261115010000_near_topups.sql)' })
