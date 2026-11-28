@@ -1,5 +1,6 @@
 // Read-only lookups: has this (username, course) certificate been minted on Base / NEAR? Underscore = not a function.
 import { encodeAbiParameters, keccak256, encodeFunctionData, decodeFunctionResult, type Abi } from 'viem'
+import { routeContract } from '../src/chains/router.js'
 
 export const BASE_RPC = process.env.CERT_BASE_RPC || 'https://mainnet.base.org'
 // The RPC must be on the contract's own network: a .testnet contract read through the mainnet RPC finds nothing
@@ -9,6 +10,14 @@ export const baseContract = () => (/^0x[0-9a-fA-F]{40}$/.test(process.env.VITE_C
 export const nearContract = () => (/^[a-z0-9._-]{2,64}$/.test(process.env.VITE_CERT_NFT_NEAR ?? '') ? process.env.VITE_CERT_NFT_NEAR! : null)
 export const baseChainId = () => Number(process.env.VITE_CERT_NFT_BASE_CHAIN || 8453)
 export const nearNetwork = () => (nearContract()?.endsWith('.testnet') ? 'testnet' : 'mainnet')
+/** NEAR mainnet certificate contract, kept ALONGSIDE the main one (testnet during judging). Off while unset. */
+export const nearMainnetContract = () => routeContract('near-mainnet', process.env)
+/** The NEAR contract for a requested network: the main one when it is on that network, else the mainnet extra. */
+export const nearContractFor = (net: 'testnet' | 'mainnet'): string | null => {
+  const main = nearContract()
+  if (main && (main.endsWith('.testnet') ? 'testnet' : 'mainnet') === net) return main
+  return net === 'mainnet' ? nearMainnetContract() : null
+}
 
 export const CERT_ABI = [
   { type: 'function', name: 'tokenOfKey', stateMutability: 'view', inputs: [{ type: 'bytes32' }], outputs: [{ type: 'uint256' }] },
@@ -42,14 +51,16 @@ export async function mintedOnBase(username: string, course: string): Promise<Mi
   return { chain: 'base', tokenId: id.toString(), contract: c, explorer: `${scan}/nft/${c}/${id}`, certUrls }
 }
 
-export async function mintedOnNear(username: string, course: string): Promise<Minted | null> {
-  const c = nearContract(); if (!c) return null
+export async function mintedOnNear(username: string, course: string, contract?: string): Promise<Minted | null> {
+  const c = contract ?? nearContract(); if (!c) return null
+  const testnet = c.endsWith('.testnet')
+  const rpc = contract && contract !== nearContract() ? (testnet ? 'https://rpc.testnet.near.org' : process.env.CERT_NEAR_MAINNET_RPC || 'https://rpc.mainnet.near.org') : nearRpc()
   const args = Buffer.from(JSON.stringify({ username, course_id: course })).toString('base64')
-  const j = (await timed(nearRpc(), { jsonrpc: '2.0', id: 'gd', method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: c, method_name: 'cert_for', args_base64: args } }, 6000)) as { result?: { result?: number[] } }
+  const j = (await timed(rpc, { jsonrpc: '2.0', id: 'gd', method: 'query', params: { request_type: 'call_function', finality: 'final', account_id: c, method_name: 'cert_for', args_base64: args } }, 6000)) as { result?: { result?: number[] } }
   if (!j.result?.result) return null
   const t = JSON.parse(Buffer.from(j.result.result).toString('utf8')) as { token_id: string; owner_id: string; metadata?: { media?: string; extra?: string } } | null
   if (!t) return null
-  const scan = nearNetwork() === 'testnet' ? 'https://testnet.nearblocks.io' : 'https://nearblocks.io'
+  const scan = testnet ? 'https://testnet.nearblocks.io' : 'https://nearblocks.io'
   // The certificate links written on-chain at mint (lets an already-minted certificate's page keep working).
   const certUrls: string[] = []
   if (typeof t.metadata?.media === 'string') certUrls.push(t.metadata.media)
