@@ -4,7 +4,7 @@ import rewardWallet from './_rewardWallet.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { issueNearChallenge, nearUserId, verifyNearAuth, type NearAuth } from './_nearAuth.js'
 import { certVoucher } from './_certMint.js'
-import { startExam, gradeExam } from './_certExam.js'
+import { startExam, gradeExam, consumePaper, tooManyFailedPapers } from './_certExam.js'
 import { BUCKET as DM_BUCKET } from './_dmMedia.js'
 import { issueCert, recordExamPass, hasExamPass, rowData } from './_certStore.js'
 import { bustStatsCache, insertAnalyticsEvent } from './_stats.js'
@@ -133,7 +133,9 @@ export default async function handler(req: Req, res: Res) {
   }
   if (req.query?.op === 'cert-exam') {
     // A fresh certificate exam paper: the course's checks, shuffled, no answers, with a time limit.
-    const r = startExam(p.data.username, String(req.body?.course ?? ''))
+    const course = String(req.body?.course ?? '')
+    if (await tooManyFailedPapers(db, p.data.username, course).catch(() => false)) return res.status(429).json({ error: 'Take a break and read the lesson again: new papers for this course open again within the hour.' })
+    const r = startExam(p.data.username, course)
     if (!r.ok) return res.status(r.status).json({ error: r.error })
     return res.status(200).json(r.paper)
   }
@@ -142,6 +144,10 @@ export default async function handler(req: Req, res: Res) {
     const course = String(req.body?.course ?? '')
     const r = gradeExam(p.data.username, course, req.body?.token, req.body?.answers)
     if (!r.ok) return res.status(r.status).json({ error: r.error })
+    // Each paper is handed in once: a second hand-in of the same paper is refused.
+    const used = await consumePaper(db, r.paperId, p.data.username, course, r.result.passed)
+    if (used === 'used') return res.status(409).json({ error: 'This paper was already handed in. Take a new paper.' })
+    if (used === 'error') return res.status(503).json({ error: 'Could not grade right now. Try again.' })
     // A pass is recorded on the server: it is what lets the certificate record be issued.
     if (r.result.passed && !(await recordExamPass(db, userId, p.data.username, course, r.result.score, r.result.of))) return res.status(503).json({ error: 'Could not save your pass. Try again.' })
     return res.status(200).json(r.result)
