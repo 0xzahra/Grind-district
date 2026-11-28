@@ -15,6 +15,20 @@ Last checked on-chain: 28 Nov 2026.
 | `near-mainnet` | NEAR mainnet | `cert.grinddistrict.near` (`VITE_CERT_NFT_NEAR_MAINNET`) | Same wasm as testnet (sha256 `479ea0e8…`) | NEAR mainnet wallet | Player attaches 0.05 NEAR storage | **Deployed, not live** (env not set, no game button yet) |
 | `solana-devnet` | Solana devnet | Program `6NJLLRRTkvEwijjSo62HHJF4trQowqJJLWDXxPdMB1Hd` (`VITE_CERT_SOLANA_PROGRAM`), source `programs/grind-cert` | Grind District's own Rust program: issuer-only, soulbound certificate account (PDA per player and course) holding course id, certificate hash, serial and timestamp | None needed (optional Solana address recorded as recipient) | Server (issuer) pays the devnet test-SOL fee | **Live on devnet** (deployed 28 Nov 2026, deploy tx `44YTEs9w…`, config tx `4hXJqQ3c…`; server records a certificate after each exam pass; no game button) |
 
+### Other EVM mainnets: deployed, not wired (28 Nov 2026)
+
+Same `GrindCertificate` bytecode and settings as Base (signer `0x5c9a636347394E2381EfD107076B15269674d820`, base URI `https://www.grinddistrict.app/cert/`), deployed from the game deployer wallet. All five are at the same address, `0x6bC81E26832986d56B6e59c31599F3113971Ec33`. Source verified on Sourcify (exact match). **Not in `router.ts`, no env vars set, no game button: players cannot mint here yet.**
+
+| Chain | Chain id | Explorer | Owner today | Status |
+| --- | --- | --- | --- | --- |
+| OP Mainnet | 10 | https://optimistic.etherscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
+| Arbitrum One | 42161 | https://arbiscan.io/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
+| Robinhood Chain | 4663 | https://robinhoodchain.blockscout.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
+| Polygon PoS | 137 | https://polygonscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
+| BNB Chain | 56 | https://bscscan.com/address/0x6bC81E26832986d56B6e59c31599F3113971Ec33 | deployer wallet (temporary) | Deployed, not wired |
+
+Ownership is two-step (`transferOwnership`, then `acceptOwnership` by the new owner). The Safe `0x43985e56ac0c2CD9F95d4C1248cEB14E66Aa254a` does not exist on these chains yet; it has to be created at the same address by its owner, then ownership handed over and accepted.
+
 Every course issues the same credential and routes to the same chains (`DEFAULT_ROUTES`). To pin a course to
 other chains, add it to `COURSE_ROUTES` in `src/chains/router.ts`.
 
